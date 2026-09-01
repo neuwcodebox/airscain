@@ -28,10 +28,11 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
-	assert_eq(main.scenario.threat_entries.size(), 5)
+	assert_eq(main.scenario.threat_entries.size(), 6)
 	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
 	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
 	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
+	assert_eq(main.scenario.threat_entries[5].threat_definition.id, &"cruise_missile")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
@@ -185,6 +186,21 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 	assert_false(threat.resolved_state)
 	threat.gameplay_tick(0.1)
 	assert_eq(support.integrity, 65.0, "투발 피해는 한 번만 적용됩니다")
+
+func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
+	var entry := main.scenario.threat_entries[5]
+	var definition := entry.threat_definition as AttackUavDefinition
+	assert_eq(definition.movement.mode, ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING)
+	var threat := main.director._spawn_entry(entry, 0.4, 0.0) as AttackUav
+	assert_not_null(threat)
+	var initial_agl := threat.global_position.y - main.battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
+	assert_almost_eq(initial_agl, definition.movement.cruise_altitude, 0.001)
+	for frame: int in 30:
+		threat.gameplay_tick(0.1)
+	var agl := threat.global_position.y - main.battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
+	assert_gt(agl, 5.0)
+	assert_lt(agl, 45.0)
+	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
 
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()

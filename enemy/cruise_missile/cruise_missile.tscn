@@ -1,0 +1,53 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="MissileMaterial"]
+albedo_color = Color(0.45, 0.46, 0.4, 1)
+metallic = 0.5
+roughness = 0.34
+
+[sub_resource type="CylinderMesh" id="FuselageMesh"]
+top_radius = 1.0
+bottom_radius = 1.0
+height = 11.0
+radial_segments = 10
+
+[sub_resource type="SphereMesh" id="NoseMesh"]
+radius = 1.05
+height = 2.6
+radial_segments = 10
+rings = 5
+
+[sub_resource type="BoxMesh" id="WingMesh"]
+size = Vector3(7.0, 0.35, 2.2)
+
+[sub_resource type="BoxMesh" id="TailMesh"]
+size = Vector3(3.8, 0.3, 1.4)
+
+[node name="CruiseMissile" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Body" type="Node3D" parent="."]
+
+[node name="Fuselage" type="MeshInstance3D" parent="Body"]
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("FuselageMesh")
+material_override = SubResource("MissileMaterial")
+
+[node name="Nose" type="MeshInstance3D" parent="Body"]
+position = Vector3(0, 0, -6.2)
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("NoseMesh")
+material_override = SubResource("MissileMaterial")
+
+[node name="Wings" type="MeshInstance3D" parent="Body"]
+position = Vector3(0, 0, 0.5)
+mesh = SubResource("WingMesh")
+material_override = SubResource("MissileMaterial")
+
+[node name="Tail" type="MeshInstance3D" parent="Body"]
+position = Vector3(0, 1.1, 4.5)
+rotation = Vector3(0, 0, 1.5708)
+mesh = SubResource("TailMesh")
+material_override = SubResource("MissileMaterial")

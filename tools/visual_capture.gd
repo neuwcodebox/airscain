@@ -36,9 +36,9 @@ func run() -> void:
 		var angle := TAU * float(index) / 8.0
 		var target_position := Vector3(cos(angle) * 230.0, 72.0, sin(angle) * 230.0)
 		threat.global_position = target_position
-	for entry_index: int in range(2, 5):
+	for entry_index: int in range(2, 6):
 		var mission_threat := main.director._spawn_entry(main.scenario.threat_entries[entry_index], TAU * float(entry_index) / 5.0, 0.0)
-		mission_threat.global_position = Vector3(-260.0 + float(entry_index) * 120.0, 90.0, 260.0)
+		mission_threat.global_position = Vector3(-320.0 + float(entry_index) * 110.0, 90.0 if entry_index < 5 else 28.0, 260.0)
 	_spawn_swarm_near_close_in_gun()
 	for index: int in 30:
 		await process_frame

@@ -106,6 +106,10 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_gt(swarm.movement.speed, attack.movement.speed)
 	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
 	assert_ne(swarm.movement, attack.movement)
+	var cruise := SCENARIO.threat_entries[5].threat_definition as AttackUavDefinition
+	assert_eq(cruise.movement.mode, ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING)
+	assert_lt(cruise.movement.cruise_altitude, swarm.movement.cruise_altitude)
+	assert_gt(cruise.movement.speed, swarm.movement.speed)
 
 func test_recon_and_strike_missions_act_then_egress() -> void:
 	var objective: ProtectedObjective = autofree(ProtectedObjective.new()) as ProtectedObjective

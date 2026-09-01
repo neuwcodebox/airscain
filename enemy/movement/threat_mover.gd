@@ -8,7 +8,8 @@ var velocity: Vector3
 func setup(profile_value: ThreatMovementDefinition, battlefield_value: Battlefield, initial_direction: Vector3) -> void:
 	profile = profile_value
 	battlefield = battlefield_value
-	velocity = initial_direction.normalized() * profile.speed
+	var horizontal_direction := Vector3(initial_direction.x, 0.0, initial_direction.z).normalized()
+	velocity = horizontal_direction * profile.speed
 
 func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: float, delta: float) -> void:
 	var desired_position := target
@@ -29,6 +30,11 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 	velocity = steered_direction * profile.speed * speed_multiplier
 	velocity.y = vertical_speed
 	unit.global_position += velocity * delta
+	if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING:
+		var safety_height := battlefield.terrain_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * 0.6
+		if unit.global_position.y < safety_height:
+			unit.global_position.y = safety_height
+			velocity.y = maxf(0.0, velocity.y)
 	if velocity.length_squared() > 0.001:
 		body.look_at(unit.global_position + velocity.normalized(), Vector3.UP)
 

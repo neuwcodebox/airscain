@@ -87,7 +87,10 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	threat_parent.add_child(threat)
 	var edge := scenario.battlefield_size * 0.5 - 8.0 - edge_offset
 	var spawn_position := Vector3(cos(angle) * edge, 0.0, sin(angle) * edge)
-	spawn_position.y = battlefield.terrain_height(spawn_position.x, spawn_position.z) + 70.0
+	var spawn_altitude := 70.0
+	if entry.threat_definition is AttackUavDefinition:
+		spawn_altitude = (entry.threat_definition as AttackUavDefinition).movement.cruise_altitude
+	spawn_position.y = battlefield.terrain_height(spawn_position.x, spawn_position.z) + spawn_altitude
 	threat.global_position = spawn_position
 	threat.setup(next_runtime_id, entry.threat_definition)
 	next_runtime_id += 1

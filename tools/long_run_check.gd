@@ -9,8 +9,10 @@ var placement_candidates: Array[Vector3] = []
 var next_candidate: int = 0
 var radar_placed: bool = false
 var command_post_placed: bool = false
+var tracking_radar_placed: bool = false
 var support_facility_count: int = 0
-var next_layer_is_gun: bool = true
+var laser_count: int = 0
+var next_layer_index: int = 0
 
 func _init() -> void:
 	call_deferred("run")
@@ -82,15 +84,32 @@ func _buy_available_defenses() -> void:
 			if support_result.success:
 				support_facility_count += 1
 				break
+	if not tracking_radar_placed and support_facility_count > 0:
+		var tracking_definition := main.scenario.available_defenses[3]
+		if main.session.budget < tracking_definition.price:
+			_request_low_ammunition_resupply()
+			return
+		for position: Vector3 in placement_candidates:
+			var tracking_result: Dictionary = main.session.request_placement(tracking_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+			if tracking_result.success:
+				tracking_radar_placed = true
+				break
 	while next_candidate < placement_candidates.size():
-		var definition: DefenseDefinition = main.scenario.available_defenses[4] if next_layer_is_gun else main.scenario.available_defenses[0]
+		var layer_indices: Array[int] = [0, 4, 0, 6]
+		var definition_index := layer_indices[next_layer_index]
+		if definition_index == 6 and laser_count >= support_facility_count:
+			next_layer_index = (next_layer_index + 1) % layer_indices.size()
+			continue
+		var definition: DefenseDefinition = main.scenario.available_defenses[definition_index]
 		if main.session.budget < definition.price:
 			break
 		var position := placement_candidates[next_candidate]
 		next_candidate += 1
 		var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 		if result.success:
-			next_layer_is_gun = not next_layer_is_gun
+			if definition_index == 6:
+				laser_count += 1
+			next_layer_index = (next_layer_index + 1) % layer_indices.size()
 	_request_low_ammunition_resupply()
 
 func _request_low_ammunition_resupply() -> void:
