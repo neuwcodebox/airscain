@@ -9,6 +9,7 @@ var placement_candidates: Array[Vector3] = []
 var next_candidate: int = 0
 var radar_placed: bool = false
 var command_post_placed: bool = false
+var support_facility_count: int = 0
 var next_layer_is_gun: bool = true
 
 func _init() -> void:
@@ -30,7 +31,8 @@ func run() -> void:
 		_buy_available_defenses()
 		main._process(STEP)
 		if main.session.phase == GameSession.Phase.GAME_OVER:
-			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size()])
+			var ammunition := _ammunition_totals()
+			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d ammo=%d+%d depleted=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size(), ammunition.rounds, ammunition.reserve, ammunition.depleted])
 			return
 		if index % 10 == 0:
 			await process_frame
@@ -69,6 +71,17 @@ func _buy_available_defenses() -> void:
 			if command_result.success:
 				command_post_placed = true
 				break
+	var required_support_count := 2 if main.session.defense_count >= 12 else 1
+	if support_facility_count < required_support_count and main.session.defense_count >= 4:
+		var support_definition := main.scenario.available_defenses[5]
+		if main.session.budget < support_definition.price:
+			_request_low_ammunition_resupply()
+			return
+		for position: Vector3 in placement_candidates:
+			var support_result: Dictionary = main.session.request_placement(support_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+			if support_result.success:
+				support_facility_count += 1
+				break
 	while next_candidate < placement_candidates.size():
 		var definition: DefenseDefinition = main.scenario.available_defenses[4] if next_layer_is_gun else main.scenario.available_defenses[0]
 		if main.session.budget < definition.price:
@@ -78,7 +91,28 @@ func _buy_available_defenses() -> void:
 		var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 		if result.success:
 			next_layer_is_gun = not next_layer_is_gun
+	_request_low_ammunition_resupply()
+
+func _request_low_ammunition_resupply() -> void:
+	for defense: DefenseUnit in main.defenses:
+		if defense is ArmedDefenseUnit:
+			var armed := defense as ArmedDefenseUnit
+			if armed.magazine.reserve <= int(float(armed.magazine.reserve_capacity) * 0.25):
+				armed.request_resupply()
 
 func _fail(message: String) -> void:
 	push_error("LONG_RUN_FAILED: %s" % message)
 	quit(1)
+
+func _ammunition_totals() -> Dictionary:
+	var rounds := 0
+	var reserve := 0
+	var depleted := 0
+	for defense: DefenseUnit in main.defenses:
+		if defense is ArmedDefenseUnit:
+			var armed := defense as ArmedDefenseUnit
+			rounds += armed.magazine.rounds
+			reserve += armed.magazine.reserve
+			if armed.magazine.is_depleted():
+				depleted += 1
+	return {"rounds": rounds, "reserve": reserve, "depleted": depleted}

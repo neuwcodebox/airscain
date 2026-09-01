@@ -19,11 +19,12 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
 	assert_eq(main.session.budget, 620)
-	assert_eq(main.scenario.available_defenses.size(), 5)
+	assert_eq(main.scenario.available_defenses.size(), 6)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
 	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
 	assert_eq(main.scenario.available_defenses[3].id, &"tracking_radar")
 	assert_eq(main.scenario.available_defenses[4].id, &"close_in_gun")
+	assert_eq(main.scenario.available_defenses[5].id, &"support_facility")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
 	assert_false(main.session.start_defense())
@@ -98,6 +99,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var command_result: Dictionary = main.session.request_placement(command_definition, _find_valid_position_for(command_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(command_result.success)
 	assert_same(main.placement.pick_asset_at(battery.global_position), battery)
+	assert_string_contains(main.hud.selected_asset_label.text, "탄약")
 	assert_gt(int(main.c2_overlay.get("visible_link_count")), 0)
 	for frame: int in 300:
 		main.player_knowledge.call("gameplay_tick", 0.02)
@@ -175,6 +177,7 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	assert_gt(gun.weapon_match(track), 0.9)
 	gun.gameplay_tick(0.01)
 	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
+	var saved_rounds := gun.magazine.rounds
 	var saved_cooldown := gun.cooldown
 	var saved_rng_state := gun.rng.state
 	var saved_health := threat.health
@@ -186,6 +189,7 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	assert_not_null(restored_threat)
 	assert_eq(restored_gun.cooldown, saved_cooldown)
 	assert_eq(restored_gun.rng.state, saved_rng_state)
+	assert_eq(restored_gun.magazine.rounds, saved_rounds)
 	assert_eq(restored_threat.health, saved_health)
 	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
 	assert_eq(main.projectile_parent.get_child_count(), 0, "일시적인 예광탄 VFX는 저장 대상이 아닙니다")
@@ -198,6 +202,24 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	assert_true(restored_threat.resolved_state)
 	assert_eq(main.session.neutralized_count, 1)
 	assert_eq(main.session.budget, budget_before_kill + swarm_definition.neutralization_reward)
+
+func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> void:
+	var gun_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[4], _find_valid_position_for(main.scenario.available_defenses[4].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(gun_result.success)
+	assert_true(support_result.success)
+	var gun := gun_result.unit as CloseInGun
+	gun.magazine.reserve = 0
+	main.placement.pick_asset_at(gun.global_position)
+	assert_false(main.hud.resupply_button.disabled)
+	main.hud.resupply_button.pressed.emit()
+	assert_eq(main.hud.feedback_label.text, "재보급 작업을 요청했습니다")
+	assert_eq(main.support_manager.task_status(gun), "재보급 진행")
+	main.support_manager.gameplay_tick(2.9)
+	assert_eq(gun.magazine.reserve, 0)
+	main.support_manager.gameplay_tick(0.2)
+	assert_eq(gun.magazine.reserve, gun.magazine.reserve_capacity)
+	assert_eq(main.support_manager.task_status(gun), "")
 
 func _find_valid_position() -> Vector3:
 	return _find_valid_position_for(main.scenario.available_defenses[0].placement_profile)

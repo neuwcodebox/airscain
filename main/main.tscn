@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
@@ -12,6 +12,7 @@
 [ext_resource path="res://c2/c2_network.gd" type="Script" id="10"]
 [ext_resource path="res://ui/c2_overlay.gd" type="Script" id="11"]
 [ext_resource path="res://defense/engagement_coordinator.gd" type="Script" id="12"]
+[ext_resource path="res://support/support_manager.gd" type="Script" id="13"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -37,6 +38,9 @@ script = ExtResource("10")
 
 [node name="EngagementCoordinator" type="Node" parent="."]
 script = ExtResource("12")
+
+[node name="SupportManager" type="Node" parent="."]
+script = ExtResource("13")
 
 [node name="ThreatDirector" type="Node" parent="."]
 script = ExtResource("4")

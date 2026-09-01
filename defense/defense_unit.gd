@@ -26,6 +26,9 @@ func configure_c2(_network: Node) -> void:
 func configure_engagements(_coordinator: EngagementCoordinator) -> void:
 	pass
 
+func configure_support(_manager: SupportManager) -> void:
+	pass
+
 func c2_roles() -> int:
 	return 0
 
@@ -34,6 +37,9 @@ func c2_link_range() -> float:
 
 func local_sensor_ids() -> Array[int]:
 	return []
+
+func resource_status_text() -> String:
+	return ""
 
 func capture_state() -> Dictionary:
 	return {

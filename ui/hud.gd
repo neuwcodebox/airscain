@@ -9,6 +9,7 @@ signal c2_overlay_requested
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
 signal priority_target_requested
+signal resupply_requested
 signal save_requested
 signal load_requested
 
@@ -17,6 +18,8 @@ var objective: ProtectedObjective
 var pressure_level: int = 1
 var defense_definitions: Array[DefenseDefinition] = []
 var defense_buttons: Array[Button] = []
+var selected_asset: DefenseUnit
+var selected_asset_connection_count: int = 0
 
 @onready var budget_label: Label = %BudgetLabel
 @onready var integrity_label: Label = %IntegrityLabel
@@ -34,6 +37,7 @@ var defense_buttons: Array[Button] = []
 @onready var hold_fire_button: CheckButton = %HoldFireButton
 @onready var engage_unknown_button: CheckButton = %EngageUnknownButton
 @onready var priority_target_button: Button = %PriorityTargetButton
+@onready var resupply_button: Button = %ResupplyButton
 
 func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition]) -> void:
 	session = session_value
@@ -54,20 +58,36 @@ func set_pressure(level: int) -> void:
 func set_feedback(message: String) -> void:
 	feedback_label.text = message
 
+func _process(_delta: float) -> void:
+	if selected_asset != null and is_instance_valid(selected_asset):
+		_refresh_selected_asset_label()
+
 func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
+	selected_asset = unit
+	selected_asset_connection_count = connection_count
 	selected_asset_panel.visible = unit != null
 	if unit != null:
-		selected_asset_label.text = "%s\nC2 직접 연결  %d" % [unit.definition.display_name, connection_count]
+		_refresh_selected_asset_label()
 		var supports_doctrine := unit.has_method("set_hold_fire")
 		hold_fire_button.visible = supports_doctrine
 		engage_unknown_button.visible = supports_doctrine
 		priority_target_button.visible = supports_doctrine
+		resupply_button.visible = unit is ArmedDefenseUnit
 		if supports_doctrine:
 			var doctrine: Variant = unit.get("doctrine")
 			hold_fire_button.set_pressed_no_signal(bool(doctrine.get("hold_fire")))
 			engage_unknown_button.set_pressed_no_signal(bool(doctrine.get("engage_unknown")))
 			priority_target_button.disabled = true
 		selected_track_label.text = "항적을 클릭해 상세 확인"
+
+func _refresh_selected_asset_label() -> void:
+	var resource_status := selected_asset.resource_status_text()
+	selected_asset_label.text = "%s\nC2 직접 연결  %d" % [selected_asset.definition.display_name, selected_asset_connection_count]
+	if not resource_status.is_empty():
+		selected_asset_label.text += "\n%s" % resource_status
+	if selected_asset is ArmedDefenseUnit:
+		resupply_button.text = "재보급 요청  $%d" % (selected_asset as ArmedDefenseUnit).resupply_cost()
+	resupply_button.disabled = not selected_asset is ArmedDefenseUnit or not (selected_asset as ArmedDefenseUnit).can_request_resupply()
 
 func set_selected_track(track: PlayerTrack, can_prioritize: bool) -> void:
 	if track == null:
@@ -134,6 +154,9 @@ func _on_engage_unknown_toggled(enabled: bool) -> void:
 
 func _on_priority_target_pressed() -> void:
 	priority_target_requested.emit()
+
+func _on_resupply_pressed() -> void:
+	resupply_requested.emit()
 
 func _on_save_pressed() -> void:
 	save_requested.emit()

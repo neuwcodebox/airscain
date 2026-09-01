@@ -6,6 +6,8 @@ var player_knowledge: Node
 var c2_network: Node
 var engagement_coordinator: EngagementCoordinator
 var doctrine := EngagementDoctrine.new()
+var magazine := WeaponMagazine.new()
+var support_manager: SupportManager
 
 func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: Node) -> void:
 	battlefield = battlefield_value
@@ -16,6 +18,9 @@ func configure_c2(network: Node) -> void:
 
 func configure_engagements(coordinator: EngagementCoordinator) -> void:
 	engagement_coordinator = coordinator
+
+func configure_support(manager: SupportManager) -> void:
+	support_manager = manager
 
 func c2_roles() -> int:
 	return C2Role.DEFENSE
@@ -37,6 +42,31 @@ func available_tracks() -> Array[PlayerTrack]:
 
 func is_track_available_for_engagement(track: PlayerTrack, maximum_concurrent: int = 1) -> bool:
 	return engagement_coordinator == null or engagement_coordinator.reservation_count(track.track_id) < maximum_concurrent
+
+func resource_status_text() -> String:
+	if magazine.is_reloading():
+		return _with_support_status("탄약 %d + %d · 재장전 %.1f초" % [magazine.rounds, magazine.reserve, magazine.reload_remaining])
+	if magazine.is_depleted():
+		return _with_support_status("탄약 고갈")
+	return _with_support_status("탄약 %d + %d" % [magazine.rounds, magazine.reserve])
+
+func resupply_work() -> float:
+	return 1.0
+
+func resupply_cost() -> int:
+	return 0
+
+func can_request_resupply() -> bool:
+	return support_manager != null and magazine.reserve < magazine.reserve_capacity and support_manager.task_status(self).is_empty()
+
+func request_resupply() -> bool:
+	return support_manager != null and support_manager.request_resupply(self)
+
+func _with_support_status(ammunition_status: String) -> String:
+	if support_manager == null:
+		return ammunition_status
+	var status := support_manager.task_status(self)
+	return ammunition_status if status.is_empty() else "%s · %s" % [ammunition_status, status]
 
 func capture_doctrine_state() -> Dictionary:
 	return {

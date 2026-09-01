@@ -1,0 +1,45 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource path="res://support/support_facility/support_facility.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="BaseMaterial"]
+albedo_color = Color(0.26, 0.31, 0.27, 1)
+metallic = 0.2
+roughness = 0.72
+
+[sub_resource type="StandardMaterial3D" id="ContainerMaterial"]
+albedo_color = Color(0.58, 0.48, 0.22, 1)
+metallic = 0.12
+roughness = 0.68
+
+[sub_resource type="BoxMesh" id="BaseMesh"]
+size = Vector3(18, 2, 16)
+
+[sub_resource type="BoxMesh" id="BuildingMesh"]
+size = Vector3(12, 7, 9)
+
+[sub_resource type="BoxMesh" id="ContainerMesh"]
+size = Vector3(5, 4, 9)
+
+[node name="SupportFacility" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Pad" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1, 0)
+mesh = SubResource("BaseMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Depot" type="MeshInstance3D" parent="."]
+position = Vector3(-2, 4.5, 1.5)
+mesh = SubResource("BuildingMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="ContainerLeft" type="MeshInstance3D" parent="."]
+position = Vector3(6, 3, -2.5)
+mesh = SubResource("ContainerMesh")
+material_override = SubResource("ContainerMaterial")
+
+[node name="ContainerRight" type="MeshInstance3D" parent="."]
+position = Vector3(6, 3, 3.5)
+mesh = SubResource("ContainerMesh")
+material_override = SubResource("ContainerMaterial")

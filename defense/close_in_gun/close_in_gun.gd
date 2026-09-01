@@ -17,6 +17,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
 	_definition = definition_value as CloseInGunDefinition
 	rng.seed = id_value ^ 0x4C11DB7
+	magazine.setup(_definition.magazine_capacity, _definition.reserve_ammunition, _definition.reload_duration)
 
 func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: Node3D) -> void:
 	registry = registry_value
@@ -28,6 +29,7 @@ func c2_link_range() -> float:
 func gameplay_tick(delta: float) -> void:
 	if not active or registry == null or player_knowledge == null or c2_network == null:
 		return
+	magazine.gameplay_tick(delta)
 	cooldown = maxf(0.0, cooldown - delta)
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	if track == null:
@@ -35,7 +37,8 @@ func gameplay_tick(delta: float) -> void:
 	var flat_target := Vector3(track.estimated_position.x, turret.global_position.y, track.estimated_position.z)
 	if turret.global_position.distance_squared_to(flat_target) > 0.01:
 		turret.look_at(flat_target, Vector3.UP)
-	if cooldown <= 0.0 and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.burst_interval, engagement_limit(track)):
+	if cooldown <= 0.0 and magazine.can_fire() and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.burst_interval, engagement_limit(track)):
+		magazine.consume()
 		_fire_burst(track)
 		cooldown = _definition.burst_interval
 
@@ -62,6 +65,12 @@ func weapon_match(track: PlayerTrack) -> float:
 
 func engagement_limit(track: PlayerTrack) -> int:
 	return 2 if track.classification == _definition.preferred_class else 1
+
+func resupply_cost() -> int:
+	return _definition.resupply_cost
+
+func resupply_work() -> float:
+	return _definition.resupply_work
 
 func _fire_burst(track: PlayerTrack) -> void:
 	var tracer := TRACER_SCENE.instantiate() as TracerBurst
@@ -97,10 +106,12 @@ func capture_content_state() -> Dictionary:
 	return {
 		"cooldown": cooldown,
 		"rng_state": str(rng.state),
+		"magazine": magazine.capture_state(),
 		"doctrine": capture_doctrine_state(),
 	}
 
 func restore_content_state(state: Dictionary) -> void:
 	cooldown = float(state.get("cooldown", 0.0))
 	rng.state = int(state.get("rng_state", rng.state))
+	magazine.restore_state(state.get("magazine", {}))
 	restore_doctrine_state(state.get("doctrine", {}))

@@ -15,6 +15,7 @@ var interceptors: Array[HomingInterceptor] = []
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
 	_definition = definition_value as MissileBatteryDefinition
+	magazine.setup(_definition.magazine_capacity, _definition.reserve_ammunition, _definition.reload_duration)
 
 func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: Node3D) -> void:
 	registry = registry_value
@@ -34,6 +35,7 @@ func gameplay_tick(delta: float) -> void:
 			interceptors.remove_at(index)
 		else:
 			interceptor.gameplay_tick(delta)
+	magazine.gameplay_tick(delta)
 	cooldown = maxf(0.0, cooldown - delta)
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	if track == null:
@@ -41,7 +43,8 @@ func gameplay_tick(delta: float) -> void:
 	var flat_target := Vector3(track.estimated_position.x, turret.global_position.y, track.estimated_position.z)
 	if turret.global_position.distance_squared_to(flat_target) > 0.01:
 		turret.look_at(flat_target, Vector3.UP)
-	if cooldown <= 0.0 and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.interceptor_lifetime):
+	if cooldown <= 0.0 and magazine.can_fire() and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.interceptor_lifetime):
+		magazine.consume()
 		_launch(track)
 		cooldown = _definition.fire_interval
 
@@ -67,6 +70,12 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 func weapon_match(track: PlayerTrack) -> float:
 	return _definition.small_target_match if track.classification == &"small_uav" else 1.0
 
+func resupply_cost() -> int:
+	return _definition.resupply_cost
+
+func resupply_work() -> float:
+	return _definition.resupply_work
+
 func _launch(track: PlayerTrack) -> void:
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
@@ -81,9 +90,11 @@ func _launch(track: PlayerTrack) -> void:
 func capture_content_state() -> Dictionary:
 	return {
 		"cooldown": cooldown,
+		"magazine": magazine.capture_state(),
 		"doctrine": capture_doctrine_state(),
 	}
 
 func restore_content_state(state: Dictionary) -> void:
 	cooldown = float(state.get("cooldown", 0.0))
+	magazine.restore_state(state.get("magazine", {}))
 	restore_doctrine_state(state.get("doctrine", {}))

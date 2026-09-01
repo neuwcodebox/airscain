@@ -20,6 +20,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var player_knowledge: Node = $PlayerKnowledge
 @onready var c2_network: Node = $C2Network
 @onready var engagement_coordinator: EngagementCoordinator = $EngagementCoordinator
+@onready var support_manager: SupportManager = $SupportManager
 @onready var track_display: Node = $WorldObjects/TacticalTracks
 @onready var c2_overlay: Node = $WorldObjects/C2Overlay
 @onready var director: ThreatDirector = $ThreatDirector
@@ -48,6 +49,7 @@ func _ready() -> void:
 	_spawn_objective()
 	_spawn_ambient_contacts()
 	session.reset(scenario.starting_budget)
+	support_manager.configure(session)
 	player_knowledge.call("reset")
 	c2_network.call("reset")
 	track_display.call("configure", player_knowledge)
@@ -65,6 +67,7 @@ func _process(delta: float) -> void:
 	director.gameplay_tick(simulation_delta)
 	player_knowledge.call("gameplay_tick", simulation_delta)
 	engagement_coordinator.gameplay_tick(simulation_delta)
+	support_manager.gameplay_tick(simulation_delta)
 	for defense: DefenseUnit in defenses:
 		if is_instance_valid(defense):
 			defense.gameplay_tick(simulation_delta)
@@ -113,6 +116,7 @@ func _connect_flow() -> void:
 	hud.hold_fire_requested.connect(_on_hold_fire_requested)
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
 	hud.priority_target_requested.connect(_on_priority_target_requested)
+	hud.resupply_requested.connect(_on_resupply_requested)
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
 
@@ -127,6 +131,8 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	c2_network.call("register_asset", unit)
 	unit.configure_c2(c2_network)
 	unit.configure_engagements(engagement_coordinator)
+	unit.configure_support(support_manager)
+	support_manager.register_asset(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)
@@ -194,6 +200,12 @@ func _on_priority_target_requested() -> void:
 		selected_asset.call("set_priority_track", selected_track.track_id)
 		hud.set_feedback("항적을 우선표적으로 지정했습니다")
 
+func _on_resupply_requested() -> void:
+	if selected_asset is ArmedDefenseUnit and (selected_asset as ArmedDefenseUnit).request_resupply():
+		hud.set_feedback("재보급 작업을 요청했습니다")
+	else:
+		hud.set_feedback("현재 재보급을 요청할 수 없습니다")
+
 func _on_save_requested() -> void:
 	var error := SaveStore.write(capture_save_document(), save_path)
 	hud.set_feedback("저장 완료" if error.is_empty() else "저장 실패 · %s" % error)
@@ -251,6 +263,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		_on_threat_spawned(contact)
 	player_knowledge.call("restore_state", payload.player_knowledge)
 	engagement_coordinator.restore_state(world_state.engagements)
+	support_manager.restore_state(world_state.support)
 	for state: Dictionary in world_state.projectiles:
 		var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
@@ -278,6 +291,7 @@ func _clear_runtime_objects() -> void:
 	track_display.call("reset")
 	c2_network.call("reset")
 	engagement_coordinator.reset()
+	support_manager.reset()
 	selected_asset = null
 	selected_track = null
 	c2_overlay.call("select_asset", null)

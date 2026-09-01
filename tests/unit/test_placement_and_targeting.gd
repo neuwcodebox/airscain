@@ -160,6 +160,64 @@ func test_engagement_reservation_blocks_overkill_then_expires_or_releases() -> v
 	coordinator.release(8, 11)
 	assert_false(coordinator.has_reservation(8))
 
+func test_weapon_magazine_consumes_reloads_and_restores_finite_ammunition() -> void:
+	var magazine := WeaponMagazine.new()
+	magazine.setup(2, 3, 1.0)
+	assert_true(magazine.consume())
+	assert_true(magazine.consume())
+	assert_false(magazine.can_fire())
+	assert_true(magazine.is_reloading())
+	magazine.gameplay_tick(0.6)
+	var saved_state := magazine.capture_state()
+	var restored := WeaponMagazine.new()
+	restored.restore_state(saved_state)
+	assert_almost_eq(restored.reload_remaining, 0.4, 0.0001)
+	restored.gameplay_tick(0.4)
+	assert_eq(restored.rounds, 2)
+	assert_eq(restored.reserve, 1)
+	assert_true(restored.consume())
+	assert_true(restored.consume())
+	restored.gameplay_tick(1.0)
+	assert_eq(restored.rounds, 1)
+	assert_eq(restored.reserve, 0)
+	assert_eq(WeaponMagazine.validation_error(restored.capture_state()), "")
+	var invalid_state := restored.capture_state()
+	invalid_state.rounds = 99
+	assert_ne(WeaponMagazine.validation_error(invalid_state), "")
+
+func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
+	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
+	var support_session: GameSession = autofree(GameSession.new()) as GameSession
+	support_session.reset(100)
+	manager.configure(support_session)
+	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, SCENARIO.available_defenses[5])
+	var gun: CloseInGun = autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
+	gun.setup(2, SCENARIO.available_defenses[4])
+	gun.configure_support(manager)
+	manager.register_asset(facility)
+	manager.register_asset(gun)
+	gun.magazine.rounds = 0
+	gun.magazine.reserve = 0
+	assert_true(gun.request_resupply())
+	assert_eq(support_session.budget, 98)
+	assert_false(gun.request_resupply())
+	assert_eq(support_session.budget, 98)
+	assert_eq(manager.task_status(gun), "재보급 진행")
+	manager.gameplay_tick(1.0)
+	var saved_state := manager.capture_state()
+	assert_almost_eq(float(saved_state.tasks[0].remaining_work), 8.0, 0.0001)
+	manager.reset()
+	manager.register_asset(facility)
+	manager.register_asset(gun)
+	manager.restore_state(saved_state)
+	manager.gameplay_tick(2.0)
+	assert_eq(gun.magazine.reserve, gun.magazine.reserve_capacity)
+	assert_true(gun.magazine.is_reloading())
+	gun.magazine.gameplay_tick(gun.magazine.reload_duration)
+	assert_eq(gun.magazine.rounds, gun.magazine.capacity)
+	assert_eq(manager.task_status(gun), "")
+
 func _find_valid_position(profile: PlacementProfile) -> Vector3:
 	for z: int in range(-450, 451, 30):
 		for x: int in range(-450, 451, 30):

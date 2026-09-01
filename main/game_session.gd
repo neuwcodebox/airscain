@@ -96,6 +96,14 @@ func set_simulation_speed(value: float) -> void:
 		simulation_speed = value
 		statistics_changed.emit()
 
+func try_spend(amount: int) -> bool:
+	if amount < 0 or budget < amount or phase == Phase.GAME_OVER:
+		return false
+	budget -= amount
+	budget_changed.emit(budget)
+	statistics_changed.emit()
+	return true
+
 func capture_state() -> Dictionary:
 	return {
 		"phase": int(phase),

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="SupportFacilityDefinition" load_steps=4 format=3]
+
+[ext_resource path="res://support/support_facility/support_facility_definition.gd" type="Script" id="1"]
+[ext_resource path="res://support/support_facility/support_facility.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
+
+[sub_resource type="Resource" id="PlacementProfile"]
+script = ExtResource("3")
+footprint_radius = 13.0
+maximum_slope_degrees = 8.0
+boundary_margin = 15.0
+
+[resource]
+script = ExtResource("1")
+id = &"support_facility"
+display_name = "군수지원시설"
+scene = ExtResource("2")
+price = 140
+placement_profile = SubResource("PlacementProfile")
+preview_range = 260.0
+work_capacity = 4.0
+concurrent_tasks = 2

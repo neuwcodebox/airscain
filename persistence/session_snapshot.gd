@@ -24,6 +24,7 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 			"contacts": contact_states,
 			"projectiles": projectile_states,
 			"engagements": main.engagement_coordinator.capture_state(),
+			"support": main.support_manager.capture_state(),
 		},
 		"player_knowledge": main.player_knowledge.call("capture_state"),
 		"director": main.director.capture_state(),
@@ -41,13 +42,14 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var world_state: Dictionary = payload.world
 	if int(world_state.get("objective_integrity", -1)) < 0:
 		return "도시 기능 상태가 올바르지 않습니다"
-	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary:
+	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary or not world_state.get("support", null) is Dictionary:
 		return "월드 객체 목록이 올바르지 않습니다"
 	var defense_definitions := defense_definition_map(scenario)
 	var contact_definitions := contact_definition_map(scenario)
 	var defense_ids: Dictionary[int, bool] = {}
 	var battery_ids: Dictionary[int, bool] = {}
 	var sensor_ids: Dictionary[int, bool] = {}
+	var armed_ids: Dictionary[int, bool] = {}
 	for state: Dictionary in world_state.defenses:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not defense_definitions.has(definition_id):
@@ -58,10 +60,17 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		defense_ids[runtime_id] = true
 		if defense_definitions[definition_id] is MissileBatteryDefinition:
 			battery_ids[runtime_id] = true
+		if defense_definitions[definition_id] is MissileBatteryDefinition or defense_definitions[definition_id] is CloseInGunDefinition:
+			armed_ids[runtime_id] = true
 		if defense_definitions[definition_id] is SearchRadarDefinition:
 			sensor_ids[runtime_id] = true
 		if not _valid_vector_data(state.get("position")):
 			return "방공망 위치가 올바르지 않습니다"
+		if defense_definitions[definition_id] is MissileBatteryDefinition or defense_definitions[definition_id] is CloseInGunDefinition:
+			var content_state: Dictionary = state.get("content_state", {})
+			var magazine_error := WeaponMagazine.validation_error(content_state.get("magazine"))
+			if not magazine_error.is_empty():
+				return "%s: %s" % [definition_id, magazine_error]
 	for state: Dictionary in world_state.contacts:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not contact_definitions.has(definition_id):
@@ -107,6 +116,15 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "교전 예약 항적 참조가 올바르지 않습니다"
 		if not defense_ids.has(owner_defense_id) or float(reservation.get("remaining", 0.0)) <= 0.0:
 			return "교전 예약 방어체계 또는 시간이 올바르지 않습니다"
+	var support_state: Dictionary = world_state.support
+	if not support_state.get("tasks", null) is Array:
+		return "지원 작업 목록이 올바르지 않습니다"
+	var support_targets: Dictionary[int, bool] = {}
+	for task: Dictionary in support_state.tasks:
+		var target_defense_id := int(task.get("target_defense_id", 0))
+		if not armed_ids.has(target_defense_id) or support_targets.has(target_defense_id) or float(task.get("remaining_work", 0.0)) <= 0.0:
+			return "재보급 작업 대상 또는 작업량이 올바르지 않습니다"
+		support_targets[target_defense_id] = true
 	for projectile_state: Dictionary in world_state.projectiles:
 		if String(projectile_state.get("type", "")) != "homing_interceptor":
 			return "지원하지 않는 발사체 형식입니다"
