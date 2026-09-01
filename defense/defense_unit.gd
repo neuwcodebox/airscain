@@ -23,6 +23,9 @@ func configure_player_knowledge(_battlefield: Battlefield, _player_knowledge: No
 func configure_c2(_network: Node) -> void:
 	pass
 
+func configure_engagements(_coordinator: EngagementCoordinator) -> void:
+	pass
+
 func c2_roles() -> int:
 	return 0
 

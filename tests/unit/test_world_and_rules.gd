@@ -92,6 +92,8 @@ func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void
 	larger_track.classification = &"uav"
 	assert_lt(definition.attack_range, missile_definition.attack_range)
 	assert_gt(gun.weapon_match(small_track), gun.weapon_match(larger_track))
+	assert_eq(gun.engagement_limit(small_track), 2)
+	assert_eq(gun.engagement_limit(larger_track), 1)
 	assert_lt(battery.weapon_match(small_track), battery.weapon_match(larger_track))
 
 func test_pause_and_speed_controls_scale_only_running_simulation() -> void:

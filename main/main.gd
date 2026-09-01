@@ -19,6 +19,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var session: GameSession = $GameSession
 @onready var player_knowledge: Node = $PlayerKnowledge
 @onready var c2_network: Node = $C2Network
+@onready var engagement_coordinator: EngagementCoordinator = $EngagementCoordinator
 @onready var track_display: Node = $WorldObjects/TacticalTracks
 @onready var c2_overlay: Node = $WorldObjects/C2Overlay
 @onready var director: ThreatDirector = $ThreatDirector
@@ -63,6 +64,7 @@ func _process(delta: float) -> void:
 		return
 	director.gameplay_tick(simulation_delta)
 	player_knowledge.call("gameplay_tick", simulation_delta)
+	engagement_coordinator.gameplay_tick(simulation_delta)
 	for defense: DefenseUnit in defenses:
 		if is_instance_valid(defense):
 			defense.gameplay_tick(simulation_delta)
@@ -124,6 +126,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	unit.configure_player_knowledge(battlefield, player_knowledge)
 	c2_network.call("register_asset", unit)
 	unit.configure_c2(c2_network)
+	unit.configure_engagements(engagement_coordinator)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)
@@ -247,6 +250,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		registry.add(contact)
 		_on_threat_spawned(contact)
 	player_knowledge.call("restore_state", payload.player_knowledge)
+	engagement_coordinator.restore_state(world_state.engagements)
 	for state: Dictionary in world_state.projectiles:
 		var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
@@ -273,6 +277,7 @@ func _clear_runtime_objects() -> void:
 	player_knowledge.call("reset")
 	track_display.call("reset")
 	c2_network.call("reset")
+	engagement_coordinator.reset()
 	selected_asset = null
 	selected_track = null
 	c2_overlay.call("select_asset", null)

@@ -84,6 +84,11 @@ func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
 	battery.set_priority_track(near_battery.track_id)
 	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_battery)
+	var coordinator := EngagementCoordinator.new()
+	battery.configure_engagements(coordinator)
+	assert_true(coordinator.try_reserve(near_battery.track_id, 9, 1.0))
+	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
+	coordinator.free()
 
 func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
@@ -135,6 +140,25 @@ func test_common_purchase_flow_accepts_role_test_double() -> void:
 	assert_true(result.success)
 	assert_true(result.unit is RoleDefenseDouble)
 	assert_eq(session.budget, 50)
+
+func test_engagement_reservation_blocks_overkill_then_expires_or_releases() -> void:
+	var coordinator: EngagementCoordinator = autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	assert_true(coordinator.try_reserve(7, 11, 0.5, 2))
+	assert_true(coordinator.try_reserve(7, 12, 0.5, 2))
+	assert_false(coordinator.try_reserve(7, 13, 1.0, 2))
+	assert_eq(coordinator.reservation_count(7), 2)
+	assert_true(coordinator.has_reservation(7))
+	var saved_state := coordinator.capture_state()
+	coordinator.reset()
+	assert_false(coordinator.has_reservation(7))
+	coordinator.restore_state(saved_state)
+	coordinator.gameplay_tick(0.49)
+	assert_true(coordinator.has_reservation(7))
+	coordinator.gameplay_tick(0.02)
+	assert_false(coordinator.has_reservation(7))
+	assert_true(coordinator.try_reserve(8, 11, 2.0))
+	coordinator.release(8, 11)
+	assert_false(coordinator.has_reservation(8))
 
 func _find_valid_position(profile: PlacementProfile) -> Vector3:
 	for z: int in range(-450, 451, 30):

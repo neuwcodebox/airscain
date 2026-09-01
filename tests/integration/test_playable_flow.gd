@@ -174,6 +174,7 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
 	assert_gt(gun.weapon_match(track), 0.9)
 	gun.gameplay_tick(0.01)
+	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
 	var saved_cooldown := gun.cooldown
 	var saved_rng_state := gun.rng.state
 	var saved_health := threat.health
@@ -186,9 +187,11 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	assert_eq(restored_gun.cooldown, saved_cooldown)
 	assert_eq(restored_gun.rng.state, saved_rng_state)
 	assert_eq(restored_threat.health, saved_health)
+	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
 	assert_eq(main.projectile_parent.get_child_count(), 0, "일시적인 예광탄 VFX는 저장 대상이 아닙니다")
 	var budget_before_kill := main.session.budget
 	for frame: int in 80:
+		main.engagement_coordinator.gameplay_tick(0.1)
 		restored_gun.gameplay_tick(0.1)
 		if restored_threat.resolved_state:
 			break

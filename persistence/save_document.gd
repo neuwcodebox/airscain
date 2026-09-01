@@ -2,7 +2,7 @@ class_name SaveDocument
 extends RefCounted
 
 const FORMAT_ID := "airscain-save"
-const CURRENT_VERSION := 1
+const CURRENT_VERSION := 2
 const REQUIRED_SECTIONS: Array[String] = ["scenario", "session", "world", "player_knowledge", "director"]
 
 static func create(payload: Dictionary) -> Dictionary:

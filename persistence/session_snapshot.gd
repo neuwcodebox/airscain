@@ -23,6 +23,7 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 			"defenses": defense_states,
 			"contacts": contact_states,
 			"projectiles": projectile_states,
+			"engagements": main.engagement_coordinator.capture_state(),
 		},
 		"player_knowledge": main.player_knowledge.call("capture_state"),
 		"director": main.director.capture_state(),
@@ -40,7 +41,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var world_state: Dictionary = payload.world
 	if int(world_state.get("objective_integrity", -1)) < 0:
 		return "도시 기능 상태가 올바르지 않습니다"
-	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array:
+	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary:
 		return "월드 객체 목록이 올바르지 않습니다"
 	var defense_definitions := defense_definition_map(scenario)
 	var contact_definitions := contact_definition_map(scenario)
@@ -94,6 +95,18 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "항적 분류 상태가 올바르지 않습니다"
 	if int(knowledge_state.next_track_id) <= highest_track_id:
 		return "다음 항적 ID가 올바르지 않습니다"
+	var engagement_state: Dictionary = world_state.engagements
+	if not engagement_state.get("reservations", null) is Array:
+		return "교전 예약 목록이 올바르지 않습니다"
+	var reservation_counts: Dictionary[int, int] = {}
+	for reservation: Dictionary in engagement_state.reservations:
+		var reserved_track_id := int(reservation.get("track_id", 0))
+		var owner_defense_id := int(reservation.get("owner_defense_id", 0))
+		reservation_counts[reserved_track_id] = reservation_counts.get(reserved_track_id, 0) + 1
+		if not track_ids.has(reserved_track_id) or reservation_counts[reserved_track_id] > 2:
+			return "교전 예약 항적 참조가 올바르지 않습니다"
+		if not defense_ids.has(owner_defense_id) or float(reservation.get("remaining", 0.0)) <= 0.0:
+			return "교전 예약 방어체계 또는 시간이 올바르지 않습니다"
 	for projectile_state: Dictionary in world_state.projectiles:
 		if String(projectile_state.get("type", "")) != "homing_interceptor":
 			return "지원하지 않는 발사체 형식입니다"
