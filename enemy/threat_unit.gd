@@ -52,6 +52,9 @@ func receive_damage(amount: float) -> bool:
 		resolve_once(true)
 	return true
 
+func receive_electronic_damage(amount: float) -> bool:
+	return receive_damage(amount * definition.electronic_vulnerability)
+
 func try_defeat_seeker(infrared_sensitivity: float, radar_sensitivity: float, roll: float) -> bool:
 	if countermeasure_charges_remaining <= 0:
 		return false

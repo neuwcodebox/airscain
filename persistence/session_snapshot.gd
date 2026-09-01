@@ -80,7 +80,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			var magazine_error := WeaponMagazine.validation_error(content_state.get("magazine"))
 			if not magazine_error.is_empty():
 				return "%s: %s" % [definition_id, magazine_error]
-		if defense_definitions[definition_id] is HighEnergyLaserDefinition:
+		if defense_definitions[definition_id] is HighEnergyLaserDefinition or defense_definitions[definition_id] is HighPowerMicrowaveDefinition:
 			var laser_state: Dictionary = state.get("content_state", {})
 			var energy_error := EnergyWeaponState.validation_error(laser_state.get("energy"))
 			if not energy_error.is_empty():

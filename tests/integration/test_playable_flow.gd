@@ -19,7 +19,7 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
 	assert_eq(main.session.budget, main.scenario.starting_budget)
-	assert_eq(main.scenario.available_defenses.size(), 9)
+	assert_eq(main.scenario.available_defenses.size(), 10)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
 	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
 	assert_eq(main.scenario.available_defenses[3].id, &"tracking_radar")
@@ -451,6 +451,29 @@ func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	assert_true(threat.resolved_state)
 	assert_lt(laser.energy_state.energy, starting_energy)
 	assert_gt(laser.energy_state.heat, 0.0)
+
+func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
+	main.registry.clear()
+	var hpm_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[9], _find_valid_position_for(main.scenario.available_defenses[9].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(hpm_result.success)
+	var hpm := hpm_result.unit as HighPowerMicrowave
+	var definition: ThreatDefinition = main.scenario.threat_entries[0].threat_definition
+	var center := hpm.global_position + Vector3(120.0, 60.0, 0.0)
+	var threats: Array[ThreatUnit] = []
+	for index: int in 3:
+		var threat := definition.scene.instantiate() as ThreatUnit
+		main.threat_parent.add_child(threat)
+		threat.setup(500 + index, definition)
+		threat.global_position = center + (Vector3(20.0, 0.0, 0.0) if index == 1 else Vector3(180.0, 0.0, 0.0) if index == 2 else Vector3.ZERO)
+		main.registry.add(threat)
+		threats.append(threat)
+	var track := PlayerTrack.new()
+	track.track_id = 99
+	track.estimated_position = center
+	assert_eq(hpm._fire_pulse(track), 2)
+	assert_lt(threats[0].health, 100.0)
+	assert_lt(threats[1].health, 100.0)
+	assert_eq(threats[2].health, 100.0)
 
 func _find_valid_position() -> Vector3:
 	return _find_valid_position_for(main.scenario.available_defenses[0].placement_profile)

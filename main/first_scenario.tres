@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=36 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=37 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -23,6 +23,7 @@
 [ext_resource path="res://enemy/anti_radiation_missile/anti_radiation_missile.tres" type="Resource" id="21"]
 [ext_resource path="res://defense/long_range_missile/long_range_missile.tres" type="Resource" id="22"]
 [ext_resource path="res://defense/short_range_missile/short_range_missile.tres" type="Resource" id="23"]
+[ext_resource path="res://defense/high_power_microwave/high_power_microwave.tres" type="Resource" id="24"]
 
 [sub_resource type="Resource" id="AttackUavEntry"]
 script = ExtResource("5")
@@ -119,7 +120,7 @@ terrain_resolution = 97
 city_size = 330.0
 starting_budget = 1200
 objective_definition = ExtResource("2")
-available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23")])
+available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23"), ExtResource("24")])
 threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("CommandStrikeEntry"), SubResource("CruiseMissileEntry"), SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry")])
 raid_archetypes = Array[ExtResource("18")]([SubResource("ReconSaturationStrikeRaid"), SubResource("DeceptionSeadStrikeRaid")])
 ambient_contacts = Array[ExtResource("9")]([ExtResource("9")])
