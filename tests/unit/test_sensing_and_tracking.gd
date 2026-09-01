@@ -61,3 +61,16 @@ func test_track_quality_classification_and_affiliation_confidence_are_independen
 	second.setup(3, 0.4, Vector3(10.0, 0.0, 0.0), 0.9, 5.0, 0.4, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.4)
 	knowledge.submit_observation(second)
 	assert_gt(track.classification_confidence, 0.2)
+
+func test_different_sensors_fuse_same_time_observations_into_one_track() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var search_observation := SensorObservation.new()
+	search_observation.setup(1, 1.0, Vector3(100.0, 50.0, 0.0), 0.55, 20.0, 0.4, &"air_contact", ThreatDefinition.Affiliation.HOSTILE, 0.2)
+	var track := knowledge.submit_observation(search_observation)
+	var precision_observation := SensorObservation.new()
+	precision_observation.setup(2, 1.0, Vector3(102.0, 50.0, 0.0), 0.9, 5.0, 0.15, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.5)
+	assert_same(knowledge.submit_observation(precision_observation), track)
+	assert_eq(knowledge.tracks.size(), 1)
+	assert_eq(track.contributing_sensor_ids, [1, 2])
+	assert_lt(track.position_uncertainty, 20.0)
+	assert_eq(track.classification, &"uav")

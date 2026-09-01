@@ -14,6 +14,7 @@ var position_uncertainty: float
 var detection_evidence: float
 var state := State.TENTATIVE
 var contributing_sensor_ids: Array[int] = []
+var sensor_observed_at: Dictionary[int, float] = {}
 var classification_scores: Dictionary[StringName, float] = {}
 var classification: StringName = &"unknown"
 var classification_confidence: float = 0.0
@@ -30,11 +31,14 @@ func setup(id_value: int, observation: SensorObservation) -> void:
 	position_uncertainty = observation.uncertainty
 	detection_evidence = observation.quality * observation.observed_duration
 	contributing_sensor_ids.append(observation.sensor_id)
+	sensor_observed_at[observation.sensor_id] = observation.timestamp
 	_apply_identity_evidence(observation)
 
 func apply_observation(observation: SensorObservation, confirmation_threshold: float) -> void:
-	var elapsed := maxf(0.001, observation.timestamp - last_observed_at)
-	var measured_velocity := (observation.measured_position - last_measured_position) / elapsed
+	var elapsed := observation.timestamp - last_observed_at
+	var measured_velocity := estimated_velocity
+	if elapsed > 0.001:
+		measured_velocity = (observation.measured_position - last_measured_position) / elapsed
 	var position_gain := lerpf(0.25, 0.85, observation.quality)
 	var velocity_gain := lerpf(0.15, 0.65, observation.quality)
 	estimated_position = estimated_position.lerp(observation.measured_position, position_gain)
@@ -46,6 +50,7 @@ func apply_observation(observation: SensorObservation, confirmation_threshold: f
 	detection_evidence += observation.quality * observation.observed_duration
 	if not contributing_sensor_ids.has(observation.sensor_id):
 		contributing_sensor_ids.append(observation.sensor_id)
+	sensor_observed_at[observation.sensor_id] = observation.timestamp
 	_apply_identity_evidence(observation)
 	state = State.CONFIRMED if detection_evidence >= confirmation_threshold else State.TENTATIVE
 

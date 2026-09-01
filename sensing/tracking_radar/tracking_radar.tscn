@@ -1,0 +1,75 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource path="res://sensing/tracking_radar/tracking_radar.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="BaseMaterial"]
+albedo_color = Color(0.17, 0.23, 0.22, 1)
+metallic = 0.38
+roughness = 0.48
+
+[sub_resource type="StandardMaterial3D" id="SensorMaterial"]
+albedo_color = Color(0.32, 0.48, 0.44, 1)
+metallic = 0.22
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="AccentMaterial"]
+albedo_color = Color(0.2, 0.88, 0.92, 1)
+emission_enabled = true
+emission = Color(0.03, 0.3, 0.34, 1)
+
+[sub_resource type="CylinderMesh" id="BaseMesh"]
+top_radius = 4.2
+bottom_radius = 5.0
+height = 2.4
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="MastMesh"]
+top_radius = 0.8
+bottom_radius = 1.2
+height = 7.0
+radial_segments = 8
+
+[sub_resource type="SphereMesh" id="PivotMesh"]
+radius = 2.2
+height = 3.6
+radial_segments = 10
+rings = 6
+
+[sub_resource type="BoxMesh" id="PanelMesh"]
+size = Vector3(7.5, 5.5, 0.45)
+
+[sub_resource type="BoxMesh" id="FaceMesh"]
+size = Vector3(6.4, 4.4, 0.16)
+
+[node name="TrackingRadar" type="Node3D"]
+script = ExtResource("1")
+rotation_speed_degrees = 72.0
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.2, 0)
+mesh = SubResource("BaseMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Mast" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5.9, 0)
+mesh = SubResource("MastMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Antenna" type="Node3D" parent="."]
+position = Vector3(0, 10, 0)
+
+[node name="Pivot" type="MeshInstance3D" parent="Antenna"]
+mesh = SubResource("PivotMesh")
+material_override = SubResource("SensorMaterial")
+
+[node name="Panel" type="MeshInstance3D" parent="Antenna"]
+position = Vector3(0, 1.8, 0)
+rotation_degrees = Vector3(-18, 0, 0)
+mesh = SubResource("PanelMesh")
+material_override = SubResource("SensorMaterial")
+
+[node name="Face" type="MeshInstance3D" parent="Antenna"]
+position = Vector3(0, 1.8, -0.34)
+rotation_degrees = Vector3(-18, 0, 0)
+mesh = SubResource("FaceMesh")
+material_override = SubResource("AccentMaterial")

@@ -63,7 +63,9 @@ func _associate(observation: SensorObservation) -> PlayerTrack:
 	var selected: PlayerTrack
 	var nearest_distance := association_gate
 	for track: PlayerTrack in tracks:
-		if track.state == PlayerTrack.State.LOST or is_equal_approx(track.last_observed_at, observation.timestamp):
+		if track.state == PlayerTrack.State.LOST:
+			continue
+		if track.sensor_observed_at.has(observation.sensor_id) and is_equal_approx(track.sensor_observed_at[observation.sensor_id], observation.timestamp):
 			continue
 		var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
 		var predicted_position := track.estimated_position + track.estimated_velocity * elapsed

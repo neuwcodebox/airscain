@@ -15,9 +15,10 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_gt(main.battlefield.city_visuals.get_child_count(), 30)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
 	assert_eq(main.session.budget, 620)
-	assert_eq(main.scenario.available_defenses.size(), 3)
+	assert_eq(main.scenario.available_defenses.size(), 4)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
 	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
+	assert_eq(main.scenario.available_defenses[3].id, &"tracking_radar")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TrackingRadarDefinition" load_steps=4 format=3]
+
+[ext_resource path="res://sensing/tracking_radar/tracking_radar_definition.gd" type="Script" id="1"]
+[ext_resource path="res://sensing/tracking_radar/tracking_radar.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
+
+[sub_resource type="Resource" id="PlacementProfile"]
+script = ExtResource("3")
+footprint_radius = 7.0
+maximum_slope_degrees = 9.0
+boundary_margin = 15.0
+
+[resource]
+script = ExtResource("1")
+id = &"tracking_radar"
+display_name = "정밀 추적 레이더"
+scene = ExtResource("2")
+price = 160
+placement_profile = SubResource("PlacementProfile")
+preview_range = 340.0
+detection_range = 340.0
+scan_interval = 0.15
+sensor_quality = 1.0
+range_exponent = 3.0
+c2_range = 560.0
