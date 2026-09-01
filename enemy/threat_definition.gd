@@ -12,6 +12,8 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export var affiliation := Affiliation.HOSTILE
 @export_range(0, 4) var false_echo_count: int = 0
 @export var false_echo_radius: float = 0.0
+@export var jamming_range: float = 0.0
+@export_range(0.0, 1.0) var jamming_strength: float = 0.0
 
 func validation_error() -> String:
 	if id.is_empty() or display_name.is_empty() or scene == null:
@@ -20,4 +22,6 @@ func validation_error() -> String:
 		return "위협 보상 또는 signature 설정이 올바르지 않습니다"
 	if false_echo_count < 0 or false_echo_count > 4 or (false_echo_count > 0 and false_echo_radius <= 0.0):
 		return "기만 반사 설정이 올바르지 않습니다"
+	if jamming_range < 0.0 or jamming_strength < 0.0 or jamming_strength > 1.0 or (jamming_strength > 0.0 and jamming_range <= 0.0):
+		return "재밍 설정이 올바르지 않습니다"
 	return ""

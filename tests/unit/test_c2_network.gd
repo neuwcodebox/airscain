@@ -54,6 +54,27 @@ func test_disabled_or_disconnected_command_breaks_information_path() -> void:
 	defense.global_position = Vector3(900.0, 0.0, 0.0)
 	assert_false(network.has_command_path(defense, 1))
 
+func test_jamming_reduces_effective_link_range_and_breaks_path() -> void:
+	var network := autofree(C2Network.new()) as C2Network
+	var registry := ThreatRegistry.new()
+	network.configure(registry)
+	var sensor := _endpoint(1, DefenseUnit.C2Role.SENSOR, Vector3.ZERO)
+	var command := _endpoint(2, DefenseUnit.C2Role.COMMAND, Vector3(200.0, 0.0, 0.0))
+	var defense := _endpoint(3, DefenseUnit.C2Role.DEFENSE, Vector3(400.0, 0.0, 0.0))
+	for endpoint: EndpointDouble in [sensor, command, defense]:
+		network.register_asset(endpoint)
+	assert_true(network.has_command_path(defense, 1))
+	var jammer := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	var jammer_definition := ThreatDefinition.new()
+	jammer_definition.affiliation = ThreatDefinition.Affiliation.HOSTILE
+	jammer_definition.jamming_range = 500.0
+	jammer_definition.jamming_strength = 1.0
+	jammer.setup(99, jammer_definition)
+	jammer.global_position = command.global_position
+	registry.add(jammer)
+	network.gameplay_tick(2.0)
+	assert_false(network.has_command_path(defense, 1))
+
 func _endpoint(id_value: int, roles: int, position: Vector3) -> EndpointDouble:
 	var endpoint := add_child_autofree(EndpointDouble.new()) as EndpointDouble
 	endpoint.runtime_id = id_value

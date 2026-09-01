@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/attack_uav/attack_uav.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[sub_resource type="Resource" id="Movement"]
+script = ExtResource("3")
+mode = 0
+speed = 32.0
+cruise_altitude = 115.0
+terminal_distance = 300.0
+maximum_turn_rate_degrees = 65.0
+maximum_climb_rate = 28.0
+
+[sub_resource type="Resource" id="Mission"]
+script = ExtResource("4")
+type = 1
+target_role = 0
+damage = 0.0
+action_distance = 300.0
+action_duration = 24.0
+
+[resource]
+script = ExtResource("1")
+id = &"electronic_warfare_uav"
+display_name = "전자전 UAV"
+scene = ExtResource("2")
+neutralization_reward = 35
+signature_class = &"large_uav"
+radar_signature = 0.8
+affiliation = 3
+jamming_range = 520.0
+jamming_strength = 0.78
+maximum_health = 110.0
+movement = SubResource("Movement")
+mission = SubResource("Mission")
+visual_color = Color(0.45, 0.18, 0.62, 1)

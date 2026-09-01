@@ -57,6 +57,7 @@ func _ready() -> void:
 	enemy_knowledge.reset()
 	player_knowledge.call("reset")
 	c2_network.call("reset")
+	c2_network.call("configure", registry)
 	track_display.call("configure", player_knowledge)
 	c2_overlay.call("configure", c2_network)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
@@ -71,6 +72,7 @@ func _process(delta: float) -> void:
 		return
 	director.gameplay_tick(simulation_delta)
 	player_knowledge.call("gameplay_tick", simulation_delta)
+	c2_network.call("gameplay_tick", simulation_delta)
 	engagement_coordinator.gameplay_tick(simulation_delta)
 	support_manager.gameplay_tick(simulation_delta)
 	relocation_manager.gameplay_tick(simulation_delta)

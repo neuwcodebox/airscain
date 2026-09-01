@@ -28,12 +28,13 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
-	assert_eq(main.scenario.threat_entries.size(), 7)
+	assert_eq(main.scenario.threat_entries.size(), 8)
 	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
 	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
 	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
 	assert_eq(main.scenario.threat_entries[5].threat_definition.id, &"cruise_missile")
 	assert_eq(main.scenario.threat_entries[6].threat_definition.id, &"decoy_uav")
+	assert_eq(main.scenario.threat_entries[7].threat_definition.id, &"electronic_warfare_uav")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
@@ -96,6 +97,20 @@ func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> 
 		if track.estimated_position.distance_to(decoy.global_position) > 90.0:
 			unmatched_tracks += 1
 	assert_eq(unmatched_tracks, 2)
+
+func test_electronic_warfare_uav_reduces_radar_quality() -> void:
+	main.registry.clear()
+	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar := radar_result.unit as SearchRadar
+	var baseline_quality := radar.signal_quality_for(200.0)
+	var jammer_definition := main.scenario.threat_entries[7].threat_definition
+	var jammer := jammer_definition.scene.instantiate() as ThreatUnit
+	main.threat_parent.add_child(jammer)
+	jammer.setup(400, jammer_definition)
+	jammer.global_position = radar.global_position + Vector3(80.0, 70.0, 0.0)
+	main.registry.add(jammer)
+	assert_lt(radar.signal_quality_for(200.0), baseline_quality * 0.6)
 
 func test_purchase_start_intercept_and_reward_flow() -> void:
 	main.registry.clear()

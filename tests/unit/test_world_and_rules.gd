@@ -113,6 +113,10 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_eq(decoy.mission.type, ThreatMissionDefinition.Type.RECONNAISSANCE)
 	assert_eq(decoy.mission.damage, 0.0)
 	assert_eq(decoy.false_echo_count, 2)
+	var jammer := SCENARIO.threat_entries[7].threat_definition as AttackUavDefinition
+	assert_eq(jammer.id, &"electronic_warfare_uav")
+	assert_gt(jammer.jamming_range, 0.0)
+	assert_gt(jammer.jamming_strength, 0.0)
 	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
 	assert_ne(swarm.movement, attack.movement)
 	var cruise := SCENARIO.threat_entries[5].threat_definition as AttackUavDefinition

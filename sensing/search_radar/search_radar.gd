@@ -50,7 +50,10 @@ func signal_quality_for(distance: float) -> float:
 		return 0.0
 	var range_ratio := maxf(0.0, distance) / effective_range
 	var range_factor := 1.0 / (1.0 + pow(range_ratio, _definition.range_exponent))
-	return clampf(_definition.sensor_quality * range_factor, 0.0, 1.0)
+	var jamming_multiplier := 1.0
+	if registry != null:
+		jamming_multiplier = 1.0 - registry.jamming_at(global_position) * 0.75
+	return clampf(_definition.sensor_quality * range_factor * jamming_multiplier, 0.0, 1.0)
 
 func _scan() -> void:
 	if enemy_knowledge != null:
