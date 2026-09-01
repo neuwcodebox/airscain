@@ -59,7 +59,7 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 	if unit == null:
 		return {"success": false, "reason": "방어 수단을 생성할 수 없습니다"}
 	defense_parent.add_child(unit)
-	unit.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z), position.z)
+	unit.global_position = battlefield.snap_placement_position(position, definition.placement_profile)
 	unit.setup(next_defense_id, definition)
 	unit.configure_combat(registry, projectile_parent)
 	next_defense_id += 1

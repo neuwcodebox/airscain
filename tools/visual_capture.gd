@@ -8,17 +8,19 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
 	main.placement.select(main.scenario.available_defenses[1])
-	Input.warp_mouse(Vector2(330.0, 460.0))
+	var rooftop_position: Vector3 = main.battlefield.rooftop_pads[0].position
+	Input.warp_mouse(main.camera_rig.camera.unproject_position(rooftop_position))
 	for index: int in 20:
 		await process_frame
-	if not main.placement.candidate_valid or not main.placement.preview.visible:
-		push_error("Placement preview did not acquire a valid terrain point")
+	if not main.placement.candidate_valid or not main.placement.preview.visible or main.placement.candidate_position.y < rooftop_position.y - 1.0:
+		push_error("Placement preview did not acquire the designated rooftop")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_placement.png")
@@ -67,6 +69,11 @@ func run() -> void:
 	print("VISUAL_CAPTURE_OK initial placement layered_defense combat coasting game_over")
 	quit(0)
 
+func _apply_requested_seed() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--seed="):
+			AirscainMain.requested_seed = int(argument.trim_prefix("--seed="))
+
 func _place_initial_assets() -> void:
 	main.session.budget += 900
 	_place_asset(main.scenario.available_defenses[0], -1.0)
@@ -80,6 +87,8 @@ func _place_initial_assets() -> void:
 	_place_asset(main.scenario.available_defenses[8], 1.0)
 	_place_asset(main.scenario.available_defenses[9], -1.0)
 	_place_asset(main.scenario.available_defenses[10], 1.0)
+	var rooftop_position: Vector3 = main.battlefield.rooftop_pads[0].position
+	main.session.request_placement(main.scenario.available_defenses[1], rooftop_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 
 func _spawn_swarm_near_close_in_gun() -> void:
 	var gun: CloseInGun

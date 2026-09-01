@@ -62,8 +62,7 @@ func _process(_delta: float) -> void:
 		feedback_changed.emit("지도 위를 가리켜 주세요")
 		return
 	preview.visible = true
-	candidate_position = hit.position
-	candidate_position.y = battlefield.terrain_height(candidate_position.x, candidate_position.z)
+	candidate_position = battlefield.snap_placement_position(hit.position, selected.placement_profile)
 	preview.global_position = candidate_position
 	var result := _validation()
 	candidate_valid = result.valid

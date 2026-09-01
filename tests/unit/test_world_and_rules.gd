@@ -21,6 +21,19 @@ func test_different_world_seed_changes_height_field() -> void:
 	second.generate(2, 1200.0, 49, 330.0)
 	assert_ne(first.heights, second.heights)
 
+func test_scenario_seed_selects_reproducible_distinct_battlefield_layouts() -> void:
+	assert_eq(SCENARIO.battlefield_layout().id, &"island_city")
+	var alternate := SCENARIO.duplicate(true) as ScenarioDefinition
+	alternate.world_seed = SCENARIO.world_seed - 1
+	assert_eq(alternate.battlefield_layout().id, &"rugged_harbor")
+	assert_gt(alternate.battlefield_layout().starting_budget_bonus, SCENARIO.battlefield_layout().starting_budget_bonus)
+	var island := WorldGenerator.new()
+	var rugged := WorldGenerator.new()
+	island.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
+	rugged.generate(alternate.world_seed, alternate.battlefield_size, alternate.terrain_resolution, alternate.city_size, alternate.battlefield_layout())
+	assert_ne(island.building_transforms().size(), rugged.building_transforms().size())
+	assert_ne(island.heights, rugged.heights)
+
 func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
 	var generator := WorldGenerator.new()
 	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size)

@@ -22,6 +22,7 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
 	await process_frame
@@ -49,6 +50,11 @@ func run() -> void:
 	print("LONG_RUN_OK time=%.1f neutralized=%d defenses=%d pressure=%d active=%d integrity=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.session.highest_pressure, main.registry.count(), main.objective.current_integrity])
 	quit(0)
 
+func _apply_requested_seed() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--seed="):
+			AirscainMain.requested_seed = int(argument.trim_prefix("--seed="))
+
 func _build_candidates() -> void:
 	var definition := main.scenario.available_defenses[0]
 	for ring_radius: float in [220.0, 280.0, 350.0, 430.0]:
@@ -59,6 +65,10 @@ func _build_candidates() -> void:
 			if main.battlefield.placement_result(position, definition.placement_profile).valid:
 				placement_candidates.append(position)
 	var radar_definition := main.scenario.available_defenses[1]
+	for rooftop_pad: Dictionary in main.battlefield.rooftop_pads:
+		var rooftop_position: Vector3 = rooftop_pad.position
+		if main.battlefield.placement_result(rooftop_position, radar_definition.placement_profile).valid:
+			sensor_candidates.append(rooftop_position)
 	for angle: float in [0.0, PI, PI * 0.5, PI * 1.5, PI * 0.25, PI * 1.25, PI * 0.75, PI * 1.75]:
 		for radius: float in [680.0, 620.0, 560.0]:
 			var position := Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
@@ -71,7 +81,7 @@ func _buy_available_defenses() -> void:
 	var required_sensor_count := 2 if main.session.defense_count >= 18 else 1
 	if radar_count < required_sensor_count:
 		var radar_definition := main.scenario.available_defenses[1]
-		var radar_positions: Array[Vector3] = placement_candidates if radar_count == 0 else sensor_candidates
+		var radar_positions: Array[Vector3] = placement_candidates if radar_count == 0 or sensor_candidates.is_empty() else sensor_candidates
 		for position: Vector3 in radar_positions:
 			if main.session.budget < radar_definition.price:
 				break

@@ -52,7 +52,7 @@ func _ready() -> void:
 	camera_rig.configure_for_battlefield(scenario.battlefield_size)
 	_spawn_objective()
 	_spawn_ambient_contacts()
-	session.reset(scenario.starting_budget)
+	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus)
 	support_manager.configure(session)
 	relocation_manager.configure(battlefield)
 	enemy_knowledge.reset()
@@ -65,7 +65,7 @@ func _ready() -> void:
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses)
 	_connect_flow()
-	hud.set_feedback("포대를 배치한 뒤 방어를 시작하세요 · Seed %d" % scenario.world_seed)
+	hud.set_feedback("포대를 배치한 뒤 방어를 시작하세요 · %s · Seed %d" % [scenario.battlefield_layout().display_name, scenario.world_seed])
 
 func _process(delta: float) -> void:
 	var simulation_delta := session.gameplay_delta(delta)

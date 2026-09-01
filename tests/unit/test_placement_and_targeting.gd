@@ -58,6 +58,23 @@ func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	battlefield.register_occupancy(valid_position, profile.footprint_radius)
 	assert_false(battlefield.placement_result(valid_position, profile).valid)
 
+func test_designated_rooftop_accepts_only_lightweight_compatible_assets() -> void:
+	assert_gt(battlefield.rooftop_pads.size(), 0)
+	var rooftop_position: Vector3 = battlefield.rooftop_pads[0].position
+	var radar_profile := SCENARIO.available_defenses[1].placement_profile
+	var missile_profile := SCENARIO.available_defenses[0].placement_profile
+	assert_true(radar_profile.rooftop_allowed)
+	assert_true(battlefield.placement_result(rooftop_position, radar_profile).valid)
+	assert_eq(battlefield.placement_result(rooftop_position, missile_profile).reason, "이 장비는 옥상에 배치할 수 없습니다")
+	var session: GameSession = add_child_autofree(GameSession.new()) as GameSession
+	var defenses: Node3D = add_child_autofree(Node3D.new()) as Node3D
+	var projectiles: Node3D = add_child_autofree(Node3D.new()) as Node3D
+	session.reset(400)
+	var result := session.request_placement(SCENARIO.available_defenses[1], rooftop_position, battlefield, defenses, ThreatRegistry.new(), projectiles)
+	assert_true(result.success)
+	assert_eq((result.unit as DefenseUnit).global_position, rooftop_position)
+	assert_false(battlefield.placement_result(rooftop_position, radar_profile).valid)
+
 func test_failed_placement_does_not_change_budget_or_occupancy() -> void:
 	var session: GameSession = add_child_autofree(GameSession.new()) as GameSession
 	var defenses: Node3D = add_child_autofree(Node3D.new()) as Node3D

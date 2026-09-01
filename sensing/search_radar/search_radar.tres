@@ -9,6 +9,7 @@ script = ExtResource("3")
 footprint_radius = 8.0
 maximum_slope_degrees = 10.0
 boundary_margin = 15.0
+rooftop_allowed = true
 
 [resource]
 script = ExtResource("1")

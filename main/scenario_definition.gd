@@ -5,6 +5,7 @@ extends Resource
 @export var battlefield_size: float = 2400.0
 @export var terrain_resolution: int = 97
 @export var city_size: float = 330.0
+@export var battlefield_layouts: Array[BattlefieldLayoutDefinition] = []
 @export var starting_budget: int = 620
 @export var objective_definition: ObjectiveDefinition
 @export var available_defenses: Array[DefenseDefinition] = []
@@ -18,6 +19,16 @@ extends Resource
 func validation_error() -> String:
 	if battlefield_size <= 0.0 or terrain_resolution < 2 or city_size <= 0.0 or city_size >= battlefield_size:
 		return "전장 생성 설정이 올바르지 않습니다"
+	if battlefield_layouts.is_empty():
+		return "전장 레이아웃이 없습니다"
+	var layout_ids: Dictionary[StringName, bool] = {}
+	for layout: BattlefieldLayoutDefinition in battlefield_layouts:
+		if layout == null or layout_ids.has(layout.id):
+			return "전장 레이아웃이 없거나 ID가 중복됩니다"
+		var layout_error := layout.validation_error()
+		if not layout_error.is_empty():
+			return layout_error
+		layout_ids[layout.id] = true
 	if starting_budget < 0 or initial_spawn_interval <= 0.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
@@ -57,3 +68,6 @@ func validation_error() -> String:
 		if not contact_error.is_empty():
 			return contact_error
 	return ""
+
+func battlefield_layout() -> BattlefieldLayoutDefinition:
+	return battlefield_layouts[posmod(world_seed, battlefield_layouts.size())]

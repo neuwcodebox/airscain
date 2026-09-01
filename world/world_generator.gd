@@ -7,30 +7,32 @@ var city_size: float
 var seed_value: int
 var heights: PackedFloat32Array
 var sea_level: float = 0.0
+var layout: BattlefieldLayoutDefinition
 
-func generate(seed_input: int, size_input: float, resolution_input: int, city_size_input: float) -> void:
+func generate(seed_input: int, size_input: float, resolution_input: int, city_size_input: float, layout_value: BattlefieldLayoutDefinition = null) -> void:
 	seed_value = seed_input
 	size = size_input
 	resolution = resolution_input
 	city_size = city_size_input
+	layout = layout_value if layout_value != null else BattlefieldLayoutDefinition.new()
 	heights = PackedFloat32Array()
 	heights.resize(resolution * resolution)
 	var noise := FastNoiseLite.new()
 	noise.seed = seed_value
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.frequency = 0.0035
+	noise.frequency = layout.noise_frequency
 	noise.fractal_octaves = 4
 	noise.fractal_gain = 0.48
 	for z_index: int in resolution:
 		for x_index: int in resolution:
 			var x := _grid_world(x_index)
 			var z := _grid_world(z_index)
-			var raw := noise.get_noise_2d(x, z) * 42.0
+			var raw := noise.get_noise_2d(x, z) * layout.terrain_height_scale
 			var distance_from_city := maxf(absf(x), absf(z))
 			var flatten := smoothstep(city_size * 0.42, city_size * 0.72, distance_from_city)
 			var land_height := maxf(raw * flatten + 10.0, sea_level + 6.0)
 			var radial_distance := Vector2(x, z).length() / (size * 0.5)
-			var coast_falloff := smoothstep(0.72, 0.98, radial_distance)
+			var coast_falloff := smoothstep(layout.coast_start, layout.coast_end, radial_distance)
 			heights[z_index * resolution + x_index] = lerpf(land_height, sea_level - 35.0, coast_falloff)
 
 func height_at(x: float, z: float) -> float:
@@ -73,17 +75,18 @@ func building_transforms() -> Array[Transform3D]:
 	var result: Array[Transform3D] = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value ^ 0x51A7
-	var blocks := 7
+	var blocks := layout.city_blocks
 	var block_step := city_size / float(blocks)
+	var center := float(blocks - 1) * 0.5
 	for bz: int in blocks:
 		for bx: int in blocks:
-			if (bx == 3 and bz == 3) or rng.randf() < 0.08:
+			if (absf(float(bx) - center) < 0.75 and absf(float(bz) - center) < 0.75) or rng.randf() < 0.08:
 				continue
 			var width := rng.randf_range(20.0, 34.0)
 			var depth := rng.randf_range(20.0, 34.0)
-			var height := rng.randf_range(8.0, 70.0)
-			var x := (float(bx) - 3.0) * block_step + rng.randf_range(-4.0, 4.0)
-			var z := (float(bz) - 3.0) * block_step + rng.randf_range(-4.0, 4.0)
+			var height := rng.randf_range(layout.minimum_building_height, layout.maximum_building_height)
+			var x := (float(bx) - center) * block_step + rng.randf_range(-4.0, 4.0)
+			var z := (float(bz) - center) * block_step + rng.randf_range(-4.0, 4.0)
 			var basis := Basis.IDENTITY.scaled(Vector3(width, height, depth))
 			result.append(Transform3D(basis, Vector3(x, height * 0.5 + height_at(x, z), z)))
 	return result
