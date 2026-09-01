@@ -222,6 +222,17 @@ func test_facility_target_and_egress_mission_restore_runtime_references() -> voi
 	assert_eq(restored_threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_true(restored_threat.mission_runtime.effect_applied)
 
+func test_pending_raid_waves_restore_with_remaining_delays() -> void:
+	main.director.schedule_archetype(main.scenario.raid_archetypes[0], 1.25)
+	main.director._tick_pending_waves(1.0)
+	assert_eq(main.director.pending_waves.size(), 2)
+	var saved_waves: Array = main.director.capture_state().pending_waves
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(main.director.pending_waves, saved_waves)
+	main.director._tick_pending_waves(3.0)
+	assert_eq(main.director.pending_waves.size(), 1)
+
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
 		if contact.runtime_id == runtime_id:

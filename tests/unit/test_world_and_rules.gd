@@ -78,6 +78,9 @@ func test_pressure_rises_and_spawn_load_is_bounded() -> void:
 	assert_lt(director.spawn_interval_at(180.0), director.spawn_interval_at(0.0))
 	assert_gt(director.spawn_count_at(240.0), director.spawn_count_at(0.0))
 	assert_lte(director.speed_multiplier_at(10000.0), 2.0)
+	assert_eq(SCENARIO.raid_archetypes[0].id, &"recon_saturation_strike")
+	assert_eq(SCENARIO.raid_archetypes[0].phase_entries.size(), 3)
+	assert_eq(SCENARIO.raid_archetypes[0].phase_delays, [0.0, 4.0, 8.0])
 
 func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void:
 	var definition := SCENARIO.available_defenses[4] as CloseInGunDefinition

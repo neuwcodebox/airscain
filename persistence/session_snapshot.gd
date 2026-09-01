@@ -173,6 +173,13 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var age := float(projectile_state.get("age", -1.0))
 		if float(projectile_state.get("speed", 0.0)) <= 0.0 or float(projectile_state.get("turn_rate", 0.0)) <= 0.0 or maximum_lifetime <= 0.0 or float(projectile_state.get("damage", 0.0)) <= 0.0 or float(projectile_state.get("proximity_radius", 0.0)) <= 0.0 or age < 0.0 or age >= maximum_lifetime:
 			return "요격체 비행 상태가 올바르지 않습니다"
+	var director_state: Dictionary = payload.director
+	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or not director_state.get("pending_waves", null) is Array:
+		return "공격 Director 상태가 올바르지 않습니다"
+	for wave: Dictionary in director_state.pending_waves:
+		var definition_id := StringName(String(wave.get("definition_id", "")))
+		if not contact_definitions.has(definition_id) or float(wave.get("remaining", -1.0)) < 0.0 or not is_finite(float(wave.get("angle", NAN))):
+			return "예약 공격 파동 상태가 올바르지 않습니다"
 	return ""
 
 static func defense_definition_map(scenario: ScenarioDefinition) -> Dictionary[StringName, DefenseDefinition]:

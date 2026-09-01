@@ -9,6 +9,7 @@ extends Resource
 @export var objective_definition: ObjectiveDefinition
 @export var available_defenses: Array[DefenseDefinition] = []
 @export var threat_entries: Array[ThreatSpawnEntry] = []
+@export var raid_archetypes: Array[RaidArchetypeDefinition] = []
 @export var ambient_contacts: Array[ThreatDefinition] = []
 @export var ambient_contacts_per_type: int = 4
 @export var initial_spawn_interval: float = 4.0
@@ -40,6 +41,15 @@ func validation_error() -> String:
 		var entry_error := entry.validation_error()
 		if not entry_error.is_empty():
 			return entry_error
+	for archetype: RaidArchetypeDefinition in raid_archetypes:
+		if archetype == null:
+			return "공격 archetype이 비어 있습니다"
+		var archetype_error := archetype.validation_error()
+		if not archetype_error.is_empty():
+			return archetype_error
+		for phase_entry: ThreatSpawnEntry in archetype.phase_entries:
+			if not threat_entries.has(phase_entry):
+				return "공격 archetype 단계가 시나리오 위협 목록에 없습니다"
 	for contact: ThreatDefinition in ambient_contacts:
 		if contact == null:
 			return "환경 접촉 Definition이 비어 있습니다"

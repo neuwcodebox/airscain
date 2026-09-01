@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=25 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=27 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -17,6 +17,7 @@
 [ext_resource path="res://enemy/facility_strike_uav/support_strike_uav.tres" type="Resource" id="15"]
 [ext_resource path="res://enemy/facility_strike_uav/command_strike_uav.tres" type="Resource" id="16"]
 [ext_resource path="res://enemy/cruise_missile/cruise_missile.tres" type="Resource" id="17"]
+[ext_resource path="res://enemy/raid_archetype_definition.gd" type="Script" id="18"]
 
 [sub_resource type="Resource" id="AttackUavEntry"]
 script = ExtResource("5")
@@ -59,6 +60,14 @@ unlock_level = 3
 selection_weight = 0.55
 group_size = 2
 
+[sub_resource type="Resource" id="ReconSaturationStrikeRaid"]
+script = ExtResource("18")
+id = &"recon_saturation_strike"
+unlock_level = 3
+selection_weight = 1.0
+phase_entries = Array[ExtResource("5")]([SubResource("ReconUavEntry"), SubResource("SwarmUavEntry"), SubResource("SupportStrikeEntry")])
+phase_delays = Array[float]([0.0, 4.0, 8.0])
+
 [resource]
 script = ExtResource("1")
 world_seed = 73129
@@ -69,6 +78,7 @@ starting_budget = 620
 objective_definition = ExtResource("2")
 available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13")])
 threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("CommandStrikeEntry"), SubResource("CruiseMissileEntry")])
+raid_archetypes = Array[ExtResource("18")]([SubResource("ReconSaturationStrikeRaid")])
 ambient_contacts = Array[ExtResource("9")]([ExtResource("9")])
 ambient_contacts_per_type = 4
 initial_spawn_interval = 4.0

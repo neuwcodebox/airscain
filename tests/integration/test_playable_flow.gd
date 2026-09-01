@@ -202,6 +202,19 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_lt(agl, 45.0)
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
 
+func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> void:
+	main.registry.clear()
+	var archetype := main.scenario.raid_archetypes[0]
+	main.director.schedule_archetype(archetype, 0.75)
+	assert_eq(main.director.pending_waves.size(), 3)
+	main.director._tick_pending_waves(0.1)
+	assert_eq(_active_definition_count(&"recon_uav"), 1)
+	main.director._tick_pending_waves(3.9)
+	assert_eq(_active_definition_count(&"swarm_uav"), 4)
+	main.director._tick_pending_waves(4.0)
+	assert_eq(_active_definition_count(&"support_strike_uav"), 1)
+	assert_eq(main.director.pending_waves.size(), 0)
+
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()
 	var gun_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[4], _find_valid_position_for(main.scenario.available_defenses[4].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
@@ -347,6 +360,13 @@ func _find_defense(runtime_id: int) -> DefenseUnit:
 		if unit.runtime_id == runtime_id:
 			return unit
 	return null
+
+func _active_definition_count(definition_id: StringName) -> int:
+	var count := 0
+	for threat: ThreatUnit in main.registry.get_active():
+		if threat.definition.id == definition_id:
+			count += 1
+	return count
 
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
