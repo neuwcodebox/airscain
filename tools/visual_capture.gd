@@ -34,11 +34,19 @@ func run() -> void:
 	for index: int in 180:
 		await process_frame
 	_save_capture("/tmp/airscain_combat.png")
+	for defense: DefenseUnit in main.defenses:
+		if defense is SearchRadar:
+			defense.active = false
+	main.set_process(false)
+	main.player_knowledge.call("gameplay_tick", 0.7)
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_coasting.png")
 	main.objective.apply_mission_damage(100)
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement combat game_over")
+	print("VISUAL_CAPTURE_OK initial placement combat coasting game_over")
 	quit(0)
 
 func _place_initial_assets() -> void:

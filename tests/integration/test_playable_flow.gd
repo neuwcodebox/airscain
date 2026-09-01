@@ -46,6 +46,14 @@ func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	assert_eq(tracks.size(), 1)
 	assert_ne(tracks[0] as Variant, visible_threat as Variant)
 	assert_almost_eq((tracks[0].get("estimated_position") as Vector3).z, visible_threat.global_position.z, 0.01)
+	assert_eq(main.track_display.get_child_count(), 1)
+	var marker := main.track_display.get_child(0) as Node3D
+	assert_true(marker.visible)
+	radar.active = false
+	main.player_knowledge.call("gameplay_tick", 0.6)
+	assert_true(marker.visible)
+	main.player_knowledge.call("gameplay_tick", 1.4)
+	assert_false(marker.visible)
 
 func test_purchase_start_intercept_and_reward_flow() -> void:
 	var placement_position := _find_valid_position()

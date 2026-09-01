@@ -14,6 +14,7 @@ var defenses: Array[DefenseUnit] = []
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
 @onready var player_knowledge: Node = $PlayerKnowledge
+@onready var track_display: Node = $WorldObjects/TacticalTracks
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var camera_rig: CameraRig = $CameraRig
 @onready var world_objects: Node3D = $WorldObjects
@@ -40,6 +41,7 @@ func _ready() -> void:
 	_spawn_objective()
 	session.reset(scenario.starting_budget)
 	player_knowledge.call("reset")
+	track_display.call("configure", player_knowledge)
 	director.configure(scenario, battlefield, objective, registry, threat_parent)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry)
 	hud.configure(session, objective, scenario.available_defenses)

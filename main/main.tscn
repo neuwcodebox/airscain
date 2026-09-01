@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource path="res://ui/placement_controller.gd" type="Script" id="6"]
 [ext_resource path="res://ui/hud.tscn" type="PackedScene" id="7"]
 [ext_resource path="res://tracking/player_knowledge.gd" type="Script" id="8"]
+[ext_resource path="res://ui/track_display.gd" type="Script" id="9"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -44,6 +45,9 @@ script = ExtResource("4")
 [node name="Projectiles" type="Node3D" parent="WorldObjects"]
 
 [node name="Effects" type="Node3D" parent="WorldObjects"]
+
+[node name="TacticalTracks" type="Node3D" parent="WorldObjects"]
+script = ExtResource("9")
 
 [node name="PlacementController" type="Node3D" parent="."]
 script = ExtResource("6")
