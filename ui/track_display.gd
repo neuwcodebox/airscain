@@ -14,6 +14,12 @@ func configure(player_knowledge_value: Node) -> void:
 	for track: PlayerTrack in existing_tracks:
 		_on_track_created(track)
 
+func reset() -> void:
+	for marker: TrackMarker in markers.values():
+		if is_instance_valid(marker):
+			marker.free()
+	markers.clear()
+
 func _on_track_created(track: PlayerTrack) -> void:
 	if markers.has(track.track_id):
 		return

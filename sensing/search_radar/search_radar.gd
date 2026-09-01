@@ -69,3 +69,9 @@ func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
 		if battlefield.terrain_height(sample_position.x, sample_position.z) + 2.0 > sample_position.y:
 			return false
 	return true
+
+func capture_content_state() -> Dictionary:
+	return {"scan_cooldown": scan_cooldown}
+
+func restore_content_state(state: Dictionary) -> void:
+	scan_cooldown = float(state.get("scan_cooldown", 0.0))

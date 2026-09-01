@@ -31,3 +31,22 @@ func c2_link_range() -> float:
 
 func local_sensor_ids() -> Array[int]:
 	return []
+
+func capture_state() -> Dictionary:
+	return {
+		"definition_id": String(definition.id),
+		"runtime_id": runtime_id,
+		"position": SaveDocument.vector3_to_data(global_position),
+		"active": active,
+		"content_state": capture_content_state(),
+	}
+
+func capture_content_state() -> Dictionary:
+	return {}
+
+func restore_state(state: Dictionary) -> void:
+	active = bool(state.active)
+	restore_content_state(state.get("content_state", {}))
+
+func restore_content_state(_state: Dictionary) -> void:
+	pass

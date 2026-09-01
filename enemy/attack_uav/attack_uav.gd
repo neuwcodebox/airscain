@@ -46,3 +46,17 @@ func get_urgency() -> float:
 	if objective == null:
 		return 0.0
 	return 1.0 / maxf(1.0, global_position.distance_to(target_point))
+
+func capture_content_state() -> Dictionary:
+	return {
+		"target_point": SaveDocument.vector3_to_data(target_point),
+		"speed_multiplier": speed_multiplier,
+		"phase": int(phase),
+	}
+
+func restore_content_state(state: Dictionary, objective_value: ProtectedObjective, battlefield_value: Battlefield) -> void:
+	objective = objective_value
+	battlefield = battlefield_value
+	target_point = SaveDocument.vector3_from_data(state.get("target_point", []))
+	speed_multiplier = float(state.get("speed_multiplier", 1.0))
+	phase = int(state.get("phase", FlightPhase.APPROACH)) as FlightPhase

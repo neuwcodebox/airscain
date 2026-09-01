@@ -43,7 +43,7 @@ func toggle_all_links() -> void:
 func _rebuild() -> void:
 	visible_link_count = 0
 	var line_mesh := ImmediateMesh.new()
-	line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	var surface_started := false
 	if c2_network != null:
 		var active_links: Array = c2_network.call("active_links")
 		for link: Array in active_links:
@@ -51,12 +51,18 @@ func _rebuild() -> void:
 			var second := link[1] as DefenseUnit
 			if not show_all_links and selected_asset != first and selected_asset != second:
 				continue
+			if not surface_started:
+				line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+				surface_started = true
 			line_mesh.surface_set_color(Color(0.12, 0.82, 1.0, 0.82))
 			line_mesh.surface_add_vertex(first.global_position + Vector3.UP * 9.0)
 			line_mesh.surface_add_vertex(second.global_position + Vector3.UP * 9.0)
 			visible_link_count += 1
-	line_mesh.surface_end()
-	links.mesh = line_mesh
+	if surface_started:
+		line_mesh.surface_end()
+		links.mesh = line_mesh
+	else:
+		links.mesh = null
 	_rebuild_range()
 
 func _rebuild_range() -> void:

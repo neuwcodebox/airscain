@@ -186,3 +186,60 @@ func _on_priority_target_requested() -> void:
 	if selected_asset != null and selected_track != null and selected_asset.has_method("set_priority_track"):
 		selected_asset.call("set_priority_track", selected_track.track_id)
 		hud.set_feedback("항적을 우선표적으로 지정했습니다")
+
+func capture_save_document() -> Dictionary:
+	return SaveDocument.create(SessionSnapshot.capture_payload(self))
+
+func restore_from_document(document: Dictionary) -> String:
+	var document_error := SaveDocument.validation_error(document)
+	if not document_error.is_empty():
+		return document_error
+	var payload: Dictionary = document.payload
+	var snapshot_error := SessionSnapshot.validation_error(payload, scenario)
+	if not snapshot_error.is_empty():
+		return snapshot_error
+	_apply_runtime_snapshot(payload)
+	return ""
+
+func _apply_runtime_snapshot(payload: Dictionary) -> void:
+	_clear_runtime_objects()
+	var world_state: Dictionary = payload.world
+	objective.restore_integrity(int(world_state.objective_integrity))
+	var defense_definitions := SessionSnapshot.defense_definition_map(scenario)
+	for state: Dictionary in world_state.defenses:
+		var definition: DefenseDefinition = defense_definitions[StringName(String(state.definition_id))]
+		var unit := definition.scene.instantiate() as DefenseUnit
+		defense_parent.add_child(unit)
+		unit.global_position = SaveDocument.vector3_from_data(state.position)
+		unit.setup(int(state.runtime_id), definition)
+		unit.configure_combat(registry, projectile_parent)
+		unit.restore_state(state)
+		battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
+		_on_defense_placed(unit)
+	var contact_definitions := SessionSnapshot.contact_definition_map(scenario)
+	for state: Dictionary in world_state.contacts:
+		var definition: ThreatDefinition = contact_definitions[StringName(String(state.definition_id))]
+		var contact := definition.scene.instantiate() as ThreatUnit
+		threat_parent.add_child(contact)
+		contact.global_position = SaveDocument.vector3_from_data(state.position)
+		contact.setup(int(state.runtime_id), definition)
+		contact.restore_state(state, objective, battlefield)
+		registry.add(contact)
+		_on_threat_spawned(contact)
+	director.restore_state(payload.director)
+	session.restore_state(payload.session)
+
+func _clear_runtime_objects() -> void:
+	for parent: Node in [defense_parent, threat_parent, projectile_parent, effects_parent]:
+		for child: Node in parent.get_children():
+			child.free()
+	defenses.clear()
+	registry.clear()
+	battlefield.clear_occupancy()
+	player_knowledge.call("reset")
+	track_display.call("reset")
+	c2_network.call("reset")
+	selected_asset = null
+	selected_track = null
+	c2_overlay.call("select_asset", null)
+	hud.set_selected_asset(null, 0)

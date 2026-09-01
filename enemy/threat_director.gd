@@ -100,3 +100,22 @@ func _choose_entry() -> ThreatSpawnEntry:
 		if roll <= 0.0:
 			return entry
 	return available.back()
+
+func capture_state() -> Dictionary:
+	return {
+		"elapsed": elapsed,
+		"until_spawn": until_spawn,
+		"pressure_level": pressure_level,
+		"next_runtime_id": next_runtime_id,
+		"enabled": enabled,
+		"rng_state": rng.state,
+	}
+
+func restore_state(state: Dictionary) -> void:
+	elapsed = float(state.elapsed)
+	until_spawn = float(state.until_spawn)
+	pressure_level = int(state.pressure_level)
+	next_runtime_id = int(state.next_runtime_id)
+	enabled = bool(state.enabled)
+	rng.state = int(state.rng_state)
+	pressure_changed.emit(pressure_level)

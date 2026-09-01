@@ -53,3 +53,26 @@ func resolve_once(neutralized: bool) -> bool:
 	active = false
 	resolved.emit(self, neutralized, definition.neutralization_reward if neutralized else 0)
 	return true
+
+func capture_state() -> Dictionary:
+	return {
+		"definition_id": String(definition.id),
+		"runtime_id": runtime_id,
+		"position": SaveDocument.vector3_to_data(global_position),
+		"health": health,
+		"active": active,
+		"resolved_state": resolved_state,
+		"content_state": capture_content_state(),
+	}
+
+func capture_content_state() -> Dictionary:
+	return {}
+
+func restore_state(state: Dictionary, objective_value: ProtectedObjective, battlefield_value: Battlefield) -> void:
+	health = float(state.health)
+	active = bool(state.active)
+	resolved_state = bool(state.resolved_state)
+	restore_content_state(state.get("content_state", {}), objective_value, battlefield_value)
+
+func restore_content_state(_state: Dictionary, _objective: ProtectedObjective, _battlefield: Battlefield) -> void:
+	pass

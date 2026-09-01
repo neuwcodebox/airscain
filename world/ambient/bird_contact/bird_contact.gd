@@ -31,3 +31,11 @@ func gameplay_tick(delta: float) -> void:
 
 func get_urgency() -> float:
 	return 0.0
+
+func capture_content_state() -> Dictionary:
+	return {"patrol_velocity": SaveDocument.vector3_to_data(patrol_velocity)}
+
+func restore_content_state(state: Dictionary, _objective: ProtectedObjective, battlefield_value: Battlefield) -> void:
+	battlefield = battlefield_value
+	patrol_bounds = battlefield.battlefield_size * 0.4
+	patrol_velocity = SaveDocument.vector3_from_data(state.get("patrol_velocity", []))

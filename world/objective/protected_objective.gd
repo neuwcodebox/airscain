@@ -33,3 +33,6 @@ func excludes_placement(world_position: Vector3, radius: float) -> bool:
 	var flat_delta := Vector2(world_position.x - global_position.x, world_position.z - global_position.z)
 	return flat_delta.length() < exclusion_radius + radius
 
+func restore_integrity(value: int) -> void:
+	current_integrity = clampi(value, 0, definition.maximum_integrity)
+	integrity_changed.emit(current_integrity, definition.maximum_integrity)

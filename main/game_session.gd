@@ -95,3 +95,28 @@ func set_simulation_speed(value: float) -> void:
 	if phase != Phase.GAME_OVER and (is_zero_approx(value) or is_equal_approx(value, 1.0) or is_equal_approx(value, 2.0)):
 		simulation_speed = value
 		statistics_changed.emit()
+
+func capture_state() -> Dictionary:
+	return {
+		"phase": int(phase),
+		"budget": budget,
+		"survival_time": survival_time,
+		"neutralized_count": neutralized_count,
+		"defense_count": defense_count,
+		"highest_pressure": highest_pressure,
+		"simulation_speed": simulation_speed,
+		"next_defense_id": next_defense_id,
+	}
+
+func restore_state(state: Dictionary) -> void:
+	phase = int(state.phase) as Phase
+	budget = int(state.budget)
+	survival_time = float(state.survival_time)
+	neutralized_count = int(state.neutralized_count)
+	defense_count = int(state.defense_count)
+	highest_pressure = int(state.highest_pressure)
+	simulation_speed = float(state.simulation_speed)
+	next_defense_id = int(state.next_defense_id)
+	budget_changed.emit(budget)
+	phase_changed.emit(phase)
+	statistics_changed.emit()

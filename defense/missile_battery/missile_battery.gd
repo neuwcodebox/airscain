@@ -97,3 +97,28 @@ func _launch(track: PlayerTrack) -> void:
 	$MuzzleFlash.global_position = launch_point.global_position
 	$MuzzleFlash.visible = true
 	get_tree().create_timer(0.08).timeout.connect(func() -> void: $MuzzleFlash.visible = false)
+
+func capture_content_state() -> Dictionary:
+	return {
+		"cooldown": cooldown,
+		"doctrine": {
+			"hold_fire": doctrine.hold_fire,
+			"engage_unknown": doctrine.engage_unknown,
+			"engage_neutral": doctrine.engage_neutral,
+			"minimum_track_quality": doctrine.minimum_track_quality,
+			"minimum_classification_confidence": doctrine.minimum_classification_confidence,
+			"minimum_affiliation_confidence": doctrine.minimum_affiliation_confidence,
+			"priority_track_id": doctrine.priority_track_id,
+		},
+	}
+
+func restore_content_state(state: Dictionary) -> void:
+	cooldown = float(state.get("cooldown", 0.0))
+	var doctrine_state: Dictionary = state.get("doctrine", {})
+	doctrine.hold_fire = bool(doctrine_state.get("hold_fire", false))
+	doctrine.engage_unknown = bool(doctrine_state.get("engage_unknown", false))
+	doctrine.engage_neutral = bool(doctrine_state.get("engage_neutral", false))
+	doctrine.minimum_track_quality = float(doctrine_state.get("minimum_track_quality", 0.3))
+	doctrine.minimum_classification_confidence = float(doctrine_state.get("minimum_classification_confidence", 0.25))
+	doctrine.minimum_affiliation_confidence = float(doctrine_state.get("minimum_affiliation_confidence", 0.3))
+	doctrine.priority_track_id = int(doctrine_state.get("priority_track_id", -1))
