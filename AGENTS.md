@@ -11,6 +11,15 @@ This file defines repository-wide operating guidance for AI coding agents: how t
 - Do not leave required setup as manual Godot editor work. Persistent configuration, scene structure, values, and connections must exist in the repository.
 - Do not add dependencies or technologies outside the defined stack without a concrete need.
 
+## Planning and Commits
+
+- For any non-trivial task, maintain `docs/PLAN.md` as a concise checklist of high-level, runnable work units.
+- Keep the plan aligned with the current intended result. Record completed outcomes and their validation evidence; do not use it as a transcript of abandoned approaches or conversational revisions.
+- Complete and validate one high-level unit at a time. Keep the project runnable between units.
+- When a unit is complete, update `docs/PLAN.md` and commit the implementation, tests, and plan entry together.
+- Make each commit a coherent, verified checkpoint with a descriptive message. Do not commit broken intermediate states, unrelated user changes, or work that has not actually satisfied its checklist item.
+- Before declaring the task complete, ensure the plan reflects the current repository state and that all required items are checked off with appropriate evidence.
+
 Typical CLI usage:
 
 ```bash
