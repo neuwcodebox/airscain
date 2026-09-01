@@ -96,6 +96,17 @@ func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void
 	assert_eq(gun.engagement_limit(larger_track), 1)
 	assert_lt(battery.weapon_match(small_track), battery.weapon_match(larger_track))
 
+func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
+	var attack := SCENARIO.threat_entries[0].threat_definition as AttackUavDefinition
+	var swarm := SCENARIO.threat_entries[1].threat_definition as AttackUavDefinition
+	assert_not_null(attack.movement)
+	assert_not_null(attack.mission)
+	assert_eq(attack.mission.type, ThreatMissionDefinition.Type.IMPACT)
+	assert_eq(attack.mission.target_role, ThreatMissionDefinition.TargetRole.CITY)
+	assert_gt(swarm.movement.speed, attack.movement.speed)
+	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
+	assert_ne(swarm.movement, attack.movement)
+
 func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
 	var session := autofree(GameSession.new()) as GameSession
 	session.reset(400)

@@ -1,13 +1,11 @@
 class_name AttackUav
 extends ThreatUnit
 
-enum FlightPhase { APPROACH, TERMINAL }
-
 var objective: ProtectedObjective
 var battlefield: Battlefield
 var target_point: Vector3
 var speed_multiplier: float = 1.0
-var phase := FlightPhase.APPROACH
+var mover := ThreatMover.new()
 var _definition: AttackUavDefinition
 
 @onready var body: Node3D = $Body
@@ -17,6 +15,7 @@ func configure_mission(objective_value: ProtectedObjective, battlefield_value: B
 	battlefield = battlefield_value
 	target_point = target_value
 	speed_multiplier = pressure_multiplier
+	mover.setup(_definition.movement, battlefield, global_position.direction_to(target_point))
 
 func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -26,21 +25,10 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 func gameplay_tick(delta: float) -> void:
 	if not active or resolved_state:
 		return
-	var flat_to_target := Vector2(target_point.x - global_position.x, target_point.z - global_position.z)
-	if phase == FlightPhase.APPROACH and flat_to_target.length() <= _definition.terminal_distance:
-		phase = FlightPhase.TERMINAL
-	var desired_position := target_point
-	if phase == FlightPhase.APPROACH:
-		desired_position.y = battlefield.terrain_height(global_position.x, global_position.z) + _definition.cruise_altitude
-	else:
-		desired_position.y = battlefield.terrain_height(target_point.x, target_point.z) + 2.0
-	var direction := global_position.direction_to(desired_position)
-	if direction.length_squared() > 0.001:
-		global_position += direction * _definition.base_speed * speed_multiplier * delta
-		body.look_at(global_position + direction, Vector3.UP)
-	if global_position.distance_to(target_point + Vector3.UP * 2.0) <= 5.0:
+	mover.advance(self, body, target_point, speed_multiplier, delta)
+	if global_position.distance_to(target_point + Vector3.UP * 2.0) <= _definition.mission.action_distance:
 		if resolve_once(false):
-			objective.apply_mission_damage(_definition.mission_damage)
+			objective.apply_mission_damage(roundi(_definition.mission.damage))
 
 func get_urgency() -> float:
 	if objective == null:
@@ -51,7 +39,7 @@ func capture_content_state() -> Dictionary:
 	return {
 		"target_point": SaveDocument.vector3_to_data(target_point),
 		"speed_multiplier": speed_multiplier,
-		"phase": int(phase),
+		"movement": mover.capture_state(),
 	}
 
 func restore_content_state(state: Dictionary, objective_value: ProtectedObjective, battlefield_value: Battlefield) -> void:
@@ -59,4 +47,4 @@ func restore_content_state(state: Dictionary, objective_value: ProtectedObjectiv
 	battlefield = battlefield_value
 	target_point = SaveDocument.vector3_from_data(state.get("target_point", []))
 	speed_multiplier = float(state.get("speed_multiplier", 1.0))
-	phase = int(state.get("phase", FlightPhase.APPROACH)) as FlightPhase
+	mover.restore_state(state.get("movement", {}), _definition.movement, battlefield)

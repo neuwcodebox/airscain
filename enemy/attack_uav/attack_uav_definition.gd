@@ -2,15 +2,19 @@ class_name AttackUavDefinition
 extends ThreatDefinition
 
 @export var maximum_health: float = 100.0
-@export var base_speed: float = 30.0
-@export var cruise_altitude: float = 70.0
-@export var terminal_distance: float = 120.0
-@export var mission_damage: int = 10
+@export var movement: ThreatMovementDefinition
+@export var mission: ThreatMissionDefinition
 
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():
 		return base_error
-	if maximum_health <= 0.0 or base_speed <= 0.0 or cruise_altitude <= 0.0 or terminal_distance <= 0.0 or mission_damage <= 0:
-		return "공격 UAV 설정값은 0보다 커야 합니다"
+	if maximum_health <= 0.0 or movement == null or mission == null:
+		return "공격 UAV 구성 참조가 올바르지 않습니다"
+	var movement_error := movement.validation_error()
+	if not movement_error.is_empty():
+		return movement_error
+	var mission_error := mission.validation_error()
+	if not mission_error.is_empty():
+		return mission_error
 	return ""
