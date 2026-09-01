@@ -130,6 +130,11 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_eq(jammer.id, &"electronic_warfare_uav")
 	assert_gt(jammer.jamming_range, 0.0)
 	assert_gt(jammer.jamming_strength, 0.0)
+	var anti_radiation := SCENARIO.threat_entries[8].threat_definition as AttackUavDefinition
+	assert_eq(anti_radiation.id, &"anti_radiation_missile")
+	assert_eq(anti_radiation.mission.target_role, ThreatMissionDefinition.TargetRole.SENSOR)
+	assert_eq(SCENARIO.raid_archetypes[1].id, &"deception_sead_strike")
+	assert_eq(SCENARIO.raid_archetypes[1].total_cost(), 9.0)
 	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
 	assert_ne(swarm.movement, attack.movement)
 	var cruise := SCENARIO.threat_entries[5].threat_definition as AttackUavDefinition

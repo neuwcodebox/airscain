@@ -163,7 +163,11 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	var target := objective.get_target_point(rng)
 	var target_asset: DefenseUnit
 	if entry.threat_definition is AttackUavDefinition:
-		target_asset = choose_target_for((entry.threat_definition as AttackUavDefinition).mission)
+		var mission := (entry.threat_definition as AttackUavDefinition).mission
+		if entry.threat_definition.id == &"anti_radiation_missile":
+			target_asset = _known_target_for_role(&"sensor")
+		else:
+			target_asset = choose_target_for(mission)
 	if target_override is Vector3:
 		target = target_override
 		target_asset = null
@@ -191,6 +195,17 @@ func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
 		elif mission.target_role == ThreatMissionDefinition.TargetRole.SUPPORT and unit is SupportFacility:
 			candidates.append(unit)
 	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
+
+func _known_target_for_role(role: StringName) -> DefenseUnit:
+	var estimate := enemy_knowledge.best_estimate_for_role(role)
+	if estimate.is_empty():
+		return null
+	var target_id := int(estimate.asset_id)
+	for child: Node in defense_parent.get_children():
+		var unit := child as DefenseUnit
+		if unit != null and unit.runtime_id == target_id and unit.integrity > 0.0:
+			return unit
+	return null
 
 func _choose_entry() -> ThreatSpawnEntry:
 	return _choose_entry_for_budget(INF)
@@ -222,6 +237,10 @@ func adaptive_entry_weight(entry: ThreatSpawnEntry) -> float:
 		weight *= 2.2
 	elif definition_id == &"cruise_missile" and not enemy_knowledge.best_estimate_for_role(&"sensor").is_empty():
 		weight *= 1.7
+	elif definition_id == &"anti_radiation_missile":
+		if enemy_knowledge.best_estimate_for_role(&"sensor").is_empty():
+			return 0.0
+		weight *= 3.0
 	if definition_id == &"swarm_uav" and recent_neutralization_rate() > 0.65:
 		weight *= 1.9
 	return weight

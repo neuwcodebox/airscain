@@ -28,13 +28,14 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
-	assert_eq(main.scenario.threat_entries.size(), 8)
+	assert_eq(main.scenario.threat_entries.size(), 9)
 	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
 	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
 	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
 	assert_eq(main.scenario.threat_entries[5].threat_definition.id, &"cruise_missile")
 	assert_eq(main.scenario.threat_entries[6].threat_definition.id, &"decoy_uav")
 	assert_eq(main.scenario.threat_entries[7].threat_definition.id, &"electronic_warfare_uav")
+	assert_eq(main.scenario.threat_entries[8].threat_definition.id, &"anti_radiation_missile")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
@@ -111,6 +112,22 @@ func test_electronic_warfare_uav_reduces_radar_quality() -> void:
 	jammer.global_position = radar.global_position + Vector3(80.0, 70.0, 0.0)
 	main.registry.add(jammer)
 	assert_lt(radar.signal_quality_for(200.0), baseline_quality * 0.6)
+
+func test_radar_emission_enables_anti_radiation_targeting_and_sead_package() -> void:
+	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar := radar_result.unit as SearchRadar
+	var anti_radiation_entry: ThreatSpawnEntry = main.scenario.threat_entries[8]
+	assert_eq(main.director.adaptive_entry_weight(anti_radiation_entry), 0.0)
+	main.enemy_knowledge.record_emission(radar)
+	assert_gt(main.director.adaptive_entry_weight(anti_radiation_entry), anti_radiation_entry.selection_weight)
+	assert_same(main.director._known_target_for_role(&"sensor"), radar)
+	main.director.pending_waves.clear()
+	main.director.schedule_archetype(main.scenario.raid_archetypes[1], 0.75)
+	assert_eq(main.director.pending_waves.size(), 4)
+	assert_eq(main.director.pending_waves[0].definition_id, "decoy_uav")
+	assert_eq(main.director.pending_waves[1].definition_id, "electronic_warfare_uav")
+	assert_eq(main.director.pending_waves[2].definition_id, "anti_radiation_missile")
+	assert_eq(main.director.pending_waves[3].definition_id, "attack_uav")
 
 func test_purchase_start_intercept_and_reward_flow() -> void:
 	main.registry.clear()
