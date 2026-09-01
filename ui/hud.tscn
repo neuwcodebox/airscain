@@ -199,7 +199,7 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 18.0
-offset_top = -334.0
+offset_top = -382.0
 offset_right = 286.0
 offset_bottom = -18.0
 grow_vertical = 0
@@ -253,6 +253,12 @@ unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "수리 요청"
+
+[node name="RelocationButton" type="Button" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "재배치 위치 지정"
 
 [node name="GameOverPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -313,6 +319,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="SelectedAssetPanel/VBox/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ResupplyButton" to="." method="_on_resupply_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/RepairButton" to="." method="_on_repair_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/RelocationButton" to="." method="_on_relocation_pressed"]
 [connection signal="pressed" from="Catalog/VBox/StartButton" to="." method="_on_start_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/SameSeedButton" to="." method="_on_same_seed_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/NewSeedButton" to="." method="_on_new_seed_pressed"]

@@ -48,6 +48,13 @@ func register_occupancy(position: Vector3, radius: float) -> void:
 	occupied_positions.append(position)
 	occupied_radii.append(radius)
 
+func unregister_occupancy(position: Vector3, radius: float) -> void:
+	for index: int in range(occupied_positions.size() - 1, -1, -1):
+		if occupied_positions[index].distance_squared_to(position) < 0.01 and is_equal_approx(occupied_radii[index], radius):
+			occupied_positions.remove_at(index)
+			occupied_radii.remove_at(index)
+			return
+
 func terrain_height(x: float, z: float) -> float:
 	return generator.height_at(x, z)
 

@@ -22,6 +22,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var engagement_coordinator: EngagementCoordinator = $EngagementCoordinator
 @onready var support_manager: SupportManager = $SupportManager
 @onready var power_manager: PowerManager = $PowerManager
+@onready var relocation_manager: RelocationManager = $RelocationManager
 @onready var track_display: Node = $WorldObjects/TacticalTracks
 @onready var c2_overlay: Node = $WorldObjects/C2Overlay
 @onready var director: ThreatDirector = $ThreatDirector
@@ -51,12 +52,13 @@ func _ready() -> void:
 	_spawn_ambient_contacts()
 	session.reset(scenario.starting_budget)
 	support_manager.configure(session)
+	relocation_manager.configure(battlefield)
 	player_knowledge.call("reset")
 	c2_network.call("reset")
 	track_display.call("configure", player_knowledge)
 	c2_overlay.call("configure", c2_network)
 	director.configure(scenario, battlefield, objective, registry, threat_parent)
-	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry)
+	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses)
 	_connect_flow()
 	hud.set_feedback("포대를 배치한 뒤 방어를 시작하세요 · Seed %d" % scenario.world_seed)
@@ -69,6 +71,7 @@ func _process(delta: float) -> void:
 	player_knowledge.call("gameplay_tick", simulation_delta)
 	engagement_coordinator.gameplay_tick(simulation_delta)
 	support_manager.gameplay_tick(simulation_delta)
+	relocation_manager.gameplay_tick(simulation_delta)
 	power_manager.begin_tick()
 	for defense: DefenseUnit in defenses:
 		if is_instance_valid(defense):
@@ -120,6 +123,7 @@ func _connect_flow() -> void:
 	hud.priority_target_requested.connect(_on_priority_target_requested)
 	hud.resupply_requested.connect(_on_resupply_requested)
 	hud.repair_requested.connect(_on_repair_requested)
+	hud.relocation_requested.connect(_on_relocation_requested)
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
 
@@ -136,8 +140,10 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	unit.configure_engagements(engagement_coordinator)
 	unit.configure_support(support_manager)
 	unit.configure_power(power_manager)
+	unit.configure_relocation(relocation_manager)
 	support_manager.register_asset(unit)
 	power_manager.register_asset(unit)
+	relocation_manager.register_asset(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)
@@ -217,6 +223,12 @@ func _on_repair_requested() -> void:
 	else:
 		hud.set_feedback("현재 수리를 요청할 수 없습니다")
 
+func _on_relocation_requested() -> void:
+	if selected_asset != null and selected_asset.can_request_relocation():
+		placement.select_relocation(selected_asset)
+	else:
+		hud.set_feedback("현재 재배치할 수 없습니다")
+
 func _on_save_requested() -> void:
 	var error := SaveStore.write(capture_save_document(), save_path)
 	hud.set_feedback("저장 완료" if error.is_empty() else "저장 실패 · %s" % error)
@@ -275,6 +287,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	player_knowledge.call("restore_state", payload.player_knowledge)
 	engagement_coordinator.restore_state(world_state.engagements)
 	support_manager.restore_state(world_state.support)
+	relocation_manager.restore_state(world_state.relocations)
 	for state: Dictionary in world_state.projectiles:
 		var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
@@ -304,6 +317,7 @@ func _clear_runtime_objects() -> void:
 	engagement_coordinator.reset()
 	support_manager.reset()
 	power_manager.reset()
+	relocation_manager.reset()
 	selected_asset = null
 	selected_track = null
 	c2_overlay.call("select_asset", null)

@@ -65,10 +65,12 @@ func request_resupply() -> bool:
 	return support_manager != null and support_manager.request_resupply(self)
 
 func _with_support_status(ammunition_status: String) -> String:
-	if support_manager == null:
-		return ammunition_status
-	var status := support_manager.task_status(self)
-	return ammunition_status if status.is_empty() else "%s · %s" % [ammunition_status, status]
+	var statuses: Array[String] = []
+	if support_manager != null and not support_manager.task_status(self).is_empty():
+		statuses.append(support_manager.task_status(self))
+	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
+		statuses.append(relocation_manager.task_status(self))
+	return ammunition_status if statuses.is_empty() else "%s · %s" % [ammunition_status, " · ".join(statuses)]
 
 func capture_doctrine_state() -> Dictionary:
 	return {

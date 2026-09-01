@@ -72,6 +72,8 @@ func resource_status_text() -> String:
 		status += " · 전력 없음"
 	if support_manager != null and not support_manager.task_status(self).is_empty():
 		status += " · %s" % support_manager.task_status(self)
+	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
+		status += " · %s" % relocation_manager.task_status(self)
 	return status
 
 func _fire_pulse(track: PlayerTrack) -> void:

@@ -178,6 +178,29 @@ func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
 	assert_true(restored.energy_state.overheated)
 	assert_eq(main.power_manager.generation_capacity(), 20.0)
 
+func test_mobile_asset_relocation_finishes_after_save_restore() -> void:
+	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
+	var origin := gun.global_position
+	var destination := _find_valid_position(gun.definition.placement_profile)
+	var budget_before := main.session.budget
+	assert_true(main.relocation_manager.request_relocation(gun, destination))
+	assert_false(gun.active)
+	assert_eq(main.session.budget, budget_before)
+	assert_eq(main.battlefield.occupied_positions.size(), 2)
+	main.relocation_manager.gameplay_tick(gun.definition.relocation_duration - 0.1)
+	assert_eq(gun.global_position, origin)
+	var gun_id := gun.runtime_id
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_defense(gun_id) as CloseInGun
+	assert_false(restored.active)
+	assert_string_contains(main.relocation_manager.task_status(restored), "재배치")
+	main.relocation_manager.gameplay_tick(0.2)
+	assert_eq(restored.global_position, destination)
+	assert_true(restored.active)
+	assert_eq(main.battlefield.occupied_positions.size(), 1)
+	assert_eq(main.relocation_manager.task_status(restored), "")
+
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
 		if contact.runtime_id == runtime_id:

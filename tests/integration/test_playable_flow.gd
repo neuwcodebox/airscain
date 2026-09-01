@@ -221,6 +221,11 @@ func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> v
 	main.support_manager.gameplay_tick(0.2)
 	assert_eq(gun.magazine.reserve, gun.magazine.reserve_capacity)
 	assert_eq(main.support_manager.task_status(gun), "")
+	assert_true(main.hud.relocation_button.visible)
+	assert_false(main.hud.relocation_button.disabled)
+	main.hud.relocation_button.pressed.emit()
+	assert_same(main.placement.relocating_unit, gun)
+	main.placement.cancel()
 
 func test_support_power_capacity_recharges_laser_and_scales_with_damage() -> void:
 	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)

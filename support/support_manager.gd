@@ -23,12 +23,12 @@ func register_asset(unit: DefenseUnit) -> void:
 		facilities.append(unit as SupportFacility)
 
 func request_resupply(unit: ArmedDefenseUnit) -> bool:
-	if unit == null or not unit.uses_ammunition() or not consumers.has(unit.runtime_id) or unit.magazine.reserve >= unit.magazine.reserve_capacity or task_status(unit) != "":
+	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.magazine.reserve >= unit.magazine.reserve_capacity or task_status(unit) != "":
 		return false
 	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
 
 func request_repair(unit: DefenseUnit) -> bool:
-	if unit == null or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "":
+	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "":
 		return false
 	return _request_task(unit, REPAIR, unit.repair_cost(), unit.repair_work())
 

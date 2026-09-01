@@ -11,30 +11,41 @@ var camera: Camera3D
 var defense_parent: Node3D
 var projectile_parent: Node3D
 var registry: ThreatRegistry
+var relocation_manager: RelocationManager
 var selected: DefenseDefinition
+var relocating_unit: DefenseUnit
 var candidate_position: Vector3
 var candidate_valid: bool = false
 var preview: Node3D
 var range_disc: MeshInstance3D
 var preview_material := StandardMaterial3D.new()
 
-func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry) -> void:
+func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
 	session = session_value
 	battlefield = battlefield_value
 	camera = camera_value
 	defense_parent = defense_parent_value
 	projectile_parent = projectile_parent_value
 	registry = registry_value
+	relocation_manager = relocation_manager_value
 	preview_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	preview_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 func select(definition: DefenseDefinition) -> void:
+	relocating_unit = null
 	selected = definition
 	_create_preview()
 	feedback_changed.emit("좌클릭 배치 · 우클릭/Esc 취소")
 
+func select_relocation(unit: DefenseUnit) -> void:
+	relocating_unit = unit
+	selected = unit.definition
+	_create_preview()
+	feedback_changed.emit("새 위치를 좌클릭 · 우클릭/Esc 취소")
+
 func cancel() -> void:
 	selected = null
+	relocating_unit = null
 	if preview != null:
 		preview.queue_free()
 	preview = null
@@ -82,14 +93,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mouse_button.button_index == MOUSE_BUTTON_LEFT:
 			if get_viewport().gui_get_hovered_control() != null:
 				return
-			var result := session.request_placement(selected, candidate_position, battlefield, defense_parent, registry, projectile_parent)
+			var result: Dictionary
+			if relocating_unit != null:
+				var moved := relocation_manager.request_relocation(relocating_unit, candidate_position)
+				result = {"success": moved, "reason": "재배치 시작" if moved else "재배치할 수 없습니다"}
+			else:
+				result = session.request_placement(selected, candidate_position, battlefield, defense_parent, registry, projectile_parent)
 			feedback_changed.emit(result.reason)
 			if result.success:
 				cancel()
 			get_viewport().set_input_as_handled()
 
 func _validation() -> Dictionary:
-	if session.budget < selected.price:
+	if relocating_unit == null and session.budget < selected.price:
 		return {"valid": false, "reason": "예산이 부족합니다"}
 	return battlefield.placement_result(candidate_position, selected.placement_profile)
 

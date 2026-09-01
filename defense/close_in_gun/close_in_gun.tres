@@ -23,3 +23,5 @@ reserve_ammunition = 120
 reload_duration = 2.5
 resupply_cost = 2
 resupply_work = 12.0
+mobile = true
+relocation_duration = 5.0

@@ -23,3 +23,5 @@ scan_interval = 0.15
 sensor_quality = 1.0
 range_exponent = 3.0
 c2_range = 560.0
+mobile = true
+relocation_duration = 6.0

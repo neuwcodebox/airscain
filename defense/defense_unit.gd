@@ -8,6 +8,7 @@ var definition: DefenseDefinition
 var active: bool = true
 var integrity: float
 var support_manager: SupportManager
+var relocation_manager: RelocationManager
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	runtime_id = id_value
@@ -36,6 +37,9 @@ func configure_support(manager: SupportManager) -> void:
 func configure_power(_manager: PowerManager) -> void:
 	pass
 
+func configure_relocation(manager: RelocationManager) -> void:
+	relocation_manager = manager
+
 func c2_roles() -> int:
 	return 0
 
@@ -49,6 +53,8 @@ func resource_status_text() -> String:
 	var status := operational_status_text()
 	if support_manager != null and not support_manager.task_status(self).is_empty():
 		status += " · %s" % support_manager.task_status(self)
+	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
+		status += " · %s" % relocation_manager.task_status(self)
 	return status
 
 func receive_damage(amount: float) -> bool:
@@ -85,6 +91,9 @@ func can_request_repair() -> bool:
 
 func request_repair() -> bool:
 	return support_manager != null and support_manager.request_repair(self)
+
+func can_request_relocation() -> bool:
+	return definition.mobile and active and relocation_manager != null and relocation_manager.task_status(self).is_empty() and (support_manager == null or support_manager.task_status(self).is_empty())
 
 func complete_repair() -> void:
 	integrity = definition.maximum_integrity
