@@ -93,6 +93,24 @@ func test_battery_prioritizes_urgency_then_distance() -> void:
 	urgent.urgency = 0.2
 	assert_same(battery.select_target(threats), near)
 
+func test_battery_ignores_unavailable_and_out_of_range_threats() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(1, SCENARIO.available_defenses[0])
+	var unavailable: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
+	unavailable.global_position = Vector3(50.0, 0.0, 0.0)
+	unavailable.urgency = 1.0
+	unavailable.active = false
+	var out_of_range: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
+	out_of_range.global_position = Vector3(500.0, 0.0, 0.0)
+	out_of_range.urgency = 1.0
+	var available: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
+	available.global_position = Vector3(150.0, 0.0, 0.0)
+	available.urgency = 0.2
+	var threats: Array[ThreatUnit] = [unavailable, out_of_range, available]
+	assert_same(battery.select_target(threats), available)
+	available.active = false
+	assert_null(battery.select_target(threats))
+
 func test_common_purchase_flow_accepts_role_test_double() -> void:
 	var test_scene := PackedScene.new()
 	var test_root := RoleDefenseDouble.new()

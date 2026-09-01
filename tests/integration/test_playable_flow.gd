@@ -33,6 +33,9 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_true(threat.resolved_state)
 	assert_eq(main.session.neutralized_count, 1)
 	assert_eq(main.session.budget, 230)
+	assert_false(threat.receive_damage(100.0))
+	assert_eq(main.session.neutralized_count, 1)
+	assert_eq(main.session.budget, 230)
 
 func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	main.session.defense_count = 1
