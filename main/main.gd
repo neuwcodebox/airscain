@@ -29,6 +29,11 @@ func _ready() -> void:
 	if requested_seed >= 0:
 		scenario.world_seed = requested_seed
 	requested_seed = scenario.world_seed
+	var scenario_error := scenario.validation_error()
+	if not scenario_error.is_empty():
+		push_error("시나리오를 시작할 수 없습니다: %s" % scenario_error)
+		get_tree().quit(1)
+		return
 	battlefield.build(scenario)
 	_spawn_objective()
 	session.reset(scenario.starting_budget)
@@ -86,6 +91,8 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	threat.queue_free()
 
 func _on_objective_depleted(_objective: ProtectedObjective) -> void:
+	if not _objective.definition.required_for_survival:
+		return
 	director.enabled = false
 	session.end_game()
 	placement.cancel()

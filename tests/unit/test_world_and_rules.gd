@@ -2,6 +2,9 @@ extends GutTest
 
 const SCENARIO := preload("res://main/first_scenario.tres")
 
+func test_first_scenario_has_all_required_references_and_valid_ranges() -> void:
+	assert_eq(SCENARIO.validation_error(), "")
+
 func test_world_seed_reproduces_height_and_city_layout() -> void:
 	var first := WorldGenerator.new()
 	var second := WorldGenerator.new()
@@ -50,3 +53,15 @@ func test_pressure_rises_and_spawn_load_is_bounded() -> void:
 	assert_lt(director.spawn_interval_at(180.0), director.spawn_interval_at(0.0))
 	assert_gt(director.spawn_count_at(240.0), director.spawn_count_at(0.0))
 	assert_lte(director.speed_multiplier_at(10000.0), 2.0)
+
+func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
+	var session := autofree(GameSession.new()) as GameSession
+	session.reset(400)
+	session.defense_count = 1
+	assert_true(session.start_defense())
+	session.set_simulation_speed(0.0)
+	assert_eq(session.gameplay_delta(1.0), 0.0)
+	assert_eq(session.survival_time, 0.0)
+	session.set_simulation_speed(2.0)
+	assert_eq(session.gameplay_delta(1.0), 2.0)
+	assert_eq(session.survival_time, 2.0)
