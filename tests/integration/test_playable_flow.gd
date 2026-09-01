@@ -115,6 +115,39 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	assert_almost_eq(main.camera_rig.global_position.x, track.estimated_position.x, 0.01)
 	assert_almost_eq(main.camera_rig.global_position.z, track.estimated_position.z, 0.01)
 
+func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> void:
+	var radar_definition := main.scenario.available_defenses[1]
+	var weapon_definition := main.scenario.available_defenses[0]
+	var support_definition := main.scenario.available_defenses[5]
+	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(radar_result.success)
+	assert_true(main.session.request_placement(weapon_definition, _find_valid_position_for(weapon_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
+	assert_true(main.session.request_placement(support_definition, _find_valid_position_for(support_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
+	main.hud._on_c2_overlay_pressed()
+	assert_eq(main.tactical_range_overlay.get("mode"), &"sensor")
+	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
+	main.hud._on_c2_overlay_pressed()
+	assert_eq(main.tactical_range_overlay.get("mode"), &"weapon")
+	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
+	main.hud._on_c2_overlay_pressed()
+	assert_eq(main.tactical_range_overlay.get("mode"), &"support")
+	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
+	var jammer_definition := main.scenario.threat_entries[7].threat_definition
+	var jammer := jammer_definition.scene.instantiate() as ThreatUnit
+	main.threat_parent.add_child(jammer)
+	jammer.setup(800, jammer_definition)
+	jammer.global_position = (radar_result.unit as DefenseUnit).global_position + Vector3(30.0, 70.0, 0.0)
+	main.registry.add(jammer)
+	main.hud._on_c2_overlay_pressed()
+	assert_eq(main.tactical_range_overlay.get("mode"), &"electronic")
+	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
+	main.hud._on_c2_overlay_pressed()
+	assert_eq(main.tactical_range_overlay.get("mode"), &"none")
+	assert_true(main.c2_overlay.show_all_links)
+	main.hud._on_c2_overlay_pressed()
+	assert_false(main.c2_overlay.show_all_links)
+	assert_eq(main.hud.overlay_button.text, "범위 없음")
+
 func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> void:
 	main.registry.clear()
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]

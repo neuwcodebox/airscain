@@ -36,7 +36,10 @@ func select_asset(unit: DefenseUnit) -> void:
 	_rebuild()
 
 func toggle_all_links() -> void:
-	show_all_links = not show_all_links
+	set_all_links(not show_all_links)
+
+func set_all_links(enabled: bool) -> void:
+	show_all_links = enabled
 	visible = show_all_links or selected_asset != null
 	_rebuild()
 

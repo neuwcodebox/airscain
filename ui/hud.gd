@@ -5,7 +5,7 @@ signal defense_selected(definition: DefenseDefinition)
 signal start_requested
 signal speed_requested(speed: float)
 signal restart_requested(same_seed: bool)
-signal c2_overlay_requested
+signal overlay_requested(mode: StringName)
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
 signal priority_target_requested
@@ -25,6 +25,9 @@ var defense_buttons: Array[Button] = []
 var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var selected_asset_connection_count: int = 0
+var overlay_mode_index: int = 0
+const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
+const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전 영역", "지원 작업", "전자전", "C2 연결"]
 
 @onready var budget_label: Label = %BudgetLabel
 @onready var integrity_label: Label = %IntegrityLabel
@@ -32,6 +35,7 @@ var selected_asset_connection_count: int = 0
 @onready var pressure_label: Label = %PressureLabel
 @onready var speed_label: Label = %SpeedLabel
 @onready var alert_label: Label = %AlertLabel
+@onready var overlay_button: Button = %OverlayButton
 @onready var defense_list: VBoxContainer = %DefenseList
 @onready var start_button: Button = %StartButton
 @onready var feedback_label: Label = %FeedbackLabel
@@ -211,7 +215,9 @@ func _on_very_fast_pressed() -> void:
 	speed_requested.emit(4.0)
 
 func _on_c2_overlay_pressed() -> void:
-	c2_overlay_requested.emit()
+	overlay_mode_index = (overlay_mode_index + 1) % OVERLAY_MODES.size()
+	overlay_button.text = OVERLAY_LABELS[overlay_mode_index]
+	overlay_requested.emit(OVERLAY_MODES[overlay_mode_index])
 
 func _on_hold_fire_toggled(enabled: bool) -> void:
 	hold_fire_requested.emit(enabled)

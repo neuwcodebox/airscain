@@ -28,6 +28,7 @@ var tactical_ui_refresh_remaining: float = 0.0
 @onready var enemy_knowledge: EnemyKnowledge = $EnemyKnowledge
 @onready var track_display: TrackDisplay = $WorldObjects/TacticalTracks
 @onready var c2_overlay: C2Overlay = $WorldObjects/C2Overlay
+@onready var tactical_range_overlay: Node = $WorldObjects/TacticalRangeOverlay
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var camera_rig: CameraRig = $CameraRig
 @onready var world_objects: Node3D = $WorldObjects
@@ -63,6 +64,7 @@ func _ready() -> void:
 	c2_network.call("configure", registry)
 	track_display.configure(player_knowledge, defense_parent, engagement_coordinator)
 	c2_overlay.configure(c2_network)
+	tactical_range_overlay.call("configure", defense_parent, registry, support_manager)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses)
@@ -130,7 +132,7 @@ func _connect_flow() -> void:
 	placement.feedback_changed.connect(hud.set_feedback)
 	placement.asset_selected.connect(_on_asset_selected)
 	placement.world_selected.connect(_on_world_selected)
-	hud.c2_overlay_requested.connect(_on_c2_overlay_requested)
+	hud.overlay_requested.connect(_on_overlay_requested)
 	hud.hold_fire_requested.connect(_on_hold_fire_requested)
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
 	hud.priority_target_requested.connect(_on_priority_target_requested)
@@ -206,8 +208,9 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 	hud.set_selected_asset(unit, int(c2_overlay.get("visible_link_count")))
 	hud.set_selected_track(null, false)
 
-func _on_c2_overlay_requested() -> void:
-	c2_overlay.toggle_all_links()
+func _on_overlay_requested(mode: StringName) -> void:
+	c2_overlay.set_all_links(mode == &"c2")
+	tactical_range_overlay.call("set_mode", &"none" if mode == &"c2" else mode)
 
 func _on_world_selected(position: Vector3) -> void:
 	var nearest_distance := 32.0

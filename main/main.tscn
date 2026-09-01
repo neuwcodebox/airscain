@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
@@ -17,6 +17,7 @@
 [ext_resource path="res://support/relocation_manager.gd" type="Script" id="15"]
 [ext_resource path="res://enemy/knowledge/enemy_knowledge.gd" type="Script" id="16"]
 [ext_resource path="res://ui/tactical_screen_overlay.gd" type="Script" id="17"]
+[ext_resource path="res://ui/tactical_range_overlay.gd" type="Script" id="18"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -77,6 +78,9 @@ script = ExtResource("9")
 
 [node name="C2Overlay" type="Node3D" parent="WorldObjects"]
 script = ExtResource("11")
+
+[node name="TacticalRangeOverlay" type="Node3D" parent="WorldObjects"]
+script = ExtResource("18")
 
 [node name="PlacementController" type="Node3D" parent="."]
 script = ExtResource("6")

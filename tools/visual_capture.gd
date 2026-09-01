@@ -41,6 +41,8 @@ func run() -> void:
 	for entry_index: int in range(2, 6):
 		var mission_threat := main.director._spawn_entry(main.scenario.threat_entries[entry_index], TAU * float(entry_index) / 5.0, 0.0)
 		mission_threat.global_position = Vector3(-320.0 + float(entry_index) * 110.0, 90.0 if entry_index < 5 else 28.0, 260.0)
+	var jammer := main.director._spawn_entry(main.scenario.threat_entries[7], 0.4, 0.0)
+	jammer.global_position = Vector3(60.0, 90.0, 120.0)
 	for entry_index: int in range(9, 12):
 		var advanced_threat := main.director._spawn_entry(main.scenario.threat_entries[entry_index], PI + float(entry_index - 9) * 0.16, 0.0)
 		advanced_threat.global_position = Vector3(-520.0, 35.0 + float(entry_index - 9) * 55.0, -150.0 + float(entry_index - 9) * 150.0)
@@ -48,6 +50,25 @@ func run() -> void:
 	for index: int in 30:
 		await process_frame
 	_save_capture("/tmp/airscain_layered_defense.png")
+	main.hud._on_c2_overlay_pressed()
+	for index: int in 3:
+		await process_frame
+	if main.tactical_range_overlay.get("mode") != &"sensor":
+		push_error("Sensor range overlay did not activate")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_sensor_overlay.png")
+	for index: int in 3:
+		main.hud._on_c2_overlay_pressed()
+	for index: int in 3:
+		await process_frame
+	if main.tactical_range_overlay.get("mode") != &"electronic":
+		push_error("Electronic impact overlay did not activate")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_electronic_overlay.png")
+	main.hud._on_c2_overlay_pressed()
+	main.hud._on_c2_overlay_pressed()
 	var early_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
 	if early_tracks.is_empty():
 		push_error("No public track was available for tactical selection capture")
@@ -83,7 +104,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement layered_defense tactical_selection combat coasting game_over")
+	print("VISUAL_CAPTURE_OK initial placement layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:
