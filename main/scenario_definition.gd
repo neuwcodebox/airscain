@@ -9,13 +9,15 @@ extends Resource
 @export var objective_definition: ObjectiveDefinition
 @export var available_defenses: Array[DefenseDefinition] = []
 @export var threat_entries: Array[ThreatSpawnEntry] = []
+@export var ambient_contacts: Array[ThreatDefinition] = []
+@export var ambient_contacts_per_type: int = 4
 @export var initial_spawn_interval: float = 4.0
 @export var active_threat_cap: int = 200
 
 func validation_error() -> String:
 	if battlefield_size <= 0.0 or terrain_resolution < 2 or city_size <= 0.0 or city_size >= battlefield_size:
 		return "전장 생성 설정이 올바르지 않습니다"
-	if starting_budget < 0 or initial_spawn_interval <= 0.0 or active_threat_cap < 1:
+	if starting_budget < 0 or initial_spawn_interval <= 0.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
 		return "보호 목표 Definition이 없습니다"
@@ -38,4 +40,10 @@ func validation_error() -> String:
 		var entry_error := entry.validation_error()
 		if not entry_error.is_empty():
 			return entry_error
+	for contact: ThreatDefinition in ambient_contacts:
+		if contact == null:
+			return "환경 접촉 Definition이 비어 있습니다"
+		var contact_error := contact.validation_error()
+		if not contact_error.is_empty():
+			return contact_error
 	return ""

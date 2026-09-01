@@ -56,6 +56,18 @@ func test_threat_resolution_can_only_happen_once() -> void:
 	assert_false(threat.resolve_once(false))
 	assert_signal_emit_count(threat, "resolved", 1)
 
+func test_neutral_contact_does_not_award_budget_or_hostile_statistics() -> void:
+	var session := autofree(GameSession.new()) as GameSession
+	session.reset(100)
+	var contact := autofree(ThreatUnit.new()) as ThreatUnit
+	var definition := ThreatDefinition.new()
+	definition.affiliation = ThreatDefinition.Affiliation.NEUTRAL
+	definition.neutralization_reward = 50
+	contact.setup(-1, definition)
+	session.register_threat_resolution(contact, true, definition.neutralization_reward)
+	assert_eq(session.budget, 100)
+	assert_eq(session.neutralized_count, 0)
+
 func test_pressure_rises_and_spawn_load_is_bounded() -> void:
 	var director: ThreatDirector = autofree(ThreatDirector.new()) as ThreatDirector
 	director.scenario = SCENARIO

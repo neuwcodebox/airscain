@@ -47,7 +47,7 @@ func gameplay_tick(delta: float) -> void:
 	until_spawn += spawn_interval_at(elapsed)
 	var count := spawn_count_at(elapsed)
 	for index: int in count:
-		if registry.count() >= scenario.active_threat_cap:
+		if registry.hostile_count() >= scenario.active_threat_cap:
 			break
 		spawn_one()
 
@@ -100,4 +100,3 @@ func _choose_entry() -> ThreatSpawnEntry:
 		if roll <= 0.0:
 			return entry
 	return available.back()
-

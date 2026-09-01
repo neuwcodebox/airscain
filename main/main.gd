@@ -41,6 +41,7 @@ func _ready() -> void:
 	battlefield.build(scenario)
 	camera_rig.configure_for_battlefield(scenario.battlefield_size)
 	_spawn_objective()
+	_spawn_ambient_contacts()
 	session.reset(scenario.starting_budget)
 	player_knowledge.call("reset")
 	c2_network.call("reset")
@@ -71,6 +72,24 @@ func _spawn_objective() -> void:
 	objective.exclusion_radius = scenario.city_size * 0.5
 	objective.setup(1, scenario.objective_definition)
 	battlefield.set_objective(objective)
+
+func _spawn_ambient_contacts() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = scenario.world_seed ^ 0x42B17D2
+	var next_ambient_id := -1
+	for contact_definition: ThreatDefinition in scenario.ambient_contacts:
+		for index: int in scenario.ambient_contacts_per_type:
+			var contact := contact_definition.scene.instantiate() as ThreatUnit
+			threat_parent.add_child(contact)
+			var angle := rng.randf_range(0.0, TAU)
+			var radius := rng.randf_range(230.0, scenario.battlefield_size * 0.32)
+			contact.global_position = Vector3(cos(angle) * radius, 50.0, sin(angle) * radius)
+			contact.setup(next_ambient_id, contact_definition)
+			next_ambient_id -= 1
+			var heading := rng.randf_range(0.0, TAU)
+			contact.configure_patrol(battlefield, Vector3(cos(heading), 0.0, sin(heading)) * rng.randf_range(12.0, 18.0))
+			registry.add(contact)
+			_on_threat_spawned(contact)
 
 func _connect_flow() -> void:
 	objective.depleted.connect(_on_objective_depleted)

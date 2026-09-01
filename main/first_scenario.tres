@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=10 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=11 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -8,6 +8,7 @@
 [ext_resource path="res://sensing/search_radar/search_radar.tres" type="Resource" id="6"]
 [ext_resource path="res://c2/command_post/command_post.tres" type="Resource" id="7"]
 [ext_resource path="res://sensing/tracking_radar/tracking_radar.tres" type="Resource" id="8"]
+[ext_resource path="res://world/ambient/bird_contact/bird_contact.tres" type="Resource" id="9"]
 
 [sub_resource type="Resource" id="AttackUavEntry"]
 script = ExtResource("5")
@@ -25,5 +26,7 @@ starting_budget = 620
 objective_definition = ExtResource("2")
 available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8")])
 threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry")])
+ambient_contacts = Array[ExtResource("9")]([ExtResource("9")])
+ambient_contacts_per_type = 4
 initial_spawn_interval = 4.0
 active_threat_cap = 200

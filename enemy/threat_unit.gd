@@ -16,6 +16,9 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 func configure_mission(_objective: ProtectedObjective, _battlefield: Battlefield, _target_point: Vector3, _pressure_multiplier: float) -> void:
 	pass
 
+func configure_patrol(_battlefield: Battlefield, _initial_velocity: Vector3) -> void:
+	pass
+
 func gameplay_tick(_delta: float) -> void:
 	pass
 

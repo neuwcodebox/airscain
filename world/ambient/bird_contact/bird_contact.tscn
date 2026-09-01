@@ -1,0 +1,46 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource path="res://world/ambient/bird_contact/bird_contact.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="BirdMaterial"]
+albedo_color = Color(0.23, 0.27, 0.29, 1)
+roughness = 0.9
+
+[sub_resource type="SphereMesh" id="BodyMesh"]
+radius = 1.1
+height = 2.8
+radial_segments = 8
+rings = 4
+
+[sub_resource type="PrismMesh" id="WingMesh"]
+size = Vector3(4.5, 0.35, 1.5)
+
+[sub_resource type="PrismMesh" id="TailMesh"]
+size = Vector3(1.6, 0.25, 1.8)
+
+[node name="BirdContact" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Body" type="Node3D" parent="."]
+
+[node name="BodyMesh" type="MeshInstance3D" parent="Body"]
+rotation_degrees = Vector3(90, 0, 0)
+mesh = SubResource("BodyMesh")
+material_override = SubResource("BirdMaterial")
+
+[node name="LeftWing" type="MeshInstance3D" parent="Body"]
+position = Vector3(-2.0, 0, 0)
+rotation_degrees = Vector3(0, 0, 8)
+mesh = SubResource("WingMesh")
+material_override = SubResource("BirdMaterial")
+
+[node name="RightWing" type="MeshInstance3D" parent="Body"]
+position = Vector3(2.0, 0, 0)
+rotation_degrees = Vector3(0, 180, -8)
+mesh = SubResource("WingMesh")
+material_override = SubResource("BirdMaterial")
+
+[node name="Tail" type="MeshInstance3D" parent="Body"]
+position = Vector3(0, 0, 1.7)
+mesh = SubResource("TailMesh")
+material_override = SubResource("BirdMaterial")

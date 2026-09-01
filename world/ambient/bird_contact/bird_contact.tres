@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ThreatDefinition" load_steps=3 format=3]
+
+[ext_resource path="res://enemy/threat_definition.gd" type="Script" id="1"]
+[ext_resource path="res://world/ambient/bird_contact/bird_contact.tscn" type="PackedScene" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"bird_contact"
+display_name = "조류 접촉"
+scene = ExtResource("2")
+neutralization_reward = 0
+signature_class = &"bird"
+radar_signature = 0.22
+affiliation = 2

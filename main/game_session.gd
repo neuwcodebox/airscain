@@ -74,7 +74,7 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 func register_threat_resolution(_threat: ThreatUnit, neutralized: bool, reward: int) -> void:
 	if phase == Phase.GAME_OVER:
 		return
-	if neutralized:
+	if neutralized and _threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
 		neutralized_count += 1
 		budget += reward
 		budget_changed.emit(budget)

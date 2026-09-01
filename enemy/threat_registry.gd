@@ -20,5 +20,15 @@ func get_active() -> Array[ThreatUnit]:
 func count() -> int:
 	return get_active().size()
 
+func get_hostile_active() -> Array[ThreatUnit]:
+	var result: Array[ThreatUnit] = []
+	for threat: ThreatUnit in get_active():
+		if threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
+			result.append(threat)
+	return result
+
+func hostile_count() -> int:
+	return get_hostile_active().size()
+
 func clear() -> void:
 	_active.clear()
