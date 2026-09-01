@@ -24,6 +24,7 @@ script = ExtResource("5")
 threat_definition = ExtResource("4")
 unlock_level = 1
 selection_weight = 1.0
+threat_cost = 2.0
 
 [sub_resource type="Resource" id="SwarmUavEntry"]
 script = ExtResource("5")
@@ -31,6 +32,7 @@ threat_definition = ExtResource("11")
 unlock_level = 2
 selection_weight = 0.8
 group_size = 4
+threat_cost = 1.0
 
 [sub_resource type="Resource" id="ReconUavEntry"]
 script = ExtResource("5")
@@ -38,6 +40,7 @@ threat_definition = ExtResource("14")
 unlock_level = 2
 selection_weight = 0.45
 group_size = 1
+threat_cost = 2.0
 
 [sub_resource type="Resource" id="SupportStrikeEntry"]
 script = ExtResource("5")
@@ -45,6 +48,7 @@ threat_definition = ExtResource("15")
 unlock_level = 3
 selection_weight = 0.35
 group_size = 1
+threat_cost = 3.0
 
 [sub_resource type="Resource" id="CommandStrikeEntry"]
 script = ExtResource("5")
@@ -52,6 +56,7 @@ threat_definition = ExtResource("16")
 unlock_level = 4
 selection_weight = 0.3
 group_size = 1
+threat_cost = 3.0
 
 [sub_resource type="Resource" id="CruiseMissileEntry"]
 script = ExtResource("5")
@@ -59,6 +64,7 @@ threat_definition = ExtResource("17")
 unlock_level = 3
 selection_weight = 0.55
 group_size = 2
+threat_cost = 3.0
 
 [sub_resource type="Resource" id="ReconSaturationStrikeRaid"]
 script = ExtResource("18")
@@ -74,7 +80,7 @@ world_seed = 73129
 battlefield_size = 2400.0
 terrain_resolution = 97
 city_size = 330.0
-starting_budget = 620
+starting_budget = 1200
 objective_definition = ExtResource("2")
 available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13")])
 threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("CommandStrikeEntry"), SubResource("CruiseMissileEntry")])

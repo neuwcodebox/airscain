@@ -51,18 +51,8 @@ func gameplay_tick(delta: float) -> void:
 	until_spawn -= delta
 	if until_spawn > 0.0:
 		return
-	until_spawn += spawn_interval_at(elapsed)
-	if pressure_level >= 3 and not scenario.raid_archetypes.is_empty() and rng.randf() < 0.35:
-		var archetype := _choose_archetype()
-		if archetype != null:
-			schedule_archetype(archetype, rng.randf_range(0.0, TAU))
-			return
-	var package_count := spawn_count_at(elapsed)
-	for _package_index: int in package_count:
-		var entry := _choose_entry()
-		if entry == null:
-			continue
-		_spawn_group(entry, rng.randf_range(0.0, TAU))
+	until_spawn += raid_interval_at(elapsed)
+	launch_budgeted_raid()
 
 func schedule_archetype(archetype: RaidArchetypeDefinition, approach_angle: float) -> void:
 	for index: int in archetype.phase_entries.size():
@@ -94,13 +84,60 @@ func pressure_level_at(time_seconds: float) -> int:
 	return 1 + int(floor(time_seconds / 45.0))
 
 func spawn_interval_at(time_seconds: float) -> float:
-	return maxf(1.15, scenario.initial_spawn_interval - float(pressure_level_at(time_seconds) - 1) * 0.32)
+	return raid_interval_at(time_seconds)
 
-func spawn_count_at(time_seconds: float) -> int:
-	return 1 + int(floor(time_seconds / 120.0))
+func raid_interval_at(time_seconds: float) -> float:
+	return maxf(5.0, scenario.initial_spawn_interval * 2.25 - float(pressure_level_at(time_seconds)) * 0.25)
+
+func threat_budget_at(time_seconds: float) -> float:
+	return 3.0 + float(pressure_level_at(time_seconds)) + performance_budget_adjustment()
+
+func performance_budget_adjustment() -> float:
+	if enemy_knowledge == null or enemy_knowledge.recent_outcomes.size() < 4:
+		return 0.0
+	return clampf((recent_neutralization_rate() - 0.5) * 4.0, -1.0, 1.0)
 
 func speed_multiplier_at(time_seconds: float) -> float:
 	return minf(2.0, 1.0 + time_seconds / 600.0)
+
+func launch_budgeted_raid() -> void:
+	var budget := threat_budget_at(elapsed)
+	var approach_angle := adaptive_approach_angle()
+	var archetype := _choose_archetype()
+	if archetype != null and archetype.total_cost() <= budget and rng.randf() < 0.45:
+		schedule_archetype(archetype, approach_angle)
+		budget -= archetype.total_cost()
+	var scheduled_count := 0
+	while budget > 0.0 and scheduled_count < 6:
+		var entry := _choose_entry_for_budget(budget)
+		if entry == null:
+			break
+		var cost := entry.threat_cost * float(entry.group_size)
+		pending_waves.append({"definition_id": String(entry.threat_definition.id), "remaining": rng.randf_range(0.0, 2.0), "angle": approach_angle + rng.randf_range(-0.18, 0.18)})
+		budget -= cost
+		scheduled_count += 1
+
+func adaptive_approach_angle() -> float:
+	var known_angles: Array[float] = []
+	if enemy_knowledge == null:
+		return rng.randf_range(0.0, TAU)
+	for estimate: Dictionary in enemy_knowledge.estimates.values():
+		if float(estimate.confidence) < 0.2:
+			continue
+		var position := SaveDocument.vector3_from_data(estimate.estimated_position)
+		known_angles.append(fposmod(atan2(position.z - objective.global_position.z, position.x - objective.global_position.x), TAU))
+	if known_angles.is_empty():
+		return rng.randf_range(0.0, TAU)
+	known_angles.sort()
+	var best_start := known_angles[0]
+	var best_gap := -1.0
+	for index: int in known_angles.size():
+		var start := known_angles[index]
+		var finish := known_angles[(index + 1) % known_angles.size()] + (TAU if index == known_angles.size() - 1 else 0.0)
+		if finish - start > best_gap:
+			best_gap = finish - start
+			best_start = start
+	return fposmod(best_start + best_gap * 0.5, TAU)
 
 func spawn_one() -> ThreatUnit:
 	var entry := _choose_entry()
@@ -156,20 +193,47 @@ func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
 	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
 
 func _choose_entry() -> ThreatSpawnEntry:
+	return _choose_entry_for_budget(INF)
+
+func _choose_entry_for_budget(budget: float) -> ThreatSpawnEntry:
 	var available: Array[ThreatSpawnEntry] = []
 	var total_weight := 0.0
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
-		if entry.unlock_level <= pressure_level:
+		if entry.unlock_level <= pressure_level and entry.threat_cost * float(entry.group_size) <= budget:
 			available.append(entry)
-			total_weight += maxf(0.0, entry.selection_weight)
+			total_weight += adaptive_entry_weight(entry)
 	if available.is_empty() or total_weight <= 0.0:
 		return null
 	var roll := rng.randf() * total_weight
 	for entry: ThreatSpawnEntry in available:
-		roll -= maxf(0.0, entry.selection_weight)
+		roll -= adaptive_entry_weight(entry)
 		if roll <= 0.0:
 			return entry
 	return available.back()
+
+func adaptive_entry_weight(entry: ThreatSpawnEntry) -> float:
+	var weight := maxf(0.0, entry.selection_weight)
+	var definition_id := entry.threat_definition.id
+	if enemy_knowledge == null:
+		return weight
+	if definition_id == &"support_strike_uav" and not enemy_knowledge.best_estimate_for_role(&"support").is_empty():
+		weight *= 2.4
+	elif definition_id == &"command_strike_uav" and not enemy_knowledge.best_estimate_for_role(&"command").is_empty():
+		weight *= 2.2
+	elif definition_id == &"cruise_missile" and not enemy_knowledge.best_estimate_for_role(&"sensor").is_empty():
+		weight *= 1.7
+	if definition_id == &"swarm_uav" and recent_neutralization_rate() > 0.65:
+		weight *= 1.9
+	return weight
+
+func recent_neutralization_rate() -> float:
+	if enemy_knowledge == null or enemy_knowledge.recent_outcomes.is_empty():
+		return 0.0
+	var neutralized := 0
+	for outcome: Dictionary in enemy_knowledge.recent_outcomes:
+		if bool(outcome.neutralized):
+			neutralized += 1
+	return float(neutralized) / float(enemy_knowledge.recent_outcomes.size())
 
 func _choose_archetype() -> RaidArchetypeDefinition:
 	var available: Array[RaidArchetypeDefinition] = []

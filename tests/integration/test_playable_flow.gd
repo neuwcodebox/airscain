@@ -18,7 +18,7 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.registry.count(), 4)
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
-	assert_eq(main.session.budget, 620)
+	assert_eq(main.session.budget, main.scenario.starting_budget)
 	assert_eq(main.scenario.available_defenses.size(), 7)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
 	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
@@ -40,7 +40,7 @@ func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	var placement_position := _find_valid_position_for(radar_definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(radar_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(result.success)
-	assert_eq(main.session.budget, 500)
+	assert_eq(main.session.budget, main.scenario.starting_budget - radar_definition.price)
 	var radar := result.unit as DefenseUnit
 	assert_not_null(radar)
 	var antenna := radar.get_node("Antenna") as Node3D
@@ -118,10 +118,11 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_eq(main.session.neutralized_count, 1)
 	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, battery.runtime_id)
 	assert_true(main.enemy_knowledge.recent_outcomes.back().neutralized)
-	assert_eq(main.session.budget, 230)
+	var expected_budget := main.scenario.starting_budget - main.scenario.available_defenses[0].price - radar_definition.price - command_definition.price + threat.definition.neutralization_reward
+	assert_eq(main.session.budget, expected_budget)
 	assert_false(threat.receive_damage(100.0))
 	assert_eq(main.session.neutralized_count, 1)
-	assert_eq(main.session.budget, 230)
+	assert_eq(main.session.budget, expected_budget)
 
 func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	main.session.defense_count = 1
@@ -147,6 +148,8 @@ func test_swarm_entry_spawns_a_close_formation_package() -> void:
 	main.director.enabled = true
 	main.director.until_spawn = 0.0
 	main.director.gameplay_tick(0.1)
+	assert_eq(main.director.pending_waves.size(), 1)
+	main.director.gameplay_tick(2.1)
 	assert_eq(main.registry.hostile_count(), 4)
 	var shared_target: Vector3
 	var has_target := false
@@ -232,6 +235,37 @@ func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> voi
 	main.director._tick_pending_waves(4.0)
 	assert_eq(_active_definition_count(&"support_strike_uav"), 1)
 	assert_eq(main.director.pending_waves.size(), 0)
+
+func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> void:
+	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar := radar_result.unit as SearchRadar
+	var support := support_result.unit as SupportFacility
+	var support_entry := main.scenario.threat_entries[3]
+	var swarm_entry := main.scenario.threat_entries[1]
+	var base_support_weight := main.director.adaptive_entry_weight(support_entry)
+	main.enemy_knowledge.record_recon(support)
+	assert_gt(main.director.adaptive_entry_weight(support_entry), base_support_weight * 2.0)
+	var base_budget := main.director.threat_budget_at(90.0)
+	for index: int in 8:
+		main.enemy_knowledge.record_outcome(true, Vector3.ZERO, &"attack_uav")
+	assert_gt(main.director.adaptive_entry_weight(swarm_entry), swarm_entry.selection_weight)
+	assert_gt(main.director.threat_budget_at(90.0), base_budget)
+	main.enemy_knowledge.estimates.clear()
+	main.enemy_knowledge.record_recon(radar)
+	var radar_angle := fposmod(atan2(radar.global_position.z - main.objective.global_position.z, radar.global_position.x - main.objective.global_position.x), TAU)
+	assert_almost_eq(main.director.adaptive_approach_angle(), fposmod(radar_angle + PI, TAU), 0.2)
+	main.director.elapsed = 90.0
+	main.director.pressure_level = 3
+	main.director.pending_waves.clear()
+	main.director.launch_budgeted_raid()
+	var planned_cost := 0.0
+	for wave: Dictionary in main.director.pending_waves:
+		for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+			if String(entry.threat_definition.id) == String(wave.definition_id):
+				planned_cost += entry.threat_cost * float(entry.group_size)
+	assert_lte(planned_cost, main.director.threat_budget_at(main.director.elapsed) + 0.001)
+	assert_gt(planned_cost, 0.0)
 
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()

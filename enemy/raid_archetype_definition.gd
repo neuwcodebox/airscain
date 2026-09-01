@@ -16,3 +16,9 @@ func validation_error() -> String:
 			return "공격 archetype 단계 또는 지연시간이 올바르지 않습니다"
 		previous_delay = phase_delays[index]
 	return ""
+
+func total_cost() -> float:
+	var result := 0.0
+	for entry: ThreatSpawnEntry in phase_entries:
+		result += entry.threat_cost * float(entry.group_size)
+	return result
