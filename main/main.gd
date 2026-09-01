@@ -13,6 +13,7 @@ var objective: ProtectedObjective
 var defenses: Array[DefenseUnit] = []
 var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
+var save_path: String = SaveStore.DEFAULT_PATH
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -110,6 +111,8 @@ func _connect_flow() -> void:
 	hud.hold_fire_requested.connect(_on_hold_fire_requested)
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
 	hud.priority_target_requested.connect(_on_priority_target_requested)
+	hud.save_requested.connect(_on_save_requested)
+	hud.load_requested.connect(_on_load_requested)
 
 func _on_start_requested() -> void:
 	if session.start_defense():
@@ -188,6 +191,17 @@ func _on_priority_target_requested() -> void:
 		selected_asset.call("set_priority_track", selected_track.track_id)
 		hud.set_feedback("항적을 우선표적으로 지정했습니다")
 
+func _on_save_requested() -> void:
+	var error := SaveStore.write(capture_save_document(), save_path)
+	hud.set_feedback("저장 완료" if error.is_empty() else "저장 실패 · %s" % error)
+
+func _on_load_requested() -> void:
+	var result := SaveStore.read(save_path)
+	var error: String = result.error
+	if error.is_empty():
+		error = restore_from_document(result.document)
+	hud.set_feedback("불러오기 완료" if error.is_empty() else "불러오기 실패 · %s" % error)
+
 func capture_save_document() -> Dictionary:
 	return SaveDocument.create(SessionSnapshot.capture_payload(self))
 
@@ -204,6 +218,11 @@ func restore_from_document(document: Dictionary) -> String:
 
 func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	_clear_runtime_objects()
+	var restored_seed := int(payload.scenario.world_seed)
+	if scenario.world_seed != restored_seed:
+		scenario.world_seed = restored_seed
+		requested_seed = restored_seed
+		battlefield.build(scenario)
 	var world_state: Dictionary = payload.world
 	objective.restore_integrity(int(world_state.objective_integrity))
 	var defense_definitions := SessionSnapshot.defense_definition_map(scenario)

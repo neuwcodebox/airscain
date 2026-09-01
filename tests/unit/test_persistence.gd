@@ -1,5 +1,16 @@
 extends GutTest
 
+const SAVE_STORE := preload("res://persistence/save_store.gd")
+
+var save_path: String
+
+func before_each() -> void:
+	save_path = "user://save_store_test_%d.json" % get_instance_id()
+	_cleanup_save_files()
+
+func after_each() -> void:
+	_cleanup_save_files()
+
 func test_versioned_save_document_round_trips_plain_data() -> void:
 	var payload := _valid_payload()
 	payload.scenario.world_seed = 73129
@@ -29,6 +40,31 @@ func test_vector_conversion_uses_json_safe_arrays() -> void:
 	assert_eq(SaveDocument.vector3_from_data(data), source)
 	assert_eq(SaveDocument.vector3_from_data([1.0]), Vector3.ZERO)
 
+func test_save_store_round_trips_and_preserves_previous_file_on_invalid_write() -> void:
+	var document := SaveDocument.create(_valid_payload())
+	document.payload.scenario.world_seed = 48127
+	assert_eq(SAVE_STORE.write(document, save_path), "")
+	var loaded: Dictionary = SAVE_STORE.read(save_path)
+	assert_eq(loaded.error, "")
+	assert_eq(int(loaded.document.payload.scenario.world_seed), 48127)
+	var invalid_document := document.duplicate(true)
+	invalid_document.version = SaveDocument.CURRENT_VERSION + 1
+	assert_ne(SAVE_STORE.write(invalid_document, save_path), "")
+	loaded = SAVE_STORE.read(save_path)
+	assert_eq(loaded.error, "")
+	assert_eq(int(loaded.document.payload.scenario.world_seed), 48127)
+	assert_eq(DirAccess.rename_absolute(ProjectSettings.globalize_path(save_path), ProjectSettings.globalize_path(save_path + ".bak")), OK)
+	loaded = SAVE_STORE.read(save_path)
+	assert_eq(loaded.error, "")
+	assert_eq(int(loaded.document.payload.scenario.world_seed), 48127)
+	assert_true(FileAccess.file_exists(save_path))
+	assert_false(FileAccess.file_exists(save_path + ".bak"))
+
+func test_save_store_reports_missing_file_without_document() -> void:
+	var loaded: Dictionary = SAVE_STORE.read(save_path)
+	assert_ne(loaded.error, "")
+	assert_eq(loaded.document, {})
+
 func _valid_payload() -> Dictionary:
 	return {
 		"scenario": {},
@@ -37,3 +73,9 @@ func _valid_payload() -> Dictionary:
 		"player_knowledge": {},
 		"director": {},
 	}
+
+func _cleanup_save_files() -> void:
+	for suffix: String in ["", ".tmp", ".bak"]:
+		var path := save_path + suffix
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

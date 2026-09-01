@@ -9,6 +9,8 @@ signal c2_overlay_requested
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
 signal priority_target_requested
+signal save_requested
+signal load_requested
 
 var session: GameSession
 var objective: ProtectedObjective
@@ -132,6 +134,12 @@ func _on_engage_unknown_toggled(enabled: bool) -> void:
 
 func _on_priority_target_pressed() -> void:
 	priority_target_requested.emit()
+
+func _on_save_pressed() -> void:
+	save_requested.emit()
+
+func _on_load_pressed() -> void:
+	load_requested.emit()
 
 func _on_same_seed_pressed() -> void:
 	restart_requested.emit(true)

@@ -16,6 +16,8 @@ var battlefield_size: float = 2400.0
 func build(scenario: ScenarioDefinition) -> void:
 	battlefield_size = scenario.battlefield_size
 	generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size)
+	for child: Node in terrain.get_children():
+		child.free()
 	terrain.mesh = generator.create_terrain_mesh()
 	terrain.create_trimesh_collision()
 	var ocean_mesh := ocean.mesh as PlaneMesh
@@ -55,7 +57,7 @@ func clear_occupancy() -> void:
 
 func _build_city_visuals(transforms: Array[Transform3D]) -> void:
 	for child: Node in city_visuals.get_children():
-		child.queue_free()
+		child.free()
 	var palette: Array[Color] = [Color("8795a1"), Color("a6adb4"), Color("77828a"), Color("c0aa8d")]
 	for index: int in transforms.size():
 		var building := MeshInstance3D.new()

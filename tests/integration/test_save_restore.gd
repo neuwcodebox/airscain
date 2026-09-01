@@ -3,10 +3,17 @@ extends GutTest
 const MAIN_SCENE := preload("res://main/main.tscn")
 
 var main: AirscainMain
+var save_path: String
 
 func before_each() -> void:
 	main = add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
 	await get_tree().process_frame
+	save_path = "user://main_save_restore_test_%d.json" % get_instance_id()
+	main.save_path = save_path
+	_cleanup_save_files()
+
+func after_each() -> void:
+	_cleanup_save_files()
 
 func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	var battery_definition := main.scenario.available_defenses[0]
@@ -122,6 +129,29 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	assert_true(restored_threat.resolved_state)
 	assert_eq(main.session.neutralized_count, 1)
 
+func test_hud_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes() -> void:
+	var saved_seed := 48127
+	main.scenario.world_seed = saved_seed
+	main.battlefield.build(main.scenario)
+	main.session.budget = 317
+	var expected_height := main.battlefield.terrain_height(417.0, -263.0)
+	var expected_building_count := main.battlefield.city_visuals.get_child_count()
+	var save_button := main.hud.get_node("%SaveButton") as Button
+	save_button.pressed.emit()
+	assert_true(FileAccess.file_exists(save_path))
+	assert_eq(main.hud.feedback_label.text, "저장 완료")
+	main.scenario.world_seed = 99241
+	main.battlefield.build(main.scenario)
+	main.session.budget = 9999
+	var load_button := main.hud.get_node("%LoadButton") as Button
+	load_button.pressed.emit()
+	assert_eq(main.hud.feedback_label.text, "불러오기 완료")
+	assert_eq(main.scenario.world_seed, saved_seed)
+	assert_eq(main.session.budget, 317)
+	assert_almost_eq(main.battlefield.terrain_height(417.0, -263.0), expected_height, 0.0001)
+	assert_eq(main.battlefield.terrain.get_child_count(), 1)
+	assert_eq(main.battlefield.city_visuals.get_child_count(), expected_building_count)
+
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
 		if contact.runtime_id == runtime_id:
@@ -147,3 +177,9 @@ func _find_valid_position(profile: PlacementProfile) -> Vector3:
 			if main.battlefield.placement_result(position, profile).valid:
 				return position
 	return Vector3(300.0, 0.0, 300.0)
+
+func _cleanup_save_files() -> void:
+	for suffix: String in ["", ".tmp", ".bak"]:
+		var path := save_path + suffix
+		if FileAccess.file_exists(path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
