@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=38 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=45 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -25,6 +25,9 @@
 [ext_resource path="res://defense/short_range_missile/short_range_missile.tres" type="Resource" id="23"]
 [ext_resource path="res://defense/high_power_microwave/high_power_microwave.tres" type="Resource" id="24"]
 [ext_resource path="res://defense/interceptor_drone/interceptor_drone_defense.tres" type="Resource" id="25"]
+[ext_resource path="res://enemy/ballistic_missile/ballistic_missile.tres" type="Resource" id="26"]
+[ext_resource path="res://enemy/rocket_salvo/rocket.tres" type="Resource" id="27"]
+[ext_resource path="res://enemy/strike_aircraft/strike_aircraft.tres" type="Resource" id="28"]
 
 [sub_resource type="Resource" id="AttackUavEntry"]
 script = ExtResource("5")
@@ -97,6 +100,30 @@ selection_weight = 0.4
 group_size = 1
 threat_cost = 3.0
 
+[sub_resource type="Resource" id="BallisticMissileEntry"]
+script = ExtResource("5")
+threat_definition = ExtResource("26")
+unlock_level = 11
+selection_weight = 0.28
+group_size = 1
+threat_cost = 7.0
+
+[sub_resource type="Resource" id="RocketSalvoEntry"]
+script = ExtResource("5")
+threat_definition = ExtResource("27")
+unlock_level = 6
+selection_weight = 0.38
+group_size = 4
+threat_cost = 1.5
+
+[sub_resource type="Resource" id="StrikeAircraftEntry"]
+script = ExtResource("5")
+threat_definition = ExtResource("28")
+unlock_level = 8
+selection_weight = 0.32
+group_size = 1
+threat_cost = 5.0
+
 [sub_resource type="Resource" id="ReconSaturationStrikeRaid"]
 script = ExtResource("18")
 id = &"recon_saturation_strike"
@@ -113,17 +140,25 @@ selection_weight = 0.8
 phase_entries = Array[ExtResource("5")]([SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry"), SubResource("AttackUavEntry")])
 phase_delays = Array[float]([0.0, 3.0, 6.0, 10.0])
 
+[sub_resource type="Resource" id="MixedBallisticAirRaid"]
+script = ExtResource("18")
+id = &"mixed_ballistic_air_strike"
+unlock_level = 12
+selection_weight = 0.55
+phase_entries = Array[ExtResource("5")]([SubResource("StrikeAircraftEntry"), SubResource("RocketSalvoEntry"), SubResource("BallisticMissileEntry")])
+phase_delays = Array[float]([0.0, 4.0, 7.0])
+
 [resource]
 script = ExtResource("1")
 world_seed = 73129
 battlefield_size = 2400.0
 terrain_resolution = 97
 city_size = 330.0
-starting_budget = 1200
+starting_budget = 1600
 objective_definition = ExtResource("2")
 available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23"), ExtResource("24"), ExtResource("25")])
-threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("CommandStrikeEntry"), SubResource("CruiseMissileEntry"), SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry")])
-raid_archetypes = Array[ExtResource("18")]([SubResource("ReconSaturationStrikeRaid"), SubResource("DeceptionSeadStrikeRaid")])
+threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("CommandStrikeEntry"), SubResource("CruiseMissileEntry"), SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry"), SubResource("BallisticMissileEntry"), SubResource("RocketSalvoEntry"), SubResource("StrikeAircraftEntry")])
+raid_archetypes = Array[ExtResource("18")]([SubResource("ReconSaturationStrikeRaid"), SubResource("DeceptionSeadStrikeRaid"), SubResource("MixedBallisticAirRaid")])
 ambient_contacts = Array[ExtResource("9")]([ExtResource("9")])
 ambient_contacts_per_type = 4
 initial_spawn_interval = 4.0

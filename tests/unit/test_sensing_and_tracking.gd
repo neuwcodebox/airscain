@@ -34,8 +34,30 @@ func test_nearest_observation_outside_gate_creates_another_track() -> void:
 	first.setup(1, 0.0, Vector3.ZERO, 0.8, 10.0, 0.8)
 	knowledge.submit_observation(first)
 	var distant := SensorObservation.new()
-	distant.setup(1, 0.1, Vector3(knowledge.association_gate + 1.0, 0.0, 0.0), 0.8, 10.0, 0.8)
+	var elapsed := 0.1
+	var dynamic_gate := knowledge.association_gate + knowledge.maximum_association_speed * elapsed
+	distant.setup(1, elapsed, Vector3(dynamic_gate + 1.0, 0.0, 0.0), 0.8, 10.0, 0.8)
 	knowledge.submit_observation(distant)
+	assert_eq(knowledge.tracks.size(), 2)
+
+func test_elapsed_time_expands_gate_for_high_speed_contact() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var first := SensorObservation.new()
+	first.setup(1, 0.0, Vector3.ZERO, 0.9, 8.0, 0.4)
+	var track := knowledge.submit_observation(first)
+	var fast_followup := SensorObservation.new()
+	fast_followup.setup(1, 0.4, Vector3(100.0, 0.0, 0.0), 0.9, 8.0, 0.4)
+	assert_same(knowledge.submit_observation(fast_followup), track)
+	assert_eq(knowledge.tracks.size(), 1)
+
+func test_dynamic_gate_does_not_merge_different_classifications() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var aircraft := SensorObservation.new()
+	aircraft.setup(1, 0.0, Vector3.ZERO, 0.9, 8.0, 0.4, &"aircraft", ThreatDefinition.Affiliation.HOSTILE, 0.4)
+	knowledge.submit_observation(aircraft)
+	var rocket := SensorObservation.new()
+	rocket.setup(1, 0.4, Vector3(100.0, 0.0, 0.0), 0.9, 8.0, 0.4, &"rocket", ThreatDefinition.Affiliation.HOSTILE, 0.4)
+	knowledge.submit_observation(rocket)
 	assert_eq(knowledge.tracks.size(), 2)
 
 func test_same_scan_observations_cannot_collapse_into_one_track() -> void:

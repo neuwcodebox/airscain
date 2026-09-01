@@ -6,13 +6,17 @@ const STEP := 0.1
 
 var main: AirscainMain
 var placement_candidates: Array[Vector3] = []
+var sensor_candidates: Array[Vector3] = []
 var next_candidate: int = 0
-var radar_placed: bool = false
-var command_post_placed: bool = false
-var tracking_radar_placed: bool = false
+var radar_count: int = 0
+var command_post_count: int = 0
+var tracking_radar_count: int = 0
 var support_facility_count: int = 0
 var laser_count: int = 0
+var hpm_count: int = 0
 var next_layer_index: int = 0
+var spawned_by_type: Dictionary[String, int] = {}
+var leaked_by_type: Dictionary[String, int] = {}
 
 func _init() -> void:
 	call_deferred("run")
@@ -22,6 +26,7 @@ func run() -> void:
 	root.add_child(main)
 	await process_frame
 	main.set_process(false)
+	main.director.threat_spawned.connect(_track_spawned_threat)
 	_build_candidates()
 	_buy_available_defenses()
 	if main.session.defense_count < 1 or not main.session.start_defense():
@@ -34,7 +39,7 @@ func run() -> void:
 		main._process(STEP)
 		if main.session.phase == GameSession.Phase.GAME_OVER:
 			var ammunition := _ammunition_totals()
-			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d ammo=%d+%d depleted=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size(), ammunition.rounds, ammunition.reserve, ammunition.depleted])
+			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d ammo=%d+%d depleted=%d deployed=%s spawned=%s leaked=%s" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size(), ammunition.rounds, ammunition.reserve, ammunition.depleted, _deployed_by_type(), spawned_by_type, leaked_by_type])
 			return
 		if index % 10 == 0:
 			await process_frame
@@ -53,27 +58,41 @@ func _build_candidates() -> void:
 			position.y = main.battlefield.terrain_height(position.x, position.z)
 			if main.battlefield.placement_result(position, definition.placement_profile).valid:
 				placement_candidates.append(position)
+	var radar_definition := main.scenario.available_defenses[1]
+	for angle: float in [0.0, PI, PI * 0.5, PI * 1.5, PI * 0.25, PI * 1.25, PI * 0.75, PI * 1.75]:
+		for radius: float in [680.0, 620.0, 560.0]:
+			var position := Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
+			position.y = main.battlefield.terrain_height(position.x, position.z)
+			if main.battlefield.placement_result(position, radar_definition.placement_profile).valid:
+				sensor_candidates.append(position)
+				break
 
 func _buy_available_defenses() -> void:
-	if not radar_placed:
+	var required_sensor_count := 2 if main.session.defense_count >= 18 else 1
+	if radar_count < required_sensor_count:
 		var radar_definition := main.scenario.available_defenses[1]
-		for position: Vector3 in placement_candidates:
+		var radar_positions: Array[Vector3] = placement_candidates if radar_count == 0 else sensor_candidates
+		for position: Vector3 in radar_positions:
 			if main.session.budget < radar_definition.price:
 				break
 			var radar_result: Dictionary = main.session.request_placement(radar_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 			if radar_result.success:
-				radar_placed = true
+				radar_count += 1
 				break
-	if not command_post_placed:
+	if command_post_count < 1:
 		var command_definition := main.scenario.available_defenses[2]
 		for position: Vector3 in placement_candidates:
 			if main.session.budget < command_definition.price:
 				break
 			var command_result: Dictionary = main.session.request_placement(command_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 			if command_result.success:
-				command_post_placed = true
+				command_post_count += 1
 				break
-	var required_support_count := 2 if main.session.defense_count >= 12 else 1
+	var required_support_count := 1
+	if main.session.defense_count >= 24:
+		required_support_count = 3
+	elif main.session.defense_count >= 12:
+		required_support_count = 2
 	if support_facility_count < required_support_count and main.session.defense_count >= 4:
 		var support_definition := main.scenario.available_defenses[5]
 		if main.session.budget < support_definition.price:
@@ -84,7 +103,8 @@ func _buy_available_defenses() -> void:
 			if support_result.success:
 				support_facility_count += 1
 				break
-	if not tracking_radar_placed and support_facility_count > 0:
+	var required_tracking_count := 2 if support_facility_count >= 2 else 1
+	if tracking_radar_count < required_tracking_count and support_facility_count > 0:
 		var tracking_definition := main.scenario.available_defenses[3]
 		if main.session.budget < tracking_definition.price:
 			_request_low_ammunition_resupply()
@@ -92,12 +112,14 @@ func _buy_available_defenses() -> void:
 		for position: Vector3 in placement_candidates:
 			var tracking_result: Dictionary = main.session.request_placement(tracking_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 			if tracking_result.success:
-				tracking_radar_placed = true
+				tracking_radar_count += 1
 				break
 	while next_candidate < placement_candidates.size():
 		var layer_indices: Array[int] = [0, 4, 0, 6]
+		if main.session.defense_count >= 16:
+			layer_indices = [4, 7, 10, 4, 9, 8]
 		var definition_index := layer_indices[next_layer_index]
-		if definition_index == 6 and laser_count >= support_facility_count:
+		if (definition_index == 6 or definition_index == 9) and laser_count + hpm_count >= support_facility_count:
 			next_layer_index = (next_layer_index + 1) % layer_indices.size()
 			continue
 		var definition: DefenseDefinition = main.scenario.available_defenses[definition_index]
@@ -109,6 +131,8 @@ func _buy_available_defenses() -> void:
 		if result.success:
 			if definition_index == 6:
 				laser_count += 1
+			elif definition_index == 9:
+				hpm_count += 1
 			next_layer_index = (next_layer_index + 1) % layer_indices.size()
 	_request_low_ammunition_resupply()
 
@@ -122,6 +146,21 @@ func _request_low_ammunition_resupply() -> void:
 func _fail(message: String) -> void:
 	push_error("LONG_RUN_FAILED: %s" % message)
 	quit(1)
+
+func _track_spawned_threat(threat: ThreatUnit) -> void:
+	var threat_id := String(threat.definition.id)
+	spawned_by_type[threat_id] = spawned_by_type.get(threat_id, 0) + 1
+	threat.resolved.connect(func(_unit: ThreatUnit, neutralized: bool, _reward: int) -> void:
+		if not neutralized:
+			leaked_by_type[threat_id] = leaked_by_type.get(threat_id, 0) + 1
+	)
+
+func _deployed_by_type() -> Dictionary[String, int]:
+	var result: Dictionary[String, int] = {}
+	for defense: DefenseUnit in main.defenses:
+		var defense_id := String(defense.definition.id)
+		result[defense_id] = result.get(defense_id, 0) + 1
+	return result
 
 func _ammunition_totals() -> Dictionary:
 	var rounds := 0

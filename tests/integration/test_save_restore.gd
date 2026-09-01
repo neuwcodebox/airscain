@@ -76,6 +76,15 @@ func test_invalid_content_id_does_not_mutate_live_session() -> void:
 	assert_eq(main.session.budget, original_budget)
 	assert_eq(main.registry.count(), 4)
 
+func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
+	var entry := main.scenario.threat_entries[9]
+	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	threat.gameplay_tick(0.1)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	document.payload.world.contacts.back().content_state.movement.ballistic_duration = 0.0
+	assert_ne(main.restore_from_document(document), "")
+	assert_same(_find_contact(threat.runtime_id), threat)
+
 func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -> void:
 	var battery := _place_defense(main.scenario.available_defenses[0]) as MissileBattery
 	var radar := _place_defense(main.scenario.available_defenses[1]) as SearchRadar

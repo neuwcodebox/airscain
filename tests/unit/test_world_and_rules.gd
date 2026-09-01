@@ -154,6 +154,17 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_eq(anti_radiation.mission.target_role, ThreatMissionDefinition.TargetRole.SENSOR)
 	assert_eq(SCENARIO.raid_archetypes[1].id, &"deception_sead_strike")
 	assert_eq(SCENARIO.raid_archetypes[1].total_cost(), 9.0)
+	var ballistic := SCENARIO.threat_entries[9].threat_definition as AttackUavDefinition
+	var rockets := SCENARIO.threat_entries[10]
+	var aircraft := SCENARIO.threat_entries[11].threat_definition as AttackUavDefinition
+	assert_eq(ballistic.movement.mode, ThreatMovementDefinition.Mode.BALLISTIC_ARC)
+	assert_gt(ballistic.movement.ballistic_apex, 300.0)
+	assert_lte(ballistic.movement.maximum_speed_multiplier, 1.2)
+	assert_eq(rockets.group_size, 4)
+	assert_lte((rockets.threat_definition as AttackUavDefinition).movement.maximum_speed_multiplier, 1.2)
+	assert_eq(aircraft.mission.type, ThreatMissionDefinition.Type.STRIKE_AND_EXIT)
+	assert_gt(aircraft.movement.speed, attack.movement.speed * 3.0)
+	assert_eq(SCENARIO.raid_archetypes[2].id, &"mixed_ballistic_air_strike")
 	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
 	assert_ne(swarm.movement, attack.movement)
 	var cruise := SCENARIO.threat_entries[5].threat_definition as AttackUavDefinition

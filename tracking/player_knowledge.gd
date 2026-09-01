@@ -7,6 +7,7 @@ signal track_state_changed(track: PlayerTrack, previous_state: PlayerTrack.State
 signal track_removed(track_id: int)
 
 @export var association_gate: float = 90.0
+@export var maximum_association_speed: float = 260.0
 @export var confirmation_threshold: float = 0.6
 @export var coast_after: float = 0.6
 @export var lost_after: float = 2.0
@@ -61,19 +62,27 @@ func get_active_tracks() -> Array[PlayerTrack]:
 
 func _associate(observation: SensorObservation) -> PlayerTrack:
 	var selected: PlayerTrack
-	var nearest_distance := association_gate
+	var nearest_distance := INF
 	for track: PlayerTrack in tracks:
 		if track.state == PlayerTrack.State.LOST:
+			continue
+		if not _classifications_compatible(track.classification, observation.classification_hint):
 			continue
 		if track.sensor_observed_at.has(observation.sensor_id) and is_equal_approx(track.sensor_observed_at[observation.sensor_id], observation.timestamp):
 			continue
 		var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
 		var predicted_position := track.estimated_position + track.estimated_velocity * elapsed
 		var distance := predicted_position.distance_to(observation.measured_position)
-		if distance < nearest_distance:
+		var dynamic_gate := association_gate + maximum_association_speed * elapsed
+		if distance < dynamic_gate and distance < nearest_distance:
 			nearest_distance = distance
 			selected = track
 	return selected
+
+func _classifications_compatible(track_class: StringName, observation_class: StringName) -> bool:
+	if track_class == &"unknown" or observation_class.is_empty() or track_class == &"air_contact" or observation_class == &"air_contact":
+		return true
+	return track_class == observation_class
 
 func capture_state() -> Dictionary:
 	var track_states: Array[Dictionary] = []

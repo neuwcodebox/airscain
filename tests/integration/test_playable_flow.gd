@@ -28,7 +28,7 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
-	assert_eq(main.scenario.threat_entries.size(), 9)
+	assert_eq(main.scenario.threat_entries.size(), 12)
 	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
 	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
 	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
@@ -36,6 +36,9 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.threat_entries[6].threat_definition.id, &"decoy_uav")
 	assert_eq(main.scenario.threat_entries[7].threat_definition.id, &"electronic_warfare_uav")
 	assert_eq(main.scenario.threat_entries[8].threat_definition.id, &"anti_radiation_missile")
+	assert_eq(main.scenario.threat_entries[9].threat_definition.id, &"ballistic_missile")
+	assert_eq(main.scenario.threat_entries[10].threat_definition.id, &"rocket")
+	assert_eq(main.scenario.threat_entries[11].threat_definition.id, &"strike_aircraft")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
@@ -278,6 +281,26 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_gt(agl, 5.0)
 	assert_lt(agl, 45.0)
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
+
+func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
+	var definition := main.scenario.threat_entries[9].threat_definition as AttackUavDefinition
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	threat.global_position = Vector3(900.0, 20.0, 0.0)
+	threat.setup(720, definition)
+	threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0, null, threat.global_position)
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	var starting_integrity := main.objective.current_integrity
+	for step: int in 28:
+		threat.gameplay_tick(0.1)
+	assert_gt(threat.global_position.y, 300.0)
+	for step: int in 40:
+		if threat.resolved_state:
+			break
+		threat.gameplay_tick(0.1)
+	assert_true(threat.resolved_state)
+	assert_eq(main.objective.current_integrity, starting_integrity - roundi(definition.mission.damage))
 
 func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> void:
 	main.registry.clear()

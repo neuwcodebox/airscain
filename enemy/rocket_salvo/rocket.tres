@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/cruise_missile/cruise_missile.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[sub_resource type="Resource" id="Movement"]
+script = ExtResource("3")
+mode = 2
+speed = 155.0
+maximum_speed_multiplier = 1.2
+cruise_altitude = 20.0
+terminal_distance = 60.0
+maximum_turn_rate_degrees = 12.0
+maximum_climb_rate = 220.0
+ballistic_apex = 190.0
+
+[sub_resource type="Resource" id="Mission"]
+script = ExtResource("4")
+type = 0
+target_role = 0
+damage = 3.5
+action_distance = 12.0
+
+[resource]
+script = ExtResource("1")
+id = &"rocket"
+display_name = "로켓탄"
+scene = ExtResource("2")
+neutralization_reward = 6
+signature_class = &"rocket"
+radar_signature = 0.68
+affiliation = 3
+electronic_vulnerability = 0.15
+maximum_health = 24.0
+movement = SubResource("Movement")
+mission = SubResource("Mission")
+visual_color = Color(0.4, 0.38, 0.32, 1)

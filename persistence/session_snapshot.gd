@@ -109,6 +109,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if countermeasure_charges < 0 or countermeasure_charges > contact_definitions[definition_id].countermeasure_charges:
 			return "위협 대응책 상태가 올바르지 않습니다"
 		if contact_definitions[definition_id] is AttackUavDefinition:
+			var attack_definition := contact_definitions[definition_id] as AttackUavDefinition
 			var content_state: Dictionary = state.get("content_state", {})
 			var movement_state: Dictionary = content_state.get("movement", {})
 			var mission_state: Dictionary = content_state.get("mission", {})
@@ -116,6 +117,10 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			var mission_phase := int(mission_state.get("phase", -1))
 			if not _valid_vector_data(content_state.get("target_point")) or not _valid_vector_data(movement_state.get("velocity")) or not _valid_vector_data(mission_state.get("fixed_target")) or not _valid_vector_data(mission_state.get("exit_point")) or float(content_state.get("speed_multiplier", 0.0)) <= 0.0:
 				return "위협 이동 또는 임무 상태가 올바르지 않습니다"
+			if attack_definition.movement.mode == ThreatMovementDefinition.Mode.BALLISTIC_ARC:
+				var ballistic_progress := float(movement_state.get("ballistic_progress", -1.0))
+				if not _valid_vector_data(movement_state.get("ballistic_origin")) or not _valid_vector_data(movement_state.get("ballistic_target")) or ballistic_progress < 0.0 or ballistic_progress > 1.0 or float(movement_state.get("ballistic_duration", 0.0)) <= 0.0 or not movement_state.get("ballistic_initialized", null) is bool:
+					return "탄도 위협 비행 상태가 올바르지 않습니다"
 			if (mission_target_id != 0 and not defense_ids.has(mission_target_id)) or mission_phase < ThreatMissionRuntime.Phase.INBOUND or mission_phase > ThreatMissionRuntime.Phase.EGRESS or float(mission_state.get("action_elapsed", -1.0)) < 0.0:
 				return "위협 임무 대상 또는 진행 상태가 올바르지 않습니다"
 	var knowledge_state: Dictionary = payload.player_knowledge

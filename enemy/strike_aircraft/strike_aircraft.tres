@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/strike_aircraft/strike_aircraft.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[sub_resource type="Resource" id="Movement"]
+script = ExtResource("3")
+mode = 0
+speed = 96.0
+maximum_speed_multiplier = 1.25
+cruise_altitude = 160.0
+terminal_distance = 220.0
+maximum_turn_rate_degrees = 48.0
+maximum_climb_rate = 42.0
+
+[sub_resource type="Resource" id="Mission"]
+script = ExtResource("4")
+type = 2
+target_role = 0
+damage = 18.0
+action_distance = 110.0
+
+[resource]
+script = ExtResource("1")
+id = &"strike_aircraft"
+display_name = "고속 타격기"
+scene = ExtResource("2")
+neutralization_reward = 55
+signature_class = &"aircraft"
+radar_signature = 0.92
+affiliation = 3
+flare_effectiveness = 0.8
+chaff_effectiveness = 0.65
+countermeasure_charges = 4
+maximum_health = 180.0
+movement = SubResource("Movement")
+mission = SubResource("Mission")
+visual_color = Color(0.32, 0.34, 0.38, 1)

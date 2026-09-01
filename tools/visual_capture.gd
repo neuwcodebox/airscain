@@ -39,6 +39,9 @@ func run() -> void:
 	for entry_index: int in range(2, 6):
 		var mission_threat := main.director._spawn_entry(main.scenario.threat_entries[entry_index], TAU * float(entry_index) / 5.0, 0.0)
 		mission_threat.global_position = Vector3(-320.0 + float(entry_index) * 110.0, 90.0 if entry_index < 5 else 28.0, 260.0)
+	for entry_index: int in range(9, 12):
+		var advanced_threat := main.director._spawn_entry(main.scenario.threat_entries[entry_index], PI + float(entry_index - 9) * 0.16, 0.0)
+		advanced_threat.global_position = Vector3(-520.0, 35.0 + float(entry_index - 9) * 55.0, -150.0 + float(entry_index - 9) * 150.0)
 	_spawn_swarm_near_close_in_gun()
 	for index: int in 30:
 		await process_frame
@@ -65,7 +68,7 @@ func run() -> void:
 	quit(0)
 
 func _place_initial_assets() -> void:
-	main.session.budget += 430
+	main.session.budget += 900
 	_place_asset(main.scenario.available_defenses[0], -1.0)
 	_place_asset(main.scenario.available_defenses[1], 1.0)
 	_place_asset(main.scenario.available_defenses[2], 1.0)
@@ -73,6 +76,10 @@ func _place_initial_assets() -> void:
 	_place_asset(main.scenario.available_defenses[4], 1.0)
 	_place_asset(main.scenario.available_defenses[5], -1.0)
 	_place_asset(main.scenario.available_defenses[6], 1.0)
+	_place_asset(main.scenario.available_defenses[7], -1.0)
+	_place_asset(main.scenario.available_defenses[8], 1.0)
+	_place_asset(main.scenario.available_defenses[9], -1.0)
+	_place_asset(main.scenario.available_defenses[10], 1.0)
 
 func _spawn_swarm_near_close_in_gun() -> void:
 	var gun: CloseInGun
