@@ -113,6 +113,19 @@ func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void
 	assert_eq(gun.engagement_limit(larger_track), 1)
 	assert_lt(battery.weapon_match(small_track), battery.weapon_match(larger_track))
 
+func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> void:
+	var medium := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	var long_range := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var short_range := SCENARIO.available_defenses[8] as MissileBatteryDefinition
+	assert_gt(long_range.attack_range, medium.attack_range)
+	assert_gt(medium.attack_range, short_range.attack_range)
+	assert_gt(long_range.price, medium.price)
+	assert_lt(short_range.price, medium.price)
+	assert_lt(long_range.magazine_capacity, medium.magazine_capacity)
+	assert_gt(short_range.magazine_capacity, medium.magazine_capacity)
+	assert_gt(long_range.engagement_channels, medium.engagement_channels)
+	assert_gt(short_range.small_target_match, medium.small_target_match)
+
 func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	var attack := SCENARIO.threat_entries[0].threat_definition as AttackUavDefinition
 	var swarm := SCENARIO.threat_entries[1].threat_definition as AttackUavDefinition

@@ -43,10 +43,17 @@ func gameplay_tick(delta: float) -> void:
 	var flat_target := Vector3(track.estimated_position.x, turret.global_position.y, track.estimated_position.z)
 	if turret.global_position.distance_squared_to(flat_target) > 0.01:
 		turret.look_at(flat_target, Vector3.UP)
-	if cooldown <= 0.0 and magazine.can_fire() and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.interceptor_lifetime):
+	if cooldown <= 0.0 and _active_interceptor_count() < _definition.engagement_channels and magazine.can_fire() and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.interceptor_lifetime):
 		magazine.consume()
 		_launch(track)
 		cooldown = _definition.fire_interval
+
+func _active_interceptor_count() -> int:
+	var result := 0
+	for interceptor: HomingInterceptor in interceptors:
+		if is_instance_valid(interceptor) and not interceptor.is_queued_for_deletion():
+			result += 1
+	return result
 
 func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> PlayerTrack:
 	var selected: PlayerTrack

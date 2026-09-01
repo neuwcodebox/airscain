@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=4 format=3]
+
+[ext_resource path="res://defense/missile_battery/missile_battery_definition.gd" type="Script" id="1"]
+[ext_resource path="res://defense/missile_battery/missile_battery.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
+
+[sub_resource type="Resource" id="PlacementProfile"]
+script = ExtResource("3")
+footprint_radius = 13.0
+maximum_slope_degrees = 10.0
+boundary_margin = 18.0
+
+[resource]
+script = ExtResource("1")
+id = &"long_range_missile"
+display_name = "장거리 미사일 포대"
+scene = ExtResource("2")
+price = 340
+placement_profile = SubResource("PlacementProfile")
+preview_range = 520.0
+attack_range = 520.0
+fire_interval = 3.0
+interceptor_speed = 285.0
+interceptor_turn_rate_degrees = 190.0
+interceptor_lifetime = 7.0
+interceptor_damage = 145.0
+proximity_radius = 18.0
+infrared_sensitivity = 0.35
+radar_sensitivity = 0.8
+engagement_channels = 4
+c2_range = 800.0
+small_target_match = 0.08
+magazine_capacity = 8
+reserve_ammunition = 8
+reload_duration = 8.0
+resupply_cost = 16
+resupply_work = 14.0
+mobile = false
