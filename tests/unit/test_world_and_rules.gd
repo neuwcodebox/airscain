@@ -35,7 +35,7 @@ func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
 	assert_lt(generator.height_at(0.0, -submerged_edge), generator.sea_level)
 
 func test_objective_damage_and_depletion_are_bounded() -> void:
-	var objective: ProtectedObjective = autofree(ProtectedObjective.new()) as ProtectedObjective
+	var objective: ProtectedObjective = add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
 	var definition := ObjectiveDefinition.new()
 	definition.maximum_integrity = 100
 	objective.setup(1, definition)
@@ -106,6 +106,36 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_gt(swarm.movement.speed, attack.movement.speed)
 	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
 	assert_ne(swarm.movement, attack.movement)
+
+func test_recon_and_strike_missions_act_then_egress() -> void:
+	var objective: ProtectedObjective = autofree(ProtectedObjective.new()) as ProtectedObjective
+	var objective_definition := load("res://world/objective/city/city_objective.tres") as ObjectiveDefinition
+	objective.setup(1, objective_definition)
+	var support: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
+	support.setup(2, SCENARIO.available_defenses[5])
+	support.global_position = Vector3(10.0, 0.0, 0.0)
+	var strike_profile := ThreatMissionDefinition.new()
+	strike_profile.type = ThreatMissionDefinition.Type.STRIKE_AND_EXIT
+	strike_profile.target_role = ThreatMissionDefinition.TargetRole.SUPPORT
+	strike_profile.damage = 25.0
+	strike_profile.action_distance = 6.0
+	var strike := ThreatMissionRuntime.new()
+	strike.setup(strike_profile, objective, support.global_position, support, Vector3(100.0, 0.0, 0.0))
+	assert_false(strike.gameplay_tick(support.global_position + Vector3.UP * 2.0, 0.1))
+	assert_eq(support.integrity, 75.0)
+	assert_eq(strike.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_true(strike.gameplay_tick(Vector3(100.0, 2.0, 0.0), 0.1))
+	var recon_profile := ThreatMissionDefinition.new()
+	recon_profile.type = ThreatMissionDefinition.Type.RECONNAISSANCE
+	recon_profile.damage = 0.0
+	recon_profile.action_distance = 6.0
+	recon_profile.action_duration = 1.0
+	var recon := ThreatMissionRuntime.new()
+	recon.setup(recon_profile, objective, Vector3.ZERO, null, Vector3(100.0, 0.0, 0.0))
+	assert_false(recon.gameplay_tick(Vector3.UP * 2.0, 0.6))
+	assert_false(recon.gameplay_tick(Vector3.UP * 2.0, 0.5))
+	assert_eq(recon.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_eq(objective.current_integrity, objective.definition.maximum_integrity)
 
 func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
 	var session := autofree(GameSession.new()) as GameSession

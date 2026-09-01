@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/attack_uav/attack_uav.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[sub_resource type="Resource" id="Movement"]
+script = ExtResource("3")
+mode = 0
+speed = 38.0
+cruise_altitude = 105.0
+terminal_distance = 150.0
+maximum_turn_rate_degrees = 75.0
+maximum_climb_rate = 30.0
+
+[sub_resource type="Resource" id="Mission"]
+script = ExtResource("4")
+type = 1
+target_role = 1
+damage = 0.0
+action_distance = 85.0
+action_duration = 5.0
+
+[resource]
+script = ExtResource("1")
+id = &"recon_uav"
+display_name = "정찰 UAV"
+scene = ExtResource("2")
+neutralization_reward = 15
+signature_class = &"recon_uav"
+radar_signature = 0.58
+affiliation = 3
+maximum_health = 60.0
+movement = SubResource("Movement")
+mission = SubResource("Mission")
+visual_color = Color(0.72, 0.58, 0.12, 1)

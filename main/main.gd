@@ -57,7 +57,7 @@ func _ready() -> void:
 	c2_network.call("reset")
 	track_display.call("configure", player_knowledge)
 	c2_overlay.call("configure", c2_network)
-	director.configure(scenario, battlefield, objective, registry, threat_parent)
+	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses)
 	_connect_flow()
@@ -275,13 +275,16 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
 		_on_defense_placed(unit)
 	var contact_definitions := SessionSnapshot.contact_definition_map(scenario)
+	var defense_by_id: Dictionary[int, DefenseUnit] = {}
+	for defense: DefenseUnit in defenses:
+		defense_by_id[defense.runtime_id] = defense
 	for state: Dictionary in world_state.contacts:
 		var definition: ThreatDefinition = contact_definitions[StringName(String(state.definition_id))]
 		var contact := definition.scene.instantiate() as ThreatUnit
 		threat_parent.add_child(contact)
 		contact.global_position = SaveDocument.vector3_from_data(state.position)
 		contact.setup(int(state.runtime_id), definition)
-		contact.restore_state(state, objective, battlefield)
+		contact.restore_state(state, objective, battlefield, defense_by_id)
 		registry.add(contact)
 		_on_threat_spawned(contact)
 	player_knowledge.call("restore_state", payload.player_knowledge)

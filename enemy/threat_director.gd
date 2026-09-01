@@ -9,6 +9,7 @@ var battlefield: Battlefield
 var objective: ProtectedObjective
 var registry: ThreatRegistry
 var threat_parent: Node3D
+var defense_parent: Node3D
 var rng := RandomNumberGenerator.new()
 var elapsed: float = 0.0
 var until_spawn: float = 0.0
@@ -16,12 +17,13 @@ var pressure_level: int = 1
 var next_runtime_id: int = 1
 var enabled: bool = false
 
-func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D) -> void:
+func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D) -> void:
 	scenario = scenario_value
 	battlefield = battlefield_value
 	objective = objective_value
 	registry = registry_value
 	threat_parent = threat_parent_value
+	defense_parent = defense_parent_value
 	rng.seed = scenario.world_seed ^ 0x6E624EB7
 	reset()
 
@@ -51,8 +53,10 @@ func gameplay_tick(delta: float) -> void:
 		if entry == null:
 			continue
 		var group_angle := rng.randf_range(0.0, TAU)
-		var group_target := objective.get_target_point(rng)
-		group_target.y = battlefield.terrain_height(group_target.x, group_target.z)
+		var group_target: Variant = null
+		if entry.threat_definition is AttackUavDefinition and (entry.threat_definition as AttackUavDefinition).mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
+			group_target = objective.get_target_point(rng)
+			group_target.y = battlefield.terrain_height(group_target.x, group_target.z)
 		for group_index: int in entry.group_size:
 			if registry.hostile_count() >= scenario.active_threat_cap:
 				return
@@ -88,14 +92,36 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	threat.setup(next_runtime_id, entry.threat_definition)
 	next_runtime_id += 1
 	var target := objective.get_target_point(rng)
+	var target_asset: DefenseUnit
+	if entry.threat_definition is AttackUavDefinition:
+		target_asset = choose_target_for((entry.threat_definition as AttackUavDefinition).mission)
 	if target_override is Vector3:
 		target = target_override
+		target_asset = null
+	elif target_asset != null:
+		target = target_asset.global_position
 	else:
 		target.y = battlefield.terrain_height(target.x, target.z)
-	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed))
+	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed), target_asset, spawn_position)
 	registry.add(threat)
 	threat_spawned.emit(threat)
 	return threat
+
+func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
+	if mission == null or mission.target_role == ThreatMissionDefinition.TargetRole.CITY or defense_parent == null:
+		return null
+	var candidates: Array[DefenseUnit] = []
+	for child: Node in defense_parent.get_children():
+		var unit := child as DefenseUnit
+		if unit == null or unit.integrity <= 0.0:
+			continue
+		if mission.target_role == ThreatMissionDefinition.TargetRole.SENSOR and (unit.c2_roles() & DefenseUnit.C2Role.SENSOR) != 0:
+			candidates.append(unit)
+		elif mission.target_role == ThreatMissionDefinition.TargetRole.COMMAND and (unit.c2_roles() & DefenseUnit.C2Role.COMMAND) != 0:
+			candidates.append(unit)
+		elif mission.target_role == ThreatMissionDefinition.TargetRole.SUPPORT and unit is SupportFacility:
+			candidates.append(unit)
+	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
 
 func _choose_entry() -> ThreatSpawnEntry:
 	var available: Array[ThreatSpawnEntry] = []

@@ -28,6 +28,10 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
+	assert_eq(main.scenario.threat_entries.size(), 5)
+	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
+	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
+	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
@@ -150,6 +154,37 @@ func test_swarm_entry_spawns_a_close_formation_package() -> void:
 			has_target = true
 		else:
 			assert_eq(attack_uav.target_point, shared_target)
+
+func test_mission_roles_choose_matching_deployed_assets() -> void:
+	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var command_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[2], _find_valid_position_for(main.scenario.available_defenses[2].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(radar_result.success)
+	assert_true(command_result.success)
+	assert_true(support_result.success)
+	var recon := main.scenario.threat_entries[2].threat_definition as AttackUavDefinition
+	var support_strike := main.scenario.threat_entries[3].threat_definition as AttackUavDefinition
+	var command_strike := main.scenario.threat_entries[4].threat_definition as AttackUavDefinition
+	assert_same(main.director.choose_target_for(recon.mission), radar_result.unit)
+	assert_same(main.director.choose_target_for(support_strike.mission), support_result.unit)
+	assert_same(main.director.choose_target_for(command_strike.mission), command_result.unit)
+
+func test_facility_strike_releases_weapon_then_egresses() -> void:
+	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(support_result.success)
+	var support := support_result.unit as SupportFacility
+	main.scenario.threat_entries = [main.scenario.threat_entries[3]]
+	main.director.pressure_level = 3
+	var threat := main.director.spawn_one() as AttackUav
+	assert_not_null(threat)
+	assert_same(threat.mission_runtime.target_asset, support)
+	threat.global_position = support.global_position + Vector3(20.0, 2.0, 0.0)
+	threat.gameplay_tick(0.1)
+	assert_eq(support.integrity, 65.0)
+	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_false(threat.resolved_state)
+	threat.gameplay_tick(0.1)
+	assert_eq(support.integrity, 65.0, "투발 피해는 한 번만 적용됩니다")
 
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()

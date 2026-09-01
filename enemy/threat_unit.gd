@@ -13,7 +13,7 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	runtime_id = id_value
 	definition = definition_value
 
-func configure_mission(_objective: ProtectedObjective, _battlefield: Battlefield, _target_point: Vector3, _pressure_multiplier: float) -> void:
+func configure_mission(_objective: ProtectedObjective, _battlefield: Battlefield, _target_point: Vector3, _pressure_multiplier: float, _target_asset: DefenseUnit = null, _exit_point: Vector3 = Vector3.ZERO) -> void:
 	pass
 
 func configure_patrol(_battlefield: Battlefield, _initial_velocity: Vector3) -> void:
@@ -68,11 +68,11 @@ func capture_state() -> Dictionary:
 func capture_content_state() -> Dictionary:
 	return {}
 
-func restore_state(state: Dictionary, objective_value: ProtectedObjective, battlefield_value: Battlefield) -> void:
+func restore_state(state: Dictionary, objective_value: ProtectedObjective, battlefield_value: Battlefield, defense_by_id: Dictionary[int, DefenseUnit] = {}) -> void:
 	health = float(state.health)
 	active = bool(state.active)
 	resolved_state = bool(state.resolved_state)
-	restore_content_state(state.get("content_state", {}), objective_value, battlefield_value)
+	restore_content_state(state.get("content_state", {}), objective_value, battlefield_value, defense_by_id)
 
-func restore_content_state(_state: Dictionary, _objective: ProtectedObjective, _battlefield: Battlefield) -> void:
+func restore_content_state(_state: Dictionary, _objective: ProtectedObjective, _battlefield: Battlefield, _defense_by_id: Dictionary[int, DefenseUnit] = {}) -> void:
 	pass

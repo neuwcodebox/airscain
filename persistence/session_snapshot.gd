@@ -93,8 +93,13 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if contact_definitions[definition_id] is AttackUavDefinition:
 			var content_state: Dictionary = state.get("content_state", {})
 			var movement_state: Dictionary = content_state.get("movement", {})
-			if not _valid_vector_data(content_state.get("target_point")) or not _valid_vector_data(movement_state.get("velocity")) or float(content_state.get("speed_multiplier", 0.0)) <= 0.0:
+			var mission_state: Dictionary = content_state.get("mission", {})
+			var mission_target_id := int(mission_state.get("target_defense_id", 0))
+			var mission_phase := int(mission_state.get("phase", -1))
+			if not _valid_vector_data(content_state.get("target_point")) or not _valid_vector_data(movement_state.get("velocity")) or not _valid_vector_data(mission_state.get("fixed_target")) or not _valid_vector_data(mission_state.get("exit_point")) or float(content_state.get("speed_multiplier", 0.0)) <= 0.0:
 				return "위협 이동 또는 임무 상태가 올바르지 않습니다"
+			if (mission_target_id != 0 and not defense_ids.has(mission_target_id)) or mission_phase < ThreatMissionRuntime.Phase.INBOUND or mission_phase > ThreatMissionRuntime.Phase.EGRESS or float(mission_state.get("action_elapsed", -1.0)) < 0.0:
+				return "위협 임무 대상 또는 진행 상태가 올바르지 않습니다"
 	var knowledge_state: Dictionary = payload.player_knowledge
 	if float(knowledge_state.get("simulation_time", -1.0)) < 0.0 or int(knowledge_state.get("next_track_id", 0)) <= 0 or not knowledge_state.get("tracks", null) is Array:
 		return "플레이어 지식 상태가 올바르지 않습니다"

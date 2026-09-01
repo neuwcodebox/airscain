@@ -201,6 +201,27 @@ func test_mobile_asset_relocation_finishes_after_save_restore() -> void:
 	assert_eq(main.battlefield.occupied_positions.size(), 1)
 	assert_eq(main.relocation_manager.task_status(restored), "")
 
+func test_facility_target_and_egress_mission_restore_runtime_references() -> void:
+	var support := _place_defense(main.scenario.available_defenses[5]) as SupportFacility
+	var definition := main.scenario.threat_entries[3].threat_definition as AttackUavDefinition
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	threat.global_position = Vector3(900.0, 80.0, 0.0)
+	threat.setup(301, definition)
+	threat.configure_mission(main.objective, main.battlefield, support.global_position, 1.0, support, threat.global_position)
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	threat.mission_runtime.phase = ThreatMissionRuntime.Phase.EGRESS
+	threat.mission_runtime.effect_applied = true
+	var support_id := support.runtime_id
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored_threat := _find_contact(301) as AttackUav
+	var restored_support := _find_defense(support_id)
+	assert_same(restored_threat.mission_runtime.target_asset, restored_support)
+	assert_eq(restored_threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_true(restored_threat.mission_runtime.effect_applied)
+
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
 		if contact.runtime_id == runtime_id:

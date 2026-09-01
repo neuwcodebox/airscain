@@ -4,6 +4,7 @@ extends ThreatDefinition
 @export var maximum_health: float = 100.0
 @export var movement: ThreatMovementDefinition
 @export var mission: ThreatMissionDefinition
+@export var visual_color: Color = Color(0.72, 0.18, 0.12, 1.0)
 
 func validation_error() -> String:
 	var base_error := super.validation_error()
