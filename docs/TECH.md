@@ -2,13 +2,19 @@
 
 ## 1. 문서 목적
 
-이 문서는 `SPEC.md`를 구현하기 위한 **기술 설계**를 정의한다.
+이 문서는 `SPEC.md`의 최종 제품 목표를 구현하기 위한 **장기 기술 설계**를 정의한다.
 
-`SPEC.md`가 게임의 동작과 요구사항을 정의하고, 이 문서는 그 요구사항을 Godot 프로젝트에서 어떤 구조와 경계로 구현할지를 정의한다.
+다음이 이 문서의 범위다.
 
-게임 규칙과 밸런스 값은 이 문서에서 다시 정의하지 않는다. 구현은 `SPEC.md`의 용어인 **보호 목표**, **방어 수단**, **위협**, **전장**, **시나리오**를 기술적 역할로 옮겨 사용한다.
+- 시스템과 정보 계층의 경계
+- 주요 모듈과 상태 소유권
+- 장면·컴포넌트·콘텐츠 구성 원칙
+- 교체하기 어려운 핵심 계산 모델
+- 저장, 테스트와 성능 원칙
 
-AI 코딩 에이전트의 일반 작업 방식과 검증 습관은 `AGENTS.md`를 따른다.
+파일명, 함수명과 세부 구현 순서는 현재 작업에 가장 적합한 방식으로 결정한다. 이 문서에 등장하는 모듈과 컴포넌트는 논리적 역할이며, 모든 골격을 미리 만들라는 뜻이 아니다. 해당 기능을 구현하는 단계에서 필요한 만큼만 도입한다.
+
+일반적인 작업 방식과 저장소 운영 규칙은 `AGENTS.md`를 따른다.
 
 ---
 
@@ -16,611 +22,823 @@ AI 코딩 에이전트의 일반 작업 방식과 검증 습관은 `AGENTS.md`�
 
 | 영역 | 선택 |
 |---|---|
-| 엔진 | Godot 4.7.2 stable |
+| 엔진 | Godot 4.7.2 |
 | 언어 | typed GDScript |
 | 렌더러 | Mobile |
 | 주 실행 환경 | Windows 데스크톱 |
 | CLI | `PATH`에 있는 `godot` |
 | 장면 | 텍스트 `.tscn` |
-| 데이터 | custom `Resource` + 텍스트 `.tres` |
-| UI | Godot `Control` / `Container` / `Theme` |
-| 3D | `MeshInstance3D`, primitive mesh, 절차적 `ArrayMesh` |
-| VFX | `GPUParticles3D`, 기본 mesh와 material |
-| 테스트 | GUT 9.7.1 |
+| 콘텐츠 데이터 | custom `Resource`와 텍스트 `.tres` |
+| UI | Godot `Control`, `Container`, `Theme` |
+| 3D | Godot 3D node, primitive mesh, 절차적 mesh |
+| VFX | `GPUParticles3D`, mesh와 material 기반 효과 |
+| 테스트 | GUT 9.7.1과 실행 기반 통합 검증 |
 | 버전 관리 | Git |
 
-첫 버전에서는 C#, GDExtension, ECS 프레임워크, 외부 런타임 플러그인, 커스텀 셰이더, 멀티스레드 gameplay와 커스텀 에디터 플러그인을 사용하지 않는다.
+프로젝트 설정, 장면 연결, 입력 설정과 콘텐츠 값은 저장소에서 재현할 수 있어야 한다. 필수 설정을 Godot 에디터에서만 존재하는 수동 상태로 남기지 않는다.
 
-필요가 실제로 생기기 전에는 기술을 추가하지 않는다.
+C#, GDExtension, 별도 ECS, 멀티스레드 gameplay, 커스텀 렌더 파이프라인과 외부 런타임 플러그인은 실제 병목이나 명확한 요구가 확인된 뒤에만 도입한다.
 
----
-
-## 3. Source of Truth
-
-게임 실행에 필요한 영속 상태는 저장소의 텍스트 파일로 재현할 수 있어야 한다.
-
-주요 Source of Truth:
-
-```text
-GDScript
-.tscn
-.tres
-project.godot
-```
-
-원칙:
-
-- main scene, input action, renderer와 필요한 프로젝트 설정을 저장소에 둔다.
-- 필수 node, export 값과 signal 연결을 장면 또는 코드에 저장한다.
-- 실행에 필요한 설정을 Godot 에디터에서 수동으로 만들어야 하는 상태로 남기지 않는다.
-- `.uid` 파일은 관련 소스와 함께 버전 관리한다.
-- `.godot/`, export 결과와 엔진 실행 파일은 버전 관리하지 않는다.
-- 바이너리 `.scn`, `.res`는 사용하지 않는다.
-
-Godot 실행 파일은 환경변수 래퍼 없이 `godot` 명령으로 호출할 수 있다고 가정한다.
+엔진과 주요 addon 버전 변경은 별도의 명시적 작업으로 수행한다.
 
 ---
 
-## 4. 프로젝트 구조
+## 3. 아키텍처 원칙
 
-`AGENTS.md`에서 정한 top-level 구조를 유지하고 관련 scene, script와 resource를 기능별로 가까이 둔다.
+### 3.1 게임 규칙과 표현 분리
 
-```text
-main/
-    main.tscn
-    main.gd
-    game_session.gd
-    scenario_definition.gd
+게임 결과는 시뮬레이션 상태에서 먼저 결정한다. UI, 사운드, 파티클과 카메라 연출은 이미 확정된 상태와 사건을 표현한다.
 
-world/
-    battlefield.gd
-    world_generator.gd
-    terrain/
-    objective/
-        protected_objective.gd
-        city/
+시각효과가 피해, 보상, 탐지 또는 탄약 소모를 발생시키지 않는다.
 
-camera/
-    camera_rig.tscn
-    camera_rig.gd
+### 3.2 정보 경계 우선
 
-defense/
-    defense_unit.gd
-    defense_definition.gd
-    placement_profile.gd
-    missile_battery/
-        missile_battery.tscn
-        missile_battery.gd
-        missile_battery_definition.gd
-        homing_interceptor.tscn
-        homing_interceptor.gd
+다음 세 상태는 구조적으로 구분한다.
 
-enemy/
-    threat_unit.gd
-    threat_definition.gd
-    threat_registry.gd
-    threat_director.gd
-    threat_spawn_entry.gd
-    attack_uav/
-        attack_uav.tscn
-        attack_uav.gd
-        attack_uav_definition.gd
+- 실제 세계의 상태
+- 플레이어 방공망이 알고 있는 상태
+- 적이 플레이어 방공망에 대해 추정한 상태
 
-ui/
-    hud.tscn
-    hud.gd
-    placement_controller.gd
+이 경계는 센서, 기만, 지휘통제와 적응형 공격의 전제이므로 편의를 위해 합치지 않는다.
 
-effects/
-    explosion/
-    missile_trail/
+### 3.3 조합 우선
 
-tests/
-    unit/
-    integration/
+게임 객체는 Godot scene을 기본 단위로 하며 필요한 능력을 child node 또는 독립 script로 조합한다. 깊은 상속 계층과 하나의 범용 `Actor`·`Ability`·`Effect` 체계를 만들지 않는다.
 
-tools/
-```
+실제 두 번째 사용 사례에서 공통점이 확인될 때만 공통 컴포넌트로 추출한다.
 
-새 top-level 디렉터리는 위 구조로 자연스럽게 표현할 수 없을 때만 추가한다.
+### 3.4 데이터 중심 콘텐츠
 
-파일 수를 늘리는 것이 목적은 아니다. 한 script가 한 가지 명확한 책임을 유지할 수 있다면 더 쪼개지 않는다.
+가격, 사거리, 탐지 특성, 탄약, 이동 특성, 피해와 시나리오 구성처럼 조정 가능한 값은 typed `Resource`로 관리한다. 동작 조합은 scene이, 조정값은 resource가 담당한다.
+
+### 3.5 명확한 상태 소유권
+
+각 상태에는 하나의 소유자만 둔다. 다른 모듈은 명령을 요청하거나 변화를 통지받으며 같은 값을 직접 중복 수정하지 않는다.
+
+### 3.6 점진적 확장
+
+최종 설계를 이유로 사용하지 않는 manager, enum, hook과 빈 데이터 필드를 미리 만들지 않는다. 현재 구현을 실행 가능한 상태로 유지하면서 세로 단면 단위로 확장한다.
 
 ---
 
-## 5. 아키텍처 경계
-
-코어 흐름은 구체 콘텐츠가 아니라 세 역할을 기준으로 동작한다.
+## 4. 논리 계층
 
 ```text
-ProtectedObjective
-DefenseUnit
-ThreatUnit
+콘텐츠 정의
+    ↓
+세션·시나리오·경제
+    ↓
+실제 세계 시뮬레이션 ─────────────┐
+    ↓ 관측                         │ 사건·공개 상태
+플레이어 지식과 항적               │
+    ↓ 공유                         │
+지휘통제와 교전                    │
+    ↓ 명령                         │
+실제 세계 시뮬레이션 ◀─────────────┘
+
+적 관측 → 적 지식 → 공격 계획 → 실제 세계 시뮬레이션
+
+표현 계층은 각 계층의 공개 읽기 상태와 사건만 소비한다.
 ```
 
-첫 콘텐츠는 다음과 같이 대응한다.
+### 콘텐츠 정의
 
-```text
-ProtectedObjective → CityObjective
-DefenseUnit        → MissileBattery
-ThreatUnit         → AttackUav
-```
+장비, 위협, 센서, 무기, 시설, 시나리오와 밸런스 값을 제공한다. 런타임 상태를 콘텐츠 resource에 기록하지 않는다.
 
-`GameSession`, 배치 UI, 카탈로그, 위협 생성과 공통 HUD는 `CityObjective`, `MissileBattery`, `AttackUav` 같은 구체 타입을 조건문으로 분기하지 않는다.
+### 세션·시나리오·경제
 
-의존성은 다음 방향을 유지한다.
+한 판의 단계, 예산, 해금, 통계, 게임오버, 저장과 공격 강도를 소유한다.
 
-```text
-Main / Session / UI / Director
-             ↓
-      공통 역할과 Definition
-             ↑
-       구체 콘텐츠 scene
-```
+### 실제 세계 시뮬레이션
 
-구체 콘텐츠는 공통 흐름에 자신을 등록해 사용되며, 공통 흐름은 구체 콘텐츠 내부 행동을 알 필요가 없다.
+물리적 객체의 실제 위치, 운동, 소속, 임무, 피해, 탄약과 가동상태를 소유한다.
+
+### 플레이어 지식
+
+센서 관측, 항적, 추적 품질, 분류와 소속 판단을 소유한다. 실제 세계의 숨은 타입과 임무를 직접 참조하지 않는다.
+
+### 지휘통제와 교전
+
+각 방어체계가 접근 가능한 항적과 교전규칙을 이용해 표적과 무기를 선택한다.
+
+### 적 지식과 공격계획
+
+적이 관측한 제한된 정보와 과거 결과를 바탕으로 다음 공격 구성을 만든다. 실제 플레이어 자산 상태를 직접 읽지 않는다.
+
+### 표현
+
+3D 모델, VFX, 사운드, 항적 표식, 오버레이와 제품 UI를 담당한다. 게임 상태의 소유자가 아니다.
 
 ---
 
-## 6. 역할 구현
+## 5. 주요 모듈
 
-세 역할은 얕은 base script로 표현한다. base에는 공통 흐름에 실제로 필요한 상태와 API만 둔다.
+모듈 경계는 다음 책임을 기준으로 유지한다. 실제 디렉터리와 파일 수는 기능 규모에 맞춘다.
 
-### `ProtectedObjective`
+| 모듈 | 책임 |
+|---|---|
+| Session | 게임 단계, 시간, 예산, 통계, 게임오버와 저장 진입점 |
+| Scenario / Content | 사용할 전장, 자산, 위협과 밸런스 정의 |
+| World | 절차적 지형, 도시, 공간 질의와 객체 생명주기 |
+| Sensing | 센서 탐색, 시야 판정과 관측 생성 |
+| Tracking | 관측 결합, 항적 생명주기, 추적 품질과 분류 |
+| C2 | 항적 공유, 연결 상태와 장비별 정보 가용성 |
+| Defense | 방어체계, 교전 판단과 구체 무기 운용 |
+| Threat | 위협 이동, 임무, 대응책과 결과 처리 |
+| Raid Director | 공격 강도, 적 지식과 공격 패키지 생성 |
+| Support | 탄약, 전력, 재보급, 수리와 가동상태 |
+| Presentation | 3D 표현, VFX, 사운드, 카메라와 UI |
+| Persistence | 런타임 상태의 저장·복원과 버전 관리 |
 
-공통 책임:
-
-- runtime ID와 Definition 참조
-- 현재/최대 상태 관리
-- 피해 적용
-- 소진 여부 제공
-- 위협이 사용할 목표 위치 제공
-- 배치 제외 영역 판정
-- 상태 변화 signal 발행
-
-구체 목표는 자신의 표현과 목표 지점 선택 방식을 구현한다.
-
-### `DefenseUnit`
-
-공통 책임:
-
-- runtime ID와 Definition 참조
-- 전장에 배치된 위치 관리
-- 현재 활성 여부
-- gameplay tick/update 진입점
-
-표적 선택 방식, 사거리 판정과 공격 방식은 구체 방어 수단이 구현한다.
-
-### `ThreatUnit`
-
-공통 책임:
-
-- runtime ID와 Definition 참조
-- 활성/해결 상태
-- 현재 위치와 피격 위치
-- 피격 가능 여부
-- 긴급도 제공
-- 피해 수신
-- 결과를 한 번만 확정하는 resolution 경계
-
-이동, 임무 수행과 구체적인 결과 효과는 각 위협 구현이 소유한다.
-
-### 얕은 추상화 원칙
-
-첫 버전에는 다음 범용 계층을 만들지 않는다.
-
-- `ActorBase`
-- 범용 `WeaponBase`
-- 범용 `ProjectileBase`
-- Ability/Effect 시스템
-- ECS abstraction
-- service locator
-
-`HomingInterceptor`는 `MissileBattery` 기능의 구체 구성요소다. 실제로 다른 방어 수단에서도 공유해야 하는 두 번째 발사체 사례가 생기기 전에는 공통 projectile 계층으로 올리지 않는다.
+모듈 간 직접 참조는 최소화한다. 서로 다른 모듈의 내부 node tree를 탐색해 상태를 가져오기보다 명시적인 참조, 읽기 모델, 명령과 signal을 사용한다.
 
 ---
 
-## 7. 데이터와 콘텐츠 등록
+## 6. Scene과 컴포넌트 설계
 
-조정 가능한 콘텐츠 값과 시나리오 조합은 custom `Resource`로 정의하고 `.tres`로 저장한다.
+하나의 배치 자산이나 위협은 독립적으로 생성·제거할 수 있는 scene으로 구성한다.
 
-공통 Definition은 콘텐츠를 선택하고 생성하는 데 필요한 최소 정보만 가진다.
+scene root는 객체의 정체성과 생명주기를 담당하고, 필요한 능력은 조합 가능한 컴포넌트로 구성한다.
 
-### `ScenarioDefinition`
+대표적인 능력 단위:
 
-주요 참조:
+| 능력 | 책임 |
+|---|---|
+| Integrity | 체력, 성능저하, 기능정지와 파괴 상태 |
+| Signature | 센서가 관측할 수 있는 레이더·열·시각 특성 |
+| Sensor | 탐색주기, 시야와 관측 생성 |
+| C2 Endpoint | 로컬 항적과 공유 항적의 수신·전달 가능 상태 |
+| Movement | 속도, 선회, 고도와 경로를 포함한 실제 운동 |
+| Mission | 위협의 목표, 성공 조건, 철수와 결과 |
+| Engagement | 이용 가능한 항적 평가와 교전 요청 |
+| Weapon | 미사일, 기관포, 레이저 등 구체 공격 방식 |
+| Magazine / Energy | 탄약, 충전, 냉각과 재보급 상태 |
+| Support Consumer | 재보급·수리·전력 능력의 요구량과 상태 |
 
-```text
-world_config
-run_config
-objectives
-available_defenses
-threat_entries
-```
+모든 객체가 이 능력을 전부 가질 필요는 없다. 하나의 거대한 base class에 선택적 필드를 모으지 않는다.
 
-### `ObjectiveDefinition`
-
-```text
-id
-name
-scene
-maximum_integrity
-required_for_survival
-```
-
-### `DefenseDefinition`
-
-```text
-id
-name
-scene
-price
-placement_profile
-preview_range
-```
-
-### `ThreatDefinition`
-
-```text
-id
-name
-scene
-neutralization_reward
-```
-
-### `ThreatSpawnEntry`
-
-```text
-threat_definition
-unlock_level
-selection_weight
-```
-
-### 콘텐츠별 Definition
-
-구체적인 행동 값은 해당 콘텐츠의 Definition에 둔다.
-
-예:
-
-```text
-MissileBatteryDefinition extends DefenseDefinition
-AttackUavDefinition extends ThreatDefinition
-CityObjectiveDefinition extends ObjectiveDefinition
-```
-
-미사일 포대의 발사 간격이나 UAV의 속도 같은 값은 공통 Definition에 넣지 않는다.
-
-공통 데이터에 미래 기능용 빈 필드나 거대한 option 집합을 추가하지 않는다.
-
-모든 exported field와 collection 원소는 가능한 한 구체적인 타입을 사용한다. 실행 시작 전에 필수 참조와 값 범위를 검증하며, runtime 상태를 공유 Resource에 기록하지 않는다.
+컴포넌트는 가능한 한 자신의 상태만 소유한다. 여러 능력을 조정하는 규칙은 해당 객체의 controller 또는 상위 시스템이 담당한다.
 
 ---
 
-## 8. 런타임 조합
+## 7. 콘텐츠 정의와 런타임 상태
 
-`main/main.tscn`은 한 판을 구성하는 상위 node를 연결한다.
+콘텐츠 정의에는 안정적인 ID, 표시 정보, scene 참조와 해당 콘텐츠가 사용하는 조정값을 둔다.
 
-권장 구조:
+주요 정의 범주:
+
+- 시나리오와 전장 생성 설정
+- 보호 목표와 핵심 시설
+- 센서와 지휘통제 장비
+- 방어체계와 무기·탄약
+- 위협과 이동·임무 유형
+- 지원시설과 운용 능력
+- 공격 패키지와 난이도 설정
+
+공통 정의에는 생성, 선택과 공통 UI에 필요한 값만 둔다. 구체 콘텐츠 전용 값은 해당 정의에 둔다.
+
+예를 들어 미사일 가속과 유도값을 모든 방어체계 정의에 넣거나, 레이저 전력값을 모든 무기 정의에 optional 필드로 넣지 않는다.
+
+런타임 상태와 콘텐츠 정의는 분리한다.
 
 ```text
-Main
-├─ Battlefield
-├─ GameSession
-├─ ThreatDirector
-├─ CameraRig
-├─ WorldObjects
-└─ UI
+Definition / Resource
+→ 변경하지 않는 콘텐츠와 밸런스
+
+Runtime State
+→ 현재 체력, 위치, 탄약, cooldown, 항적과 임무 상태
 ```
 
-`Main`은 시나리오를 읽고 필요한 상위 객체를 연결한다. 구체 콘텐츠의 세부 행동은 scene 자체에 맡긴다.
-
-### 상태 소유권
-
-- `GameSession`: 게임 진행 단계, 예산, 생존시간, 통계, game over
-- `Battlefield`: 전장 크기와 지형 데이터, 배치 query
-- `ProtectedObjective`: 자신의 상태
-- `DefenseUnit`: 자신의 교전 상태와 cooldown
-- `ThreatUnit`: 자신의 이동, 피해와 resolution 상태
-- `ThreatDirector`: 공격 압력과 spawn timing
-- `ThreatRegistry`: 현재 활성 위협 목록
-- `PlacementController`: 플레이어의 현재 배치 입력 상태
-
-하나의 상태를 여러 객체가 직접 수정하지 않는다.
-
-전역 mutable Autoload singleton은 사용하지 않는다. 필요한 참조는 상위 조합 시점에 명시적으로 전달한다.
+같은 resource를 사용하는 여러 객체가 서로의 런타임 상태를 공유해서는 안 된다.
 
 ---
 
-## 9. 위협 Registry와 방어 교전
+## 8. 상태 변경과 사건 흐름
 
-활성 위협은 `ThreatRegistry`에서 관리한다.
+명령은 상태 소유자에게 전달하고, 소유자가 검증 후 상태를 변경한다.
 
-구체 방어 수단은 registry에서 공통 `ThreatUnit` 목록을 받아 자신의 조건으로 후보를 평가한다.
+대표 흐름:
 
-공통 시스템이 위협의 이동 모델이나 클래스 이름을 확인해서는 안 된다.
+```text
+플레이어 입력
+→ 구매·배치 명령
+→ 비용과 배치 조건 검증
+→ 상태 변경
+→ 성공 또는 거절 사건
+→ UI와 VFX 갱신
+```
 
-첫 `MissileBattery`는 다음 정보만 사용하면 된다.
+```text
+무기 교전
+→ 발사 가능 여부 검증
+→ 탄약·채널 예약
+→ 무기 작동
+→ 충돌·효과 판정
+→ 피해 또는 상태효과
+→ 위협 결과 확정
+→ 보상·통계 갱신
+→ VFX와 사운드
+```
 
-- 현재 위협 위치
-- 피격 가능 여부
-- 긴급도
-- runtime ID
+signal은 변화 통지와 느슨한 결합에 사용한다. 중요한 상태 변경 자체를 여러 signal listener에 분산하지 않는다.
 
-배터리는 자신의 사거리와 cooldown을 적용해 표적을 결정하고 `HomingInterceptor`를 생성한다.
-
-`HomingInterceptor`는 표적 `ThreatUnit` 참조를 사용해 추적한다. 명중 판정은 빠른 탄체가 frame 사이를 통과하지 않도록 직전 위치와 현재 위치 사이의 구간을 사용한다.
-
-위협이 이미 해결되면 추가 피해, 보상과 임무 완료 처리를 발생시키지 않는다.
+동일 위협의 무력화, 임무 성공, 보상과 도시 피해는 각각 정확히 한 번만 확정한다.
 
 ---
 
-## 10. 전장 생성
+## 9. 시뮬레이션 시간과 난수
 
-`WorldGenerator`는 하나의 seed로 다음 데이터를 생성한다.
+물리적 이동, 유도와 충돌은 Godot의 고정 physics tick을 기준으로 처리한다. 기본 목표는 `60 Hz`다.
 
-- height field
+모든 시스템을 매 physics tick에 실행할 필요는 없다.
+
+- 이동, 고속 유도와 충돌: physics tick
+- 센서 scan: 센서별 scan 주기
+- 표적 선택과 항공 AI: 더 낮은 주기 또는 상태 변화 시
+- 공격 계획과 지원 배정: 낮은 주기 또는 사건 기반
+- 네트워크와 지원 연결 재평가: topology가 변할 때
+
+렌더링은 시뮬레이션 상태를 표현하며 필요하면 위치를 보간한다.
+
+난수는 최소한 다음 흐름을 분리한다.
+
+- 전장 생성
+- 공격 패키지와 spawn
+- 개별 위협 행동
+- 탐지·피해 등 확률 판정
+- 시각효과
+
+같은 전장 seed는 전장 구성을 재현해야 한다. 전체 게임을 비트 단위로 완전히 결정론적으로 만들 필요는 없지만, gameplay 난수가 시각효과의 난수 소비 때문에 바뀌어서는 안 된다.
+
+---
+
+## 10. 좌표, 지형과 공간 질의
+
+월드 좌표는 미터 단위로 해석한다. 장비 크기, 속도, 고도, 사거리와 VFX 크기는 같은 상대 스케일을 사용한다.
+
+절차적 전장은 하나의 논리 height field에서 다음을 함께 만든다.
+
 - terrain mesh
 - terrain collision
-- 도시 영역
-- 도시 건물 transform
+- 배치 높이와 경사 query
+- 저고도 이동과 시야 판정에 필요한 지형 높이
 
-지형 외곽은 같은 height field에서 해수면 아래로 낮추고, gameplay collision이 없는 넓은 primitive 평면으로 바다를 표현한다. 별도 수면 simulation은 두지 않는다.
-
-지형의 논리 높이 데이터는 하나만 생성하고 렌더링과 배치 판정이 이를 공유한다.
-
-첫 전장은 규칙적인 grid height field를 사용한다.
-
-권장 구현:
-
-- `FastNoiseLite`로 저주파 높이 생성
-- 중앙 도시 영역과 외곽 여유 구간을 부드럽게 평탄화
-- `ArrayMesh` 또는 `SurfaceTool`로 low-poly terrain 생성
-- 같은 vertex/triangle 데이터에서 terrain collision 생성
-- 전장 크기가 달라져도 비슷한 지형 표본 간격을 유지하도록 grid 해상도 조정
-
-도시 건물은 primitive box mesh를 절차적으로 배치한다. 첫 버전에서는 건물이 gameplay collision이나 LOS에 참여하지 않으므로 시각 node로만 유지한다.
-
-전장 생성 결과를 개별 scene 파일로 굽지 않는다. seed와 설정에서 runtime에 생성한다.
-
----
-
-## 11. 배치 시스템
-
-배치 입력과 배치 가능 여부 판정은 구분한다.
-
-### `PlacementController`
-
-책임:
-
-- UI에서 선택한 `DefenseDefinition` 유지
-- camera ray로 후보 지점 획득
-- preview 표시
-- 유효/무효 상태 표시
-- 확정 또는 취소 입력 처리
-
-### `Battlefield` 배치 query
-
-배치 판정에 필요한 순수 query를 제공한다.
-
-- 지도 안쪽인지
-- 지형 높이
-- footprint 범위의 경사
-- 보호 목표 제외 영역과 겹치는지
-- 기존 방어 수단 footprint와 겹치는지
-
-배치 가능 여부를 UI node가 직접 계산하지 않는다.
-
-구매와 배치는 `GameSession`을 통한 하나의 원자적 요청으로 확정한다.
+기본 지형 함수는 다음처럼 저주파 형태와 세부 요철을 분리한다.
 
 ```text
-검증 성공
-→ 예산 차감
-→ DefenseUnit 생성
-→ 점유 등록
+height(x, z) = macro_shape + detail_noise
 ```
 
-어느 단계에서든 검증이 실패하면 예산과 전장 상태를 바꾸지 않는다.
+도시와 시설 부지는 별도 mask로 부드럽게 평탄화한다.
+
+공간 질의는 우선 Godot physics의 ray, shape와 area query를 사용한다. 실제 프로파일링에서 모든 객체 전수조사가 병목으로 확인되면 spatial hash, grid 또는 별도 인덱스를 도입한다.
+
+반복되는 도시 건물은 필요할 때 `MultiMeshInstance3D`를 사용하되, 게임 규칙에 참여하는 시설과 선택 가능한 객체는 독립 node로 유지한다.
 
 ---
 
-## 12. 위협 생성과 난수
+## 11. 센서와 관측 모델
 
-전장 생성 RNG와 위협 생성 RNG를 분리한다.
+센서는 실제 객체를 직접 항적으로 만들지 않고 **관측값**을 생성한다.
+
+관측에는 최소한 다음 정보가 필요하다.
+
+- 센서 식별자와 시각
+- 관측 위치 또는 거리·방위 정보
+- 측정 품질과 불확실성
+- 관측된 signature 또는 분류 단서
+
+### 시야
+
+지형과 주요 차폐물에 가려지면 관측할 수 없다. 기본 구현은 raycast 또는 제한된 수의 지형 sample을 사용한다. 모든 도시 건물의 정밀 전파 차폐를 계산할 필요는 없다.
+
+### 정규화된 신호 품질
+
+실제 레이더 방정식 대신 조정 가능한 정규화 모델을 사용한다.
 
 ```text
-world seed
-├─ world RNG
-└─ threat RNG
+signal_quality =
+    sensor_quality
+    × signature_factor
+    × aspect_factor
+    × environment_factor
+    × ew_factor
+    × range_factor
+    × line_of_sight
 ```
-
-새 콘텐츠가 위협 내부에서 난수를 더 사용하더라도 전체 spawn 순서가 불필요하게 바뀌지 않도록, 필요하면 생성 시 각 위협에 별도 seed를 전달한다.
-
-`ThreatDirector`는 공통적으로 다음만 결정한다.
-
-- 다음 spawn 시점
-- 한 번에 생성할 수
-- 현재 unlock된 `ThreatSpawnEntry`
-- 가중치에 따른 콘텐츠 선택
-- 활성 위협 상한
-
-구체 위협의 속도, 이동 패턴과 임무 효과는 director가 직접 수정하지 않는다. 공격 압력 단계에 따른 콘텐츠별 변화가 필요하면 구체 위협 Definition 또는 생성 context가 해석한다.
-
----
-
-## 13. UI 구조
-
-제품 UI는 Godot `Control` 계층으로 구현한다.
-
-권장 구성:
 
 ```text
-HUD
-├─ StatusBar
-├─ DefenseCatalog
-├─ PlacementFeedback
-├─ RunControls
-└─ GameOverPanel
+range_factor = 1 / (1 + (distance / reference_range) ^ exponent)
 ```
 
-UI는 authoritative gameplay state를 직접 소유하지 않는다.
+- 각 factor는 `0..1` 범위로 정규화한다.
+- `line_of_sight`는 기본적으로 `0` 또는 `1`이다.
+- `exponent`와 기준 거리는 센서 콘텐츠가 조정한다.
+- 공개 제원을 모사하기보다 센서별 강점과 약점을 만드는 것이 목적이다.
 
-- 버튼은 명령을 요청한다.
-- HUD는 `GameSession`과 역할 객체가 제공하는 상태를 표시한다.
-- 배치 preview는 `PlacementController`가 관리한다.
-- 게임오버 판정은 UI가 아니라 `GameSession`이 수행한다.
+### 탐지 증거
 
-위협을 종류별로 읽어 별도 UI 분기를 만드는 대신 첫 버전에 필요한 공통 상태만 표시한다.
-
----
-
-## 14. 3D 표현과 VFX
-
-첫 제품의 mesh는 primitive와 절차적 geometry로 구성한다.
-
-- 지형: `ArrayMesh`
-- 건물: `BoxMesh`
-- 포대: `BoxMesh`, `CylinderMesh` 조합
-- UAV: 소수 primitive 또는 작은 procedural mesh
-- 요격미사일: cylinder 계열 primitive
-
-반복되는 단순 material은 공유하고 색과 크기만 필요한 범위에서 조정한다.
-
-첫 버전에서는 custom shader를 만들지 않는다.
-
-VFX는 다음 Godot 기본 기능을 우선한다.
-
-- `GPUParticles3D`: 폭발, 연기, 발사 섬광
-- 짧은-lived mesh/particle: spark와 impact
-- missile trail: 간단한 particle emitter
-
-VFX callback이 gameplay 피해나 보상을 발생시키지 않는다. gameplay event가 먼저 확정되고 표현 계층이 이를 소비한다.
-
----
-
-## 15. Signal과 객체 통신
-
-Signal은 상태 변화의 통지에 사용한다.
-
-예:
-
-- 보호 목표 상태 변경
-- 위협 resolution
-- 예산 변경
-- 게임 진행 단계 변경
-- 방어 수단 배치 완료
-
-Signal을 전역 메시지 버스처럼 사용하지 않는다.
-
-명확한 요청/응답이 필요한 동작은 typed method 호출을 사용하고, 여러 consumer에게 변화 사실을 알릴 때 signal을 사용한다.
-
-node 이름 검색이나 광범위한 group query를 runtime 의존성 주입 수단으로 사용하지 않는다.
-
----
-
-## 16. 테스트 설계
-
-테스트는 `tests/unit/`과 `tests/integration/`으로 나눈다.
-
-### Unit test 대상
-
-- 배치 가능 여부 판정
-- 예산 원자성
-- 보호 목표 상태 감소와 소진
-- 위협 resolution이 한 번만 발생하는지
-- threat priority 비교
-- 공격 압력 계산
-- seed 기반 세계 생성의 주요 결과
-
-### Integration test 대상
-
-- 시나리오 로딩 후 정상적인 한 판 시작
-- 방어 수단 구매·배치
-- 위협 spawn → 교전 → neutralization → 보상
-- 위협 mission completion → 보호 목표 피해
-- game over
-- restart
-
-### 역할 경계 검증
-
-테스트 전용 최소 구현을 사용해 공통 흐름이 첫 콘텐츠에 결합되지 않았는지 검증한다.
-
-예:
+한 번의 미약한 관측이 즉시 안정된 항적이 되지 않도록 증거를 누적할 수 있다.
 
 ```text
-TestObjective
-TestDefense
-TestThreat
+detection_evidence += signal_quality × observed_time
+detection_evidence -= decay_rate × unobserved_time
 ```
 
-이 테스트 구현은 제품 기능을 흉내 내기 위한 거대한 mock이 아니라, 공통 계약만 만족하는 가장 작은 대역이어야 한다.
+잠정 항적과 확인 항적의 임계값은 콘텐츠나 시나리오가 조정한다.
 
 ---
 
-## 17. 확장 규칙
+## 12. 항적 모델
 
-새 방어 수단을 추가할 때 기본 경로는 다음과 같다.
+항적은 실제 객체와 별개의 플레이어 지식 객체다.
 
-```text
-DefenseUnit 구현 scene
-+ DefenseDefinition subtype/resource
-+ 시나리오 등록
-```
+최소 상태:
 
-새 위협:
+- 안정적인 항적 ID
+- 추정 위치와 속도
+- 마지막 관측시각
+- 추적 품질과 위치 불확실성
+- 분류 점수와 확신도
+- 소속 판단과 확신도
+- 관측에 기여한 센서
+- 생명주기 상태
 
-```text
-ThreatUnit 구현 scene
-+ ThreatDefinition subtype/resource
-+ ThreatSpawnEntry
-+ 시나리오 등록
-```
-
-새 보호 목표:
+### 생명주기
 
 ```text
-ProtectedObjective 구현 scene
-+ ObjectiveDefinition subtype/resource
-+ 시나리오 등록
+TENTATIVE → CONFIRMED → COASTING → LOST
 ```
 
-이 과정에서 `GameSession`, 카탈로그, 배치 흐름, `ThreatDirector`, `ThreatRegistry`와 공통 HUD를 수정해야 한다면 먼저 역할 경계가 잘못된 것은 아닌지 확인한다.
+관측이 없을 때는 마지막 속도로 짧게 예측한다.
 
-반대로 모든 미래 콘텐츠를 미리 수용하려고 거대한 공통 타입을 만들지 않는다.
+```text
+predicted_position = position + velocity × dt
+```
 
-실제 두 번째 사례에서 중복이 생겼을 때만 가장 작은 공통 helper, component 또는 base API를 추출한다.
+새 관측은 예측 위치와 측정 품질에 따라 점진적으로 반영한다.
+
+```text
+position = lerp(predicted_position, measured_position, position_gain)
+velocity = lerp(previous_velocity, measured_velocity, velocity_gain)
+```
+
+gain은 측정 품질과 현재 불확실성에 따라 달라진다. 처음부터 Kalman Filter를 필수로 하지 않는다. 더 정교한 필터가 필요해져도 항적의 공개 상태와 생명주기는 유지한다.
+
+### 관측 연결
+
+새 관측은 예측 위치 주변의 제한된 gate 안에 있는 항적 후보와 연결한다. 첫 구현은 안정적인 nearest-neighbor 방식으로 충분하며, 밀집 표적에서 실제 문제가 확인되면 더 정교한 data association으로 교체한다.
+
+### 추적 품질
+
+관측이 들어오면 증가하고, 관측이 끊기면 시간에 따라 감소한다. 불확실성은 반대로 증가한다. UI와 교전 판단은 같은 추적 품질을 사용한다.
+
+### 분류와 소속
+
+분류와 소속 판단은 위치 추적과 분리한다.
+
+```text
+class_score[type] += feature_match × observation_quality
+affiliation_score[state] += evidence × source_reliability
+```
+
+점수를 정규화해 확신도로 사용한다. 내부 알고리즘은 단순 가중치부터 시작할 수 있으며 실제 Bayesian 추론을 요구하지 않는다.
 
 ---
 
-## 18. 성능 원칙
+## 13. 지휘통제 모델
 
-첫 버전은 구조적 단순성과 빠른 반복을 우선한다.
+C2는 센서와 방어체계 사이의 **정보 접근 가능성**을 결정하는 graph로 표현한다.
 
-처음부터 다음 최적화를 도입하지 않는다.
+node는 센서, 지휘소, 중계시설과 방어체계가 될 수 있고 link는 현재 연결 상태, 품질과 선택적 지연을 가진다.
 
-- object pool
-- custom spatial index
-- MultiMesh 기반 gameplay 구조
-- 멀티스레드 simulation
-- GDExtension 최적화
-- custom rendering pipeline
+```text
+available_tracks(node)
+=
+local_tracks
+∪ tracks reachable through active C2 links
+```
 
-Godot profiler에서 실제 병목이 확인된 뒤 필요한 부분만 최적화한다.
+경로 품질과 지연을 사용할 경우 단순하게 집계한다.
 
-단, 활성 위협 상한처럼 gameplay 차원에서 명확한 안전장치는 유지한다.
+```text
+path_quality = product(link_quality)
+path_latency = sum(link_latency)
+```
+
+첫 구현은 연결 여부만 사용할 수 있다. 품질과 지연은 전자전 또는 대규모 네트워크가 실제 gameplay에 필요해질 때 활성화한다.
+
+항적 갱신을 개별 패킷으로 시뮬레이션하지 않는다. 네트워크 변화가 발생하면 연결성과 장비별 사용 가능 항적을 재평가한다.
+
+방어체계는 로컬 센서와 C2를 통해 전달받은 항적만 교전에 사용한다.
 
 ---
 
-## 19. 기술적 완료 기준
+## 14. 교전과 Doctrine
 
-구현은 다음 조건을 만족해야 한다.
+교전 모듈은 다음 순서로 동작한다.
 
-- `SPEC.md`의 첫 시나리오를 실행할 수 있다.
-- 공통 시스템이 `CityObjective`, `MissileBattery`, `AttackUav`에 대한 타입 분기를 갖지 않는다.
-- gameplay 설정과 scene wiring이 저장소에 존재한다.
-- 모든 GDScript는 typed code를 기본으로 한다.
-- runtime 상태를 `.tres` Definition에 기록하지 않는다.
-- 배치와 위협 resolution 같은 중요한 전이는 부분 적용되지 않는다.
-- gameplay 결과와 VFX가 분리되어 있다.
-- 역할별 테스트 대역으로 공통 흐름을 실행할 수 있다.
-- parse error, 처리되지 않은 runtime error와 필수 경로의 placeholder가 없다.
-- 시각 변경은 실제 Godot 게임 창에서도 확인 가능한 구조다.
+```text
+사용 가능한 항적
+→ 무기로 처리 가능한 후보
+→ 위협도와 비용 평가
+→ 교전 예약
+→ 구체 무기에 발사 요청
+```
+
+### 위협 긴급도
+
+실제 위협의 숨은 목표가 아니라 항적에서 추정한 예상 탄착과 시간을 사용한다.
+
+```text
+urgency =
+    protected_value
+    × estimated_impact_probability
+    / max(time_to_impact, minimum_time)
+```
+
+### 교전 점수
+
+```text
+engagement_score =
+    urgency
+    × weapon_match
+    × track_quality
+    × doctrine_weight
+    - resource_penalty
+```
+
+- `weapon_match`는 표적 종류, 거리, 고도와 무기 특성의 적합도다.
+- `resource_penalty`는 고가 탄약, 예비탄 부족, 낮은 명중 예상 등을 반영한다.
+- 모든 값은 절대적인 실제 확률이 아니라 비교 가능한 정규화 값이다.
+
+교전 예약은 불필요한 과잉사격을 줄이되, doctrine이 요구하는 일제사격과 다중 요격은 허용한다.
+
+직접 명령은 자동 판단을 영구적으로 대체하지 않는다. 우선표적, 특정 무기 할당과 사격중지 같은 제한된 override로 처리한다.
+
+---
+
+## 15. 무기 모델
+
+무기는 공통 교전 요청을 받지만 내부 작동 방식은 각 무기 유형이 소유한다. 모든 공격을 하나의 범용 projectile 계층에 억지로 맞추지 않는다.
+
+### 유도 요격체
+
+유도 입력은 항적의 추정 상태를 사용한다. 속도, 최대 횡가속도와 비행시간을 제한한다.
+
+중·장거리 요격체에는 단순화한 proportional navigation을 기본 유도 방식으로 사용할 수 있다.
+
+```text
+lateral_acceleration =
+    navigation_constant
+    × closing_speed
+    × line_of_sight_rate
+```
+
+결과는 요격체의 최대 횡가속도로 제한한다. 콘텐츠에 따라 boost, midcourse와 terminal phase를 둘 수 있지만 모든 미사일에 같은 phase를 강제하지 않는다.
+
+고속 객체의 명중과 근접신관은 한 tick의 이전 위치와 현재 위치를 잇는 swept query로 판정한다. discrete overlap만 사용해 표적을 통과하지 않게 한다.
+
+### 기관포
+
+성능을 위해 모든 탄환을 독립적인 물리 객체로 만들 필요는 없다. gameplay는 burst 단위로 판정하고 화면에는 실제 발사율과 탄속을 전달하는 일부 예광탄을 표현할 수 있다.
+
+```text
+hit_probability = clamp(
+    base_accuracy
+    × track_quality
+    × range_factor
+    × target_size_factor
+    × maneuver_factor,
+    0, 1
+)
+```
+
+### 레이저
+
+레이저는 line of sight가 유지되는 동안 열적 dose를 누적한다.
+
+```text
+effective_power =
+    rated_power
+    × track_quality
+    × atmosphere_factor
+    × range_factor
+```
+
+```text
+thermal_dose += effective_power × dt
+thermal_dose -= cooling_rate × interrupted_time
+```
+
+임계 dose에 도달하면 손상 또는 무력화한다.
+
+### 고출력 마이크로파
+
+HPM은 범위와 방향 안의 전자표적에 상태효과를 누적한다.
+
+```text
+effect =
+    emitted_power
+    × target_susceptibility
+    × range_factor
+    × direction_factor
+```
+
+결과는 일시적인 조종·센서 장애, 영구 기능저하 또는 추락이 될 수 있다.
+
+### 요격드론
+
+요격드론은 출격, 순찰·요격, 복귀와 재충전 상태를 가진 독립 물리 객체다. 재사용 가능성 대신 속도, 체공시간과 동시 출격 수의 제한을 가진다.
+
+---
+
+## 16. 위협 운동과 임무
+
+위협은 이동 모델과 임무 모델을 조합한다.
+
+대표 이동 모델:
+
+- 일정 고도 또는 waypoint 기반 UAV
+- 제한된 선회와 고도변화를 가진 항공기
+- 지형 높이를 참고하는 저고도 순항체
+- 중력과 초기조건을 사용하는 탄도체
+- 목표를 향해 직접 접근하는 단순 발사체
+
+비행체는 현재 속도를 한 tick에 목표 방향으로 즉시 회전시키지 않는다. 콘텐츠가 정의한 최대 선회율, 횡가속도와 상승·하강 속도로 제한한다.
+
+순항체의 지형추종은 진행방향의 제한된 지형 sample에서 안전고도를 정하고 부드럽게 따라가면 충분하다. 완전한 3D 공력과 최적 경로계획을 요구하지 않는다.
+
+탄도체는 boost 이후 단순한 중력 궤적을 기본으로 하고, 필요한 콘텐츠만 terminal 조향을 추가한다.
+
+임무 모델은 다음을 소유한다.
+
+- 목표 선택
+- 성공 조건
+- 무장 투발
+- 정찰 또는 방사 관측
+- 전자전·기만 수행
+- 철수 조건
+- 임무 완료 효과
+
+위협이 임무를 완료해도 항상 도시와 충돌하는 것은 아니다. 정찰 완료, 무장 투발, 방공망 방해와 성공적인 철수도 임무 결과가 될 수 있다.
+
+---
+
+## 17. 피해와 상태효과
+
+기본 피해는 다음 종류로 제한한다.
+
+- 직접 피해
+- 반경 피해
+- 열적 피해
+- 전자적 기능저하
+
+반경 피해는 단순한 거리 감쇠를 사용한다.
+
+```text
+area_damage = max_damage × falloff(distance / radius)
+```
+
+`falloff`는 선형, smoothstep 또는 지수형 중 콘텐츠에 맞는 하나를 사용한다. 실제 파편 각각을 생성하지 않는다.
+
+객체의 기본 상태는 integrity와 operational state로 표현한다.
+
+```text
+OPERATIONAL
+→ DEGRADED
+→ DISABLED
+→ DESTROYED
+```
+
+부분손상이 gameplay에 명확한 차이를 만드는 복합 장비에만 제한된 subsystem 상태를 추가한다. 모든 객체에 동일한 부품 트리를 강제하지 않는다.
+
+피해와 상태효과는 실제 세계 계층에서 처리하고, 항적은 센서가 관측할 수 있는 변화만 반영한다.
+
+---
+
+## 18. 탄약, 전력과 지원
+
+탄약과 에너지는 장비별 런타임 상태다.
+
+- 발사 시 탄약 또는 에너지 소비
+- cooldown, 충전과 냉각
+- 재보급·재정비 요청
+- 지원 능력에 따른 완료시간
+
+재보급과 수리는 queue로 관리할 수 있다.
+
+```text
+operation_duration =
+    base_work
+    / max(effective_support_capacity, minimum_capacity)
+```
+
+지원시설은 지역 또는 전체 전장의 재보급 수, 수리 속도와 전력 용량을 제공한다. 시설 손상은 이 capacity를 낮춘다.
+
+전력은 복잡한 송배전망 대신 가용 용량과 소비량으로 모델링한다.
+
+```text
+available_power = generation_capacity - committed_demand
+```
+
+우선순위가 높은 소비자부터 용량을 배정한다. 전력망 topology가 실제 gameplay에 필요해지는 시나리오가 생기기 전에는 발전소·변전소·장비 사이의 전력 흐름을 graph로 계산하지 않는다.
+
+보급차량과 도로는 기본적으로 시각적 표현 또는 제한된 특수 시나리오 요소다. 일반 재보급을 위해 A* 차량 운행과 창고 간 재고 이전을 필수화하지 않는다.
+
+---
+
+## 19. 적 지식과 Raid Director
+
+적 지식은 플레이어 방공망의 실제 객체 참조가 아닌 관측 보고로 구성한다.
+
+보고 예:
+
+- 추정 위치와 범위
+- 관측된 장비 역할
+- 확신도
+- 마지막 관측시각
+- 이전 공격에서 확인한 반응
+
+확신도는 시간이 지나면 감소한다.
+
+```text
+confidence = max(0, confidence - decay_rate × elapsed_time)
+```
+
+Raid Director는 다음 입력으로 공격을 구성한다.
+
+- 경과시간과 현재 공격 강도
+- 사용할 수 있는 위협 콘텐츠
+- 적 지식
+- 최근 공격의 성공·실패
+- 시나리오별 공격 역할과 제한
+- 공격계획 전용 RNG
+
+공격 규모는 하나의 threat budget으로 관리한다.
+
+```text
+raid_budget =
+    base_budget
+    + time_growth
+    + performance_adjustment
+```
+
+Director는 예산 안에서 정찰, 기만, 제압, 포화와 타격 역할을 조합한다. 정교한 범용 최적화기보다 설명 가능하고 테스트 가능한 archetype과 휴리스틱을 우선한다.
+
+같은 짧은 wave 목록을 반복하지 않되, 모든 공격을 완전히 무작위로 만들어 의도를 잃지 않는다.
+
+---
+
+## 20. UI와 표현 계층
+
+제품 전술 UI는 플레이어 지식과 공개된 아군 상태만 소비한다.
+
+- 미탐지 적 객체에는 전술 marker를 만들지 않는다.
+- 항적 위치는 실제 객체 transform이 아니라 항적의 추정 위치를 사용한다.
+- 분류 아이콘과 소속 색상은 현재 항적 판단을 사용한다.
+- 관측 단절 상태는 opacity, 흔들림 또는 uncertainty 영역으로 표현한다.
+- 화면 밖 marker는 항적의 추정 방향에서 계산한다.
+- 선택 관계선은 공개된 센서 기여와 C2·교전 상태만 사용한다.
+
+개발·디버그 표현은 실제 세계를 직접 볼 수 있지만 제품 UI와 명확히 분리한다. debug 표시가 제품 marker나 자동교전 데이터로 재사용되어 정보 누출을 만들지 않는다.
+
+표현 계층은 다음 입력만 받는 것을 원칙으로 한다.
+
+- 읽기 전용 상태 snapshot
+- 위치와 상태 변화 event
+- 발사, 폭발, 손상과 항적 변경 event
+
+VFX는 필요하면 pooling하고 동시 수를 제한한다. 화면에 보이는 효과의 수명이 gameplay 객체의 생명주기를 결정하지 않는다.
+
+---
+
+## 21. 저장과 복원
+
+저장은 버전이 있는 plain-data 문서로 관리한다. scene tree 자체나 공유 resource를 그대로 저장 포맷으로 사용하지 않는다.
+
+저장 대상:
+
+- 시나리오와 전장 seed
+- 세션 시간, 예산, 해금과 통계
+- 배치 자산, 위치, 피해와 가동상태
+- 탄약, 전력, 재보급과 수리 작업
+- 실제 위협과 진행 중인 임무
+- 플레이어 항적과 필요한 추적 상태
+- 적 지식과 진행 중 공격계획
+- gameplay RNG 상태
+
+저장하지 않는 대상:
+
+- 파티클과 일시 VFX
+- UI 선택과 hover
+- 재생성 가능한 terrain cache와 spatial index
+- 디버그 표시
+
+로드는 문서 버전과 필수 콘텐츠 ID를 검증한 뒤 현재 세션을 교체한다. 실패한 로드가 진행 중 상태를 부분적으로 변경해서는 안 된다.
+
+완전한 replay와 모든 플랫폼에서의 bit-identical 결과는 목표가 아니다. 다만 로드 직후 주요 gameplay 상태가 끊김 없이 이어져야 한다.
+
+---
+
+## 22. 성능 원칙
+
+대표 공격에서 수십~수백 개의 물리 객체와 다수 VFX가 동시에 존재할 수 있음을 전제로 한다.
+
+우선순위:
+
+1. 단순하고 측정 가능한 구현
+2. 병목 프로파일링
+3. 필요한 영역만 최적화
+
+예상 최적화 수단:
+
+- 저주기 시스템 update 분리
+- Godot group과 제한된 공간 query
+- spatial hash 또는 grid
+- 반복 건물의 `MultiMeshInstance3D`
+- 미사일, 예광탄과 VFX pooling
+- 멀리 있거나 중요하지 않은 표현의 LOD·update 감소
+
+프로파일링 전부터 모든 객체를 pool로 만들거나 커스텀 ECS와 GDExtension으로 옮기지 않는다.
+
+시뮬레이션 정확도는 카메라 거리 때문에 바꾸지 않는다. 표현 품질과 update 빈도만 안전하게 낮출 수 있다.
+
+---
+
+## 23. 테스트 전략
+
+### 단위 테스트
+
+순수 계산과 상태 전이를 검증한다.
+
+- 배치 판정
+- 탐지 증거와 항적 생명주기
+- C2 연결과 항적 가용성
+- 교전 점수와 doctrine
+- 탄약·전력·지원 queue
+- 피해와 위협 결과의 단일 확정
+- Raid Director의 예산과 선택 제한
+
+### 통합 테스트
+
+게임의 세로 흐름을 검증한다.
+
+```text
+실제 위협 생성
+→ 센서 관측
+→ 항적 생성
+→ C2 공유
+→ 방어체계 교전
+→ 요격 또는 임무 성공
+→ 피해·보상·통계 반영
+```
+
+기만 항적, C2 단절, 탄약 소진과 시설 손상도 작은 시나리오로 검증한다.
+
+### 실행 검증
+
+- headless 실행과 script 오류 확인
+- 대표 scene smoke test
+- 저장 후 복원 연속성 확인
+- 실제 게임 창에서 카메라, 배치, UI와 VFX 확인
+
+CLI는 별도 실행파일 환경변수 없이 `godot` 명령을 사용한다. 구체적인 검증 습관은 `AGENTS.md`를 따른다.
+
+테스트를 위해 제품 코드에 전지적 정보를 노출하지 않는다. 필요한 진단 상태는 개발 전용 경계로 제공한다.
+
+---
+
+## 24. 기술적 비목표
+
+다음은 기본 설계에 포함하지 않는다.
+
+- 모든 gameplay 객체를 포괄하는 범용 ECS·Ability·Effect 프레임워크
+- 실제 레이더 신호처리, 공력과 추진기관의 정밀 해석
+- 패킷 단위 C2 네트워크와 통신 프로토콜
+- 전력계통 조류 계산
+- 차량별 물류 경로와 창고 간 원자재 시뮬레이션
+- 모든 건물의 독립 물리·피해·복구 상태
+- 파편 하나마다 생성하는 물리 projectile
+- 저장 검증을 위한 canonical digest 체계
+- 완전 결정론과 replay를 위해 모든 시스템을 재작성하는 구조
+- 제품 코드와 분리되지 않은 전지적 debug UI
+
+이 중 하나가 실제 gameplay 목표나 측정된 성능 문제를 해결하는 가장 단순한 방법일 때만 별도 설계로 추가한다.
+
+---
+
+## 25. 설계가 지켜야 할 최종 경계
+
+다음 조건은 구현 세부사항이 변해도 유지한다.
+
+1. 방어체계는 이용 가능한 항적 없이 숨은 실제 위협을 직접 공격하지 않는다.
+2. 플레이어 UI는 실제 세계, 플레이어 지식과 적 지식을 혼합하지 않는다.
+3. 적 공격계획은 플레이어의 숨은 실제 상태를 직접 읽지 않는다.
+4. 게임 결과는 표현 계층이 아니라 시뮬레이션 상태에서 결정한다.
+5. 콘텐츠 데이터와 개별 런타임 상태를 공유하지 않는다.
+6. 한 상태에는 하나의 소유자만 둔다.
+7. 새 콘텐츠는 공통 흐름에 조합되며 기존 콘텐츠 이름에 대한 분기를 요구하지 않는다.
+8. 미래 기능을 위한 추상화는 실제 두 번째 사용 사례가 생긴 뒤 도입한다.
+9. 현실성은 플레이어 선택과 시각적 설득력을 높이는 범위에서만 사용한다.
+10. 현재 구현은 각 단계가 끝날 때마다 실행 가능하고 플레이 가능한 상태를 유지한다.
