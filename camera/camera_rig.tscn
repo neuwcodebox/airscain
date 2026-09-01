@@ -9,5 +9,4 @@ script = ExtResource("1")
 current = true
 fov = 52.0
 near = 1.0
-far = 2500.0
-
+far = 14400.0

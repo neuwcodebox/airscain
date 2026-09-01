@@ -20,6 +20,7 @@ func configure_for_battlefield(battlefield_size: float) -> void:
 	bounds = battlefield_size * 0.45
 	maximum_zoom = battlefield_size * 0.67
 	zoom_distance = clampf(battlefield_size * 0.38, minimum_zoom, maximum_zoom)
+	camera.far = battlefield_size * 6.0
 	_update_camera()
 
 func _process(delta: float) -> void:

@@ -11,7 +11,9 @@ func before_each() -> void:
 func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_not_null(main.objective)
 	assert_gt(main.battlefield.terrain.mesh.get_surface_count(), 0)
-	assert_eq((main.battlefield.ocean.mesh as PlaneMesh).size.x, 7200.0)
+	assert_eq(main.battlefield.battlefield_size, 2400.0)
+	assert_eq((main.battlefield.ocean.mesh as PlaneMesh).size.x, 19200.0)
+	assert_eq(main.camera_rig.camera.far, 14400.0)
 	assert_gt(main.battlefield.city_visuals.get_child_count(), 30)
 	assert_eq(main.registry.count(), 4)
 	assert_eq(main.registry.hostile_count(), 0)

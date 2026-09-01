@@ -2,8 +2,8 @@ class_name ScenarioDefinition
 extends Resource
 
 @export var world_seed: int = 73129
-@export var battlefield_size: float = 1800.0
-@export var terrain_resolution: int = 73
+@export var battlefield_size: float = 2400.0
+@export var terrain_resolution: int = 97
 @export var city_size: float = 330.0
 @export var starting_budget: int = 620
 @export var objective_definition: ObjectiveDefinition

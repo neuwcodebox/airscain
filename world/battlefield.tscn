@@ -13,7 +13,7 @@ roughness = 0.28
 
 [sub_resource type="PlaneMesh" id="OceanMesh"]
 material = SubResource("OceanMaterial")
-size = Vector2(7200, 7200)
+size = Vector2(19200, 19200)
 
 [node name="Battlefield" type="Node3D"]
 script = ExtResource("1")

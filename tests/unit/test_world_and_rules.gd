@@ -23,14 +23,16 @@ func test_different_world_seed_changes_height_field() -> void:
 
 func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
 	var generator := WorldGenerator.new()
-	generator.generate(73129, 1800.0, 73, 330.0)
+	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size)
 	assert_gt(generator.height_at(0.0, 0.0), generator.sea_level)
-	for z: int in range(-600, 601, 100):
-		for x: int in range(-600, 601, 100):
-			if Vector2(float(x), float(z)).length() <= 600.0:
+	var guaranteed_land_radius := SCENARIO.battlefield_size * 0.33
+	for z: int in range(-750, 751, 125):
+		for x: int in range(-750, 751, 125):
+			if Vector2(float(x), float(z)).length() <= guaranteed_land_radius:
 				assert_gt(generator.height_at(float(x), float(z)), generator.sea_level)
-	assert_lt(generator.height_at(890.0, 0.0), generator.sea_level)
-	assert_lt(generator.height_at(0.0, -890.0), generator.sea_level)
+	var submerged_edge := SCENARIO.battlefield_size * 0.495
+	assert_lt(generator.height_at(submerged_edge, 0.0), generator.sea_level)
+	assert_lt(generator.height_at(0.0, -submerged_edge), generator.sea_level)
 
 func test_objective_damage_and_depletion_are_bounded() -> void:
 	var objective: ProtectedObjective = autofree(ProtectedObjective.new()) as ProtectedObjective

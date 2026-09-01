@@ -1,11 +1,13 @@
 class_name Battlefield
 extends Node3D
 
+const OCEAN_SIZE_MULTIPLIER := 8.0
+
 var generator := WorldGenerator.new()
 var objective: ProtectedObjective
 var occupied_positions: Array[Vector3] = []
 var occupied_radii: Array[float] = []
-var battlefield_size: float = 1800.0
+var battlefield_size: float = 2400.0
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -17,7 +19,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	terrain.mesh = generator.create_terrain_mesh()
 	terrain.create_trimesh_collision()
 	var ocean_mesh := ocean.mesh as PlaneMesh
-	ocean_mesh.size = Vector2(scenario.battlefield_size * 4.0, scenario.battlefield_size * 4.0)
+	ocean_mesh.size = Vector2.ONE * scenario.battlefield_size * OCEAN_SIZE_MULTIPLIER
 	ocean.position.y = generator.sea_level
 	_build_city_visuals(generator.building_transforms())
 

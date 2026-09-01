@@ -40,3 +40,8 @@ func test_middle_mouse_drag_pans_camera() -> void:
 	motion.relative = Vector2(20.0, -10.0)
 	rig._unhandled_input(motion)
 	assert_ne(rig.global_position, Vector3.ZERO)
+
+func test_battlefield_configuration_keeps_distant_ocean_visible() -> void:
+	rig.configure_for_battlefield(2400.0)
+	assert_eq(rig.bounds, 1080.0)
+	assert_eq(rig.camera.far, 14400.0)
