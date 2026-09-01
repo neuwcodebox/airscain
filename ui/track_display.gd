@@ -7,6 +7,7 @@ var markers: Dictionary[int, TrackMarker] = {}
 func configure(player_knowledge_value: Node) -> void:
 	player_knowledge = player_knowledge_value
 	player_knowledge.connect("track_created", _on_track_created)
+	player_knowledge.connect("track_updated", _on_track_updated)
 	player_knowledge.connect("track_state_changed", _on_track_state_changed)
 	player_knowledge.connect("track_removed", _on_track_removed)
 	var existing_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
@@ -23,6 +24,11 @@ func _on_track_created(track: PlayerTrack) -> void:
 	markers[track.track_id] = marker
 
 func _on_track_state_changed(track: PlayerTrack, _previous_state: PlayerTrack.State) -> void:
+	var marker := markers.get(track.track_id) as TrackMarker
+	if marker != null:
+		marker.refresh_state()
+
+func _on_track_updated(track: PlayerTrack) -> void:
 	var marker := markers.get(track.track_id) as TrackMarker
 	if marker != null:
 		marker.refresh_state()

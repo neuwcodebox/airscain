@@ -80,6 +80,8 @@ func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	var near_objective := _confirmed_track(Vector3(250.0, 0.0, 0.0))
 	var tracks: Array[PlayerTrack] = [near_battery, near_objective]
 	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
+	battery.set_priority_track(near_battery.track_id)
+	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_battery)
 
 func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
@@ -92,6 +94,24 @@ func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	assert_same(battery.select_track(tracks, Vector3.ZERO), available)
 	available.state = PlayerTrack.State.LOST
 	assert_null(battery.select_track(tracks, Vector3.ZERO))
+
+func test_doctrine_rejects_neutral_low_quality_and_hold_fire_tracks() -> void:
+	var doctrine := EngagementDoctrine.new()
+	var hostile := _confirmed_track(Vector3.ZERO)
+	assert_true(doctrine.allows(hostile))
+	hostile.track_quality = 0.1
+	assert_false(doctrine.allows(hostile))
+	hostile.track_quality = 0.8
+	hostile.affiliation = PlayerTrack.Affiliation.NEUTRAL
+	assert_false(doctrine.allows(hostile))
+	doctrine.engage_neutral = true
+	assert_true(doctrine.allows(hostile))
+	doctrine.engage_neutral = false
+	hostile.affiliation_confidence = 0.0
+	doctrine.engage_unknown = true
+	assert_true(doctrine.allows(hostile))
+	doctrine.hold_fire = true
+	assert_false(doctrine.allows(hostile))
 
 func test_common_purchase_flow_accepts_role_test_double() -> void:
 	var test_scene := PackedScene.new()
@@ -124,7 +144,12 @@ func _find_valid_position(profile: PlacementProfile) -> Vector3:
 
 func _confirmed_track(position: Vector3) -> PlayerTrack:
 	var track := PlayerTrack.new()
+	track.track_id = int(position.x) + 1
 	track.estimated_position = position
 	track.track_quality = 0.8
 	track.state = PlayerTrack.State.CONFIRMED
+	track.classification = &"uav"
+	track.classification_confidence = 0.8
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 0.8
 	return track

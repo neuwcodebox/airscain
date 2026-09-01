@@ -3,6 +3,7 @@ extends Node3D
 
 signal feedback_changed(message: String)
 signal asset_selected(unit: DefenseUnit)
+signal world_selected(position: Vector3)
 
 var session: GameSession
 var battlefield: Battlefield
@@ -65,7 +66,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			if selection_click.pressed and selection_click.button_index == MOUSE_BUTTON_LEFT and get_viewport().gui_get_hovered_control() == null:
 				var hit := _terrain_hit(get_viewport().get_mouse_position())
 				if not hit.is_empty():
-					pick_asset_at(hit.position)
+					if pick_asset_at(hit.position) == null:
+						world_selected.emit(hit.position)
 		return
 	if event.is_action_pressed("cancel_placement"):
 		cancel()
@@ -102,7 +104,8 @@ func pick_asset_at(world_position: Vector3) -> DefenseUnit:
 		if flat_distance < nearest_distance:
 			nearest_distance = flat_distance
 			picked = unit
-	asset_selected.emit(picked)
+	if picked != null:
+		asset_selected.emit(picked)
 	return picked
 
 func _terrain_hit(screen_position: Vector2) -> Dictionary:

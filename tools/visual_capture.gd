@@ -25,7 +25,7 @@ func run() -> void:
 	main.placement.cancel()
 	_place_initial_assets()
 	for defense: DefenseUnit in main.defenses:
-		if defense is CommandPost:
+		if defense is MissileBattery:
 			main.placement.pick_asset_at(defense.global_position)
 			break
 	main.session.start_defense()
@@ -37,6 +37,9 @@ func run() -> void:
 		threat.global_position = target_position
 	for index: int in 180:
 		await process_frame
+	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
+	if not known_tracks.is_empty():
+		main._on_world_selected(known_tracks[0].estimated_position)
 	_save_capture("/tmp/airscain_combat.png")
 	for defense: DefenseUnit in main.defenses:
 		if defense is SearchRadar:

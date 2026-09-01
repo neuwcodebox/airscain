@@ -6,6 +6,9 @@ signal start_requested
 signal speed_requested(speed: float)
 signal restart_requested(same_seed: bool)
 signal c2_overlay_requested
+signal hold_fire_requested(enabled: bool)
+signal engage_unknown_requested(enabled: bool)
+signal priority_target_requested
 
 var session: GameSession
 var objective: ProtectedObjective
@@ -25,6 +28,10 @@ var defense_buttons: Array[Button] = []
 @onready var final_stats: Label = %FinalStats
 @onready var selected_asset_panel: PanelContainer = %SelectedAssetPanel
 @onready var selected_asset_label: Label = %SelectedAssetLabel
+@onready var selected_track_label: Label = %SelectedTrackLabel
+@onready var hold_fire_button: CheckButton = %HoldFireButton
+@onready var engage_unknown_button: CheckButton = %EngageUnknownButton
+@onready var priority_target_button: Button = %PriorityTargetButton
 
 func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition]) -> void:
 	session = session_value
@@ -49,6 +56,24 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
 	selected_asset_panel.visible = unit != null
 	if unit != null:
 		selected_asset_label.text = "%s\nC2 직접 연결  %d" % [unit.definition.display_name, connection_count]
+		var supports_doctrine := unit.has_method("set_hold_fire")
+		hold_fire_button.visible = supports_doctrine
+		engage_unknown_button.visible = supports_doctrine
+		priority_target_button.visible = supports_doctrine
+		if supports_doctrine:
+			var doctrine: Variant = unit.get("doctrine")
+			hold_fire_button.set_pressed_no_signal(bool(doctrine.get("hold_fire")))
+			engage_unknown_button.set_pressed_no_signal(bool(doctrine.get("engage_unknown")))
+			priority_target_button.disabled = true
+		selected_track_label.text = "항적을 클릭해 상세 확인"
+
+func set_selected_track(track: PlayerTrack, can_prioritize: bool) -> void:
+	if track == null:
+		selected_track_label.text = "항적을 클릭해 상세 확인"
+		priority_target_button.disabled = true
+		return
+	selected_track_label.text = "%s  분류 %d%%\n소속 %d%% · 추적 %d%%" % [String(track.classification).to_upper(), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0)]
+	priority_target_button.disabled = not can_prioritize
 
 func _on_state_changed() -> void:
 	budget_label.text = "예산  $%d" % session.budget
@@ -98,6 +123,15 @@ func _on_fast_pressed() -> void:
 
 func _on_c2_overlay_pressed() -> void:
 	c2_overlay_requested.emit()
+
+func _on_hold_fire_toggled(enabled: bool) -> void:
+	hold_fire_requested.emit(enabled)
+
+func _on_engage_unknown_toggled(enabled: bool) -> void:
+	engage_unknown_requested.emit(enabled)
+
+func _on_priority_target_pressed() -> void:
+	priority_target_requested.emit()
 
 func _on_same_seed_pressed() -> void:
 	restart_requested.emit(true)

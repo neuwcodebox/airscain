@@ -69,7 +69,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	main.session.set_simulation_speed(0.0)
 	var threat: ThreatUnit = main.director.spawn_one()
 	threat.global_position = placement_position + Vector3(0.0, 70.0, 130.0)
-	var battery := result.unit as DefenseUnit
+	var battery := result.unit as MissileBattery
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
 	assert_false(threat.resolved_state, "레이더 항적 없이 실제 위협을 직접 교전하면 안 됩니다")
@@ -78,6 +78,14 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_true(radar_result.success)
 	var radar := radar_result.unit as DefenseUnit
 	radar.gameplay_tick(0.4)
+	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
+	main.placement.pick_asset_at(battery.global_position)
+	main._on_world_selected(known_tracks[0].estimated_position)
+	main.hud.priority_target_requested.emit()
+	assert_eq(battery.doctrine.priority_track_id, known_tracks[0].track_id)
+	main.hud.hold_fire_requested.emit(true)
+	assert_true(battery.doctrine.hold_fire)
+	main.hud.hold_fire_requested.emit(false)
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
 	assert_false(threat.resolved_state, "지휘통제 경로 없이 센서 항적을 공유받으면 안 됩니다")

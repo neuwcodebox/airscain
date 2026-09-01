@@ -8,6 +8,7 @@ var projectile_parent: Node3D
 var battlefield: Battlefield
 var player_knowledge: Node
 var c2_network: Node
+var doctrine := EngagementDoctrine.new()
 var cooldown: float = 0.0
 var _definition: MissileBatteryDefinition
 var interceptors: Array[HomingInterceptor] = []
@@ -36,6 +37,15 @@ func c2_roles() -> int:
 func c2_link_range() -> float:
 	return _definition.c2_range
 
+func set_hold_fire(enabled: bool) -> void:
+	doctrine.hold_fire = enabled
+
+func set_engage_unknown(enabled: bool) -> void:
+	doctrine.engage_unknown = enabled
+
+func set_priority_track(track_id: int) -> void:
+	doctrine.priority_track_id = track_id
+
 func gameplay_tick(delta: float) -> void:
 	if not active or registry == null or player_knowledge == null or c2_network == null:
 		return
@@ -63,11 +73,13 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 	var selected_urgency := -INF
 	var selected_distance := INF
 	for track: PlayerTrack in tracks:
-		if track.state != PlayerTrack.State.CONFIRMED:
+		if not doctrine.allows(track):
 			continue
 		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range:
 			continue
+		if track.track_id == doctrine.priority_track_id:
+			return track
 		var urgency := track.track_quality / maxf(1.0, track.estimated_position.distance_to(protected_position))
 		if urgency > selected_urgency or (is_equal_approx(urgency, selected_urgency) and distance < selected_distance):
 			selected = track

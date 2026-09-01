@@ -10,6 +10,8 @@ var scenario: ScenarioDefinition
 var registry := ThreatRegistry.new()
 var objective: ProtectedObjective
 var defenses: Array[DefenseUnit] = []
+var selected_asset: DefenseUnit
+var selected_track: PlayerTrack
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -102,7 +104,11 @@ func _connect_flow() -> void:
 	hud.restart_requested.connect(_on_restart_requested)
 	placement.feedback_changed.connect(hud.set_feedback)
 	placement.asset_selected.connect(_on_asset_selected)
+	placement.world_selected.connect(_on_world_selected)
 	hud.c2_overlay_requested.connect(_on_c2_overlay_requested)
+	hud.hold_fire_requested.connect(_on_hold_fire_requested)
+	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
+	hud.priority_target_requested.connect(_on_priority_target_requested)
 
 func _on_start_requested() -> void:
 	if session.start_defense():
@@ -149,8 +155,34 @@ func _on_restart_requested(same_seed: bool) -> void:
 	get_tree().reload_current_scene()
 
 func _on_asset_selected(unit: DefenseUnit) -> void:
+	selected_asset = unit
+	selected_track = null
 	c2_overlay.call("select_asset", unit)
 	hud.set_selected_asset(unit, int(c2_overlay.get("visible_link_count")))
 
 func _on_c2_overlay_requested() -> void:
 	c2_overlay.call("toggle_all_links")
+
+func _on_world_selected(position: Vector3) -> void:
+	var nearest_distance := 32.0
+	selected_track = null
+	var tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	for track: PlayerTrack in tracks:
+		var flat_distance := Vector2(track.estimated_position.x - position.x, track.estimated_position.z - position.z).length()
+		if flat_distance < nearest_distance:
+			nearest_distance = flat_distance
+			selected_track = track
+	hud.set_selected_track(selected_track, selected_asset != null and selected_asset.has_method("set_priority_track"))
+
+func _on_hold_fire_requested(enabled: bool) -> void:
+	if selected_asset != null and selected_asset.has_method("set_hold_fire"):
+		selected_asset.call("set_hold_fire", enabled)
+
+func _on_engage_unknown_requested(enabled: bool) -> void:
+	if selected_asset != null and selected_asset.has_method("set_engage_unknown"):
+		selected_asset.call("set_engage_unknown", enabled)
+
+func _on_priority_target_requested() -> void:
+	if selected_asset != null and selected_track != null and selected_asset.has_method("set_priority_track"):
+		selected_asset.call("set_priority_track", selected_track.track_id)
+		hud.set_feedback("항적을 우선표적으로 지정했습니다")

@@ -55,9 +55,22 @@ func refresh_state() -> void:
 			ring_material.albedo_color = Color(1.0, 0.78, 0.22, 0.24)
 		PlayerTrack.State.CONFIRMED:
 			visible = true
-			icon.text = "◆"
-			icon.modulate = Color(1.0, 0.24, 0.16, 0.96)
-			ring_material.albedo_color = Color(1.0, 0.24, 0.16, 0.18)
+			if track.affiliation_confidence < 0.3:
+				icon.text = "◇"
+				icon.modulate = Color(1.0, 0.78, 0.22, 0.94)
+				ring_material.albedo_color = Color(1.0, 0.78, 0.22, 0.2)
+			elif track.affiliation == PlayerTrack.Affiliation.HOSTILE:
+				icon.text = "◆"
+				icon.modulate = Color(1.0, 0.24, 0.16, 0.96)
+				ring_material.albedo_color = Color(1.0, 0.24, 0.16, 0.18)
+			elif track.affiliation == PlayerTrack.Affiliation.NEUTRAL:
+				icon.text = "●"
+				icon.modulate = Color(0.28, 0.82, 0.92, 0.9)
+				ring_material.albedo_color = Color(0.28, 0.82, 0.92, 0.18)
+			else:
+				icon.text = "■"
+				icon.modulate = Color(0.35, 0.94, 0.54, 0.9)
+				ring_material.albedo_color = Color(0.35, 0.94, 0.54, 0.18)
 		PlayerTrack.State.COASTING:
 			visible = true
 			icon.text = "◇"
