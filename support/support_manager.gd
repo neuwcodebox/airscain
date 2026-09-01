@@ -2,7 +2,10 @@ class_name SupportManager
 extends Node
 
 var facilities: Array[SupportFacility] = []
-var consumers: Dictionary[int, ArmedDefenseUnit] = {}
+const RESUPPLY := "resupply"
+const REPAIR := "repair"
+
+var consumers: Dictionary[int, DefenseUnit] = {}
 var tasks: Array[Dictionary] = []
 var session: GameSession
 
@@ -15,20 +18,24 @@ func reset() -> void:
 	tasks.clear()
 
 func register_asset(unit: DefenseUnit) -> void:
+	consumers[unit.runtime_id] = unit
 	if unit is SupportFacility:
 		facilities.append(unit as SupportFacility)
-	elif unit is ArmedDefenseUnit:
-		consumers[unit.runtime_id] = unit as ArmedDefenseUnit
 
 func request_resupply(unit: ArmedDefenseUnit) -> bool:
 	if unit == null or not consumers.has(unit.runtime_id) or unit.magazine.reserve >= unit.magazine.reserve_capacity or task_status(unit) != "":
 		return false
-	if session == null or not session.try_spend(unit.resupply_cost()):
+	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
+
+func request_repair(unit: DefenseUnit) -> bool:
+	if unit == null or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "":
 		return false
-	tasks.append({
-		"target_defense_id": unit.runtime_id,
-		"remaining_work": unit.resupply_work(),
-	})
+	return _request_task(unit, REPAIR, unit.repair_cost(), unit.repair_work())
+
+func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float) -> bool:
+	if session == null or not session.try_spend(cost):
+		return false
+	tasks.append({"kind": kind, "target_defense_id": unit.runtime_id, "remaining_work": work})
 	return true
 
 func gameplay_tick(delta: float) -> void:
@@ -44,7 +51,11 @@ func gameplay_tick(delta: float) -> void:
 		if float(task.remaining_work) <= 0.0:
 			var target_id := int(task.target_defense_id)
 			if consumers.has(target_id) and is_instance_valid(consumers[target_id]):
-				consumers[target_id].magazine.refill_reserve()
+				var target := consumers[target_id]
+				if String(task.kind) == RESUPPLY and target is ArmedDefenseUnit:
+					(target as ArmedDefenseUnit).magazine.refill_reserve()
+				elif String(task.kind) == REPAIR and target.integrity > 0.0:
+					target.complete_repair()
 			tasks.remove_at(index)
 
 func total_capacity() -> float:
@@ -61,10 +72,11 @@ func total_slots() -> int:
 			result += facility.support_slots()
 	return result
 
-func task_status(unit: ArmedDefenseUnit) -> String:
+func task_status(unit: DefenseUnit) -> String:
 	for index: int in tasks.size():
 		if int(tasks[index].target_defense_id) == unit.runtime_id:
-			return "재보급 진행" if index < total_slots() and total_capacity() > 0.0 else "재보급 대기"
+			var label := "재보급" if String(tasks[index].kind) == RESUPPLY else "수리"
+			return "%s 진행" % label if index < total_slots() and total_capacity() > 0.0 else "%s 대기" % label
 	return ""
 
 func capture_state() -> Dictionary:
@@ -74,6 +86,7 @@ func restore_state(state: Dictionary) -> void:
 	tasks.clear()
 	for task: Dictionary in state.get("tasks", []):
 		tasks.append({
+			"kind": String(task.kind),
 			"target_defense_id": int(task.target_defense_id),
 			"remaining_work": float(task.remaining_work),
 		})

@@ -22,7 +22,7 @@ func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: N
 	projectile_parent = projectile_parent_value
 
 func c2_link_range() -> float:
-	return _definition.c2_range
+	return _definition.c2_range * operational_efficiency()
 
 func gameplay_tick(delta: float) -> void:
 	if not active or registry == null or player_knowledge == null or c2_network == null:
@@ -56,7 +56,7 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		if not doctrine.allows(track) or not is_track_available_for_engagement(track):
 			continue
 		var distance := global_position.distance_to(track.estimated_position)
-		if distance > _definition.attack_range:
+		if distance > _definition.attack_range * operational_efficiency():
 			continue
 		if track.track_id == doctrine.priority_track_id:
 			return track

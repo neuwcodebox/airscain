@@ -23,6 +23,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	var battery_runtime_id := battery.runtime_id
 	battery.doctrine.hold_fire = true
 	battery.cooldown = 1.25
+	battery.receive_damage(20.0)
 	battery.magazine.reserve = 0
 	assert_true(battery.request_resupply())
 	assert_true(main.session.start_defense())
@@ -51,6 +52,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(restored_battery.global_position, placement_position)
 	assert_true(restored_battery.doctrine.hold_fire)
 	assert_eq(restored_battery.cooldown, 1.25)
+	assert_eq(restored_battery.integrity, 80.0)
 	assert_eq(restored_battery.magazine.reserve, 0)
 	assert_eq(main.support_manager.task_status(restored_battery), "재보급 대기")
 	assert_eq(main.registry.count(), saved_contact_count)

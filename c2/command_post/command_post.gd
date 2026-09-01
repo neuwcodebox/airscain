@@ -11,4 +11,4 @@ func c2_roles() -> int:
 	return C2Role.COMMAND
 
 func c2_link_range() -> float:
-	return _definition.link_range
+	return _definition.link_range * operational_efficiency()

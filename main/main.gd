@@ -117,6 +117,7 @@ func _connect_flow() -> void:
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
 	hud.priority_target_requested.connect(_on_priority_target_requested)
 	hud.resupply_requested.connect(_on_resupply_requested)
+	hud.repair_requested.connect(_on_repair_requested)
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
 
@@ -205,6 +206,12 @@ func _on_resupply_requested() -> void:
 		hud.set_feedback("재보급 작업을 요청했습니다")
 	else:
 		hud.set_feedback("현재 재보급을 요청할 수 없습니다")
+
+func _on_repair_requested() -> void:
+	if selected_asset != null and selected_asset.request_repair():
+		hud.set_feedback("수리 작업을 요청했습니다")
+	else:
+		hud.set_feedback("현재 수리를 요청할 수 없습니다")
 
 func _on_save_requested() -> void:
 	var error := SaveStore.write(capture_save_document(), save_path)

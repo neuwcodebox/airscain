@@ -27,7 +27,7 @@ func c2_roles() -> int:
 	return C2Role.SENSOR
 
 func c2_link_range() -> float:
-	return _definition.c2_range
+	return _definition.c2_range * operational_efficiency()
 
 func local_sensor_ids() -> Array[int]:
 	return [runtime_id]
@@ -45,7 +45,10 @@ func gameplay_tick(delta: float) -> void:
 	_scan()
 
 func signal_quality_for(distance: float) -> float:
-	var range_ratio := maxf(0.0, distance) / _definition.detection_range
+	var effective_range := _definition.detection_range * operational_efficiency()
+	if effective_range <= 0.0:
+		return 0.0
+	var range_ratio := maxf(0.0, distance) / effective_range
 	var range_factor := 1.0 / (1.0 + pow(range_ratio, _definition.range_exponent))
 	return clampf(_definition.sensor_quality * range_factor, 0.0, 1.0)
 
@@ -54,7 +57,7 @@ func _scan() -> void:
 	for threat: ThreatUnit in registry.get_active():
 		var target_position := threat.get_aim_position()
 		var distance := sensor_position.distance_to(target_position)
-		if distance > _definition.detection_range or not _has_line_of_sight(sensor_position, target_position):
+		if distance > _definition.detection_range * operational_efficiency() or not _has_line_of_sight(sensor_position, target_position):
 			continue
 		var signature := threat.get_sensor_signature()
 		var quality := signal_quality_for(distance) * float(signature.radar_factor)

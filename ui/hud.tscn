@@ -199,7 +199,7 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 18.0
-offset_top = -286.0
+offset_top = -334.0
 offset_right = 286.0
 offset_bottom = -18.0
 grow_vertical = 0
@@ -247,6 +247,12 @@ unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "재보급 요청"
+
+[node name="RepairButton" type="Button" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "수리 요청"
 
 [node name="GameOverPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -306,6 +312,7 @@ text = "새 전장 시작"
 [connection signal="toggled" from="SelectedAssetPanel/VBox/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ResupplyButton" to="." method="_on_resupply_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/RepairButton" to="." method="_on_repair_pressed"]
 [connection signal="pressed" from="Catalog/VBox/StartButton" to="." method="_on_start_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/SameSeedButton" to="." method="_on_same_seed_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/NewSeedButton" to="." method="_on_new_seed_pressed"]

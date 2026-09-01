@@ -26,6 +26,7 @@ func run() -> void:
 	_place_initial_assets()
 	for defense: DefenseUnit in main.defenses:
 		if defense is MissileBattery:
+			defense.receive_damage(50.0)
 			main.placement.pick_asset_at(defense.global_position)
 			break
 	main.session.start_defense()

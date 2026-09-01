@@ -7,7 +7,6 @@ var c2_network: Node
 var engagement_coordinator: EngagementCoordinator
 var doctrine := EngagementDoctrine.new()
 var magazine := WeaponMagazine.new()
-var support_manager: SupportManager
 
 func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: Node) -> void:
 	battlefield = battlefield_value
@@ -20,7 +19,7 @@ func configure_engagements(coordinator: EngagementCoordinator) -> void:
 	engagement_coordinator = coordinator
 
 func configure_support(manager: SupportManager) -> void:
-	support_manager = manager
+	super.configure_support(manager)
 
 func c2_roles() -> int:
 	return C2Role.DEFENSE
@@ -45,10 +44,10 @@ func is_track_available_for_engagement(track: PlayerTrack, maximum_concurrent: i
 
 func resource_status_text() -> String:
 	if magazine.is_reloading():
-		return _with_support_status("탄약 %d + %d · 재장전 %.1f초" % [magazine.rounds, magazine.reserve, magazine.reload_remaining])
+		return _with_support_status("%s\n탄약 %d + %d · 재장전 %.1f초" % [operational_status_text(), magazine.rounds, magazine.reserve, magazine.reload_remaining])
 	if magazine.is_depleted():
-		return _with_support_status("탄약 고갈")
-	return _with_support_status("탄약 %d + %d" % [magazine.rounds, magazine.reserve])
+		return _with_support_status("%s\n탄약 고갈" % operational_status_text())
+	return _with_support_status("%s\n탄약 %d + %d" % [operational_status_text(), magazine.rounds, magazine.reserve])
 
 func resupply_work() -> float:
 	return 1.0

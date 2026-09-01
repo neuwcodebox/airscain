@@ -218,6 +218,40 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	assert_eq(gun.magazine.rounds, gun.magazine.capacity)
 	assert_eq(manager.task_status(gun), "")
 
+func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
+	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
+	var support_session: GameSession = autofree(GameSession.new()) as GameSession
+	support_session.reset(100)
+	manager.configure(support_session)
+	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, SCENARIO.available_defenses[5])
+	var gun: CloseInGun = autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
+	gun.setup(2, SCENARIO.available_defenses[4])
+	gun.configure_support(manager)
+	manager.register_asset(facility)
+	manager.register_asset(gun)
+	assert_true(facility.receive_damage(50.0))
+	assert_eq(facility.operational_status_text(), "상태 성능저하 · 내구도 50%")
+	assert_almost_eq(facility.support_capacity(), 2.0, 0.0001)
+	assert_true(gun.receive_damage(50.0))
+	assert_almost_eq(gun.c2_link_range(), (SCENARIO.available_defenses[4] as CloseInGunDefinition).c2_range * 0.5, 0.0001)
+	assert_true(gun.request_repair())
+	assert_eq(support_session.budget, 90)
+	assert_eq(manager.task_status(gun), "수리 진행")
+	manager.gameplay_tick(1.0)
+	var saved_tasks := manager.capture_state()
+	assert_eq(saved_tasks.tasks[0].kind, SupportManager.REPAIR)
+	manager.reset()
+	manager.register_asset(facility)
+	manager.register_asset(gun)
+	manager.restore_state(saved_tasks)
+	manager.gameplay_tick(2.9)
+	assert_eq(gun.integrity, 50.0)
+	manager.gameplay_tick(0.2)
+	assert_eq(gun.integrity, gun.definition.maximum_integrity)
+	assert_true(gun.active)
+	assert_eq(manager.task_status(gun), "")
+
 func _find_valid_position(profile: PlacementProfile) -> Vector3:
 	for z: int in range(-450, 451, 30):
 		for x: int in range(-450, 451, 30):

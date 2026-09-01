@@ -24,7 +24,7 @@ func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: N
 	projectile_parent = projectile_parent_value
 
 func c2_link_range() -> float:
-	return _definition.c2_range
+	return _definition.c2_range * operational_efficiency()
 
 func gameplay_tick(delta: float) -> void:
 	if not active or registry == null or player_knowledge == null or c2_network == null:
@@ -49,7 +49,7 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		if not doctrine.allows(track) or not is_track_available_for_engagement(track, engagement_limit(track)):
 			continue
 		var distance := global_position.distance_to(track.estimated_position)
-		if distance > _definition.attack_range:
+		if distance > _definition.attack_range * operational_efficiency():
 			continue
 		if track.track_id == doctrine.priority_track_id:
 			return track
@@ -83,7 +83,7 @@ func _fire_burst(track: PlayerTrack) -> void:
 			muzzle_flash.visible = false
 	)
 	var distance := global_position.distance_to(track.estimated_position)
-	var range_ratio := distance / _definition.attack_range
+	var range_ratio := distance / (_definition.attack_range * operational_efficiency())
 	var range_factor := 1.0 / (1.0 + pow(range_ratio, 4.0))
 	var hit_probability := clampf(_definition.base_accuracy * track.track_quality * range_factor * weapon_match(track), 0.0, 1.0)
 	if rng.randf() > hit_probability:

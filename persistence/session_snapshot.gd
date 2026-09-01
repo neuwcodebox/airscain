@@ -66,6 +66,10 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			sensor_ids[runtime_id] = true
 		if not _valid_vector_data(state.get("position")):
 			return "방공망 위치가 올바르지 않습니다"
+		var maximum_integrity: float = defense_definitions[definition_id].maximum_integrity
+		var integrity := float(state.get("integrity", -1.0))
+		if integrity < 0.0 or integrity > maximum_integrity:
+			return "방공망 내구도가 올바르지 않습니다"
 		if defense_definitions[definition_id] is MissileBatteryDefinition or defense_definitions[definition_id] is CloseInGunDefinition:
 			var content_state: Dictionary = state.get("content_state", {})
 			var magazine_error := WeaponMagazine.validation_error(content_state.get("magazine"))
@@ -121,8 +125,11 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		return "지원 작업 목록이 올바르지 않습니다"
 	var support_targets: Dictionary[int, bool] = {}
 	for task: Dictionary in support_state.tasks:
+		var kind := String(task.get("kind", ""))
 		var target_defense_id := int(task.get("target_defense_id", 0))
-		if not armed_ids.has(target_defense_id) or support_targets.has(target_defense_id) or float(task.get("remaining_work", 0.0)) <= 0.0:
+		if kind != SupportManager.RESUPPLY and kind != SupportManager.REPAIR:
+			return "지원 작업 종류가 올바르지 않습니다"
+		if not defense_ids.has(target_defense_id) or (kind == SupportManager.RESUPPLY and not armed_ids.has(target_defense_id)) or support_targets.has(target_defense_id) or float(task.get("remaining_work", 0.0)) <= 0.0:
 			return "재보급 작업 대상 또는 작업량이 올바르지 않습니다"
 		support_targets[target_defense_id] = true
 	for projectile_state: Dictionary in world_state.projectiles:
