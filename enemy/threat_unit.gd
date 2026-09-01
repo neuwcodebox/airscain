@@ -28,6 +28,13 @@ func get_aim_position() -> Vector3:
 func get_urgency() -> float:
 	return 0.0
 
+func get_sensor_signature() -> Dictionary:
+	return {
+		"classification_hint": definition.signature_class,
+		"radar_factor": definition.radar_signature,
+		"affiliation_hint": int(definition.affiliation),
+	}
+
 func receive_damage(amount: float) -> bool:
 	if not is_targetable() or amount <= 0.0:
 		return false

@@ -47,3 +47,17 @@ func test_same_scan_observations_cannot_collapse_into_one_track() -> void:
 	nearby.setup(1, 1.0, Vector3(20.0, 0.0, 0.0), 0.8, 10.0, 0.8)
 	knowledge.submit_observation(nearby)
 	assert_eq(knowledge.tracks.size(), 2)
+
+func test_track_quality_classification_and_affiliation_confidence_are_independent() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var observation := SensorObservation.new()
+	observation.setup(3, 0.0, Vector3.ZERO, 0.9, 5.0, 0.8, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.4)
+	var track := knowledge.submit_observation(observation)
+	assert_eq(track.classification, &"uav")
+	assert_eq(track.affiliation, PlayerTrack.Affiliation.HOSTILE)
+	assert_gt(track.track_quality, track.classification_confidence)
+	assert_ne(track.classification_confidence, track.affiliation_confidence)
+	var second := SensorObservation.new()
+	second.setup(3, 0.4, Vector3(10.0, 0.0, 0.0), 0.9, 5.0, 0.4, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.4)
+	knowledge.submit_observation(second)
+	assert_gt(track.classification_confidence, 0.2)

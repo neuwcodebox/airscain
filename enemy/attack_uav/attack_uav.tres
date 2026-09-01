@@ -9,9 +9,11 @@ id = &"attack_uav"
 display_name = "자폭형 공격 UAV"
 scene = ExtResource("2")
 neutralization_reward = 30
+signature_class = &"uav"
+radar_signature = 0.72
+affiliation = 3
 maximum_health = 100.0
 base_speed = 30.0
 cruise_altitude = 70.0
 terminal_distance = 120.0
 mission_damage = 10
-

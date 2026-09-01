@@ -56,9 +56,10 @@ func _scan() -> void:
 		var distance := sensor_position.distance_to(target_position)
 		if distance > _definition.detection_range or not _has_line_of_sight(sensor_position, target_position):
 			continue
-		var quality := signal_quality_for(distance)
+		var signature := threat.get_sensor_signature()
+		var quality := signal_quality_for(distance) * float(signature.radar_factor)
 		var observation := SensorObservation.new()
-		observation.setup(runtime_id, float(player_knowledge.get("simulation_time")), target_position, quality, lerpf(5.0, 45.0, 1.0 - quality), _definition.scan_interval)
+		observation.setup(runtime_id, float(player_knowledge.get("simulation_time")), target_position, quality, lerpf(5.0, 45.0, 1.0 - quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), quality * 0.55)
 		player_knowledge.call("submit_observation", observation)
 
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
