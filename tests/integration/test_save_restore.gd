@@ -85,6 +85,25 @@ func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
 	assert_ne(main.restore_from_document(document), "")
 	assert_same(_find_contact(threat.runtime_id), threat)
 
+func test_multi_munition_inventory_mode_and_validation_restore() -> void:
+	var battery := _place_defense(main.scenario.available_defenses[7]) as MissileBattery
+	var battery_id := battery.runtime_id
+	battery.set_munition_mode(&"high_speed_interceptor")
+	battery.magazines[&"area_defense"].reserve = 4
+	battery.magazines[&"high_speed_interceptor"].rounds = 1
+	battery.magazines[&"high_speed_interceptor"].reserve = 0
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var invalid_document := document.duplicate(true)
+	invalid_document.payload.world.defenses[0].content_state.munition_magazines.erase("high_speed_interceptor")
+	assert_ne(main.restore_from_document(invalid_document), "")
+	assert_same(_find_defense(battery_id), battery)
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_defense(battery_id) as MissileBattery
+	assert_eq(restored.munition_mode, &"high_speed_interceptor")
+	assert_eq(restored.magazines[&"area_defense"].reserve, 4)
+	assert_eq(restored.magazines[&"high_speed_interceptor"].rounds, 1)
+	assert_eq(restored.magazines[&"high_speed_interceptor"].reserve, 0)
+
 func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -> void:
 	var battery := _place_defense(main.scenario.available_defenses[0]) as MissileBattery
 	var radar := _place_defense(main.scenario.available_defenses[1]) as SearchRadar

@@ -35,7 +35,8 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	track.estimated_position = threat.global_position
 	var interceptor := add_child_autofree(HomingInterceptor.new()) as HomingInterceptor
 	interceptor.global_position = Vector3(-100.0, 0.0, 0.0)
-	interceptor.configure(track, registry, SCENARIO.available_defenses[0], Vector3.RIGHT, 1)
+	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 1)
 	interceptor.gameplay_tick(0.1)
 	assert_true(interceptor.is_queued_for_deletion())
 	assert_eq(threat.countermeasure_charges_remaining, 0)
@@ -123,6 +124,30 @@ func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	assert_same(battery.select_track(tracks, Vector3.ZERO), available)
 	available.state = PlayerTrack.State.LOST
 	assert_null(battery.select_track(tracks, Vector3.ZERO))
+
+func test_long_range_launcher_selects_and_preserves_specialized_munition() -> void:
+	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(7, definition)
+	var ballistic := _confirmed_track(Vector3(200.0, 0.0, 0.0))
+	ballistic.classification = &"ballistic_missile"
+	assert_eq(battery.munition_for_track(ballistic).id, &"high_speed_interceptor")
+	var coordinator := EngagementCoordinator.new()
+	battery.configure_engagements(coordinator)
+	assert_true(coordinator.try_reserve(ballistic.track_id, 90, 1.0, 2))
+	assert_same(battery.select_track([ballistic], Vector3.ZERO), ballistic)
+	assert_true(coordinator.try_reserve(ballistic.track_id, 91, 1.0, 2))
+	assert_null(battery.select_track([ballistic], Vector3.ZERO))
+	coordinator.reset()
+	coordinator.free()
+	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
+	specialized.rounds = 1
+	specialized.reserve = 0
+	assert_eq(battery.munition_for_track(ballistic).id, &"area_defense")
+	battery.set_priority_track(ballistic.track_id)
+	assert_eq(battery.munition_for_track(ballistic).id, &"high_speed_interceptor")
+	battery.set_munition_mode(&"area_defense")
+	assert_eq(battery.munition_for_track(ballistic).id, &"area_defense")
 
 func test_doctrine_rejects_neutral_low_quality_and_hold_fire_tracks() -> void:
 	var doctrine := EngagementDoctrine.new()

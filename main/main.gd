@@ -127,6 +127,7 @@ func _connect_flow() -> void:
 	hud.hold_fire_requested.connect(_on_hold_fire_requested)
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
 	hud.priority_target_requested.connect(_on_priority_target_requested)
+	hud.munition_mode_requested.connect(_on_munition_mode_requested)
 	hud.resupply_requested.connect(_on_resupply_requested)
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.relocation_requested.connect(_on_relocation_requested)
@@ -219,6 +220,11 @@ func _on_priority_target_requested() -> void:
 	if selected_asset != null and selected_track != null and selected_asset.has_method("set_priority_track"):
 		selected_asset.call("set_priority_track", selected_track.track_id)
 		hud.set_feedback("항적을 우선표적으로 지정했습니다")
+
+func _on_munition_mode_requested() -> void:
+	if selected_asset is MissileBattery:
+		(selected_asset as MissileBattery).cycle_munition_mode()
+		hud.set_feedback("탄종 운용 모드를 변경했습니다")
 
 func _on_resupply_requested() -> void:
 	if selected_asset is ArmedDefenseUnit and (selected_asset as ArmedDefenseUnit).request_resupply():

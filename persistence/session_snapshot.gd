@@ -80,7 +80,18 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var integrity := float(state.get("integrity", -1.0))
 		if integrity < 0.0 or integrity > maximum_integrity:
 			return "방공망 내구도가 올바르지 않습니다"
-		if defense_definitions[definition_id] is MissileBatteryDefinition or defense_definitions[definition_id] is CloseInGunDefinition:
+		if defense_definitions[definition_id] is MissileBatteryDefinition:
+			var battery_definition := defense_definitions[definition_id] as MissileBatteryDefinition
+			var content_state: Dictionary = state.get("content_state", {})
+			var magazine_states: Variant = content_state.get("munition_magazines")
+			var munition_mode := StringName(String(content_state.get("munition_mode", "")))
+			if not magazine_states is Dictionary or munition_mode != &"auto" and not _munition_definition_map(battery_definition).has(munition_mode):
+				return "%s: 탄종 선택 또는 재고 상태가 올바르지 않습니다" % definition_id
+			for munition: MissileMunitionDefinition in battery_definition.munitions:
+				var magazine_error := WeaponMagazine.validation_error(magazine_states.get(String(munition.id)))
+				if not magazine_error.is_empty():
+					return "%s/%s: %s" % [definition_id, munition.id, magazine_error]
+		elif defense_definitions[definition_id] is CloseInGunDefinition:
 			var content_state: Dictionary = state.get("content_state", {})
 			var magazine_error := WeaponMagazine.validation_error(content_state.get("magazine"))
 			if not magazine_error.is_empty():
@@ -232,6 +243,12 @@ static func contact_definition_map(scenario: ScenarioDefinition) -> Dictionary[S
 		result[entry.threat_definition.id] = entry.threat_definition
 	for definition: ThreatDefinition in scenario.ambient_contacts:
 		result[definition.id] = definition
+	return result
+
+static func _munition_definition_map(definition: MissileBatteryDefinition) -> Dictionary[StringName, MissileMunitionDefinition]:
+	var result: Dictionary[StringName, MissileMunitionDefinition] = {}
+	for munition: MissileMunitionDefinition in definition.munitions:
+		result[munition.id] = munition
 	return result
 
 static func _valid_vector_data(value: Variant) -> bool:

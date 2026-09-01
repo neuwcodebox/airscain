@@ -16,7 +16,7 @@ var radar_sensitivity: float = 0.65
 var countermeasure_attempted: bool = false
 var rng := RandomNumberGenerator.new()
 
-func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileBatteryDefinition, initial_direction: Vector3, owner_id: int = 0) -> void:
+func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0) -> void:
 	target_track = track_value
 	registry = registry_value
 	owner_defense_id = owner_id

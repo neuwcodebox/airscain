@@ -1,14 +1,31 @@
-[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=6 format=3]
 
 [ext_resource path="res://defense/missile_battery/missile_battery_definition.gd" type="Script" id="1"]
 [ext_resource path="res://defense/missile_battery/missile_battery.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
+[ext_resource path="res://defense/missile_battery/missile_munition_definition.gd" type="Script" id="4"]
 
 [sub_resource type="Resource" id="PlacementProfile"]
 script = ExtResource("3")
 footprint_radius = 10.0
 maximum_slope_degrees = 14.0
 boundary_margin = 15.0
+
+[sub_resource type="Resource" id="StandardMunition"]
+script = ExtResource("4")
+id = &"standard"
+display_name = "표준 요격탄"
+interceptor_speed = 200.0
+interceptor_turn_rate_degrees = 240.0
+interceptor_lifetime = 5.0
+interceptor_damage = 100.0
+proximity_radius = 15.0
+small_target_match = 0.22
+magazine_capacity = 12
+reserve_ammunition = 12
+reload_duration = 5.0
+resupply_cost = 8
+resupply_work = 8.0
 
 [resource]
 script = ExtResource("1")
@@ -20,16 +37,7 @@ placement_profile = SubResource("PlacementProfile")
 preview_range = 300.0
 attack_range = 300.0
 fire_interval = 2.2
-interceptor_speed = 200.0
-interceptor_turn_rate_degrees = 240.0
-interceptor_lifetime = 5.0
-interceptor_damage = 100.0
-proximity_radius = 15.0
 c2_range = 600.0
-magazine_capacity = 12
-reserve_ammunition = 12
-reload_duration = 5.0
-resupply_cost = 8
-resupply_work = 8.0
+munitions = Array[ExtResource("4")]([SubResource("StandardMunition")])
 mobile = true
 relocation_duration = 8.0

@@ -23,7 +23,7 @@ func register_asset(unit: DefenseUnit) -> void:
 		facilities.append(unit as SupportFacility)
 
 func request_resupply(unit: ArmedDefenseUnit) -> bool:
-	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.magazine.reserve >= unit.magazine.reserve_capacity or task_status(unit) != "":
+	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or not unit.ammunition_needs_resupply() or task_status(unit) != "":
 		return false
 	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
 
@@ -53,7 +53,7 @@ func gameplay_tick(delta: float) -> void:
 			if consumers.has(target_id) and is_instance_valid(consumers[target_id]):
 				var target := consumers[target_id]
 				if String(task.kind) == RESUPPLY and target is ArmedDefenseUnit:
-					(target as ArmedDefenseUnit).magazine.refill_reserve()
+					(target as ArmedDefenseUnit).complete_resupply()
 				elif String(task.kind) == REPAIR and target.integrity > 0.0:
 					target.complete_repair()
 			tasks.remove_at(index)

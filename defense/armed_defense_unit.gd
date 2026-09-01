@@ -59,10 +59,19 @@ func resupply_cost() -> int:
 	return 0
 
 func can_request_resupply() -> bool:
-	return uses_ammunition() and support_manager != null and magazine.reserve < magazine.reserve_capacity and support_manager.task_status(self).is_empty()
+	return uses_ammunition() and support_manager != null and ammunition_needs_resupply() and support_manager.task_status(self).is_empty()
 
 func request_resupply() -> bool:
 	return support_manager != null and support_manager.request_resupply(self)
+
+func ammunition_needs_resupply() -> bool:
+	return magazine.reserve < magazine.reserve_capacity
+
+func ammunition_reserve_ratio() -> float:
+	return float(magazine.reserve) / maxf(1.0, float(magazine.reserve_capacity))
+
+func complete_resupply() -> void:
+	magazine.refill_reserve()
 
 func _with_support_status(ammunition_status: String) -> String:
 	var statuses: Array[String] = []

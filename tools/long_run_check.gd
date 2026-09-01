@@ -39,7 +39,7 @@ func run() -> void:
 		main._process(STEP)
 		if main.session.phase == GameSession.Phase.GAME_OVER:
 			var ammunition := _ammunition_totals()
-			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d ammo=%d+%d depleted=%d deployed=%s spawned=%s leaked=%s" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size(), ammunition.rounds, ammunition.reserve, ammunition.depleted, _deployed_by_type(), spawned_by_type, leaked_by_type])
+			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d ammo=%d+%d depleted=%d deployed=%s munitions=%s spawned=%s leaked=%s" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size(), ammunition.rounds, ammunition.reserve, ammunition.depleted, _deployed_by_type(), _munition_inventory(), spawned_by_type, leaked_by_type])
 			return
 		if index % 10 == 0:
 			await process_frame
@@ -140,7 +140,7 @@ func _request_low_ammunition_resupply() -> void:
 	for defense: DefenseUnit in main.defenses:
 		if defense is ArmedDefenseUnit and (defense as ArmedDefenseUnit).uses_ammunition():
 			var armed := defense as ArmedDefenseUnit
-			if armed.magazine.reserve <= int(float(armed.magazine.reserve_capacity) * 0.25):
+			if armed.ammunition_reserve_ratio() <= 0.25:
 				armed.request_resupply()
 
 func _fail(message: String) -> void:
@@ -162,15 +162,32 @@ func _deployed_by_type() -> Dictionary[String, int]:
 		result[defense_id] = result.get(defense_id, 0) + 1
 	return result
 
+func _munition_inventory() -> Dictionary[String, Vector2i]:
+	var result: Dictionary[String, Vector2i] = {}
+	for defense: DefenseUnit in main.defenses:
+		if not defense is MissileBattery:
+			continue
+		for munition_id: StringName in (defense as MissileBattery).magazines:
+			var munition_magazine: WeaponMagazine = (defense as MissileBattery).magazines[munition_id]
+			var current: Vector2i = result.get(String(munition_id), Vector2i.ZERO)
+			result[String(munition_id)] = current + Vector2i(munition_magazine.rounds, munition_magazine.reserve)
+	return result
+
 func _ammunition_totals() -> Dictionary:
 	var rounds := 0
 	var reserve := 0
 	var depleted := 0
 	for defense: DefenseUnit in main.defenses:
 		if defense is ArmedDefenseUnit and (defense as ArmedDefenseUnit).uses_ammunition():
-			var armed := defense as ArmedDefenseUnit
-			rounds += armed.magazine.rounds
-			reserve += armed.magazine.reserve
-			if armed.magazine.is_depleted():
-				depleted += 1
+			var magazines_to_count: Array[WeaponMagazine] = []
+			if defense is MissileBattery:
+				for munition_magazine: WeaponMagazine in (defense as MissileBattery).magazines.values():
+					magazines_to_count.append(munition_magazine)
+			else:
+				magazines_to_count.append((defense as ArmedDefenseUnit).magazine)
+			for weapon_magazine: WeaponMagazine in magazines_to_count:
+				rounds += weapon_magazine.rounds
+				reserve += weapon_magazine.reserve
+				if weapon_magazine.is_depleted():
+					depleted += 1
 	return {"rounds": rounds, "reserve": reserve, "depleted": depleted}

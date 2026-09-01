@@ -9,6 +9,7 @@ signal c2_overlay_requested
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
 signal priority_target_requested
+signal munition_mode_requested
 signal resupply_requested
 signal repair_requested
 signal relocation_requested
@@ -39,6 +40,7 @@ var selected_asset_connection_count: int = 0
 @onready var hold_fire_button: CheckButton = %HoldFireButton
 @onready var engage_unknown_button: CheckButton = %EngageUnknownButton
 @onready var priority_target_button: Button = %PriorityTargetButton
+@onready var munition_mode_button: Button = %MunitionModeButton
 @onready var resupply_button: Button = %ResupplyButton
 @onready var repair_button: Button = %RepairButton
 @onready var relocation_button: Button = %RelocationButton
@@ -76,6 +78,7 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
 		hold_fire_button.visible = supports_doctrine
 		engage_unknown_button.visible = supports_doctrine
 		priority_target_button.visible = supports_doctrine
+		munition_mode_button.visible = unit is MissileBattery and (unit.definition as MissileBatteryDefinition).munitions.size() > 1
 		resupply_button.visible = unit is ArmedDefenseUnit and (unit as ArmedDefenseUnit).uses_ammunition()
 		repair_button.visible = true
 		relocation_button.visible = unit.definition.mobile
@@ -93,6 +96,8 @@ func _refresh_selected_asset_label() -> void:
 		selected_asset_label.text += "\n%s" % resource_status
 	if selected_asset is ArmedDefenseUnit:
 		resupply_button.text = "재보급 요청  $%d" % (selected_asset as ArmedDefenseUnit).resupply_cost()
+	if selected_asset is MissileBattery:
+		munition_mode_button.text = "탄종  %s" % (selected_asset as MissileBattery).munition_mode_text()
 	resupply_button.disabled = not selected_asset is ArmedDefenseUnit or not (selected_asset as ArmedDefenseUnit).uses_ammunition() or not (selected_asset as ArmedDefenseUnit).can_request_resupply()
 	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost()
 	repair_button.disabled = not selected_asset.can_request_repair()
@@ -164,6 +169,10 @@ func _on_engage_unknown_toggled(enabled: bool) -> void:
 
 func _on_priority_target_pressed() -> void:
 	priority_target_requested.emit()
+
+func _on_munition_mode_pressed() -> void:
+	munition_mode_requested.emit()
+	_refresh_selected_asset_label()
 
 func _on_resupply_pressed() -> void:
 	resupply_requested.emit()

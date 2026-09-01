@@ -55,6 +55,18 @@ func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	assert_ne(antenna.rotation.y, starting_rotation)
 	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"sensor").asset_id, radar.runtime_id)
 
+func test_long_range_launcher_exposes_munition_mode_control() -> void:
+	var definition := main.scenario.available_defenses[7]
+	var position := _find_valid_position_for(definition.placement_profile)
+	var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var battery := result.unit as MissileBattery
+	main._on_asset_selected(battery)
+	assert_true(main.hud.munition_mode_button.visible)
+	assert_eq(battery.munition_mode, &"auto")
+	main.hud._on_munition_mode_pressed()
+	assert_eq(battery.munition_mode, &"area_defense")
+	assert_string_contains(main.hud.munition_mode_button.text, "광역방공탄")
+
 func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	main.registry.clear()
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]

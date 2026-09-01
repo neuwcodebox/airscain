@@ -1,14 +1,56 @@
-[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=7 format=3]
 
 [ext_resource path="res://defense/missile_battery/missile_battery_definition.gd" type="Script" id="1"]
 [ext_resource path="res://defense/missile_battery/missile_battery.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
+[ext_resource path="res://defense/missile_battery/missile_munition_definition.gd" type="Script" id="4"]
 
 [sub_resource type="Resource" id="PlacementProfile"]
 script = ExtResource("3")
 footprint_radius = 13.0
 maximum_slope_degrees = 10.0
 boundary_margin = 18.0
+
+[sub_resource type="Resource" id="AreaDefenseMunition"]
+script = ExtResource("4")
+id = &"area_defense"
+display_name = "광역방공탄"
+interceptor_speed = 360.0
+interceptor_turn_rate_degrees = 190.0
+interceptor_lifetime = 8.0
+interceptor_damage = 145.0
+proximity_radius = 18.0
+infrared_sensitivity = 0.35
+radar_sensitivity = 0.8
+small_target_match = 0.08
+magazine_capacity = 8
+reserve_ammunition = 8
+reload_duration = 8.0
+resupply_cost = 16
+resupply_work = 14.0
+
+[sub_resource type="Resource" id="BallisticDefenseMunition"]
+script = ExtResource("4")
+id = &"high_speed_interceptor"
+display_name = "고속위협 요격탄"
+interceptor_speed = 520.0
+interceptor_turn_rate_degrees = 150.0
+interceptor_lifetime = 7.0
+interceptor_damage = 190.0
+proximity_radius = 24.0
+infrared_sensitivity = 0.1
+radar_sensitivity = 0.25
+preferred_classes = Array[StringName]([&"ballistic_missile", &"rocket", &"strike_aircraft"])
+minimum_preferred_speed = 140.0
+other_target_match = 0.12
+small_target_match = 0.02
+high_cost = true
+salvo_size = 2
+magazine_capacity = 3
+reserve_ammunition = 3
+reload_duration = 10.0
+resupply_cost = 24
+resupply_work = 18.0
 
 [resource]
 script = ExtResource("1")
@@ -19,20 +61,8 @@ price = 340
 placement_profile = SubResource("PlacementProfile")
 preview_range = 640.0
 attack_range = 640.0
-fire_interval = 3.0
-interceptor_speed = 360.0
-interceptor_turn_rate_degrees = 190.0
-interceptor_lifetime = 8.0
-interceptor_damage = 145.0
-proximity_radius = 18.0
-infrared_sensitivity = 0.35
-radar_sensitivity = 0.8
+fire_interval = 2.4
 engagement_channels = 4
 c2_range = 800.0
-small_target_match = 0.08
-magazine_capacity = 8
-reserve_ammunition = 8
-reload_duration = 8.0
-resupply_cost = 16
-resupply_work = 14.0
+munitions = Array[ExtResource("4")]([SubResource("AreaDefenseMunition"), SubResource("BallisticDefenseMunition")])
 mobile = false
