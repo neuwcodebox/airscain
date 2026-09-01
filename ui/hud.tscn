@@ -92,7 +92,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.65, 0.28, 1)
 theme_override_font_sizes/font_size = 20
-text = "위협 단계  1"
+text = "전투 강도  1"
 
 [node name="PauseButton" type="Button" parent="TopBar/Margin"]
 layout_mode = 2
@@ -105,6 +105,10 @@ text = "1×"
 [node name="FastButton" type="Button" parent="TopBar/Margin"]
 layout_mode = 2
 text = "2×"
+
+[node name="VeryFastButton" type="Button" parent="TopBar/Margin"]
+layout_mode = 2
+text = "4×"
 
 [node name="SpeedLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
@@ -130,6 +134,22 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(72, 0)
 layout_mode = 2
 text = "불러오기"
+
+[node name="AlertLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 62.0
+offset_bottom = 90.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 16
+text = "▲ 적성 항적 0  ·  교전 0"
+horizontal_alignment = 1
 
 [node name="Catalog" type="PanelContainer" parent="."]
 layout_mode = 1
@@ -220,11 +240,17 @@ vertical_alignment = 1
 
 [node name="SelectedTrackLabel" type="Label" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.8, 1)
 theme_override_font_sizes/font_size = 15
 text = "항적을 클릭해 상세 확인"
+
+[node name="RelationLegend" type="Label" parent="SelectedAssetPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.78, 0.84, 1)
+theme_override_font_sizes/font_size = 13
+text = "━ 센서 기여   ┄ 교전 관계   ┄ 예상 경로"
 
 [node name="HoldFireButton" type="CheckButton" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
@@ -265,6 +291,11 @@ unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "재배치 위치 지정"
+
+[node name="FocusButton" type="Button" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "선택 위치로 초점 이동"
 
 [node name="GameOverPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -317,6 +348,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/PauseButton" to="." method="_on_pause_pressed"]
 [connection signal="pressed" from="TopBar/Margin/NormalButton" to="." method="_on_normal_pressed"]
 [connection signal="pressed" from="TopBar/Margin/FastButton" to="." method="_on_fast_pressed"]
+[connection signal="pressed" from="TopBar/Margin/VeryFastButton" to="." method="_on_very_fast_pressed"]
 [connection signal="pressed" from="TopBar/Margin/C2OverlayButton" to="." method="_on_c2_overlay_pressed"]
 [connection signal="pressed" from="TopBar/Margin/SaveButton" to="." method="_on_save_pressed"]
 [connection signal="pressed" from="TopBar/Margin/LoadButton" to="." method="_on_load_pressed"]
@@ -327,6 +359,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ResupplyButton" to="." method="_on_resupply_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/RepairButton" to="." method="_on_repair_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/RelocationButton" to="." method="_on_relocation_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/FocusButton" to="." method="_on_focus_pressed"]
 [connection signal="pressed" from="Catalog/VBox/StartButton" to="." method="_on_start_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/SameSeedButton" to="." method="_on_same_seed_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/NewSeedButton" to="." method="_on_new_seed_pressed"]

@@ -23,6 +23,11 @@ func configure_for_battlefield(battlefield_size: float) -> void:
 	camera.far = battlefield_size * 6.0
 	_update_camera()
 
+func focus_on(world_position: Vector3) -> void:
+	global_position.x = world_position.x
+	global_position.z = world_position.z
+	_clamp_position()
+
 func _process(delta: float) -> void:
 	var input_vector := Input.get_vector("camera_left", "camera_right", "camera_forward", "camera_back")
 	if input_vector.length_squared() > 0.0:

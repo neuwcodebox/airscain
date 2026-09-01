@@ -230,3 +230,6 @@ func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
 	session.set_simulation_speed(2.0)
 	assert_eq(session.gameplay_delta(1.0), 2.0)
 	assert_eq(session.survival_time, 2.0)
+	session.set_simulation_speed(4.0)
+	assert_eq(session.gameplay_delta(0.5), 2.0)
+	assert_eq(session.survival_time, 4.0)

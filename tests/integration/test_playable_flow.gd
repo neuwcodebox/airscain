@@ -82,14 +82,38 @@ func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	assert_eq(tracks.size(), 1)
 	assert_ne(tracks[0] as Variant, visible_threat as Variant)
 	assert_almost_eq((tracks[0].get("estimated_position") as Vector3).z, visible_threat.global_position.z, 0.01)
-	assert_eq(main.track_display.get_child_count(), 1)
-	var marker := main.track_display.get_child(0) as Node3D
+	assert_eq(main.track_display.markers.size(), 1)
+	var marker := main.track_display.markers.values()[0] as Node3D
 	assert_true(marker.visible)
 	radar.active = false
 	main.player_knowledge.call("gameplay_tick", 0.6)
 	assert_true(marker.visible)
 	main.player_knowledge.call("gameplay_tick", 1.4)
 	assert_false(marker.visible)
+
+func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
+	main.registry.clear()
+	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar := radar_result.unit as SearchRadar
+	var threat := main.director.spawn_one()
+	threat.global_position = radar.global_position + Vector3(180.0, 70.0, 0.0)
+	radar.gameplay_tick(0.8)
+	var track: PlayerTrack = main.player_knowledge.call("get_active_tracks")[0]
+	assert_true(main.engagement_coordinator.try_reserve(track.track_id, radar.runtime_id, 2.0))
+	main._on_world_selected(track.estimated_position)
+	main.track_display._process(0.0)
+	var marker := main.track_display.markers[track.track_id] as TrackMarker
+	assert_true(marker.selected)
+	assert_string_contains(marker.icon.text, "T-%03d" % track.track_id)
+	assert_not_null(main.track_display.selection_lines.mesh)
+	assert_eq(main.track_display.selection_details(), {"sensor_count": 1, "engagement_count": 1})
+	assert_true(main.hud.selected_asset_panel.visible)
+	assert_string_contains(main.hud.selected_track_label.text, "센서 1 · 교전 자산 1")
+	assert_eq(int(main.tactical_screen_overlay.get("selected_track_id")), track.track_id)
+	main._on_focus_requested()
+	assert_almost_eq(main.camera_rig.global_position.x, track.estimated_position.x, 0.01)
+	assert_almost_eq(main.camera_rig.global_position.z, track.estimated_position.z, 0.01)
 
 func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> void:
 	main.registry.clear()

@@ -15,6 +15,7 @@ var defenses: Array[DefenseUnit] = []
 var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var save_path: String = SaveStore.DEFAULT_PATH
+var tactical_ui_refresh_remaining: float = 0.0
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -25,8 +26,8 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var power_manager: PowerManager = $PowerManager
 @onready var relocation_manager: RelocationManager = $RelocationManager
 @onready var enemy_knowledge: EnemyKnowledge = $EnemyKnowledge
-@onready var track_display: Node = $WorldObjects/TacticalTracks
-@onready var c2_overlay: Node = $WorldObjects/C2Overlay
+@onready var track_display: TrackDisplay = $WorldObjects/TacticalTracks
+@onready var c2_overlay: C2Overlay = $WorldObjects/C2Overlay
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var camera_rig: CameraRig = $CameraRig
 @onready var world_objects: Node3D = $WorldObjects
@@ -37,6 +38,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var effects_parent: Node3D = $WorldObjects/Effects
 @onready var placement: PlacementController = $PlacementController
 @onready var hud: Hud = $UI/HUD
+@onready var tactical_screen_overlay: Node = $UI/TacticalScreenOverlay
 
 func _ready() -> void:
 	scenario = BASE_SCENARIO.duplicate(true) as ScenarioDefinition
@@ -59,15 +61,20 @@ func _ready() -> void:
 	player_knowledge.call("reset")
 	c2_network.call("reset")
 	c2_network.call("configure", registry)
-	track_display.call("configure", player_knowledge)
-	c2_overlay.call("configure", c2_network)
+	track_display.configure(player_knowledge, defense_parent, engagement_coordinator)
+	c2_overlay.configure(c2_network)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses)
+	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge)
 	_connect_flow()
 	hud.set_feedback("포대를 배치한 뒤 방어를 시작하세요 · %s · Seed %d" % [scenario.battlefield_layout().display_name, scenario.world_seed])
 
 func _process(delta: float) -> void:
+	tactical_ui_refresh_remaining -= delta
+	if tactical_ui_refresh_remaining <= 0.0:
+		tactical_ui_refresh_remaining += 0.2
+		_refresh_tactical_ui()
 	var simulation_delta := session.gameplay_delta(delta)
 	if simulation_delta <= 0.0:
 		return
@@ -133,6 +140,8 @@ func _connect_flow() -> void:
 	hud.relocation_requested.connect(_on_relocation_requested)
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
+	hud.focus_requested.connect(_on_focus_requested)
+	player_knowledge.connect("track_removed", _on_track_removed)
 
 func _on_start_requested() -> void:
 	if session.start_defense():
@@ -191,11 +200,14 @@ func _on_restart_requested(same_seed: bool) -> void:
 func _on_asset_selected(unit: DefenseUnit) -> void:
 	selected_asset = unit
 	selected_track = null
-	c2_overlay.call("select_asset", unit)
+	track_display.select_track(null)
+	tactical_screen_overlay.select_track(null)
+	c2_overlay.select_asset(unit)
 	hud.set_selected_asset(unit, int(c2_overlay.get("visible_link_count")))
+	hud.set_selected_track(null, false)
 
 func _on_c2_overlay_requested() -> void:
-	c2_overlay.call("toggle_all_links")
+	c2_overlay.toggle_all_links()
 
 func _on_world_selected(position: Vector3) -> void:
 	var nearest_distance := 32.0
@@ -206,7 +218,52 @@ func _on_world_selected(position: Vector3) -> void:
 		if flat_distance < nearest_distance:
 			nearest_distance = flat_distance
 			selected_track = track
-	hud.set_selected_track(selected_track, selected_asset != null and selected_asset.has_method("set_priority_track"))
+	track_display.select_track(selected_track)
+	tactical_screen_overlay.select_track(selected_track)
+	_refresh_selected_track_panel()
+
+func _refresh_selected_track_panel() -> void:
+	var details := track_display.selection_details()
+	hud.set_selected_track(selected_track, selected_asset != null and selected_asset.has_method("set_priority_track"), int(details.sensor_count), int(details.engagement_count))
+
+func _refresh_tactical_ui() -> void:
+	var hostile_count := 0
+	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
+		if track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3:
+			hostile_count += 1
+	var warnings: Array[String] = []
+	var depleted_count := 0
+	var disabled_count := 0
+	for defense: DefenseUnit in defenses:
+		if not is_instance_valid(defense):
+			continue
+		if not defense.active:
+			disabled_count += 1
+		if defense is ArmedDefenseUnit and (defense as ArmedDefenseUnit).uses_ammunition() and (defense as ArmedDefenseUnit).magazine.is_depleted():
+			depleted_count += 1
+	if depleted_count > 0:
+		warnings.append("탄약 고갈 %d" % depleted_count)
+	if disabled_count > 0:
+		warnings.append("기능 정지 %d" % disabled_count)
+	if objective != null and objective.current_integrity <= objective.definition.maximum_integrity * 0.3:
+		warnings.append("도시 기능 위험")
+	hud.set_tactical_alert(hostile_count, engagement_coordinator.reservations.size(), warnings)
+	if selected_track != null:
+		_refresh_selected_track_panel()
+
+func _on_track_removed(track_id: int) -> void:
+	if selected_track == null or selected_track.track_id != track_id:
+		return
+	selected_track = null
+	track_display.select_track(null)
+	tactical_screen_overlay.select_track(null)
+	_refresh_selected_track_panel()
+
+func _on_focus_requested() -> void:
+	if selected_track != null:
+		camera_rig.focus_on(selected_track.estimated_position)
+	elif selected_asset != null and is_instance_valid(selected_asset):
+		camera_rig.focus_on(selected_asset.global_position)
 
 func _on_hold_fire_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.has_method("set_hold_fire"):
@@ -347,5 +404,8 @@ func _clear_runtime_objects() -> void:
 	enemy_knowledge.reset()
 	selected_asset = null
 	selected_track = null
-	c2_overlay.call("select_asset", null)
+	track_display.select_track(null)
+	tactical_screen_overlay.select_track(null)
+	c2_overlay.select_asset(null)
 	hud.set_selected_asset(null, 0)
+	hud.set_selected_track(null, false)

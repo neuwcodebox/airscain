@@ -1,6 +1,7 @@
 extends GutTest
 
 const CAMERA_SCENE := preload("res://camera/camera_rig.tscn")
+const TACTICAL_SCREEN_OVERLAY := preload("res://ui/tactical_screen_overlay.gd")
 
 var rig: CameraRig
 
@@ -45,3 +46,14 @@ func test_battlefield_configuration_keeps_distant_ocean_visible() -> void:
 	rig.configure_for_battlefield(2400.0)
 	assert_eq(rig.bounds, 1080.0)
 	assert_eq(rig.camera.far, 14400.0)
+
+func test_focus_moves_rig_to_clamped_world_position() -> void:
+	rig.bounds = 500.0
+	rig.focus_on(Vector3(720.0, 80.0, -240.0))
+	assert_eq(rig.global_position, Vector3(500.0, 0.0, -240.0))
+
+func test_offscreen_marker_stays_inside_viewport_margin() -> void:
+	var position: Vector2 = TACTICAL_SCREEN_OVERLAY.marker_position(Vector2(1600.0, -200.0), Vector2(1280.0, 720.0), false, 42.0)
+	assert_between(position.x, 42.0, 1238.0)
+	assert_between(position.y, 42.0, 678.0)
+	assert_almost_eq(position.y, 42.0, 0.01)

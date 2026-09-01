@@ -38,6 +38,16 @@ func reservation_count(track_id: int) -> int:
 			count += 1
 	return count
 
+func engagement_owner_ids(track_id: int) -> Array[int]:
+	var result: Array[int] = []
+	for reservation: Dictionary in reservations:
+		if int(reservation.track_id) != track_id:
+			continue
+		var owner_id := int(reservation.owner_defense_id)
+		if not result.has(owner_id):
+			result.append(owner_id)
+	return result
+
 func capture_state() -> Dictionary:
 	return {"reservations": reservations.duplicate(true)}
 

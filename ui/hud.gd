@@ -13,6 +13,7 @@ signal munition_mode_requested
 signal resupply_requested
 signal repair_requested
 signal relocation_requested
+signal focus_requested
 signal save_requested
 signal load_requested
 
@@ -22,6 +23,7 @@ var pressure_level: int = 1
 var defense_definitions: Array[DefenseDefinition] = []
 var defense_buttons: Array[Button] = []
 var selected_asset: DefenseUnit
+var selected_track: PlayerTrack
 var selected_asset_connection_count: int = 0
 
 @onready var budget_label: Label = %BudgetLabel
@@ -29,6 +31,7 @@ var selected_asset_connection_count: int = 0
 @onready var time_label: Label = %TimeLabel
 @onready var pressure_label: Label = %PressureLabel
 @onready var speed_label: Label = %SpeedLabel
+@onready var alert_label: Label = %AlertLabel
 @onready var defense_list: VBoxContainer = %DefenseList
 @onready var start_button: Button = %StartButton
 @onready var feedback_label: Label = %FeedbackLabel
@@ -44,6 +47,7 @@ var selected_asset_connection_count: int = 0
 @onready var resupply_button: Button = %ResupplyButton
 @onready var repair_button: Button = %RepairButton
 @onready var relocation_button: Button = %RelocationButton
+@onready var focus_button: Button = %FocusButton
 
 func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition]) -> void:
 	session = session_value
@@ -56,10 +60,18 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	objective.integrity_changed.connect(_on_integrity_changed)
 	_on_state_changed()
 	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
+	set_selected_asset(null, 0)
+	set_selected_track(null, false)
 
 func set_pressure(level: int) -> void:
 	pressure_level = level
-	pressure_label.text = "위협 단계  %d" % level
+	pressure_label.text = "전투 강도  %d" % level
+
+func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Array[String]) -> void:
+	var parts: Array[String] = ["▲ 적성 항적 %d" % hostile_count, "교전 %d" % engagement_count]
+	parts.append_array(warnings)
+	alert_label.text = "  ·  ".join(parts)
+	alert_label.modulate = Color(1.0, 0.52, 0.32) if not warnings.is_empty() else Color(1.0, 0.78, 0.35)
 
 func set_feedback(message: String) -> void:
 	feedback_label.text = message
@@ -71,7 +83,8 @@ func _process(_delta: float) -> void:
 func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
 	selected_asset = unit
 	selected_asset_connection_count = connection_count
-	selected_asset_panel.visible = unit != null
+	selected_asset_panel.visible = unit != null or selected_track != null
+	focus_button.visible = unit != null or selected_track != null
 	if unit != null:
 		_refresh_selected_asset_label()
 		var supports_doctrine := unit.has_method("set_hold_fire")
@@ -87,7 +100,16 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
 			hold_fire_button.set_pressed_no_signal(bool(doctrine.get("hold_fire")))
 			engage_unknown_button.set_pressed_no_signal(bool(doctrine.get("engage_unknown")))
 			priority_target_button.disabled = true
-		selected_track_label.text = "항적을 클릭해 상세 확인"
+	elif selected_track == null:
+		selected_asset_label.text = "선택 자산 없음"
+	if unit == null:
+		hold_fire_button.visible = false
+		engage_unknown_button.visible = false
+		priority_target_button.visible = false
+		munition_mode_button.visible = false
+		resupply_button.visible = false
+		repair_button.visible = false
+		relocation_button.visible = false
 
 func _refresh_selected_asset_label() -> void:
 	var resource_status := selected_asset.resource_status_text()
@@ -104,13 +126,40 @@ func _refresh_selected_asset_label() -> void:
 	relocation_button.text = "재배치 위치 지정" if selected_asset.can_request_relocation() else "재배치 중"
 	relocation_button.disabled = not selected_asset.can_request_relocation()
 
-func set_selected_track(track: PlayerTrack, can_prioritize: bool) -> void:
+func set_selected_track(track: PlayerTrack, can_prioritize: bool, sensor_count: int = 0, engagement_count: int = 0) -> void:
+	selected_track = track
+	if selected_asset == null:
+		selected_asset_label.text = "선택 자산 없음"
+	selected_asset_panel.visible = selected_asset != null or track != null
+	focus_button.visible = selected_asset != null or track != null
 	if track == null:
 		selected_track_label.text = "항적을 클릭해 상세 확인"
 		priority_target_button.disabled = true
 		return
-	selected_track_label.text = "%s  분류 %d%%\n소속 %d%% · 추적 %d%%" % [String(track.classification).to_upper(), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0)]
+	selected_track_label.text = "T-%03d  %s · %s\n분류 %s %d%% · 소속 %d%%\n추적 %d%% · 오차 ±%dm · 속도 %dm/s\n센서 %d · 교전 자산 %d" % [track.track_id, _track_state_text(track.state), _affiliation_text(track), String(track.classification).to_upper(), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0), roundi(track.position_uncertainty), roundi(track.estimated_velocity.length()), sensor_count, engagement_count]
 	priority_target_button.disabled = not can_prioritize
+
+func _track_state_text(state: PlayerTrack.State) -> String:
+	match state:
+		PlayerTrack.State.TENTATIVE:
+			return "잠정"
+		PlayerTrack.State.CONFIRMED:
+			return "확인"
+		PlayerTrack.State.COASTING:
+			return "관측 단절"
+	return "소실"
+
+func _affiliation_text(track: PlayerTrack) -> String:
+	if track.affiliation_confidence < 0.3:
+		return "미확인"
+	match track.affiliation:
+		PlayerTrack.Affiliation.HOSTILE:
+			return "적성"
+		PlayerTrack.Affiliation.NEUTRAL:
+			return "중립"
+		PlayerTrack.Affiliation.FRIENDLY:
+			return "아군"
+	return "미확인"
 
 func _on_state_changed() -> void:
 	budget_label.text = "예산  $%d" % session.budget
@@ -158,6 +207,9 @@ func _on_normal_pressed() -> void:
 func _on_fast_pressed() -> void:
 	speed_requested.emit(2.0)
 
+func _on_very_fast_pressed() -> void:
+	speed_requested.emit(4.0)
+
 func _on_c2_overlay_pressed() -> void:
 	c2_overlay_requested.emit()
 
@@ -182,6 +234,9 @@ func _on_repair_pressed() -> void:
 
 func _on_relocation_pressed() -> void:
 	relocation_requested.emit()
+
+func _on_focus_pressed() -> void:
+	focus_requested.emit()
 
 func _on_save_pressed() -> void:
 	save_requested.emit()

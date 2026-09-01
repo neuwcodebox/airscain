@@ -48,6 +48,23 @@ func run() -> void:
 	for index: int in 30:
 		await process_frame
 	_save_capture("/tmp/airscain_layered_defense.png")
+	var early_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
+	if early_tracks.is_empty():
+		push_error("No public track was available for tactical selection capture")
+		quit(1)
+		return
+	main._on_world_selected(early_tracks[0].estimated_position)
+	if main.selected_track == null or main.track_display.selection_lines.mesh == null:
+		push_error("Selected track tactical relations were not rendered")
+		quit(1)
+		return
+	for index: int in 3:
+		await process_frame
+	if not main.hud.selected_track_label.text.contains("T-"):
+		push_error("Selected track detail panel was not populated")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_tactical_selection.png")
 	for index: int in 150:
 		await process_frame
 	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
@@ -66,7 +83,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement layered_defense combat coasting game_over")
+	print("VISUAL_CAPTURE_OK initial placement layered_defense tactical_selection combat coasting game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:

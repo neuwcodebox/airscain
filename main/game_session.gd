@@ -92,7 +92,7 @@ func end_game() -> void:
 	statistics_changed.emit()
 
 func set_simulation_speed(value: float) -> void:
-	if phase != Phase.GAME_OVER and (is_zero_approx(value) or is_equal_approx(value, 1.0) or is_equal_approx(value, 2.0)):
+	if phase != Phase.GAME_OVER and (is_zero_approx(value) or is_equal_approx(value, 1.0) or is_equal_approx(value, 2.0) or is_equal_approx(value, 4.0)):
 		simulation_speed = value
 		statistics_changed.emit()
 
