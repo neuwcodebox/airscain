@@ -15,8 +15,8 @@ selection_weight = 1.0
 [resource]
 script = ExtResource("1")
 world_seed = 73129
-battlefield_size = 1200.0
-terrain_resolution = 49
+battlefield_size = 1800.0
+terrain_resolution = 73
 city_size = 330.0
 starting_budget = 400
 objective_definition = ExtResource("2")

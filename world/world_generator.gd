@@ -6,6 +6,7 @@ var resolution: int
 var city_size: float
 var seed_value: int
 var heights: PackedFloat32Array
+var sea_level: float = 0.0
 
 func generate(seed_input: int, size_input: float, resolution_input: int, city_size_input: float) -> void:
 	seed_value = seed_input
@@ -27,7 +28,10 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 			var raw := noise.get_noise_2d(x, z) * 42.0
 			var distance_from_city := maxf(absf(x), absf(z))
 			var flatten := smoothstep(city_size * 0.42, city_size * 0.72, distance_from_city)
-			heights[z_index * resolution + x_index] = raw * flatten
+			var land_height := maxf(raw * flatten + 10.0, sea_level + 6.0)
+			var radial_distance := Vector2(x, z).length() / (size * 0.5)
+			var coast_falloff := smoothstep(0.72, 0.98, radial_distance)
+			heights[z_index * resolution + x_index] = lerpf(land_height, sea_level - 35.0, coast_falloff)
 
 func height_at(x: float, z: float) -> float:
 	var half := size * 0.5

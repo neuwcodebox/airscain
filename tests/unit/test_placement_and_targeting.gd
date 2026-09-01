@@ -28,7 +28,9 @@ func before_each() -> void:
 func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	var profile := SCENARIO.available_defenses[0].placement_profile
 	assert_false(battlefield.placement_result(Vector3.ZERO, profile).valid)
-	assert_false(battlefield.placement_result(Vector3(595.0, 0.0, 0.0), profile).valid)
+	assert_false(battlefield.placement_result(Vector3(895.0, 0.0, 0.0), profile).valid)
+	var sea_position := Vector3(800.0, battlefield.terrain_height(800.0, 0.0), 0.0)
+	assert_eq(battlefield.placement_result(sea_position, profile).reason, "바다에는 배치할 수 없습니다")
 	var valid_position := _find_valid_position(profile)
 	assert_true(battlefield.placement_result(valid_position, profile).valid)
 	var strict_slope_profile := profile.duplicate() as PlacementProfile

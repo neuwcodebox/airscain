@@ -35,6 +35,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	battlefield.build(scenario)
+	camera_rig.configure_for_battlefield(scenario.battlefield_size)
 	_spawn_objective()
 	session.reset(scenario.starting_budget)
 	director.configure(scenario, battlefield, objective, registry, threat_parent)

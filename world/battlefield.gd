@@ -5,9 +5,10 @@ var generator := WorldGenerator.new()
 var objective: ProtectedObjective
 var occupied_positions: Array[Vector3] = []
 var occupied_radii: Array[float] = []
-var battlefield_size: float = 1200.0
+var battlefield_size: float = 1800.0
 
 @onready var terrain: MeshInstance3D = $Terrain
+@onready var ocean: MeshInstance3D = $Ocean
 @onready var city_visuals: Node3D = $CityVisuals
 
 func build(scenario: ScenarioDefinition) -> void:
@@ -15,6 +16,9 @@ func build(scenario: ScenarioDefinition) -> void:
 	generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size)
 	terrain.mesh = generator.create_terrain_mesh()
 	terrain.create_trimesh_collision()
+	var ocean_mesh := ocean.mesh as PlaneMesh
+	ocean_mesh.size = Vector2(scenario.battlefield_size * 4.0, scenario.battlefield_size * 4.0)
+	ocean.position.y = generator.sea_level
 	_build_city_visuals(generator.building_transforms())
 
 func set_objective(objective_value: ProtectedObjective) -> void:
@@ -26,6 +30,8 @@ func placement_result(position: Vector3, profile: PlacementProfile) -> Dictionar
 		return {"valid": false, "reason": "지도 경계 밖입니다"}
 	if objective != null and objective.excludes_placement(position, profile.footprint_radius):
 		return {"valid": false, "reason": "도시 내부에는 배치할 수 없습니다"}
+	if generator.height_at(position.x, position.z) <= generator.sea_level + 1.0:
+		return {"valid": false, "reason": "바다에는 배치할 수 없습니다"}
 	if generator.slope_degrees_at(position.x, position.z, profile.footprint_radius) > profile.maximum_slope_degrees:
 		return {"valid": false, "reason": "지형 경사가 너무 가파릅니다"}
 	for index: int in occupied_positions.size():
@@ -61,4 +67,3 @@ func _build_city_visuals(transforms: Array[Transform3D]) -> void:
 		material.roughness = 0.85
 		building.material_override = material
 		city_visuals.add_child(building)
-

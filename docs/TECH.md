@@ -364,6 +364,8 @@ Main
 - 도시 영역
 - 도시 건물 transform
 
+지형 외곽은 같은 height field에서 해수면 아래로 낮추고, gameplay collision이 없는 넓은 primitive 평면으로 바다를 표현한다. 별도 수면 simulation은 두지 않는다.
+
 지형의 논리 높이 데이터는 하나만 생성하고 렌더링과 배치 판정이 이를 공유한다.
 
 첫 전장은 규칙적인 grid height field를 사용한다.
@@ -374,6 +376,7 @@ Main
 - 중앙 도시 영역과 외곽 여유 구간을 부드럽게 평탄화
 - `ArrayMesh` 또는 `SurfaceTool`로 low-poly terrain 생성
 - 같은 vertex/triangle 데이터에서 terrain collision 생성
+- 전장 크기가 달라져도 비슷한 지형 표본 간격을 유지하도록 grid 해상도 조정
 
 도시 건물은 primitive box mesh를 절차적으로 배치한다. 첫 버전에서는 건물이 gameplay collision이나 LOS에 참여하지 않으므로 시각 node로만 유지한다.
 

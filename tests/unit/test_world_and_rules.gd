@@ -21,6 +21,17 @@ func test_different_world_seed_changes_height_field() -> void:
 	second.generate(2, 1200.0, 49, 330.0)
 	assert_ne(first.heights, second.heights)
 
+func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
+	var generator := WorldGenerator.new()
+	generator.generate(73129, 1800.0, 73, 330.0)
+	assert_gt(generator.height_at(0.0, 0.0), generator.sea_level)
+	for z: int in range(-600, 601, 100):
+		for x: int in range(-600, 601, 100):
+			if Vector2(float(x), float(z)).length() <= 600.0:
+				assert_gt(generator.height_at(float(x), float(z)), generator.sea_level)
+	assert_lt(generator.height_at(890.0, 0.0), generator.sea_level)
+	assert_lt(generator.height_at(0.0, -890.0), generator.sea_level)
+
 func test_objective_damage_and_depletion_are_bounded() -> void:
 	var objective: ProtectedObjective = autofree(ProtectedObjective.new()) as ProtectedObjective
 	var definition := ObjectiveDefinition.new()

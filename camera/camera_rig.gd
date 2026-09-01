@@ -5,15 +5,21 @@ extends Node3D
 @export var drag_speed: float = 0.65
 @export var zoom_step: float = 55.0
 @export var minimum_zoom: float = 180.0
-@export var maximum_zoom: float = 760.0
+@export var maximum_zoom: float = 1200.0
 
 var dragging: bool = false
-var zoom_distance: float = 520.0
-var bounds: float = 520.0
+var zoom_distance: float = 680.0
+var bounds: float = 810.0
 
 @onready var camera: Camera3D = $Camera3D
 
 func _ready() -> void:
+	_update_camera()
+
+func configure_for_battlefield(battlefield_size: float) -> void:
+	bounds = battlefield_size * 0.45
+	maximum_zoom = battlefield_size * 0.67
+	zoom_distance = clampf(battlefield_size * 0.38, minimum_zoom, maximum_zoom)
 	_update_camera()
 
 func _process(delta: float) -> void:
@@ -46,4 +52,3 @@ func _update_camera() -> void:
 func _clamp_position() -> void:
 	global_position.x = clampf(global_position.x, -bounds, bounds)
 	global_position.z = clampf(global_position.z, -bounds, bounds)
-
