@@ -13,6 +13,8 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 	for child: Node in main.projectile_parent.get_children():
 		if child is HomingInterceptor and not child.is_queued_for_deletion():
 			projectile_states.append((child as HomingInterceptor).capture_state())
+		elif child is InterceptorDrone and not child.is_queued_for_deletion():
+			projectile_states.append((child as InterceptorDrone).capture_state())
 	return {
 		"scenario": {
 			"world_seed": main.scenario.world_seed,
@@ -52,6 +54,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var battery_ids: Dictionary[int, bool] = {}
 	var sensor_ids: Dictionary[int, bool] = {}
 	var armed_ids: Dictionary[int, bool] = {}
+	var drone_defense_ids: Dictionary[int, bool] = {}
 	var mobile_ids: Dictionary[int, bool] = {}
 	for state: Dictionary in world_state.defenses:
 		var definition_id := StringName(String(state.get("definition_id", "")))
@@ -65,6 +68,8 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			mobile_ids[runtime_id] = true
 		if defense_definitions[definition_id] is MissileBatteryDefinition:
 			battery_ids[runtime_id] = true
+		if defense_definitions[definition_id] is InterceptorDroneDefenseDefinition:
+			drone_defense_ids[runtime_id] = true
 		if defense_definitions[definition_id] is MissileBatteryDefinition or defense_definitions[definition_id] is CloseInGunDefinition:
 			armed_ids[runtime_id] = true
 		if defense_definitions[definition_id] is SearchRadarDefinition:
@@ -85,6 +90,15 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			var energy_error := EnergyWeaponState.validation_error(laser_state.get("energy"))
 			if not energy_error.is_empty():
 				return "%s: %s" % [definition_id, energy_error]
+		if defense_definitions[definition_id] is InterceptorDroneDefenseDefinition:
+			var drone_state: Dictionary = state.get("content_state", {})
+			var available := int(drone_state.get("available_drones", -1))
+			var recharge: Variant = drone_state.get("recharge_queue")
+			if available < 0 or available > defense_definitions[definition_id].drone_count or not recharge is Array:
+				return "요격드론 기지 상태가 올바르지 않습니다"
+			for remaining: Variant in recharge:
+				if float(remaining) <= 0.0:
+					return "요격드론 재충전 상태가 올바르지 않습니다"
 	for state: Dictionary in world_state.contacts:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not contact_definitions.has(definition_id):
@@ -165,18 +179,23 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "재배치 작업 대상 또는 상태가 올바르지 않습니다"
 		relocation_targets[target_defense_id] = true
 	for projectile_state: Dictionary in world_state.projectiles:
-		if String(projectile_state.get("type", "")) != "homing_interceptor":
+		var projectile_type := String(projectile_state.get("type", ""))
+		if projectile_type != "homing_interceptor" and projectile_type != "interceptor_drone":
 			return "지원하지 않는 발사체 형식입니다"
-		if not battery_ids.has(int(projectile_state.get("owner_defense_id", 0))):
+		var owner_id := int(projectile_state.get("owner_defense_id", 0))
+		if (projectile_type == "homing_interceptor" and not battery_ids.has(owner_id)) or (projectile_type == "interceptor_drone" and not drone_defense_ids.has(owner_id)):
 			return "요격체가 존재하지 않는 포대를 참조합니다"
 		if not track_ids.has(int(projectile_state.get("target_track_id", 0))):
 			return "요격체가 존재하지 않는 항적을 참조합니다"
 		if not _valid_vector_data(projectile_state.get("position")) or not _valid_vector_data(projectile_state.get("velocity")):
 			return "요격체 위치 또는 속도가 올바르지 않습니다"
-		var maximum_lifetime := float(projectile_state.get("maximum_lifetime", 0.0))
-		var age := float(projectile_state.get("age", -1.0))
-		if float(projectile_state.get("speed", 0.0)) <= 0.0 or float(projectile_state.get("turn_rate", 0.0)) <= 0.0 or maximum_lifetime <= 0.0 or float(projectile_state.get("damage", 0.0)) <= 0.0 or float(projectile_state.get("proximity_radius", 0.0)) <= 0.0 or age < 0.0 or age >= maximum_lifetime:
-			return "요격체 비행 상태가 올바르지 않습니다"
+		if projectile_type == "homing_interceptor":
+			var maximum_lifetime := float(projectile_state.get("maximum_lifetime", 0.0))
+			var age := float(projectile_state.get("age", -1.0))
+			if float(projectile_state.get("speed", 0.0)) <= 0.0 or float(projectile_state.get("turn_rate", 0.0)) <= 0.0 or maximum_lifetime <= 0.0 or float(projectile_state.get("damage", 0.0)) <= 0.0 or float(projectile_state.get("proximity_radius", 0.0)) <= 0.0 or age < 0.0 or age >= maximum_lifetime:
+				return "요격체 비행 상태가 올바르지 않습니다"
+		elif int(projectile_state.get("state", -1)) < InterceptorDrone.State.OUTBOUND or int(projectile_state.get("state", -1)) > InterceptorDrone.State.RETURNING or float(projectile_state.get("age", -1.0)) < 0.0:
+			return "요격드론 비행 상태가 올바르지 않습니다"
 	var director_state: Dictionary = payload.director
 	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"

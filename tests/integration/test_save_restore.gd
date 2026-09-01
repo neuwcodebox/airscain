@@ -250,6 +250,28 @@ func test_enemy_knowledge_reports_and_aged_estimates_restore() -> void:
 	assert_almost_eq(float(restored_estimate.confidence), float(saved_estimate.confidence), 0.000001)
 	assert_almost_eq(float(restored_estimate.uncertainty), float(saved_estimate.uncertainty), 0.000001)
 
+func test_active_interceptor_drone_restores_owner_track_and_flight_state() -> void:
+	var base := _place_defense(main.scenario.available_defenses[10]) as InterceptorDroneDefense
+	var radar := _place_defense(main.scenario.available_defenses[1]) as SearchRadar
+	var threat := main.director.spawn_one()
+	threat.global_position = base.global_position + Vector3(180.0, 70.0, 0.0)
+	var observation := SensorObservation.new()
+	observation.setup(radar.runtime_id, 0.0, threat.global_position, 0.95, 3.0, 1.0, &"uav", ThreatDefinition.Affiliation.HOSTILE, 4.0)
+	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	var drone := base._launch(track)
+	drone.gameplay_tick(0.2)
+	var saved_position := drone.global_position
+	var base_id := base.runtime_id
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored_base := _find_defense(base_id) as InterceptorDroneDefense
+	assert_not_null(restored_base)
+	assert_eq(restored_base.active_drones.size(), 1)
+	var restored := restored_base.active_drones[0]
+	assert_same(restored.base_owner, restored_base)
+	assert_eq(restored.target_track.track_id, track.track_id)
+	assert_eq(restored.global_position, saved_position)
+
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
 		if contact.runtime_id == runtime_id:

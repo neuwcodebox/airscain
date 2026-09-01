@@ -128,6 +128,9 @@ func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> v
 	var hpm := SCENARIO.available_defenses[9] as HighPowerMicrowaveDefinition
 	assert_gt(hpm.effect_radius, 0.0)
 	assert_gt(hpm.energy_per_pulse, 0.0)
+	var drones := SCENARIO.available_defenses[10] as InterceptorDroneDefenseDefinition
+	assert_gt(drones.drone_count, drones.engagement_channels)
+	assert_gt(drones.recharge_duration, drones.launch_interval)
 
 func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	var attack := SCENARIO.threat_entries[0].threat_definition as AttackUavDefinition

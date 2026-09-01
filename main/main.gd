@@ -4,6 +4,7 @@ extends Node3D
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
+const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
 
 static var requested_seed: int = -1
 
@@ -301,12 +302,19 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	relocation_manager.restore_state(world_state.relocations)
 	enemy_knowledge.restore_state(world_state.enemy_knowledge)
 	for state: Dictionary in world_state.projectiles:
-		var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
-		var interceptor := HOMING_INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
-		projectile_parent.add_child(interceptor)
-		interceptor.restore_state(state, target_track, registry)
-		owner.interceptors.append(interceptor)
+		if String(state.type) == "homing_interceptor":
+			var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
+			var interceptor := HOMING_INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
+			projectile_parent.add_child(interceptor)
+			interceptor.restore_state(state, target_track, registry)
+			owner.interceptors.append(interceptor)
+		else:
+			var drone_owner := _find_defense(int(state.owner_defense_id)) as InterceptorDroneDefense
+			var drone := INTERCEPTOR_DRONE_SCENE.instantiate() as InterceptorDrone
+			projectile_parent.add_child(drone)
+			drone.restore_state(state, drone_owner, target_track, registry)
+			drone_owner.active_drones.append(drone)
 	director.restore_state(payload.director)
 	session.restore_state(payload.session)
 

@@ -19,7 +19,7 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
 	assert_eq(main.session.budget, main.scenario.starting_budget)
-	assert_eq(main.scenario.available_defenses.size(), 10)
+	assert_eq(main.scenario.available_defenses.size(), 11)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
 	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
 	assert_eq(main.scenario.available_defenses[3].id, &"tracking_radar")
@@ -474,6 +474,33 @@ func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> vo
 	assert_lt(threats[0].health, 100.0)
 	assert_lt(threats[1].health, 100.0)
 	assert_eq(threats[2].health, 100.0)
+
+func test_interceptor_drone_returns_and_recharges_for_reuse() -> void:
+	main.registry.clear()
+	var result: Dictionary = main.session.request_placement(main.scenario.available_defenses[10], _find_valid_position_for(main.scenario.available_defenses[10].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(result.success)
+	var base := result.unit as InterceptorDroneDefense
+	var definition: ThreatDefinition = main.scenario.threat_entries[0].threat_definition
+	var threat := definition.scene.instantiate() as ThreatUnit
+	main.threat_parent.add_child(threat)
+	threat.setup(610, definition)
+	threat.global_position = base.global_position + Vector3(80.0, 30.0, 0.0)
+	main.registry.add(threat)
+	var track := PlayerTrack.new()
+	track.track_id = 610
+	track.state = PlayerTrack.State.CONFIRMED
+	track.estimated_position = threat.global_position
+	var drone := base._launch(track)
+	assert_eq(base.available_drones, base.drone_definition().drone_count - 1)
+	drone.global_position = threat.global_position - Vector3.RIGHT
+	drone.gameplay_tick(0.02)
+	assert_lt(threat.health, 100.0)
+	assert_eq(drone.state, InterceptorDrone.State.RETURNING)
+	drone.global_position = base.global_position + Vector3.UP * 6.0
+	drone.gameplay_tick(0.01)
+	assert_eq(base.recharge_queue.size(), 1)
+	base.gameplay_tick(base.drone_definition().recharge_duration + 0.1)
+	assert_eq(base.available_drones, base.drone_definition().drone_count)
 
 func _find_valid_position() -> Vector3:
 	return _find_valid_position_for(main.scenario.available_defenses[0].placement_profile)
