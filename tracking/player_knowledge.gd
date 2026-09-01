@@ -74,3 +74,30 @@ func _associate(observation: SensorObservation) -> PlayerTrack:
 			nearest_distance = distance
 			selected = track
 	return selected
+
+func capture_state() -> Dictionary:
+	var track_states: Array[Dictionary] = []
+	for track: PlayerTrack in tracks:
+		track_states.append(track.capture_state())
+	return {
+		"simulation_time": simulation_time,
+		"next_track_id": next_track_id,
+		"tracks": track_states,
+	}
+
+func restore_state(data: Dictionary) -> void:
+	reset()
+	simulation_time = float(data.get("simulation_time", 0.0))
+	next_track_id = int(data.get("next_track_id", 1))
+	for track_data: Dictionary in data.get("tracks", []):
+		var track := PlayerTrack.new()
+		track.restore_state(track_data)
+		tracks.append(track)
+		track_created.emit(track)
+		track_updated.emit(track)
+
+func find_track(track_id: int) -> PlayerTrack:
+	for track: PlayerTrack in tracks:
+		if track.track_id == track_id:
+			return track
+	return null

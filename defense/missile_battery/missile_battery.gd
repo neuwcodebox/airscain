@@ -92,7 +92,7 @@ func _launch(track: PlayerTrack) -> void:
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = launch_point.global_position
 	var initial_direction := launch_point.global_position.direction_to(track.estimated_position)
-	interceptor.configure(track, registry, _definition, initial_direction)
+	interceptor.configure(track, registry, _definition, initial_direction, runtime_id)
 	interceptors.append(interceptor)
 	$MuzzleFlash.global_position = launch_point.global_position
 	$MuzzleFlash.visible = true

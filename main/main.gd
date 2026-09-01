@@ -3,6 +3,7 @@ extends Node3D
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
+const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
 
 static var requested_seed: int = -1
 
@@ -226,8 +227,22 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		contact.restore_state(state, objective, battlefield)
 		registry.add(contact)
 		_on_threat_spawned(contact)
+	player_knowledge.call("restore_state", payload.player_knowledge)
+	for state: Dictionary in world_state.projectiles:
+		var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
+		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
+		var interceptor := HOMING_INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
+		projectile_parent.add_child(interceptor)
+		interceptor.restore_state(state, target_track, registry)
+		owner.interceptors.append(interceptor)
 	director.restore_state(payload.director)
 	session.restore_state(payload.session)
+
+func _find_defense(runtime_id: int) -> DefenseUnit:
+	for unit: DefenseUnit in defenses:
+		if unit.runtime_id == runtime_id:
+			return unit
+	return null
 
 func _clear_runtime_objects() -> void:
 	for parent: Node in [defense_parent, threat_parent, projectile_parent, effects_parent]:

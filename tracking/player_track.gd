@@ -86,3 +86,60 @@ func _apply_identity_evidence(observation: SensorObservation) -> void:
 				best_affiliation_score = score
 				affiliation = affiliation_id
 		affiliation_confidence = best_affiliation_score / (total_affiliation_score + 1.8)
+
+func capture_state() -> Dictionary:
+	var class_scores: Dictionary = {}
+	for class_id: StringName in classification_scores:
+		class_scores[String(class_id)] = classification_scores[class_id]
+	var affiliation_score_data: Dictionary = {}
+	for affiliation_id: int in affiliation_scores:
+		affiliation_score_data[str(affiliation_id)] = affiliation_scores[affiliation_id]
+	var sensor_times: Dictionary = {}
+	for sensor_id: int in sensor_observed_at:
+		sensor_times[str(sensor_id)] = sensor_observed_at[sensor_id]
+	return {
+		"track_id": track_id,
+		"estimated_position": SaveDocument.vector3_to_data(estimated_position),
+		"estimated_velocity": SaveDocument.vector3_to_data(estimated_velocity),
+		"last_measured_position": SaveDocument.vector3_to_data(last_measured_position),
+		"last_observed_at": last_observed_at,
+		"track_quality": track_quality,
+		"position_uncertainty": position_uncertainty,
+		"detection_evidence": detection_evidence,
+		"state": int(state),
+		"contributing_sensor_ids": contributing_sensor_ids.duplicate(),
+		"sensor_observed_at": sensor_times,
+		"classification_scores": class_scores,
+		"classification": String(classification),
+		"classification_confidence": classification_confidence,
+		"affiliation_scores": affiliation_score_data,
+		"affiliation": int(affiliation),
+		"affiliation_confidence": affiliation_confidence,
+	}
+
+func restore_state(data: Dictionary) -> void:
+	track_id = int(data.track_id)
+	estimated_position = SaveDocument.vector3_from_data(data.estimated_position)
+	estimated_velocity = SaveDocument.vector3_from_data(data.estimated_velocity)
+	last_measured_position = SaveDocument.vector3_from_data(data.last_measured_position)
+	last_observed_at = float(data.last_observed_at)
+	track_quality = float(data.track_quality)
+	position_uncertainty = float(data.position_uncertainty)
+	detection_evidence = float(data.detection_evidence)
+	state = int(data.state) as State
+	contributing_sensor_ids.clear()
+	for sensor_id: Variant in data.get("contributing_sensor_ids", []):
+		contributing_sensor_ids.append(int(sensor_id))
+	sensor_observed_at.clear()
+	for sensor_id: String in data.get("sensor_observed_at", {}):
+		sensor_observed_at[int(sensor_id)] = float(data.sensor_observed_at[sensor_id])
+	classification_scores.clear()
+	for class_id: String in data.get("classification_scores", {}):
+		classification_scores[StringName(class_id)] = float(data.classification_scores[class_id])
+	classification = StringName(String(data.get("classification", "unknown")))
+	classification_confidence = float(data.get("classification_confidence", 0.0))
+	affiliation_scores.clear()
+	for affiliation_id: String in data.get("affiliation_scores", {}):
+		affiliation_scores[int(affiliation_id)] = float(data.affiliation_scores[affiliation_id])
+	affiliation = int(data.get("affiliation", Affiliation.UNKNOWN))
+	affiliation_confidence = float(data.get("affiliation_confidence", 0.0))
