@@ -15,7 +15,22 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_gt(main.battlefield.city_visuals.get_child_count(), 30)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
 	assert_eq(main.session.budget, 400)
+	assert_eq(main.scenario.available_defenses.size(), 2)
+	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
 	assert_false(main.session.start_defense())
+
+func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
+	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var placement_position := _find_valid_position_for(radar_definition.placement_profile)
+	var result: Dictionary = main.session.request_placement(radar_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(result.success)
+	assert_eq(main.session.budget, 280)
+	var radar := result.unit as DefenseUnit
+	assert_not_null(radar)
+	var antenna := radar.get_node("Antenna") as Node3D
+	var starting_rotation: float = antenna.rotation.y
+	radar.gameplay_tick(1.0)
+	assert_ne(antenna.rotation.y, starting_rotation)
 
 func test_purchase_start_intercept_and_reward_flow() -> void:
 	var placement_position := _find_valid_position()
@@ -54,7 +69,9 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	assert_eq(main.registry.count(), 0)
 
 func _find_valid_position() -> Vector3:
-	var profile: PlacementProfile = main.scenario.available_defenses[0].placement_profile
+	return _find_valid_position_for(main.scenario.available_defenses[0].placement_profile)
+
+func _find_valid_position_for(profile: PlacementProfile) -> Vector3:
 	for z: int in range(-400, 401, 25):
 		for x: int in range(-400, 401, 25):
 			var position := Vector3(float(x), main.battlefield.terrain_height(float(x), float(z)), float(z))

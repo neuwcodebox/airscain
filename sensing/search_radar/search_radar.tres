@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="SearchRadarDefinition" load_steps=4 format=3]
+
+[ext_resource path="res://sensing/search_radar/search_radar_definition.gd" type="Script" id="1"]
+[ext_resource path="res://sensing/search_radar/search_radar.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
+
+[sub_resource type="Resource" id="PlacementProfile"]
+script = ExtResource("3")
+footprint_radius = 8.0
+maximum_slope_degrees = 10.0
+boundary_margin = 15.0
+
+[resource]
+script = ExtResource("1")
+id = &"search_radar"
+display_name = "탐색 레이더"
+scene = ExtResource("2")
+price = 120
+placement_profile = SubResource("PlacementProfile")
+preview_range = 520.0
+detection_range = 520.0
+scan_interval = 0.8
+sensor_quality = 0.9
+range_exponent = 4.0
