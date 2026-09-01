@@ -16,6 +16,7 @@ var defenses: Array[DefenseUnit] = []
 @onready var player_knowledge: Node = $PlayerKnowledge
 @onready var c2_network: Node = $C2Network
 @onready var track_display: Node = $WorldObjects/TacticalTracks
+@onready var c2_overlay: Node = $WorldObjects/C2Overlay
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var camera_rig: CameraRig = $CameraRig
 @onready var world_objects: Node3D = $WorldObjects
@@ -44,6 +45,7 @@ func _ready() -> void:
 	player_knowledge.call("reset")
 	c2_network.call("reset")
 	track_display.call("configure", player_knowledge)
+	c2_overlay.call("configure", c2_network)
 	director.configure(scenario, battlefield, objective, registry, threat_parent)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry)
 	hud.configure(session, objective, scenario.available_defenses)
@@ -80,6 +82,8 @@ func _connect_flow() -> void:
 	hud.speed_requested.connect(session.set_simulation_speed)
 	hud.restart_requested.connect(_on_restart_requested)
 	placement.feedback_changed.connect(hud.set_feedback)
+	placement.asset_selected.connect(_on_asset_selected)
+	hud.c2_overlay_requested.connect(_on_c2_overlay_requested)
 
 func _on_start_requested() -> void:
 	if session.start_defense():
@@ -124,3 +128,10 @@ func _on_restart_requested(same_seed: bool) -> void:
 	else:
 		requested_seed = int(Time.get_unix_time_from_system()) ^ int(Time.get_ticks_msec())
 	get_tree().reload_current_scene()
+
+func _on_asset_selected(unit: DefenseUnit) -> void:
+	c2_overlay.call("select_asset", unit)
+	hud.set_selected_asset(unit, int(c2_overlay.get("visible_link_count")))
+
+func _on_c2_overlay_requested() -> void:
+	c2_overlay.call("toggle_all_links")

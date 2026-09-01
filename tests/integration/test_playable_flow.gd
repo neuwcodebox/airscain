@@ -79,6 +79,8 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var command_definition: DefenseDefinition = main.scenario.available_defenses[2]
 	var command_result: Dictionary = main.session.request_placement(command_definition, _find_valid_position_for(command_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(command_result.success)
+	assert_same(main.placement.pick_asset_at(battery.global_position), battery)
+	assert_gt(int(main.c2_overlay.get("visible_link_count")), 0)
 	for frame: int in 300:
 		main.player_knowledge.call("gameplay_tick", 0.02)
 		radar.gameplay_tick(0.02)

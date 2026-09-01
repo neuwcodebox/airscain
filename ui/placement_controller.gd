@@ -2,6 +2,7 @@ class_name PlacementController
 extends Node3D
 
 signal feedback_changed(message: String)
+signal asset_selected(unit: DefenseUnit)
 
 var session: GameSession
 var battlefield: Battlefield
@@ -42,10 +43,7 @@ func _process(_delta: float) -> void:
 	if selected == null or preview == null:
 		return
 	var mouse := get_viewport().get_mouse_position()
-	var origin := camera.project_ray_origin(mouse)
-	var direction := camera.project_ray_normal(mouse)
-	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * 3000.0, 1)
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var hit := _terrain_hit(mouse)
 	if hit.is_empty():
 		preview.visible = false
 		candidate_valid = false
@@ -62,6 +60,12 @@ func _process(_delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if selected == null:
+		if event is InputEventMouseButton:
+			var selection_click := event as InputEventMouseButton
+			if selection_click.pressed and selection_click.button_index == MOUSE_BUTTON_LEFT and get_viewport().gui_get_hovered_control() == null:
+				var hit := _terrain_hit(get_viewport().get_mouse_position())
+				if not hit.is_empty():
+					pick_asset_at(hit.position)
 		return
 	if event.is_action_pressed("cancel_placement"):
 		cancel()
@@ -86,6 +90,26 @@ func _validation() -> Dictionary:
 	if session.budget < selected.price:
 		return {"valid": false, "reason": "예산이 부족합니다"}
 	return battlefield.placement_result(candidate_position, selected.placement_profile)
+
+func pick_asset_at(world_position: Vector3) -> DefenseUnit:
+	var picked: DefenseUnit
+	var nearest_distance := 24.0
+	for child: Node in defense_parent.get_children():
+		var unit := child as DefenseUnit
+		if unit == null:
+			continue
+		var flat_distance := Vector2(unit.global_position.x - world_position.x, unit.global_position.z - world_position.z).length()
+		if flat_distance < nearest_distance:
+			nearest_distance = flat_distance
+			picked = unit
+	asset_selected.emit(picked)
+	return picked
+
+func _terrain_hit(screen_position: Vector2) -> Dictionary:
+	var origin := camera.project_ray_origin(screen_position)
+	var direction := camera.project_ray_normal(screen_position)
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * 3000.0, 1)
+	return get_world_3d().direct_space_state.intersect_ray(query)
 
 func _create_preview() -> void:
 	if preview != null:

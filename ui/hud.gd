@@ -5,6 +5,7 @@ signal defense_selected(definition: DefenseDefinition)
 signal start_requested
 signal speed_requested(speed: float)
 signal restart_requested(same_seed: bool)
+signal c2_overlay_requested
 
 var session: GameSession
 var objective: ProtectedObjective
@@ -22,6 +23,8 @@ var defense_buttons: Array[Button] = []
 @onready var feedback_label: Label = %FeedbackLabel
 @onready var game_over_panel: PanelContainer = %GameOverPanel
 @onready var final_stats: Label = %FinalStats
+@onready var selected_asset_panel: PanelContainer = %SelectedAssetPanel
+@onready var selected_asset_label: Label = %SelectedAssetLabel
 
 func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition]) -> void:
 	session = session_value
@@ -41,6 +44,11 @@ func set_pressure(level: int) -> void:
 
 func set_feedback(message: String) -> void:
 	feedback_label.text = message
+
+func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
+	selected_asset_panel.visible = unit != null
+	if unit != null:
+		selected_asset_label.text = "%s\nC2 직접 연결  %d" % [unit.definition.display_name, connection_count]
 
 func _on_state_changed() -> void:
 	budget_label.text = "예산  $%d" % session.budget
@@ -87,6 +95,9 @@ func _on_normal_pressed() -> void:
 
 func _on_fast_pressed() -> void:
 	speed_requested.emit(2.0)
+
+func _on_c2_overlay_pressed() -> void:
+	c2_overlay_requested.emit()
 
 func _on_same_seed_pressed() -> void:
 	restart_requested.emit(true)

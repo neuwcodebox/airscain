@@ -24,6 +24,10 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	for defense: DefenseUnit in main.defenses:
+		if defense is CommandPost:
+			main.placement.pick_asset_at(defense.global_position)
+			break
 	main.session.start_defense()
 	main.director.enabled = false
 	for index: int in 8:

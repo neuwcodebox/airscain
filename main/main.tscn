@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
@@ -10,6 +10,7 @@
 [ext_resource path="res://tracking/player_knowledge.gd" type="Script" id="8"]
 [ext_resource path="res://ui/track_display.gd" type="Script" id="9"]
 [ext_resource path="res://c2/c2_network.gd" type="Script" id="10"]
+[ext_resource path="res://ui/c2_overlay.gd" type="Script" id="11"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -52,6 +53,9 @@ script = ExtResource("4")
 
 [node name="TacticalTracks" type="Node3D" parent="WorldObjects"]
 script = ExtResource("9")
+
+[node name="C2Overlay" type="Node3D" parent="WorldObjects"]
+script = ExtResource("11")
 
 [node name="PlacementController" type="Node3D" parent="."]
 script = ExtResource("6")
