@@ -5,6 +5,7 @@ extends DefenseDefinition
 @export var scan_interval: float = 0.4
 @export var sensor_quality: float = 0.9
 @export var range_exponent: float = 4.0
+@export var c2_range: float = 700.0
 
 func validation_error() -> String:
 	var base_error := super.validation_error()
@@ -12,6 +13,6 @@ func validation_error() -> String:
 		return base_error
 	if detection_range <= 0.0 or scan_interval <= 0.0:
 		return "탐색 레이더 거리와 탐색 주기는 0보다 커야 합니다"
-	if sensor_quality <= 0.0 or sensor_quality > 1.0 or range_exponent <= 0.0:
+	if sensor_quality <= 0.0 or sensor_quality > 1.0 or range_exponent <= 0.0 or c2_range <= 0.0:
 		return "탐색 레이더 품질 설정이 올바르지 않습니다"
 	return ""

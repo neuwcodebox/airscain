@@ -14,9 +14,10 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq((main.battlefield.ocean.mesh as PlaneMesh).size.x, 7200.0)
 	assert_gt(main.battlefield.city_visuals.get_child_count(), 30)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
-	assert_eq(main.session.budget, 520)
-	assert_eq(main.scenario.available_defenses.size(), 2)
+	assert_eq(main.session.budget, 620)
+	assert_eq(main.scenario.available_defenses.size(), 3)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
+	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
@@ -24,7 +25,7 @@ func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	var placement_position := _find_valid_position_for(radar_definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(radar_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(result.success)
-	assert_eq(main.session.budget, 400)
+	assert_eq(main.session.budget, 500)
 	var radar := result.unit as DefenseUnit
 	assert_not_null(radar)
 	var antenna := radar.get_node("Antenna") as Node3D
@@ -71,6 +72,13 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(radar_result.success)
 	var radar := radar_result.unit as DefenseUnit
+	radar.gameplay_tick(0.4)
+	for frame: int in 100:
+		battery.gameplay_tick(0.02)
+	assert_false(threat.resolved_state, "지휘통제 경로 없이 센서 항적을 공유받으면 안 됩니다")
+	var command_definition: DefenseDefinition = main.scenario.available_defenses[2]
+	var command_result: Dictionary = main.session.request_placement(command_definition, _find_valid_position_for(command_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(command_result.success)
 	for frame: int in 300:
 		main.player_knowledge.call("gameplay_tick", 0.02)
 		radar.gameplay_tick(0.02)

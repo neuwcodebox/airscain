@@ -8,6 +8,7 @@ var main: AirscainMain
 var placement_candidates: Array[Vector3] = []
 var next_candidate: int = 0
 var radar_placed: bool = false
+var command_post_placed: bool = false
 
 func _init() -> void:
 	call_deferred("run")
@@ -57,6 +58,15 @@ func _buy_available_defenses() -> void:
 			var radar_result: Dictionary = main.session.request_placement(radar_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 			if radar_result.success:
 				radar_placed = true
+				break
+	if not command_post_placed:
+		var command_definition := main.scenario.available_defenses[2]
+		for position: Vector3 in placement_candidates:
+			if main.session.budget < command_definition.price:
+				break
+			var command_result: Dictionary = main.session.request_placement(command_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+			if command_result.success:
+				command_post_placed = true
 				break
 	var definition := main.scenario.available_defenses[0]
 	while main.session.budget >= definition.price and next_candidate < placement_candidates.size():

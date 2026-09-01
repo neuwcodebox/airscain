@@ -14,6 +14,7 @@ var defenses: Array[DefenseUnit] = []
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
 @onready var player_knowledge: Node = $PlayerKnowledge
+@onready var c2_network: Node = $C2Network
 @onready var track_display: Node = $WorldObjects/TacticalTracks
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var camera_rig: CameraRig = $CameraRig
@@ -41,6 +42,7 @@ func _ready() -> void:
 	_spawn_objective()
 	session.reset(scenario.starting_budget)
 	player_knowledge.call("reset")
+	c2_network.call("reset")
 	track_display.call("configure", player_knowledge)
 	director.configure(scenario, battlefield, objective, registry, threat_parent)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry)
@@ -87,6 +89,8 @@ func _on_start_requested() -> void:
 func _on_defense_placed(unit: DefenseUnit) -> void:
 	defenses.append(unit)
 	unit.configure_player_knowledge(battlefield, player_knowledge)
+	c2_network.call("register_asset", unit)
+	unit.configure_c2(c2_network)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)

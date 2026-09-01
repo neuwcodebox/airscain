@@ -23,6 +23,15 @@ func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge
 	battlefield = battlefield_value
 	player_knowledge = player_knowledge_value
 
+func c2_roles() -> int:
+	return C2Role.SENSOR
+
+func c2_link_range() -> float:
+	return _definition.c2_range
+
+func local_sensor_ids() -> Array[int]:
+	return [runtime_id]
+
 func gameplay_tick(delta: float) -> void:
 	if not active:
 		return

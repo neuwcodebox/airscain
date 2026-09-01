@@ -1,0 +1,62 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource path="res://c2/command_post/command_post.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="BaseMaterial"]
+albedo_color = Color(0.15, 0.22, 0.25, 1)
+metallic = 0.25
+roughness = 0.64
+
+[sub_resource type="StandardMaterial3D" id="AccentMaterial"]
+albedo_color = Color(0.16, 0.72, 0.9, 1)
+emission_enabled = true
+emission = Color(0.03, 0.2, 0.32, 1)
+
+[sub_resource type="BoxMesh" id="BuildingMesh"]
+size = Vector3(18, 7, 14)
+
+[sub_resource type="BoxMesh" id="RoofMesh"]
+size = Vector3(14, 1, 10)
+
+[sub_resource type="CylinderMesh" id="MastMesh"]
+top_radius = 0.5
+bottom_radius = 0.8
+height = 8.0
+radial_segments = 8
+
+[sub_resource type="SphereMesh" id="DomeMesh"]
+radius = 2.8
+height = 3.2
+radial_segments = 12
+rings = 6
+
+[sub_resource type="BoxMesh" id="WindowMesh"]
+size = Vector3(14, 2.4, 0.2)
+
+[node name="CommandPost" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Building" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.5, 0)
+mesh = SubResource("BuildingMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Windows" type="MeshInstance3D" parent="."]
+position = Vector3(0, 4.2, -7.1)
+mesh = SubResource("WindowMesh")
+material_override = SubResource("AccentMaterial")
+
+[node name="Roof" type="MeshInstance3D" parent="."]
+position = Vector3(0, 7.5, 0)
+mesh = SubResource("RoofMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Mast" type="MeshInstance3D" parent="."]
+position = Vector3(0, 12, 0)
+mesh = SubResource("MastMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Dome" type="MeshInstance3D" parent="."]
+position = Vector3(0, 16.5, 0)
+mesh = SubResource("DomeMesh")
+material_override = SubResource("AccentMaterial")

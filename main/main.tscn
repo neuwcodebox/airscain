@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
@@ -9,6 +9,7 @@
 [ext_resource path="res://ui/hud.tscn" type="PackedScene" id="7"]
 [ext_resource path="res://tracking/player_knowledge.gd" type="Script" id="8"]
 [ext_resource path="res://ui/track_display.gd" type="Script" id="9"]
+[ext_resource path="res://c2/c2_network.gd" type="Script" id="10"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -28,6 +29,9 @@ script = ExtResource("3")
 
 [node name="PlayerKnowledge" type="Node" parent="."]
 script = ExtResource("8")
+
+[node name="C2Network" type="Node" parent="."]
+script = ExtResource("10")
 
 [node name="ThreatDirector" type="Node" parent="."]
 script = ExtResource("4")

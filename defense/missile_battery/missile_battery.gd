@@ -7,6 +7,7 @@ var registry: ThreatRegistry
 var projectile_parent: Node3D
 var battlefield: Battlefield
 var player_knowledge: Node
+var c2_network: Node
 var cooldown: float = 0.0
 var _definition: MissileBatteryDefinition
 var interceptors: Array[HomingInterceptor] = []
@@ -26,8 +27,17 @@ func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge
 	battlefield = battlefield_value
 	player_knowledge = player_knowledge_value
 
+func configure_c2(network: Node) -> void:
+	c2_network = network
+
+func c2_roles() -> int:
+	return C2Role.DEFENSE
+
+func c2_link_range() -> float:
+	return _definition.c2_range
+
 func gameplay_tick(delta: float) -> void:
-	if not active or registry == null or player_knowledge == null:
+	if not active or registry == null or player_knowledge == null or c2_network == null:
 		return
 	for index: int in range(interceptors.size() - 1, -1, -1):
 		var interceptor := interceptors[index]
@@ -36,7 +46,8 @@ func gameplay_tick(delta: float) -> void:
 		else:
 			interceptor.gameplay_tick(delta)
 	cooldown = maxf(0.0, cooldown - delta)
-	var available_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	var known_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	var available_tracks: Array[PlayerTrack] = c2_network.call("available_tracks_for", self, known_tracks)
 	var track := select_track(available_tracks, battlefield.objective.global_position)
 	if track == null:
 		return

@@ -25,3 +25,4 @@ interceptor_turn_rate_degrees = 240.0
 interceptor_lifetime = 5.0
 interceptor_damage = 100.0
 proximity_radius = 15.0
+c2_range = 600.0
