@@ -35,7 +35,11 @@ func run() -> void:
 		var angle := TAU * float(index) / 8.0
 		var target_position := Vector3(cos(angle) * 230.0, 72.0, sin(angle) * 230.0)
 		threat.global_position = target_position
-	for index: int in 180:
+	_spawn_swarm_near_close_in_gun()
+	for index: int in 30:
+		await process_frame
+	_save_capture("/tmp/airscain_layered_defense.png")
+	for index: int in 150:
 		await process_frame
 	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
 	if not known_tracks.is_empty():
@@ -53,14 +57,34 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement combat coasting game_over")
+	print("VISUAL_CAPTURE_OK initial placement layered_defense combat coasting game_over")
 	quit(0)
 
 func _place_initial_assets() -> void:
+	main.session.budget += 110
 	_place_asset(main.scenario.available_defenses[0], -1.0)
 	_place_asset(main.scenario.available_defenses[1], 1.0)
 	_place_asset(main.scenario.available_defenses[2], 1.0)
 	_place_asset(main.scenario.available_defenses[3], -1.0)
+	_place_asset(main.scenario.available_defenses[4], 1.0)
+
+func _spawn_swarm_near_close_in_gun() -> void:
+	var gun: CloseInGun
+	for defense: DefenseUnit in main.defenses:
+		if defense is CloseInGun:
+			gun = defense as CloseInGun
+			break
+	if gun == null:
+		return
+	var definition: ThreatDefinition = main.scenario.threat_entries[1].threat_definition
+	for index: int in 4:
+		var threat := definition.scene.instantiate() as ThreatUnit
+		main.threat_parent.add_child(threat)
+		threat.global_position = gun.global_position + Vector3(125.0 + float(index) * 7.0, 48.0, (float(index) - 1.5) * 9.0)
+		threat.setup(1000 + index, definition)
+		threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
+		main.registry.add(threat)
+		main._on_threat_spawned(threat)
 
 func _place_asset(definition: DefenseDefinition, direction: float) -> void:
 	for offset: int in range(0, 180, 10):

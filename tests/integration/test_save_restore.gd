@@ -31,6 +31,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	threat.global_position = Vector3(340.0, 85.0, -120.0)
 	threat.health = 42.0
 	main.director.elapsed = 33.0
+	var saved_director_rng_state := main.director.rng.state
 	var saved_document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var saved_budget := main.session.budget
 	var saved_contact_count := main.registry.count()
@@ -54,6 +55,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(restored_threat.global_position, Vector3(340.0, 85.0, -120.0))
 	assert_eq(restored_threat.health, 42.0)
 	assert_eq(main.director.elapsed, 33.0)
+	assert_eq(main.director.rng.state, saved_director_rng_state)
 
 func test_invalid_content_id_does_not_mutate_live_session() -> void:
 	var document := main.capture_save_document()

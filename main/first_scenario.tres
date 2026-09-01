@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=11 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=14 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -9,12 +9,21 @@
 [ext_resource path="res://c2/command_post/command_post.tres" type="Resource" id="7"]
 [ext_resource path="res://sensing/tracking_radar/tracking_radar.tres" type="Resource" id="8"]
 [ext_resource path="res://world/ambient/bird_contact/bird_contact.tres" type="Resource" id="9"]
+[ext_resource path="res://defense/close_in_gun/close_in_gun.tres" type="Resource" id="10"]
+[ext_resource path="res://enemy/swarm_uav/swarm_uav.tres" type="Resource" id="11"]
 
 [sub_resource type="Resource" id="AttackUavEntry"]
 script = ExtResource("5")
 threat_definition = ExtResource("4")
 unlock_level = 1
 selection_weight = 1.0
+
+[sub_resource type="Resource" id="SwarmUavEntry"]
+script = ExtResource("5")
+threat_definition = ExtResource("11")
+unlock_level = 2
+selection_weight = 0.8
+group_size = 4
 
 [resource]
 script = ExtResource("1")
@@ -24,8 +33,8 @@ terrain_resolution = 97
 city_size = 330.0
 starting_budget = 620
 objective_definition = ExtResource("2")
-available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8")])
-threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry")])
+available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10")])
+threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry")])
 ambient_contacts = Array[ExtResource("9")]([ExtResource("9")])
 ambient_contacts_per_type = 4
 initial_spawn_interval = 4.0

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=3 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/swarm_uav/swarm_uav.tscn" type="PackedScene" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"swarm_uav"
+display_name = "소형 군집 UAV"
+scene = ExtResource("2")
+neutralization_reward = 8
+signature_class = &"small_uav"
+radar_signature = 0.42
+affiliation = 3
+maximum_health = 36.0
+base_speed = 42.0
+cruise_altitude = 48.0
+terminal_distance = 85.0
+mission_damage = 3

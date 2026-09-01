@@ -79,6 +79,21 @@ func test_pressure_rises_and_spawn_load_is_bounded() -> void:
 	assert_gt(director.spawn_count_at(240.0), director.spawn_count_at(0.0))
 	assert_lte(director.speed_multiplier_at(10000.0), 2.0)
 
+func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void:
+	var definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
+	var gun: CloseInGun = autofree(definition.scene.instantiate()) as CloseInGun
+	gun.setup(1, definition)
+	var missile_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	var battery: MissileBattery = autofree(missile_definition.scene.instantiate()) as MissileBattery
+	battery.setup(2, missile_definition)
+	var small_track := PlayerTrack.new()
+	small_track.classification = &"small_uav"
+	var larger_track := PlayerTrack.new()
+	larger_track.classification = &"uav"
+	assert_lt(definition.attack_range, missile_definition.attack_range)
+	assert_gt(gun.weapon_match(small_track), gun.weapon_match(larger_track))
+	assert_lt(battery.weapon_match(small_track), battery.weapon_match(larger_track))
+
 func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
 	var session := autofree(GameSession.new()) as GameSession
 	session.reset(400)

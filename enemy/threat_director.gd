@@ -45,11 +45,18 @@ func gameplay_tick(delta: float) -> void:
 	if until_spawn > 0.0:
 		return
 	until_spawn += spawn_interval_at(elapsed)
-	var count := spawn_count_at(elapsed)
-	for index: int in count:
-		if registry.hostile_count() >= scenario.active_threat_cap:
-			break
-		spawn_one()
+	var package_count := spawn_count_at(elapsed)
+	for _package_index: int in package_count:
+		var entry := _choose_entry()
+		if entry == null:
+			continue
+		var group_angle := rng.randf_range(0.0, TAU)
+		var group_target := objective.get_target_point(rng)
+		group_target.y = battlefield.terrain_height(group_target.x, group_target.z)
+		for group_index: int in entry.group_size:
+			if registry.hostile_count() >= scenario.active_threat_cap:
+				return
+			_spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target)
 
 func pressure_level_at(time_seconds: float) -> int:
 	return 1 + int(floor(time_seconds / 45.0))
@@ -67,19 +74,24 @@ func spawn_one() -> ThreatUnit:
 	var entry := _choose_entry()
 	if entry == null:
 		return null
+	return _spawn_entry(entry, rng.randf_range(0.0, TAU), 0.0)
+
+func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, target_override: Variant = null) -> ThreatUnit:
 	var threat := entry.threat_definition.scene.instantiate() as ThreatUnit
 	if threat == null:
 		return null
 	threat_parent.add_child(threat)
-	var angle := rng.randf_range(0.0, TAU)
-	var edge := scenario.battlefield_size * 0.5 - 8.0
+	var edge := scenario.battlefield_size * 0.5 - 8.0 - edge_offset
 	var spawn_position := Vector3(cos(angle) * edge, 0.0, sin(angle) * edge)
 	spawn_position.y = battlefield.terrain_height(spawn_position.x, spawn_position.z) + 70.0
 	threat.global_position = spawn_position
 	threat.setup(next_runtime_id, entry.threat_definition)
 	next_runtime_id += 1
 	var target := objective.get_target_point(rng)
-	target.y = battlefield.terrain_height(target.x, target.z)
+	if target_override is Vector3:
+		target = target_override
+	else:
+		target.y = battlefield.terrain_height(target.x, target.z)
 	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed))
 	registry.add(threat)
 	threat_spawned.emit(threat)
@@ -108,7 +120,7 @@ func capture_state() -> Dictionary:
 		"pressure_level": pressure_level,
 		"next_runtime_id": next_runtime_id,
 		"enabled": enabled,
-		"rng_state": rng.state,
+		"rng_state": str(rng.state),
 	}
 
 func restore_state(state: Dictionary) -> void:

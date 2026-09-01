@@ -1,0 +1,20 @@
+class_name CloseInGunDefinition
+extends DefenseDefinition
+
+@export var attack_range: float = 190.0
+@export var burst_interval: float = 0.28
+@export var burst_damage: float = 24.0
+@export var base_accuracy: float = 0.92
+@export var hit_tolerance: float = 18.0
+@export var preferred_class: StringName = &"small_uav"
+@export var preferred_target_match: float = 1.0
+@export var other_target_match: float = 0.28
+@export var c2_range: float = 500.0
+
+func validation_error() -> String:
+	var base_error := super.validation_error()
+	if not base_error.is_empty():
+		return base_error
+	if attack_range <= 0.0 or burst_interval <= 0.0 or burst_damage <= 0.0 or base_accuracy <= 0.0 or base_accuracy > 1.0 or hit_tolerance <= 0.0 or preferred_class.is_empty() or preferred_target_match <= 0.0 or other_target_match < 0.0 or c2_range <= 0.0:
+		return "근접방어기관포 설정값이 올바르지 않습니다"
+	return ""

@@ -9,6 +9,7 @@ var placement_candidates: Array[Vector3] = []
 var next_candidate: int = 0
 var radar_placed: bool = false
 var command_post_placed: bool = false
+var next_layer_is_gun: bool = true
 
 func _init() -> void:
 	call_deferred("run")
@@ -68,13 +69,15 @@ func _buy_available_defenses() -> void:
 			if command_result.success:
 				command_post_placed = true
 				break
-	var definition := main.scenario.available_defenses[0]
-	while main.session.budget >= definition.price and next_candidate < placement_candidates.size():
+	while next_candidate < placement_candidates.size():
+		var definition: DefenseDefinition = main.scenario.available_defenses[4] if next_layer_is_gun else main.scenario.available_defenses[0]
+		if main.session.budget < definition.price:
+			break
 		var position := placement_candidates[next_candidate]
 		next_candidate += 1
 		var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-		if not result.success:
-			continue
+		if result.success:
+			next_layer_is_gun = not next_layer_is_gun
 
 func _fail(message: String) -> void:
 	push_error("LONG_RUN_FAILED: %s" % message)

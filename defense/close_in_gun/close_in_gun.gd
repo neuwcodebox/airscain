@@ -1,7 +1,7 @@
-class_name MissileBattery
+class_name CloseInGun
 extends DefenseUnit
 
-const INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
+const TRACER_SCENE := preload("res://effects/tracer_burst/tracer_burst.tscn")
 
 var registry: ThreatRegistry
 var projectile_parent: Node3D
@@ -10,15 +10,17 @@ var player_knowledge: Node
 var c2_network: Node
 var doctrine := EngagementDoctrine.new()
 var cooldown: float = 0.0
-var _definition: MissileBatteryDefinition
-var interceptors: Array[HomingInterceptor] = []
+var rng := RandomNumberGenerator.new()
+var _definition: CloseInGunDefinition
 
 @onready var turret: Node3D = $Turret
-@onready var launch_point: Marker3D = $Turret/LaunchPoint
+@onready var muzzle: Marker3D = $Turret/Muzzle
+@onready var muzzle_flash: MeshInstance3D = $MuzzleFlash
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
-	_definition = definition_value as MissileBatteryDefinition
+	_definition = definition_value as CloseInGunDefinition
+	rng.seed = id_value ^ 0x4C11DB7
 
 func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: Node3D) -> void:
 	registry = registry_value
@@ -49,12 +51,6 @@ func set_priority_track(track_id: int) -> void:
 func gameplay_tick(delta: float) -> void:
 	if not active or registry == null or player_knowledge == null or c2_network == null:
 		return
-	for index: int in range(interceptors.size() - 1, -1, -1):
-		var interceptor := interceptors[index]
-		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
-			interceptors.remove_at(index)
-		else:
-			interceptor.gameplay_tick(delta)
 	cooldown = maxf(0.0, cooldown - delta)
 	var known_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
 	var available_tracks: Array[PlayerTrack] = c2_network.call("available_tracks_for", self, known_tracks)
@@ -65,13 +61,12 @@ func gameplay_tick(delta: float) -> void:
 	if turret.global_position.distance_squared_to(flat_target) > 0.01:
 		turret.look_at(flat_target, Vector3.UP)
 	if cooldown <= 0.0:
-		_launch(track)
-		cooldown = _definition.fire_interval
+		_fire_burst(track)
+		cooldown = _definition.burst_interval
 
 func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> PlayerTrack:
 	var selected: PlayerTrack
-	var selected_urgency := -INF
-	var selected_distance := INF
+	var selected_score := -INF
 	for track: PlayerTrack in tracks:
 		if not doctrine.allows(track):
 			continue
@@ -80,30 +75,50 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 			continue
 		if track.track_id == doctrine.priority_track_id:
 			return track
-		var urgency := track.track_quality * weapon_match(track) / maxf(1.0, track.estimated_position.distance_to(protected_position))
-		if urgency > selected_urgency or (is_equal_approx(urgency, selected_urgency) and distance < selected_distance):
+		var urgency := 1.0 / maxf(1.0, track.estimated_position.distance_to(protected_position))
+		var score := urgency * track.track_quality * weapon_match(track)
+		if score > selected_score:
 			selected = track
-			selected_urgency = urgency
-			selected_distance = distance
+			selected_score = score
 	return selected
 
 func weapon_match(track: PlayerTrack) -> float:
-	return _definition.small_target_match if track.classification == &"small_uav" else 1.0
+	return _definition.preferred_target_match if track.classification == _definition.preferred_class else _definition.other_target_match
 
-func _launch(track: PlayerTrack) -> void:
-	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
-	projectile_parent.add_child(interceptor)
-	interceptor.global_position = launch_point.global_position
-	var initial_direction := launch_point.global_position.direction_to(track.estimated_position)
-	interceptor.configure(track, registry, _definition, initial_direction, runtime_id)
-	interceptors.append(interceptor)
-	$MuzzleFlash.global_position = launch_point.global_position
-	$MuzzleFlash.visible = true
-	get_tree().create_timer(0.08).timeout.connect(func() -> void: $MuzzleFlash.visible = false)
+func _fire_burst(track: PlayerTrack) -> void:
+	var tracer := TRACER_SCENE.instantiate() as TracerBurst
+	projectile_parent.add_child(tracer)
+	tracer.setup(muzzle.global_position, track.estimated_position)
+	muzzle_flash.global_position = muzzle.global_position
+	muzzle_flash.visible = true
+	get_tree().create_timer(0.06).timeout.connect(func() -> void:
+		if is_instance_valid(muzzle_flash):
+			muzzle_flash.visible = false
+	)
+	var distance := global_position.distance_to(track.estimated_position)
+	var range_ratio := distance / _definition.attack_range
+	var range_factor := 1.0 / (1.0 + pow(range_ratio, 4.0))
+	var hit_probability := clampf(_definition.base_accuracy * track.track_quality * range_factor * weapon_match(track), 0.0, 1.0)
+	if rng.randf() > hit_probability:
+		return
+	var target := _physical_target_near(track.estimated_position)
+	if target != null:
+		target.receive_damage(_definition.burst_damage)
+
+func _physical_target_near(estimated_position: Vector3) -> ThreatUnit:
+	var selected: ThreatUnit
+	var nearest_distance := _definition.hit_tolerance
+	for threat: ThreatUnit in registry.get_active():
+		var distance := threat.get_aim_position().distance_to(estimated_position)
+		if distance < nearest_distance:
+			selected = threat
+			nearest_distance = distance
+	return selected
 
 func capture_content_state() -> Dictionary:
 	return {
 		"cooldown": cooldown,
+		"rng_state": str(rng.state),
 		"doctrine": {
 			"hold_fire": doctrine.hold_fire,
 			"engage_unknown": doctrine.engage_unknown,
@@ -117,6 +132,7 @@ func capture_content_state() -> Dictionary:
 
 func restore_content_state(state: Dictionary) -> void:
 	cooldown = float(state.get("cooldown", 0.0))
+	rng.state = int(state.get("rng_state", rng.state))
 	var doctrine_state: Dictionary = state.get("doctrine", {})
 	doctrine.hold_fire = bool(doctrine_state.get("hold_fire", false))
 	doctrine.engage_unknown = bool(doctrine_state.get("engage_unknown", false))
