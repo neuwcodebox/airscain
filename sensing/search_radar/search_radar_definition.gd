@@ -1,8 +1,8 @@
 class_name SearchRadarDefinition
 extends DefenseDefinition
 
-@export var detection_range: float = 520.0
-@export var scan_interval: float = 0.8
+@export var detection_range: float = 700.0
+@export var scan_interval: float = 0.4
 @export var sensor_quality: float = 0.9
 @export var range_exponent: float = 4.0
 

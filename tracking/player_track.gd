@@ -6,6 +6,7 @@ enum State { TENTATIVE, CONFIRMED, COASTING, LOST }
 var track_id: int
 var estimated_position: Vector3
 var estimated_velocity: Vector3
+var last_measured_position: Vector3
 var last_observed_at: float
 var track_quality: float
 var position_uncertainty: float
@@ -16,6 +17,7 @@ var contributing_sensor_ids: Array[int] = []
 func setup(id_value: int, observation: SensorObservation) -> void:
 	track_id = id_value
 	estimated_position = observation.measured_position
+	last_measured_position = observation.measured_position
 	last_observed_at = observation.timestamp
 	track_quality = observation.quality
 	position_uncertainty = observation.uncertainty
@@ -24,12 +26,12 @@ func setup(id_value: int, observation: SensorObservation) -> void:
 
 func apply_observation(observation: SensorObservation, confirmation_threshold: float) -> void:
 	var elapsed := maxf(0.001, observation.timestamp - last_observed_at)
-	var predicted_position := estimated_position + estimated_velocity * elapsed
-	var measured_velocity := (observation.measured_position - estimated_position) / elapsed
+	var measured_velocity := (observation.measured_position - last_measured_position) / elapsed
 	var position_gain := lerpf(0.25, 0.85, observation.quality)
 	var velocity_gain := lerpf(0.15, 0.65, observation.quality)
-	estimated_position = predicted_position.lerp(observation.measured_position, position_gain)
+	estimated_position = estimated_position.lerp(observation.measured_position, position_gain)
 	estimated_velocity = estimated_velocity.lerp(measured_velocity, velocity_gain)
+	last_measured_position = observation.measured_position
 	last_observed_at = observation.timestamp
 	track_quality = clampf(track_quality + observation.quality * 0.35, 0.0, 1.0)
 	position_uncertainty = lerpf(position_uncertainty, observation.uncertainty, position_gain)

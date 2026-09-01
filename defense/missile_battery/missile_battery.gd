@@ -5,6 +5,8 @@ const INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interce
 
 var registry: ThreatRegistry
 var projectile_parent: Node3D
+var battlefield: Battlefield
+var player_knowledge: Node
 var cooldown: float = 0.0
 var _definition: MissileBatteryDefinition
 var interceptors: Array[HomingInterceptor] = []
@@ -20,8 +22,12 @@ func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: N
 	registry = registry_value
 	projectile_parent = projectile_parent_value
 
+func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: Node) -> void:
+	battlefield = battlefield_value
+	player_knowledge = player_knowledge_value
+
 func gameplay_tick(delta: float) -> void:
-	if not active or registry == null:
+	if not active or registry == null or player_knowledge == null:
 		return
 	for index: int in range(interceptors.size() - 1, -1, -1):
 		var interceptor := interceptors[index]
@@ -30,39 +36,40 @@ func gameplay_tick(delta: float) -> void:
 		else:
 			interceptor.gameplay_tick(delta)
 	cooldown = maxf(0.0, cooldown - delta)
-	var target := select_target(registry.get_active())
-	if target == null:
+	var available_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	var track := select_track(available_tracks, battlefield.objective.global_position)
+	if track == null:
 		return
-	var flat_target := Vector3(target.global_position.x, turret.global_position.y, target.global_position.z)
+	var flat_target := Vector3(track.estimated_position.x, turret.global_position.y, track.estimated_position.z)
 	if turret.global_position.distance_squared_to(flat_target) > 0.01:
 		turret.look_at(flat_target, Vector3.UP)
 	if cooldown <= 0.0:
-		_launch(target)
+		_launch(track)
 		cooldown = _definition.fire_interval
 
-func select_target(threats: Array[ThreatUnit]) -> ThreatUnit:
-	var selected: ThreatUnit = null
+func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> PlayerTrack:
+	var selected: PlayerTrack
 	var selected_urgency := -INF
 	var selected_distance := INF
-	for threat: ThreatUnit in threats:
-		if not threat.is_targetable():
+	for track: PlayerTrack in tracks:
+		if track.state != PlayerTrack.State.CONFIRMED:
 			continue
-		var distance := global_position.distance_to(threat.get_aim_position())
+		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range:
 			continue
-		var urgency := threat.get_urgency()
+		var urgency := track.track_quality / maxf(1.0, track.estimated_position.distance_to(protected_position))
 		if urgency > selected_urgency or (is_equal_approx(urgency, selected_urgency) and distance < selected_distance):
-			selected = threat
+			selected = track
 			selected_urgency = urgency
 			selected_distance = distance
 	return selected
 
-func _launch(target: ThreatUnit) -> void:
+func _launch(track: PlayerTrack) -> void:
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = launch_point.global_position
-	var initial_direction := launch_point.global_position.direction_to(target.get_aim_position())
-	interceptor.configure(target, _definition, initial_direction)
+	var initial_direction := launch_point.global_position.direction_to(track.estimated_position)
+	interceptor.configure(track, registry, _definition, initial_direction)
 	interceptors.append(interceptor)
 	$MuzzleFlash.global_position = launch_point.global_position
 	$MuzzleFlash.visible = true

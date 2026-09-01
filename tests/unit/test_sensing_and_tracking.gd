@@ -37,3 +37,13 @@ func test_nearest_observation_outside_gate_creates_another_track() -> void:
 	distant.setup(1, 0.1, Vector3(knowledge.association_gate + 1.0, 0.0, 0.0), 0.8, 10.0, 0.8)
 	knowledge.submit_observation(distant)
 	assert_eq(knowledge.tracks.size(), 2)
+
+func test_same_scan_observations_cannot_collapse_into_one_track() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var first := SensorObservation.new()
+	first.setup(1, 1.0, Vector3.ZERO, 0.8, 10.0, 0.8)
+	knowledge.submit_observation(first)
+	var nearby := SensorObservation.new()
+	nearby.setup(1, 1.0, Vector3(20.0, 0.0, 0.0), 0.8, 10.0, 0.8)
+	knowledge.submit_observation(nearby)
+	assert_eq(knowledge.tracks.size(), 2)

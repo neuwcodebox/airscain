@@ -7,6 +7,7 @@ const STEP := 0.1
 var main: AirscainMain
 var placement_candidates: Array[Vector3] = []
 var next_candidate: int = 0
+var radar_placed: bool = false
 
 func _init() -> void:
 	call_deferred("run")
@@ -27,7 +28,7 @@ func run() -> void:
 		_buy_available_defenses()
 		main._process(STEP)
 		if main.session.phase == GameSession.Phase.GAME_OVER:
-			_fail("game over at %.1f seconds" % main.session.survival_time)
+			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size()])
 			return
 		if index % 10 == 0:
 			await process_frame
@@ -48,6 +49,15 @@ func _build_candidates() -> void:
 				placement_candidates.append(position)
 
 func _buy_available_defenses() -> void:
+	if not radar_placed:
+		var radar_definition := main.scenario.available_defenses[1]
+		for position: Vector3 in placement_candidates:
+			if main.session.budget < radar_definition.price:
+				break
+			var radar_result: Dictionary = main.session.request_placement(radar_definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+			if radar_result.success:
+				radar_placed = true
+				break
 	var definition := main.scenario.available_defenses[0]
 	while main.session.budget >= definition.price and next_candidate < placement_candidates.size():
 		var position := placement_candidates[next_candidate]

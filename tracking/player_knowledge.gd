@@ -8,9 +8,9 @@ signal track_removed(track_id: int)
 
 @export var association_gate: float = 90.0
 @export var confirmation_threshold: float = 0.6
-@export var coast_after: float = 1.6
-@export var lost_after: float = 5.0
-@export var remove_after: float = 8.0
+@export var coast_after: float = 0.6
+@export var lost_after: float = 2.0
+@export var remove_after: float = 4.0
 
 var simulation_time: float = 0.0
 var next_track_id: int = 1
@@ -63,7 +63,7 @@ func _associate(observation: SensorObservation) -> PlayerTrack:
 	var selected: PlayerTrack
 	var nearest_distance := association_gate
 	for track: PlayerTrack in tracks:
-		if track.state == PlayerTrack.State.LOST:
+		if track.state == PlayerTrack.State.LOST or is_equal_approx(track.last_observed_at, observation.timestamp):
 			continue
 		var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
 		var predicted_position := track.estimated_position + track.estimated_velocity * elapsed

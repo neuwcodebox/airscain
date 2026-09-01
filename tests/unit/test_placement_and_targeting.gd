@@ -5,12 +5,6 @@ const CITY_SCENE := preload("res://world/objective/city/city_objective.tscn")
 const BATTERY_SCENE := preload("res://defense/missile_battery/missile_battery.tscn")
 const SCENARIO := preload("res://main/first_scenario.tres")
 
-class UrgentThreat:
-	extends ThreatUnit
-	var urgency: float = 0.0
-	func get_urgency() -> float:
-		return urgency
-
 class RoleDefenseDouble:
 	extends DefenseUnit
 
@@ -79,37 +73,25 @@ func test_insufficient_budget_does_not_change_world_state() -> void:
 	assert_eq(session.defense_count, 0)
 	assert_eq(battlefield.occupied_positions.size(), 0)
 
-func test_battery_prioritizes_urgency_then_distance() -> void:
+func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
 	battery.setup(1, SCENARIO.available_defenses[0])
-	var near: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
-	near.global_position = Vector3(50.0, 0.0, 0.0)
-	near.urgency = 0.2
-	var urgent: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
-	urgent.global_position = Vector3(150.0, 0.0, 0.0)
-	urgent.urgency = 0.8
-	var threats: Array[ThreatUnit] = [near, urgent]
-	assert_same(battery.select_target(threats), urgent)
-	urgent.urgency = 0.2
-	assert_same(battery.select_target(threats), near)
+	var near_battery := _confirmed_track(Vector3(50.0, 0.0, 0.0))
+	var near_objective := _confirmed_track(Vector3(250.0, 0.0, 0.0))
+	var tracks: Array[PlayerTrack] = [near_battery, near_objective]
+	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
 
-func test_battery_ignores_unavailable_and_out_of_range_threats() -> void:
+func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
 	battery.setup(1, SCENARIO.available_defenses[0])
-	var unavailable: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
-	unavailable.global_position = Vector3(50.0, 0.0, 0.0)
-	unavailable.urgency = 1.0
-	unavailable.active = false
-	var out_of_range: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
-	out_of_range.global_position = Vector3(500.0, 0.0, 0.0)
-	out_of_range.urgency = 1.0
-	var available: UrgentThreat = add_child_autofree(UrgentThreat.new()) as UrgentThreat
-	available.global_position = Vector3(150.0, 0.0, 0.0)
-	available.urgency = 0.2
-	var threats: Array[ThreatUnit] = [unavailable, out_of_range, available]
-	assert_same(battery.select_target(threats), available)
-	available.active = false
-	assert_null(battery.select_target(threats))
+	var tentative := _confirmed_track(Vector3(50.0, 0.0, 0.0))
+	tentative.state = PlayerTrack.State.TENTATIVE
+	var out_of_range := _confirmed_track(Vector3(500.0, 0.0, 0.0))
+	var available := _confirmed_track(Vector3(150.0, 0.0, 0.0))
+	var tracks: Array[PlayerTrack] = [tentative, out_of_range, available]
+	assert_same(battery.select_track(tracks, Vector3.ZERO), available)
+	available.state = PlayerTrack.State.LOST
+	assert_null(battery.select_track(tracks, Vector3.ZERO))
 
 func test_common_purchase_flow_accepts_role_test_double() -> void:
 	var test_scene := PackedScene.new()
@@ -139,3 +121,10 @@ func _find_valid_position(profile: PlacementProfile) -> Vector3:
 			if battlefield.placement_result(candidate, profile).valid:
 				return candidate
 	return Vector3(300.0, 0.0, 300.0)
+
+func _confirmed_track(position: Vector3) -> PlayerTrack:
+	var track := PlayerTrack.new()
+	track.estimated_position = position
+	track.track_quality = 0.8
+	track.state = PlayerTrack.State.CONFIRMED
+	return track

@@ -20,8 +20,8 @@ placement_profile = SubResource("PlacementProfile")
 preview_range = 300.0
 attack_range = 300.0
 fire_interval = 2.2
-interceptor_speed = 180.0
+interceptor_speed = 200.0
 interceptor_turn_rate_degrees = 240.0
 interceptor_lifetime = 5.0
 interceptor_damage = 100.0
-
+proximity_radius = 15.0
