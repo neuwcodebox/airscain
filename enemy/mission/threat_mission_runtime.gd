@@ -43,6 +43,7 @@ func gameplay_tick(unit_position: Vector3, delta: float) -> bool:
 		action_elapsed += delta
 		if action_elapsed < profile.action_duration:
 			return false
+		effect_applied = true
 	else:
 		_apply_effect()
 	if profile.type == ThreatMissionDefinition.Type.IMPACT:

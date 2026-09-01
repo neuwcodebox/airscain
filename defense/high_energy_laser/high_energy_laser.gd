@@ -77,6 +77,8 @@ func resource_status_text() -> String:
 	return status
 
 func _fire_pulse(track: PlayerTrack) -> void:
+	if enemy_knowledge != null:
+		enemy_knowledge.record_engagement(self, &"laser")
 	var pulse := LASER_PULSE_SCENE.instantiate() as LaserPulse
 	projectile_parent.add_child(pulse)
 	pulse.setup(emitter.global_position, track.estimated_position)

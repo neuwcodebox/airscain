@@ -26,6 +26,7 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 			"engagements": main.engagement_coordinator.capture_state(),
 			"support": main.support_manager.capture_state(),
 			"relocations": main.relocation_manager.capture_state(),
+			"enemy_knowledge": main.enemy_knowledge.capture_state(),
 		},
 		"player_knowledge": main.player_knowledge.call("capture_state"),
 		"director": main.director.capture_state(),
@@ -43,7 +44,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var world_state: Dictionary = payload.world
 	if int(world_state.get("objective_integrity", -1)) < 0:
 		return "도시 기능 상태가 올바르지 않습니다"
-	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary or not world_state.get("support", null) is Dictionary or not world_state.get("relocations", null) is Dictionary:
+	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary or not world_state.get("support", null) is Dictionary or not world_state.get("relocations", null) is Dictionary or not world_state.get("enemy_knowledge", null) is Dictionary:
 		return "월드 객체 목록이 올바르지 않습니다"
 	var defense_definitions := defense_definition_map(scenario)
 	var contact_definitions := contact_definition_map(scenario)
@@ -180,6 +181,16 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var definition_id := StringName(String(wave.get("definition_id", "")))
 		if not contact_definitions.has(definition_id) or float(wave.get("remaining", -1.0)) < 0.0 or not is_finite(float(wave.get("angle", NAN))):
 			return "예약 공격 파동 상태가 올바르지 않습니다"
+	var enemy_state: Dictionary = world_state.enemy_knowledge
+	if float(enemy_state.get("simulation_time", -1.0)) < 0.0 or not enemy_state.get("estimates", null) is Array or not enemy_state.get("reports", null) is Array or not enemy_state.get("recent_outcomes", null) is Array:
+		return "적 지식 상태가 올바르지 않습니다"
+	var estimate_ids: Dictionary[int, bool] = {}
+	for estimate: Dictionary in enemy_state.estimates:
+		var asset_id := int(estimate.get("asset_id", 0))
+		var observed_at := float(estimate.get("observed_at", -1.0))
+		if not defense_ids.has(asset_id) or estimate_ids.has(asset_id) or not _valid_vector_data(estimate.get("estimated_position")) or float(estimate.get("confidence", -1.0)) < 0.0 or float(estimate.get("confidence", 2.0)) > 1.0 or float(estimate.get("uncertainty", -1.0)) < 0.0 or observed_at < 0.0 or observed_at > float(enemy_state.simulation_time):
+			return "적 자산 추정 상태가 올바르지 않습니다"
+		estimate_ids[asset_id] = true
 	return ""
 
 static func defense_definition_map(scenario: ScenarioDefinition) -> Dictionary[StringName, DefenseDefinition]:

@@ -80,6 +80,8 @@ func resupply_work() -> float:
 	return _definition.resupply_work
 
 func _launch(track: PlayerTrack) -> void:
+	if enemy_knowledge != null:
+		enemy_knowledge.record_engagement(self, &"missile")
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = launch_point.global_position

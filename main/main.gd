@@ -23,6 +23,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var support_manager: SupportManager = $SupportManager
 @onready var power_manager: PowerManager = $PowerManager
 @onready var relocation_manager: RelocationManager = $RelocationManager
+@onready var enemy_knowledge: EnemyKnowledge = $EnemyKnowledge
 @onready var track_display: Node = $WorldObjects/TacticalTracks
 @onready var c2_overlay: Node = $WorldObjects/C2Overlay
 @onready var director: ThreatDirector = $ThreatDirector
@@ -53,11 +54,12 @@ func _ready() -> void:
 	session.reset(scenario.starting_budget)
 	support_manager.configure(session)
 	relocation_manager.configure(battlefield)
+	enemy_knowledge.reset()
 	player_knowledge.call("reset")
 	c2_network.call("reset")
 	track_display.call("configure", player_knowledge)
 	c2_overlay.call("configure", c2_network)
-	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent)
+	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses)
 	_connect_flow()
@@ -72,6 +74,7 @@ func _process(delta: float) -> void:
 	engagement_coordinator.gameplay_tick(simulation_delta)
 	support_manager.gameplay_tick(simulation_delta)
 	relocation_manager.gameplay_tick(simulation_delta)
+	enemy_knowledge.gameplay_tick(simulation_delta)
 	power_manager.begin_tick()
 	for defense: DefenseUnit in defenses:
 		if is_instance_valid(defense):
@@ -141,14 +144,17 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	unit.configure_support(support_manager)
 	unit.configure_power(power_manager)
 	unit.configure_relocation(relocation_manager)
+	unit.configure_enemy_knowledge(enemy_knowledge)
 	support_manager.register_asset(unit)
 	power_manager.register_asset(unit)
 	relocation_manager.register_asset(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
+	threat.configure_enemy_knowledge(enemy_knowledge)
 	threat.resolved.connect(_on_threat_resolved)
 
 func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> void:
+	enemy_knowledge.record_outcome(neutralized, threat.global_position, threat.definition.id)
 	registry.remove(threat)
 	session.register_threat_resolution(threat, neutralized, reward)
 	_spawn_explosion(threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
@@ -291,6 +297,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	engagement_coordinator.restore_state(world_state.engagements)
 	support_manager.restore_state(world_state.support)
 	relocation_manager.restore_state(world_state.relocations)
+	enemy_knowledge.restore_state(world_state.enemy_knowledge)
 	for state: Dictionary in world_state.projectiles:
 		var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
@@ -321,6 +328,7 @@ func _clear_runtime_objects() -> void:
 	support_manager.reset()
 	power_manager.reset()
 	relocation_manager.reset()
+	enemy_knowledge.reset()
 	selected_asset = null
 	selected_track = null
 	c2_overlay.call("select_asset", null)

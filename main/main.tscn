@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
@@ -15,6 +15,7 @@
 [ext_resource path="res://support/support_manager.gd" type="Script" id="13"]
 [ext_resource path="res://support/power_manager.gd" type="Script" id="14"]
 [ext_resource path="res://support/relocation_manager.gd" type="Script" id="15"]
+[ext_resource path="res://enemy/knowledge/enemy_knowledge.gd" type="Script" id="16"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -49,6 +50,9 @@ script = ExtResource("14")
 
 [node name="RelocationManager" type="Node" parent="."]
 script = ExtResource("15")
+
+[node name="EnemyKnowledge" type="Node" parent="."]
+script = ExtResource("16")
 
 [node name="ThreatDirector" type="Node" parent="."]
 script = ExtResource("4")

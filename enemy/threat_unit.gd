@@ -8,6 +8,7 @@ var definition: ThreatDefinition
 var active: bool = true
 var resolved_state: bool = false
 var health: float = 1.0
+var enemy_knowledge: EnemyKnowledge
 
 func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	runtime_id = id_value
@@ -18,6 +19,9 @@ func configure_mission(_objective: ProtectedObjective, _battlefield: Battlefield
 
 func configure_patrol(_battlefield: Battlefield, _initial_velocity: Vector3) -> void:
 	pass
+
+func configure_enemy_knowledge(knowledge: EnemyKnowledge) -> void:
+	enemy_knowledge = knowledge
 
 func gameplay_tick(_delta: float) -> void:
 	pass

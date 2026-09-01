@@ -10,6 +10,7 @@ var objective: ProtectedObjective
 var registry: ThreatRegistry
 var threat_parent: Node3D
 var defense_parent: Node3D
+var enemy_knowledge: EnemyKnowledge
 var rng := RandomNumberGenerator.new()
 var elapsed: float = 0.0
 var until_spawn: float = 0.0
@@ -18,13 +19,14 @@ var next_runtime_id: int = 1
 var enabled: bool = false
 var pending_waves: Array[Dictionary] = []
 
-func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D) -> void:
+func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D, enemy_knowledge_value: EnemyKnowledge) -> void:
 	scenario = scenario_value
 	battlefield = battlefield_value
 	objective = objective_value
 	registry = registry_value
 	threat_parent = threat_parent_value
 	defense_parent = defense_parent_value
+	enemy_knowledge = enemy_knowledge_value
 	rng.seed = scenario.world_seed ^ 0x6E624EB7
 	reset()
 
@@ -119,6 +121,7 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	spawn_position.y = battlefield.terrain_height(spawn_position.x, spawn_position.z) + spawn_altitude
 	threat.global_position = spawn_position
 	threat.setup(next_runtime_id, entry.threat_definition)
+	threat.configure_enemy_knowledge(enemy_knowledge)
 	next_runtime_id += 1
 	var target := objective.get_target_point(rng)
 	var target_asset: DefenseUnit

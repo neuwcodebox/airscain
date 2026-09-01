@@ -53,6 +53,8 @@ func signal_quality_for(distance: float) -> float:
 	return clampf(_definition.sensor_quality * range_factor, 0.0, 1.0)
 
 func _scan() -> void:
+	if enemy_knowledge != null:
+		enemy_knowledge.record_emission(self)
 	var sensor_position := global_position + Vector3.UP * 11.0
 	for threat: ThreatUnit in registry.get_active():
 		var target_position := threat.get_aim_position()

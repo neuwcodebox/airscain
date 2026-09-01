@@ -47,6 +47,7 @@ func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	var starting_rotation: float = antenna.rotation.y
 	radar.gameplay_tick(1.0)
 	assert_ne(antenna.rotation.y, starting_rotation)
+	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"sensor").asset_id, radar.runtime_id)
 
 func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	main.registry.clear()
@@ -115,6 +116,8 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 			break
 	assert_true(threat.resolved_state)
 	assert_eq(main.session.neutralized_count, 1)
+	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, battery.runtime_id)
+	assert_true(main.enemy_knowledge.recent_outcomes.back().neutralized)
 	assert_eq(main.session.budget, 230)
 	assert_false(threat.receive_damage(100.0))
 	assert_eq(main.session.neutralized_count, 1)
@@ -169,6 +172,21 @@ func test_mission_roles_choose_matching_deployed_assets() -> void:
 	assert_same(main.director.choose_target_for(recon.mission), radar_result.unit)
 	assert_same(main.director.choose_target_for(support_strike.mission), support_result.unit)
 	assert_same(main.director.choose_target_for(command_strike.mission), command_result.unit)
+
+func test_recon_mission_upgrades_enemy_sensor_estimate() -> void:
+	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar := radar_result.unit as SearchRadar
+	main.scenario.threat_entries = [main.scenario.threat_entries[2]]
+	main.director.pressure_level = 2
+	var recon := main.director.spawn_one() as AttackUav
+	assert_same(recon.mission_runtime.target_asset, radar)
+	recon.global_position = radar.global_position + Vector3(10.0, 2.0, 0.0)
+	for frame: int in 52:
+		recon.gameplay_tick(0.1)
+	var estimate := main.enemy_knowledge.best_estimate_for_role(&"sensor")
+	assert_eq(estimate.asset_id, radar.runtime_id)
+	assert_eq(estimate.source, "reconnaissance")
+	assert_eq(recon.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 
 func test_facility_strike_releases_weapon_then_egresses() -> void:
 	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)

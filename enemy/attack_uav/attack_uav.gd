@@ -29,9 +29,14 @@ func gameplay_tick(delta: float) -> void:
 	if not active or resolved_state:
 		return
 	target_point = mission_runtime.navigation_target()
-	mover.advance(self, body, target_point, speed_multiplier, delta)
+	var holding_for_recon := _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and mission_runtime.phase == ThreatMissionRuntime.Phase.ACTING
+	if not holding_for_recon:
+		mover.advance(self, body, target_point, speed_multiplier, delta)
+	var had_applied_effect := mission_runtime.effect_applied
 	if mission_runtime.gameplay_tick(global_position, delta):
 		resolve_once(false)
+	if not had_applied_effect and mission_runtime.effect_applied and enemy_knowledge != null and _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
+		enemy_knowledge.record_recon(mission_runtime.target_asset)
 
 func get_urgency() -> float:
 	if objective == null:

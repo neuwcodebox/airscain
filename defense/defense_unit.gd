@@ -9,6 +9,7 @@ var active: bool = true
 var integrity: float
 var support_manager: SupportManager
 var relocation_manager: RelocationManager
+var enemy_knowledge: EnemyKnowledge
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	runtime_id = id_value
@@ -39,6 +40,9 @@ func configure_power(_manager: PowerManager) -> void:
 
 func configure_relocation(manager: RelocationManager) -> void:
 	relocation_manager = manager
+
+func configure_enemy_knowledge(knowledge: EnemyKnowledge) -> void:
+	enemy_knowledge = knowledge
 
 func c2_roles() -> int:
 	return 0

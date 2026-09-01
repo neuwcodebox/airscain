@@ -76,6 +76,8 @@ func resupply_work() -> float:
 	return _definition.resupply_work
 
 func _fire_burst(track: PlayerTrack) -> void:
+	if enemy_knowledge != null:
+		enemy_knowledge.record_engagement(self, &"gun")
 	var tracer := TRACER_SCENE.instantiate() as TracerBurst
 	projectile_parent.add_child(tracer)
 	tracer.setup(muzzle.global_position, track.estimated_position)

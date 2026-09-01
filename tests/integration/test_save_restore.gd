@@ -233,6 +233,23 @@ func test_pending_raid_waves_restore_with_remaining_delays() -> void:
 	main.director._tick_pending_waves(3.0)
 	assert_eq(main.director.pending_waves.size(), 1)
 
+func test_enemy_knowledge_reports_and_aged_estimates_restore() -> void:
+	var radar := _place_defense(main.scenario.available_defenses[1]) as SearchRadar
+	main.enemy_knowledge.record_emission(radar)
+	main.enemy_knowledge.gameplay_tick(12.0)
+	var saved_state := main.enemy_knowledge.capture_state()
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored_state := main.enemy_knowledge.capture_state()
+	assert_eq(restored_state.simulation_time, saved_state.simulation_time)
+	assert_eq(restored_state.reports.size(), saved_state.reports.size())
+	assert_eq(restored_state.reports[0].source, "radar_emission")
+	var restored_estimate := main.enemy_knowledge.best_estimate_for_role(&"sensor")
+	var saved_estimate: Dictionary = saved_state.estimates[0]
+	assert_eq(restored_estimate.asset_id, saved_estimate.asset_id)
+	assert_almost_eq(float(restored_estimate.confidence), float(saved_estimate.confidence), 0.000001)
+	assert_almost_eq(float(restored_estimate.uncertainty), float(saved_estimate.uncertainty), 0.000001)
+
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
 		if contact.runtime_id == runtime_id:
