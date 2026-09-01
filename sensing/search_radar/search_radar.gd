@@ -66,6 +66,19 @@ func _scan() -> void:
 		var observation := SensorObservation.new()
 		observation.setup(runtime_id, float(player_knowledge.get("simulation_time")), target_position, quality, lerpf(5.0, 45.0, 1.0 - quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), quality * 0.55)
 		player_knowledge.call("submit_observation", observation)
+		_submit_false_echoes(threat, target_position, quality, signature)
+
+func _submit_false_echoes(threat: ThreatUnit, target_position: Vector3, quality: float, signature: Dictionary) -> void:
+	var echo_count := threat.definition.false_echo_count
+	if echo_count <= 0:
+		return
+	for echo_index: int in echo_count:
+		var angle := fposmod(float(threat.runtime_id) * 1.618034 + TAU * float(echo_index) / float(echo_count), TAU)
+		var echo_position := target_position + Vector3(cos(angle), 0.0, sin(angle)) * threat.definition.false_echo_radius
+		var echo_quality := quality * 0.78
+		var echo := SensorObservation.new()
+		echo.setup(runtime_id, float(player_knowledge.get("simulation_time")), echo_position, echo_quality, lerpf(18.0, 70.0, 1.0 - echo_quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), echo_quality * 0.45)
+		player_knowledge.call("submit_observation", echo)
 
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
 	for sample_index: int in range(1, 12):

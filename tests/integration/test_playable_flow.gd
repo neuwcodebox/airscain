@@ -28,11 +28,12 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
-	assert_eq(main.scenario.threat_entries.size(), 6)
+	assert_eq(main.scenario.threat_entries.size(), 7)
 	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
 	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
 	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
 	assert_eq(main.scenario.threat_entries[5].threat_definition.id, &"cruise_missile")
+	assert_eq(main.scenario.threat_entries[6].threat_definition.id, &"decoy_uav")
 	assert_false(main.session.start_defense())
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
@@ -72,6 +73,29 @@ func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	assert_true(marker.visible)
 	main.player_knowledge.call("gameplay_tick", 1.4)
 	assert_false(marker.visible)
+
+func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> void:
+	main.registry.clear()
+	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar := radar_result.unit as SearchRadar
+	var decoy_entry: ThreatSpawnEntry = main.scenario.threat_entries[6]
+	main.scenario.threat_entries = [decoy_entry]
+	main.director.pressure_level = 2
+	var decoy := main.director.spawn_one()
+	decoy.global_position = radar.global_position + Vector3(0.0, 80.0, 180.0)
+	radar.gameplay_tick(0.8)
+	var tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
+	assert_eq(main.registry.hostile_count(), 1)
+	assert_eq(tracks.size(), 3)
+	for track: PlayerTrack in tracks:
+		assert_eq(track.classification, &"uav")
+		assert_eq(track.affiliation, PlayerTrack.Affiliation.HOSTILE)
+	var unmatched_tracks := 0
+	for track: PlayerTrack in tracks:
+		if track.estimated_position.distance_to(decoy.global_position) > 90.0:
+			unmatched_tracks += 1
+	assert_eq(unmatched_tracks, 2)
 
 func test_purchase_start_intercept_and_reward_flow() -> void:
 	main.registry.clear()

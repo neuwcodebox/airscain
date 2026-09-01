@@ -108,6 +108,11 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_eq(attack.mission.type, ThreatMissionDefinition.Type.IMPACT)
 	assert_eq(attack.mission.target_role, ThreatMissionDefinition.TargetRole.CITY)
 	assert_gt(swarm.movement.speed, attack.movement.speed)
+	var decoy := SCENARIO.threat_entries[6].threat_definition as AttackUavDefinition
+	assert_eq(decoy.id, &"decoy_uav")
+	assert_eq(decoy.mission.type, ThreatMissionDefinition.Type.RECONNAISSANCE)
+	assert_eq(decoy.mission.damage, 0.0)
+	assert_eq(decoy.false_echo_count, 2)
 	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
 	assert_ne(swarm.movement, attack.movement)
 	var cruise := SCENARIO.threat_entries[5].threat_definition as AttackUavDefinition

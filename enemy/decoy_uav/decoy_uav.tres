@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/attack_uav/attack_uav.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[sub_resource type="Resource" id="Movement"]
+script = ExtResource("3")
+mode = 0
+speed = 40.0
+cruise_altitude = 68.0
+terminal_distance = 150.0
+maximum_turn_rate_degrees = 100.0
+maximum_climb_rate = 38.0
+
+[sub_resource type="Resource" id="Mission"]
+script = ExtResource("4")
+type = 1
+target_role = 0
+damage = 0.0
+action_distance = 70.0
+action_duration = 4.0
+
+[resource]
+script = ExtResource("1")
+id = &"decoy_uav"
+display_name = "기만 UAV"
+scene = ExtResource("2")
+neutralization_reward = 5
+signature_class = &"uav"
+radar_signature = 0.88
+affiliation = 3
+false_echo_count = 2
+false_echo_radius = 150.0
+maximum_health = 35.0
+movement = SubResource("Movement")
+mission = SubResource("Mission")
+visual_color = Color(0.68, 0.16, 0.12, 1)
