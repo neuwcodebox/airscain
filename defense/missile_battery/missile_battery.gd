@@ -3,8 +3,6 @@ extends DefenseUnit
 
 const INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
 
-signal interceptor_launched(interceptor: HomingInterceptor)
-
 var registry: ThreatRegistry
 var projectile_parent: Node3D
 var cooldown: float = 0.0
@@ -30,7 +28,7 @@ func gameplay_tick(delta: float) -> void:
 		return
 	var flat_target := Vector3(target.global_position.x, turret.global_position.y, target.global_position.z)
 	if turret.global_position.distance_squared_to(flat_target) > 0.01:
-		turret.look_at(flat_target, Vector3.UP, true)
+		turret.look_at(flat_target, Vector3.UP)
 	if cooldown <= 0.0:
 		_launch(target)
 		cooldown = _definition.fire_interval
@@ -58,6 +56,5 @@ func _launch(target: ThreatUnit) -> void:
 	interceptor.global_position = launch_point.global_position
 	var initial_direction := launch_point.global_position.direction_to(target.get_aim_position())
 	interceptor.configure(target, _definition, initial_direction)
-	interceptor_launched.emit(interceptor)
 	$MuzzleFlash.visible = true
 	get_tree().create_timer(0.08).timeout.connect(func() -> void: $MuzzleFlash.visible = false)

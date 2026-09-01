@@ -37,7 +37,7 @@ func gameplay_tick(delta: float) -> void:
 	var direction := global_position.direction_to(desired_position)
 	if direction.length_squared() > 0.001:
 		global_position += direction * _definition.base_speed * speed_multiplier * delta
-		body.look_at(global_position + direction, Vector3.UP, true)
+		body.look_at(global_position + direction, Vector3.UP)
 	if global_position.distance_to(target_point + Vector3.UP * 2.0) <= 5.0:
 		if resolve_once(false):
 			objective.apply_mission_damage(_definition.mission_damage)

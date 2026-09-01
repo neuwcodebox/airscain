@@ -1,8 +1,6 @@
 class_name HomingInterceptor
 extends Node3D
 
-signal detonated(position: Vector3)
-
 var target: ThreatUnit
 var speed: float = 180.0
 var turn_rate: float = deg_to_rad(240.0)
@@ -34,10 +32,8 @@ func gameplay_tick(delta: float) -> void:
 	var direction := desired if angle <= turn_rate * delta else current.slerp(desired, (turn_rate * delta) / angle)
 	velocity = direction.normalized() * speed
 	global_position += velocity * delta
-	look_at(global_position + velocity, Vector3.UP, true)
+	look_at(global_position + velocity, Vector3.UP)
 	var nearest := Geometry3D.get_closest_point_to_segment(target.get_aim_position(), previous, global_position)
 	if nearest.distance_to(target.get_aim_position()) <= 6.0:
-		if target.receive_damage(damage):
-			detonated.emit(global_position)
+		target.receive_damage(damage)
 		queue_free()
-

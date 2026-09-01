@@ -1,3 +1,4 @@
+class_name AirscainMain
 extends Node3D
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
@@ -77,11 +78,6 @@ func _on_start_requested() -> void:
 
 func _on_defense_placed(unit: DefenseUnit) -> void:
 	defenses.append(unit)
-	if unit is MissileBattery:
-		(unit as MissileBattery).interceptor_launched.connect(_on_interceptor_launched)
-
-func _on_interceptor_launched(interceptor: HomingInterceptor) -> void:
-	interceptor.detonated.connect(_spawn_air_explosion)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)
@@ -101,9 +97,6 @@ func _on_pressure_changed(level: int) -> void:
 	session.update_pressure(level)
 	hud.set_pressure(level)
 
-func _spawn_air_explosion(position: Vector3) -> void:
-	_spawn_explosion(position, Color("ffd65a"), 8.0)
-
 func _spawn_explosion(position: Vector3, color: Color, radius: float) -> void:
 	var effect := EXPLOSION_SCENE.instantiate() as ExplosionEffect
 	effects_parent.add_child(effect)
@@ -116,4 +109,3 @@ func _on_restart_requested(same_seed: bool) -> void:
 	else:
 		requested_seed = int(Time.get_unix_time_from_system()) ^ int(Time.get_ticks_msec())
 	get_tree().reload_current_scene()
-
