@@ -60,8 +60,8 @@ func create_terrain_mesh() -> ArrayMesh:
 			var b := _vertex(x_index + 1, z_index)
 			var c := _vertex(x_index, z_index + 1)
 			var d := _vertex(x_index + 1, z_index + 1)
-			_add_triangle(surface, a, c, b)
-			_add_triangle(surface, b, c, d)
+			_add_triangle(surface, a, b, c)
+			_add_triangle(surface, b, d, c)
 	surface.generate_normals()
 	return surface.commit()
 

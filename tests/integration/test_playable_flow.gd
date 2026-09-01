@@ -27,9 +27,6 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var battery := result.unit as DefenseUnit
 	for frame: int in 300:
 		battery.gameplay_tick(0.02)
-		for child: Node in main.projectile_parent.get_children():
-			if child is HomingInterceptor:
-				(child as HomingInterceptor).gameplay_tick(0.02)
 		if threat.resolved_state:
 			break
 	assert_true(threat.resolved_state)

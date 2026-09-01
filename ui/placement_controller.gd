@@ -103,17 +103,17 @@ func _create_preview() -> void:
 	base.material_override = preview_material
 	preview.add_child(base)
 	range_disc = MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = selected.preview_range
-	disc.bottom_radius = selected.preview_range
-	disc.height = 0.35
+	var disc := TorusMesh.new()
+	disc.inner_radius = selected.preview_range - 2.5
+	disc.outer_radius = selected.preview_range
+	disc.rings = 8
+	disc.ring_segments = 96
 	wall_material_setup()
 	range_disc.mesh = disc
-	range_disc.position.y = 0.4
+	range_disc.position.y = 1.5
 	range_disc.material_override = preview_material
 	preview.add_child(range_disc)
 
 func wall_material_setup() -> void:
 	preview_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	preview_material.no_depth_test = false
-

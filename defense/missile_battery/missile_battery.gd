@@ -7,6 +7,7 @@ var registry: ThreatRegistry
 var projectile_parent: Node3D
 var cooldown: float = 0.0
 var _definition: MissileBatteryDefinition
+var interceptors: Array[HomingInterceptor] = []
 
 @onready var turret: Node3D = $Turret
 @onready var launch_point: Marker3D = $Turret/LaunchPoint
@@ -22,6 +23,12 @@ func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: N
 func gameplay_tick(delta: float) -> void:
 	if not active or registry == null:
 		return
+	for index: int in range(interceptors.size() - 1, -1, -1):
+		var interceptor := interceptors[index]
+		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
+			interceptors.remove_at(index)
+		else:
+			interceptor.gameplay_tick(delta)
 	cooldown = maxf(0.0, cooldown - delta)
 	var target := select_target(registry.get_active())
 	if target == null:
@@ -56,5 +63,7 @@ func _launch(target: ThreatUnit) -> void:
 	interceptor.global_position = launch_point.global_position
 	var initial_direction := launch_point.global_position.direction_to(target.get_aim_position())
 	interceptor.configure(target, _definition, initial_direction)
+	interceptors.append(interceptor)
+	$MuzzleFlash.global_position = launch_point.global_position
 	$MuzzleFlash.visible = true
 	get_tree().create_timer(0.08).timeout.connect(func() -> void: $MuzzleFlash.visible = false)

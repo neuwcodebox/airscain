@@ -141,12 +141,10 @@ theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
 theme_override_font_sizes/font_size = 16
 text = "방어 수단"
 
-[node name="DefenseButton" type="Button" parent="Catalog/VBox"]
+[node name="DefenseList" type="VBoxContainer" parent="Catalog/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
-text = "미사일 포대  $200"
+theme_override_constants/separation = 6
 
 [node name="StartButton" type="Button" parent="Catalog/VBox"]
 unique_name_in_owner = true
@@ -228,8 +226,6 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/PauseButton" to="." method="_on_pause_pressed"]
 [connection signal="pressed" from="TopBar/Margin/NormalButton" to="." method="_on_normal_pressed"]
 [connection signal="pressed" from="TopBar/Margin/FastButton" to="." method="_on_fast_pressed"]
-[connection signal="pressed" from="Catalog/VBox/DefenseButton" to="." method="_on_defense_pressed"]
 [connection signal="pressed" from="Catalog/VBox/StartButton" to="." method="_on_start_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/SameSeedButton" to="." method="_on_same_seed_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/NewSeedButton" to="." method="_on_new_seed_pressed"]
-

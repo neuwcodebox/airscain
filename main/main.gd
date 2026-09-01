@@ -48,9 +48,6 @@ func _process(delta: float) -> void:
 			defense.gameplay_tick(simulation_delta)
 	for threat: ThreatUnit in registry.get_active():
 		threat.gameplay_tick(simulation_delta)
-	for child: Node in projectile_parent.get_children():
-		if child is HomingInterceptor:
-			(child as HomingInterceptor).gameplay_tick(simulation_delta)
 
 func _spawn_objective() -> void:
 	objective = scenario.objective_definition.scene.instantiate() as ProtectedObjective

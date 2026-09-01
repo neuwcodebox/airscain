@@ -31,6 +31,9 @@ func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	assert_false(battlefield.placement_result(Vector3(595.0, 0.0, 0.0), profile).valid)
 	var valid_position := _find_valid_position(profile)
 	assert_true(battlefield.placement_result(valid_position, profile).valid)
+	var strict_slope_profile := profile.duplicate() as PlacementProfile
+	strict_slope_profile.maximum_slope_degrees = 0.01
+	assert_false(battlefield.placement_result(valid_position, strict_slope_profile).valid)
 	battlefield.register_occupancy(valid_position, profile.footprint_radius)
 	assert_false(battlefield.placement_result(valid_position, profile).valid)
 
@@ -61,6 +64,18 @@ func test_successful_purchase_is_atomic_and_overlap_failure_costs_nothing() -> v
 	assert_false(second.success)
 	assert_eq(session.budget, 200)
 	assert_eq(session.defense_count, 1)
+
+func test_insufficient_budget_does_not_change_world_state() -> void:
+	var session: GameSession = add_child_autofree(GameSession.new()) as GameSession
+	var defenses: Node3D = add_child_autofree(Node3D.new()) as Node3D
+	var projectiles: Node3D = add_child_autofree(Node3D.new()) as Node3D
+	session.reset(199)
+	var position := _find_valid_position(SCENARIO.available_defenses[0].placement_profile)
+	var result: Dictionary = session.request_placement(SCENARIO.available_defenses[0], position, battlefield, defenses, ThreatRegistry.new(), projectiles)
+	assert_false(result.success)
+	assert_eq(session.budget, 199)
+	assert_eq(session.defense_count, 0)
+	assert_eq(battlefield.occupied_positions.size(), 0)
 
 func test_battery_prioritizes_urgency_then_distance() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
