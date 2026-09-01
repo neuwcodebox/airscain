@@ -14,6 +14,9 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export var false_echo_radius: float = 0.0
 @export var jamming_range: float = 0.0
 @export_range(0.0, 1.0) var jamming_strength: float = 0.0
+@export_range(0.0, 1.0) var flare_effectiveness: float = 0.0
+@export_range(0.0, 1.0) var chaff_effectiveness: float = 0.0
+@export var countermeasure_charges: int = 0
 
 func validation_error() -> String:
 	if id.is_empty() or display_name.is_empty() or scene == null:
@@ -24,4 +27,6 @@ func validation_error() -> String:
 		return "기만 반사 설정이 올바르지 않습니다"
 	if jamming_range < 0.0 or jamming_strength < 0.0 or jamming_strength > 1.0 or (jamming_strength > 0.0 and jamming_range <= 0.0):
 		return "재밍 설정이 올바르지 않습니다"
+	if flare_effectiveness < 0.0 or flare_effectiveness > 1.0 or chaff_effectiveness < 0.0 or chaff_effectiveness > 1.0 or countermeasure_charges < 0:
+		return "대응책 설정이 올바르지 않습니다"
 	return ""

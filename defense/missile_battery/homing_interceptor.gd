@@ -11,6 +11,10 @@ var damage: float = 100.0
 var proximity_radius: float = 15.0
 var age: float = 0.0
 var velocity: Vector3 = Vector3.FORWARD
+var infrared_sensitivity: float = 0.65
+var radar_sensitivity: float = 0.65
+var countermeasure_attempted: bool = false
+var rng := RandomNumberGenerator.new()
 
 func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileBatteryDefinition, initial_direction: Vector3, owner_id: int = 0) -> void:
 	target_track = track_value
@@ -21,7 +25,10 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 	maximum_lifetime = definition.interceptor_lifetime
 	damage = definition.interceptor_damage
 	proximity_radius = definition.proximity_radius
+	infrared_sensitivity = definition.infrared_sensitivity
+	radar_sensitivity = definition.radar_sensitivity
 	velocity = initial_direction.normalized() * speed
+	rng.seed = owner_defense_id ^ track_value.track_id ^ 0x5E3C9A
 
 func gameplay_tick(delta: float) -> void:
 	if target_track == null or target_track.state == PlayerTrack.State.LOST:
@@ -39,6 +46,13 @@ func gameplay_tick(delta: float) -> void:
 	velocity = direction.normalized() * speed
 	global_position += velocity * delta
 	look_at(global_position + velocity, Vector3.UP)
+	if not countermeasure_attempted:
+		var countermeasure_target := _countermeasure_target()
+		if countermeasure_target != null and global_position.distance_to(countermeasure_target.get_aim_position()) <= 120.0:
+			countermeasure_attempted = true
+			if countermeasure_target.try_defeat_seeker(infrared_sensitivity, radar_sensitivity, rng.randf()):
+				queue_free()
+				return
 	for threat: ThreatUnit in registry.get_active():
 		var physical_position := threat.get_aim_position()
 		var nearest := Geometry3D.get_closest_point_to_segment(physical_position, previous, global_position)
@@ -46,6 +60,16 @@ func gameplay_tick(delta: float) -> void:
 			threat.receive_damage(damage)
 			queue_free()
 			return
+
+func _countermeasure_target() -> ThreatUnit:
+	var selected: ThreatUnit
+	var nearest_distance := 90.0
+	for threat: ThreatUnit in registry.get_active():
+		var distance := threat.get_aim_position().distance_to(target_track.estimated_position)
+		if distance < nearest_distance:
+			selected = threat
+			nearest_distance = distance
+	return selected
 
 func capture_state() -> Dictionary:
 	return {
@@ -60,6 +84,10 @@ func capture_state() -> Dictionary:
 		"damage": damage,
 		"proximity_radius": proximity_radius,
 		"age": age,
+		"infrared_sensitivity": infrared_sensitivity,
+		"radar_sensitivity": radar_sensitivity,
+		"countermeasure_attempted": countermeasure_attempted,
+		"rng_state": str(rng.state),
 	}
 
 func restore_state(state: Dictionary, track: PlayerTrack, registry_value: ThreatRegistry) -> void:
@@ -74,5 +102,9 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	damage = float(state.damage)
 	proximity_radius = float(state.proximity_radius)
 	age = float(state.age)
+	infrared_sensitivity = float(state.get("infrared_sensitivity", 0.65))
+	radar_sensitivity = float(state.get("radar_sensitivity", 0.65))
+	countermeasure_attempted = bool(state.get("countermeasure_attempted", false))
+	rng.state = int(state.get("rng_state", rng.state))
 	if velocity.length_squared() > 0.001:
 		look_at(global_position + velocity, Vector3.UP)

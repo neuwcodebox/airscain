@@ -9,10 +9,12 @@ var active: bool = true
 var resolved_state: bool = false
 var health: float = 1.0
 var enemy_knowledge: EnemyKnowledge
+var countermeasure_charges_remaining: int = 0
 
 func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	runtime_id = id_value
 	definition = definition_value
+	countermeasure_charges_remaining = definition.countermeasure_charges
 
 func configure_mission(_objective: ProtectedObjective, _battlefield: Battlefield, _target_point: Vector3, _pressure_multiplier: float, _target_asset: DefenseUnit = null, _exit_point: Vector3 = Vector3.ZERO) -> void:
 	pass
@@ -50,6 +52,15 @@ func receive_damage(amount: float) -> bool:
 		resolve_once(true)
 	return true
 
+func try_defeat_seeker(infrared_sensitivity: float, radar_sensitivity: float, roll: float) -> bool:
+	if countermeasure_charges_remaining <= 0:
+		return false
+	var probability := maxf(definition.flare_effectiveness * infrared_sensitivity, definition.chaff_effectiveness * radar_sensitivity)
+	if roll >= probability:
+		return false
+	countermeasure_charges_remaining -= 1
+	return true
+
 func resolve_once(neutralized: bool) -> bool:
 	if resolved_state:
 		return false
@@ -66,6 +77,7 @@ func capture_state() -> Dictionary:
 		"health": health,
 		"active": active,
 		"resolved_state": resolved_state,
+		"countermeasure_charges": countermeasure_charges_remaining,
 		"content_state": capture_content_state(),
 	}
 
@@ -76,6 +88,7 @@ func restore_state(state: Dictionary, objective_value: ProtectedObjective, battl
 	health = float(state.health)
 	active = bool(state.active)
 	resolved_state = bool(state.resolved_state)
+	countermeasure_charges_remaining = int(state.get("countermeasure_charges", definition.countermeasure_charges))
 	restore_content_state(state.get("content_state", {}), objective_value, battlefield_value, defense_by_id)
 
 func restore_content_state(_state: Dictionary, _objective: ProtectedObjective, _battlefield: Battlefield, _defense_by_id: Dictionary[int, DefenseUnit] = {}) -> void:

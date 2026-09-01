@@ -58,6 +58,19 @@ func test_threat_resolution_can_only_happen_once() -> void:
 	assert_false(threat.resolve_once(false))
 	assert_signal_emit_count(threat, "resolved", 1)
 
+func test_flare_and_chaff_can_defeat_matching_seekers_with_finite_charges() -> void:
+	var threat: ThreatUnit = autofree(ThreatUnit.new()) as ThreatUnit
+	var definition := ThreatDefinition.new()
+	definition.flare_effectiveness = 0.8
+	definition.chaff_effectiveness = 0.4
+	definition.countermeasure_charges = 2
+	threat.setup(8, definition)
+	assert_true(threat.try_defeat_seeker(1.0, 0.0, 0.5))
+	assert_false(threat.try_defeat_seeker(0.0, 1.0, 0.5))
+	assert_true(threat.try_defeat_seeker(0.0, 1.0, 0.3))
+	assert_eq(threat.countermeasure_charges_remaining, 0)
+	assert_false(threat.try_defeat_seeker(1.0, 1.0, 0.0))
+
 func test_neutral_contact_does_not_award_budget_or_hostile_statistics() -> void:
 	var session := autofree(GameSession.new()) as GameSession
 	session.reset(100)

@@ -91,6 +91,9 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "저장된 접촉 콘텐츠를 찾을 수 없습니다: %s" % definition_id
 		if not _valid_vector_data(state.get("position")):
 			return "접촉 위치가 올바르지 않습니다"
+		var countermeasure_charges := int(state.get("countermeasure_charges", -1))
+		if countermeasure_charges < 0 or countermeasure_charges > contact_definitions[definition_id].countermeasure_charges:
+			return "위협 대응책 상태가 올바르지 않습니다"
 		if contact_definitions[definition_id] is AttackUavDefinition:
 			var content_state: Dictionary = state.get("content_state", {})
 			var movement_state: Dictionary = content_state.get("movement", {})

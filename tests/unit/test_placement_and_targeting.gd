@@ -19,6 +19,28 @@ func before_each() -> void:
 	objective.exclusion_radius = SCENARIO.city_size * 0.5
 	battlefield.set_objective(objective)
 
+func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
+	var registry := ThreatRegistry.new()
+	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	var threat_definition := ThreatDefinition.new()
+	threat_definition.affiliation = ThreatDefinition.Affiliation.HOSTILE
+	threat_definition.flare_effectiveness = 1.0
+	threat_definition.countermeasure_charges = 1
+	threat.setup(90, threat_definition)
+	threat.global_position = Vector3.ZERO
+	registry.add(threat)
+	var track := PlayerTrack.new()
+	track.track_id = 12
+	track.state = PlayerTrack.State.CONFIRMED
+	track.estimated_position = threat.global_position
+	var interceptor := add_child_autofree(HomingInterceptor.new()) as HomingInterceptor
+	interceptor.global_position = Vector3(-100.0, 0.0, 0.0)
+	interceptor.configure(track, registry, SCENARIO.available_defenses[0], Vector3.RIGHT, 1)
+	interceptor.gameplay_tick(0.1)
+	assert_true(interceptor.is_queued_for_deletion())
+	assert_eq(threat.countermeasure_charges_remaining, 0)
+	assert_eq(threat.health, 1.0)
+
 func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	var profile := SCENARIO.available_defenses[0].placement_profile
 	assert_false(battlefield.placement_result(Vector3.ZERO, profile).valid)
