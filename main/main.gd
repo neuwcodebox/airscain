@@ -13,6 +13,7 @@ var defenses: Array[DefenseUnit] = []
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
+@onready var player_knowledge: Node = $PlayerKnowledge
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var camera_rig: CameraRig = $CameraRig
 @onready var world_objects: Node3D = $WorldObjects
@@ -38,6 +39,7 @@ func _ready() -> void:
 	camera_rig.configure_for_battlefield(scenario.battlefield_size)
 	_spawn_objective()
 	session.reset(scenario.starting_budget)
+	player_knowledge.call("reset")
 	director.configure(scenario, battlefield, objective, registry, threat_parent)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry)
 	hud.configure(session, objective, scenario.available_defenses)
@@ -49,6 +51,7 @@ func _process(delta: float) -> void:
 	if simulation_delta <= 0.0:
 		return
 	director.gameplay_tick(simulation_delta)
+	player_knowledge.call("gameplay_tick", simulation_delta)
 	for defense: DefenseUnit in defenses:
 		if is_instance_valid(defense):
 			defense.gameplay_tick(simulation_delta)
@@ -81,6 +84,7 @@ func _on_start_requested() -> void:
 
 func _on_defense_placed(unit: DefenseUnit) -> void:
 	defenses.append(unit)
+	unit.configure_player_knowledge(battlefield, player_knowledge)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)

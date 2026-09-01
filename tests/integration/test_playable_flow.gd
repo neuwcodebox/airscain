@@ -32,6 +32,21 @@ func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	radar.gameplay_tick(1.0)
 	assert_ne(antenna.rotation.y, starting_rotation)
 
+func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
+	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var placement_position := _find_valid_position_for(radar_definition.placement_profile)
+	var result: Dictionary = main.session.request_placement(radar_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar := result.unit as DefenseUnit
+	var visible_threat: ThreatUnit = main.director.spawn_one()
+	visible_threat.global_position = placement_position + Vector3(0.0, 80.0, 180.0)
+	var hidden_threat: ThreatUnit = main.director.spawn_one()
+	hidden_threat.global_position = placement_position + Vector3(0.0, 80.0, 700.0)
+	radar.gameplay_tick(0.8)
+	var tracks: Array = main.player_knowledge.call("get_active_tracks")
+	assert_eq(tracks.size(), 1)
+	assert_ne(tracks[0] as Variant, visible_threat as Variant)
+	assert_almost_eq((tracks[0].get("estimated_position") as Vector3).z, visible_threat.global_position.z, 0.01)
+
 func test_purchase_start_intercept_and_reward_flow() -> void:
 	var placement_position := _find_valid_position()
 	var result: Dictionary = main.session.request_placement(main.scenario.available_defenses[0], placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
