@@ -23,7 +23,7 @@ func register_asset(unit: DefenseUnit) -> void:
 		facilities.append(unit as SupportFacility)
 
 func request_resupply(unit: ArmedDefenseUnit) -> bool:
-	if unit == null or not consumers.has(unit.runtime_id) or unit.magazine.reserve >= unit.magazine.reserve_capacity or task_status(unit) != "":
+	if unit == null or not unit.uses_ammunition() or not consumers.has(unit.runtime_id) or unit.magazine.reserve >= unit.magazine.reserve_capacity or task_status(unit) != "":
 		return false
 	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
 

@@ -20,3 +20,4 @@ placement_profile = SubResource("PlacementProfile")
 preview_range = 260.0
 work_capacity = 4.0
 concurrent_tasks = 2
+power_capacity = 20.0

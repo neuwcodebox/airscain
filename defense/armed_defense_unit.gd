@@ -49,6 +49,9 @@ func resource_status_text() -> String:
 		return _with_support_status("%s\n탄약 고갈" % operational_status_text())
 	return _with_support_status("%s\n탄약 %d + %d" % [operational_status_text(), magazine.rounds, magazine.reserve])
 
+func uses_ammunition() -> bool:
+	return false
+
 func resupply_work() -> float:
 	return 1.0
 
@@ -56,7 +59,7 @@ func resupply_cost() -> int:
 	return 0
 
 func can_request_resupply() -> bool:
-	return support_manager != null and magazine.reserve < magazine.reserve_capacity and support_manager.task_status(self).is_empty()
+	return uses_ammunition() and support_manager != null and magazine.reserve < magazine.reserve_capacity and support_manager.task_status(self).is_empty()
 
 func request_resupply() -> bool:
 	return support_manager != null and support_manager.request_resupply(self)

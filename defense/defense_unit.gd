@@ -33,6 +33,9 @@ func configure_engagements(_coordinator: EngagementCoordinator) -> void:
 func configure_support(manager: SupportManager) -> void:
 	support_manager = manager
 
+func configure_power(_manager: PowerManager) -> void:
+	pass
+
 func c2_roles() -> int:
 	return 0
 

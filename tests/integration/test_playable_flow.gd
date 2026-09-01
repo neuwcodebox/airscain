@@ -19,12 +19,13 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
 	assert_eq(main.session.budget, 620)
-	assert_eq(main.scenario.available_defenses.size(), 6)
+	assert_eq(main.scenario.available_defenses.size(), 7)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
 	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
 	assert_eq(main.scenario.available_defenses[3].id, &"tracking_radar")
 	assert_eq(main.scenario.available_defenses[4].id, &"close_in_gun")
 	assert_eq(main.scenario.available_defenses[5].id, &"support_facility")
+	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
 	assert_false(main.session.start_defense())
@@ -220,6 +221,59 @@ func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> v
 	main.support_manager.gameplay_tick(0.2)
 	assert_eq(gun.magazine.reserve, gun.magazine.reserve_capacity)
 	assert_eq(main.support_manager.task_status(gun), "")
+
+func test_support_power_capacity_recharges_laser_and_scales_with_damage() -> void:
+	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var laser_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[6], _find_valid_position_for(main.scenario.available_defenses[6].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(support_result.success)
+	assert_true(laser_result.success)
+	var support := support_result.unit as SupportFacility
+	var laser := laser_result.unit as HighEnergyLaser
+	laser.energy_state.energy = 0.0
+	main.power_manager.begin_tick()
+	laser.gameplay_tick(1.0)
+	assert_almost_eq(laser.energy_state.energy, 10.0, 0.0001)
+	assert_true(support.receive_damage(50.0))
+	assert_almost_eq(main.power_manager.generation_capacity(), 10.0, 0.0001)
+	laser.energy_state.energy = 0.0
+	main.power_manager.begin_tick()
+	laser.gameplay_tick(1.0)
+	assert_almost_eq(laser.energy_state.energy, 10.0 * 10.0 / 12.0, 0.0001)
+	assert_false(laser.uses_ammunition())
+
+func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
+	main.registry.clear()
+	var laser_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[6], _find_valid_position_for(main.scenario.available_defenses[6].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var command_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[2], _find_valid_position_for(main.scenario.available_defenses[2].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(laser_result.success)
+	assert_true(support_result.success)
+	assert_true(radar_result.success)
+	assert_true(command_result.success)
+	var laser := laser_result.unit as HighEnergyLaser
+	var radar := radar_result.unit as SearchRadar
+	var swarm_definition: ThreatDefinition = main.scenario.threat_entries[1].threat_definition
+	var threat := swarm_definition.scene.instantiate() as ThreatUnit
+	main.threat_parent.add_child(threat)
+	threat.global_position = laser.global_position + Vector3(140.0, 48.0, 0.0)
+	threat.setup(91, swarm_definition)
+	threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	var observation := SensorObservation.new()
+	observation.setup(radar.runtime_id, 0.0, threat.global_position, 0.98, 2.0, 1.0, &"small_uav", ThreatDefinition.Affiliation.HOSTILE, 5.0)
+	main.player_knowledge.call("submit_observation", observation)
+	var starting_energy := laser.energy_state.energy
+	for frame: int in 80:
+		main.power_manager.begin_tick()
+		main.engagement_coordinator.gameplay_tick(0.1)
+		laser.gameplay_tick(0.1)
+		if threat.resolved_state:
+			break
+	assert_true(threat.resolved_state)
+	assert_lt(laser.energy_state.energy, starting_energy)
+	assert_gt(laser.energy_state.heat, 0.0)
 
 func _find_valid_position() -> Vector3:
 	return _find_valid_position_for(main.scenario.available_defenses[0].placement_profile)

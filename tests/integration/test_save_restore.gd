@@ -160,6 +160,24 @@ func test_hud_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nod
 	assert_eq(main.battlefield.terrain.get_child_count(), 1)
 	assert_eq(main.battlefield.city_visuals.get_child_count(), expected_building_count)
 
+func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
+	var support := _place_defense(main.scenario.available_defenses[5]) as SupportFacility
+	var laser := _place_defense(main.scenario.available_defenses[6]) as HighEnergyLaser
+	assert_not_null(support)
+	assert_not_null(laser)
+	var laser_id := laser.runtime_id
+	laser.energy_state.energy = 13.0
+	laser.energy_state.heat = 21.0
+	laser.energy_state.overheated = true
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_defense(laser_id) as HighEnergyLaser
+	assert_not_null(restored)
+	assert_eq(restored.energy_state.energy, 13.0)
+	assert_eq(restored.energy_state.heat, 21.0)
+	assert_true(restored.energy_state.overheated)
+	assert_eq(main.power_manager.generation_capacity(), 20.0)
+
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():
 		if contact.runtime_id == runtime_id:

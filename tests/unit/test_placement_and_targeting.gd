@@ -185,6 +185,34 @@ func test_weapon_magazine_consumes_reloads_and_restores_finite_ammunition() -> v
 	invalid_state.rounds = 99
 	assert_ne(WeaponMagazine.validation_error(invalid_state), "")
 
+func test_energy_weapon_charges_cools_and_recovers_from_overheat() -> void:
+	var energy := EnergyWeaponState.new()
+	energy.setup(20.0, 5.0, 10.0, 5.0, 2.0)
+	assert_true(energy.consume(4.0))
+	assert_true(energy.consume(4.0))
+	assert_true(energy.overheated)
+	energy.gameplay_tick(2.0, 0.5)
+	assert_almost_eq(energy.energy, 17.0, 0.0001)
+	assert_true(energy.overheated)
+	energy.gameplay_tick(1.5, 0.5)
+	assert_false(energy.overheated)
+	var restored := EnergyWeaponState.new()
+	restored.restore_state(energy.capture_state())
+	assert_eq(EnergyWeaponState.validation_error(restored.capture_state()), "")
+	var invalid_state := restored.capture_state()
+	invalid_state.energy = 99.0
+	assert_ne(EnergyWeaponState.validation_error(invalid_state), "")
+
+func test_power_manager_allocates_finite_generation_capacity() -> void:
+	var manager: PowerManager = autofree(PowerManager.new()) as PowerManager
+	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, SCENARIO.available_defenses[5])
+	manager.register_asset(facility)
+	manager.begin_tick()
+	assert_eq(manager.request_power(12.0), 12.0)
+	assert_eq(manager.request_power(12.0), 8.0)
+	assert_eq(manager.request_power(1.0), 0.0)
+
 func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
 	var support_session: GameSession = autofree(GameSession.new()) as GameSession

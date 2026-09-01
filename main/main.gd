@@ -21,6 +21,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var c2_network: Node = $C2Network
 @onready var engagement_coordinator: EngagementCoordinator = $EngagementCoordinator
 @onready var support_manager: SupportManager = $SupportManager
+@onready var power_manager: PowerManager = $PowerManager
 @onready var track_display: Node = $WorldObjects/TacticalTracks
 @onready var c2_overlay: Node = $WorldObjects/C2Overlay
 @onready var director: ThreatDirector = $ThreatDirector
@@ -68,6 +69,7 @@ func _process(delta: float) -> void:
 	player_knowledge.call("gameplay_tick", simulation_delta)
 	engagement_coordinator.gameplay_tick(simulation_delta)
 	support_manager.gameplay_tick(simulation_delta)
+	power_manager.begin_tick()
 	for defense: DefenseUnit in defenses:
 		if is_instance_valid(defense):
 			defense.gameplay_tick(simulation_delta)
@@ -133,7 +135,9 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	unit.configure_c2(c2_network)
 	unit.configure_engagements(engagement_coordinator)
 	unit.configure_support(support_manager)
+	unit.configure_power(power_manager)
 	support_manager.register_asset(unit)
+	power_manager.register_asset(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)
@@ -299,6 +303,7 @@ func _clear_runtime_objects() -> void:
 	c2_network.call("reset")
 	engagement_coordinator.reset()
 	support_manager.reset()
+	power_manager.reset()
 	selected_asset = null
 	selected_track = null
 	c2_overlay.call("select_asset", null)

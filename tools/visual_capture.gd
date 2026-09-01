@@ -62,13 +62,14 @@ func run() -> void:
 	quit(0)
 
 func _place_initial_assets() -> void:
-	main.session.budget += 250
+	main.session.budget += 430
 	_place_asset(main.scenario.available_defenses[0], -1.0)
 	_place_asset(main.scenario.available_defenses[1], 1.0)
 	_place_asset(main.scenario.available_defenses[2], 1.0)
 	_place_asset(main.scenario.available_defenses[3], -1.0)
 	_place_asset(main.scenario.available_defenses[4], 1.0)
 	_place_asset(main.scenario.available_defenses[5], -1.0)
+	_place_asset(main.scenario.available_defenses[6], 1.0)
 
 func _spawn_swarm_near_close_in_gun() -> void:
 	var gun: CloseInGun

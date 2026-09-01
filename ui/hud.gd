@@ -74,7 +74,7 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
 		hold_fire_button.visible = supports_doctrine
 		engage_unknown_button.visible = supports_doctrine
 		priority_target_button.visible = supports_doctrine
-		resupply_button.visible = unit is ArmedDefenseUnit
+		resupply_button.visible = unit is ArmedDefenseUnit and (unit as ArmedDefenseUnit).uses_ammunition()
 		repair_button.visible = true
 		if supports_doctrine:
 			var doctrine: Variant = unit.get("doctrine")
@@ -90,7 +90,7 @@ func _refresh_selected_asset_label() -> void:
 		selected_asset_label.text += "\n%s" % resource_status
 	if selected_asset is ArmedDefenseUnit:
 		resupply_button.text = "재보급 요청  $%d" % (selected_asset as ArmedDefenseUnit).resupply_cost()
-	resupply_button.disabled = not selected_asset is ArmedDefenseUnit or not (selected_asset as ArmedDefenseUnit).can_request_resupply()
+	resupply_button.disabled = not selected_asset is ArmedDefenseUnit or not (selected_asset as ArmedDefenseUnit).uses_ammunition() or not (selected_asset as ArmedDefenseUnit).can_request_resupply()
 	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost()
 	repair_button.disabled = not selected_asset.can_request_repair()
 

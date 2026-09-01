@@ -95,7 +95,7 @@ func _buy_available_defenses() -> void:
 
 func _request_low_ammunition_resupply() -> void:
 	for defense: DefenseUnit in main.defenses:
-		if defense is ArmedDefenseUnit:
+		if defense is ArmedDefenseUnit and (defense as ArmedDefenseUnit).uses_ammunition():
 			var armed := defense as ArmedDefenseUnit
 			if armed.magazine.reserve <= int(float(armed.magazine.reserve_capacity) * 0.25):
 				armed.request_resupply()
@@ -109,7 +109,7 @@ func _ammunition_totals() -> Dictionary:
 	var reserve := 0
 	var depleted := 0
 	for defense: DefenseUnit in main.defenses:
-		if defense is ArmedDefenseUnit:
+		if defense is ArmedDefenseUnit and (defense as ArmedDefenseUnit).uses_ammunition():
 			var armed := defense as ArmedDefenseUnit
 			rounds += armed.magazine.rounds
 			reserve += armed.magazine.reserve

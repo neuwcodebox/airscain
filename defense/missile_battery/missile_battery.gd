@@ -73,6 +73,9 @@ func weapon_match(track: PlayerTrack) -> float:
 func resupply_cost() -> int:
 	return _definition.resupply_cost
 
+func uses_ammunition() -> bool:
+	return true
+
 func resupply_work() -> float:
 	return _definition.resupply_work
 
