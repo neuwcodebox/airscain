@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=3 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/attack_uav/attack_uav.tscn" type="PackedScene" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"attack_uav"
+display_name = "자폭형 공격 UAV"
+scene = ExtResource("2")
+neutralization_reward = 30
+maximum_health = 100.0
+base_speed = 30.0
+cruise_altitude = 70.0
+terminal_distance = 120.0
+mission_damage = 10
+

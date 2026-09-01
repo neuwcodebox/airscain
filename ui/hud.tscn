@@ -1,0 +1,235 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource path="res://ui/hud.gd" type="Script" id="1"]
+
+[sub_resource type="StyleBoxFlat" id="TopPanel"]
+bg_color = Color(0.035, 0.055, 0.075, 0.9)
+border_width_bottom = 2
+border_color = Color(0.16, 0.5, 0.65, 0.8)
+content_margin_left = 18.0
+content_margin_top = 11.0
+content_margin_right = 18.0
+content_margin_bottom = 11.0
+
+[sub_resource type="StyleBoxFlat" id="CatalogPanel"]
+bg_color = Color(0.035, 0.055, 0.075, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.16, 0.5, 0.65, 0.7)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 14.0
+content_margin_top = 12.0
+content_margin_right = 14.0
+content_margin_bottom = 12.0
+
+[sub_resource type="StyleBoxFlat" id="GameOverPanel"]
+bg_color = Color(0.025, 0.035, 0.05, 0.97)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.9, 0.3, 0.18, 0.9)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+content_margin_left = 30.0
+content_margin_top = 26.0
+content_margin_right = 30.0
+content_margin_bottom = 26.0
+
+[node name="HUD" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1")
+
+[node name="TopBar" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 58.0
+grow_horizontal = 2
+mouse_filter = 1
+theme_override_styles/panel = SubResource("TopPanel")
+
+[node name="Margin" type="HBoxContainer" parent="TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 28
+
+[node name="BudgetLabel" type="Label" parent="TopBar/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
+theme_override_font_sizes/font_size = 20
+text = "예산  $400"
+
+[node name="IntegrityLabel" type="Label" parent="TopBar/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.78, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "도시  100 / 100"
+
+[node name="TimeLabel" type="Label" parent="TopBar/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "생존  00:00"
+
+[node name="PressureLabel" type="Label" parent="TopBar/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.65, 0.28, 1)
+theme_override_font_sizes/font_size = 20
+text = "위협 단계  1"
+
+[node name="PauseButton" type="Button" parent="TopBar/Margin"]
+layout_mode = 2
+text = "Ⅱ"
+
+[node name="NormalButton" type="Button" parent="TopBar/Margin"]
+layout_mode = 2
+text = "1×"
+
+[node name="FastButton" type="Button" parent="TopBar/Margin"]
+layout_mode = 2
+text = "2×"
+
+[node name="SpeedLabel" type="Label" parent="TopBar/Margin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(78, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "1×"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Catalog" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -255.0
+offset_top = -142.0
+offset_right = -18.0
+offset_bottom = -18.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 1
+theme_override_styles/panel = SubResource("CatalogPanel")
+
+[node name="VBox" type="VBoxContainer" parent="Catalog"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="Catalog/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
+theme_override_font_sizes/font_size = 16
+text = "방어 수단"
+
+[node name="DefenseButton" type="Button" parent="Catalog/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "미사일 포대  $200"
+
+[node name="StartButton" type="Button" parent="Catalog/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+disabled = true
+text = "방어 시작"
+
+[node name="FeedbackLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -250.0
+offset_top = -58.0
+offset_right = 250.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.88, 0.55, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
+text = "포대를 배치한 뒤 방어를 시작하세요"
+horizontal_alignment = 1
+
+[node name="GameOverPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -230.0
+offset_top = -185.0
+offset_right = 230.0
+offset_bottom = 185.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme_override_styles/panel = SubResource("GameOverPanel")
+
+[node name="VBox" type="VBoxContainer" parent="GameOverPanel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.38, 0.24, 1)
+theme_override_font_sizes/font_size = 34
+text = "도시 기능 상실"
+horizontal_alignment = 1
+
+[node name="FinalStats" type="Label" parent="GameOverPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 20
+text = "최종 통계"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SameSeedButton" type="Button" parent="GameOverPanel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 42)
+text = "같은 전장 다시 시작"
+
+[node name="NewSeedButton" type="Button" parent="GameOverPanel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 42)
+text = "새 전장 시작"
+
+[connection signal="pressed" from="TopBar/Margin/PauseButton" to="." method="_on_pause_pressed"]
+[connection signal="pressed" from="TopBar/Margin/NormalButton" to="." method="_on_normal_pressed"]
+[connection signal="pressed" from="TopBar/Margin/FastButton" to="." method="_on_fast_pressed"]
+[connection signal="pressed" from="Catalog/VBox/DefenseButton" to="." method="_on_defense_pressed"]
+[connection signal="pressed" from="Catalog/VBox/StartButton" to="." method="_on_start_pressed"]
+[connection signal="pressed" from="GameOverPanel/VBox/SameSeedButton" to="." method="_on_same_seed_pressed"]
+[connection signal="pressed" from="GameOverPanel/VBox/NewSeedButton" to="." method="_on_new_seed_pressed"]
+

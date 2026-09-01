@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ObjectiveDefinition" load_steps=3 format=3]
+
+[ext_resource path="res://world/objective/objective_definition.gd" type="Script" id="1"]
+[ext_resource path="res://world/objective/city/city_objective.tscn" type="PackedScene" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"city"
+display_name = "도시"
+scene = ExtResource("2")
+maximum_integrity = 100
+required_for_survival = true
+

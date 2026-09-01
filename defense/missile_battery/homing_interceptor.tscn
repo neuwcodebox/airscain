@@ -1,0 +1,35 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource path="res://defense/missile_battery/homing_interceptor.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="MissileMaterial"]
+albedo_color = Color(0.92, 0.92, 0.86, 1)
+metallic = 0.25
+
+[sub_resource type="CylinderMesh" id="MissileMesh"]
+top_radius = 0.35
+bottom_radius = 0.5
+height = 4.5
+radial_segments = 8
+
+[sub_resource type="StandardMaterial3D" id="TrailMaterial"]
+albedo_color = Color(1, 0.47, 0.08, 0.75)
+emission_enabled = true
+emission = Color(1, 0.25, 0.03, 1)
+transparency = 1
+
+[node name="HomingInterceptor" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Missile" type="MeshInstance3D" parent="."]
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("MissileMesh")
+material_override = SubResource("MissileMaterial")
+
+[node name="Trail" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0, 3.0)
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("MissileMesh")
+scale = Vector3(0.55, 0.75, 0.55)
+material_override = SubResource("TrailMaterial")
+

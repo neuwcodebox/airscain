@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=7 format=3]
+
+[ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
+[ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
+[ext_resource path="res://defense/missile_battery/missile_battery.tres" type="Resource" id="3"]
+[ext_resource path="res://enemy/attack_uav/attack_uav.tres" type="Resource" id="4"]
+[ext_resource path="res://enemy/threat_spawn_entry.gd" type="Script" id="5"]
+
+[sub_resource type="Resource" id="AttackUavEntry"]
+script = ExtResource("5")
+threat_definition = ExtResource("4")
+unlock_level = 1
+selection_weight = 1.0
+
+[resource]
+script = ExtResource("1")
+world_seed = 73129
+battlefield_size = 1200.0
+terrain_resolution = 49
+city_size = 330.0
+starting_budget = 400
+objective_definition = ExtResource("2")
+available_defenses = Array[ExtResource("3")]([ExtResource("3")])
+threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry")])
+initial_spawn_interval = 4.0
+active_threat_cap = 200

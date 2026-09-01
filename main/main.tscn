@@ -1,0 +1,61 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource path="res://main/main.gd" type="Script" id="1"]
+[ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://main/game_session.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/threat_director.gd" type="Script" id="4"]
+[ext_resource path="res://camera/camera_rig.tscn" type="PackedScene" id="5"]
+[ext_resource path="res://ui/placement_controller.gd" type="Script" id="6"]
+[ext_resource path="res://ui/hud.tscn" type="PackedScene" id="7"]
+
+[sub_resource type="Environment" id="Environment"]
+background_mode = 2
+sky_energy_multiplier = 0.75
+background_color = Color(0.36, 0.57, 0.72, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.62, 0.73, 0.82, 1)
+ambient_light_energy = 0.72
+tonemap_mode = 2
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Battlefield" parent="." instance=ExtResource("2")]
+
+[node name="GameSession" type="Node" parent="."]
+script = ExtResource("3")
+
+[node name="ThreatDirector" type="Node" parent="."]
+script = ExtResource("4")
+
+[node name="CameraRig" parent="." instance=ExtResource("5")]
+
+[node name="WorldObjects" type="Node3D" parent="."]
+
+[node name="Objectives" type="Node3D" parent="WorldObjects"]
+
+[node name="Defenses" type="Node3D" parent="WorldObjects"]
+
+[node name="Threats" type="Node3D" parent="WorldObjects"]
+
+[node name="Projectiles" type="Node3D" parent="WorldObjects"]
+
+[node name="Effects" type="Node3D" parent="WorldObjects"]
+
+[node name="PlacementController" type="Node3D" parent="."]
+script = ExtResource("6")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-52, -38, 0)
+light_color = Color(1, 0.91, 0.76, 1)
+light_energy = 1.2
+shadow_enabled = true
+directional_shadow_max_distance = 1400.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" parent="UI" instance=ExtResource("7")]
+

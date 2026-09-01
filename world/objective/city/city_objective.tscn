@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource path="res://world/objective/city/city_objective.gd" type="Script" id="1"]
+
+[sub_resource type="CylinderMesh" id="CoreMesh"]
+top_radius = 9.0
+bottom_radius = 12.0
+height = 6.0
+
+[node name="CityObjective" type="Node3D"]
+script = ExtResource("1")
+
+[node name="CoreMarker" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3, 0)
+mesh = SubResource("CoreMesh")
+

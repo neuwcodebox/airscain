@@ -1,0 +1,26 @@
+[application]
+config/name="Airscain"
+run/main_scene="res://main/main.tscn"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+
+[rendering]
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+textures/default_filters/use_nearest_mipmap_filter=false
+
+[input]
+camera_forward={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":87)]}
+camera_back={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":83)]}
+camera_left={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":65)]}
+camera_right={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":68)]}
+cancel_placement={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":4194305)]}
+
+[layer_names]
+3d_physics/layer_1="Terrain"
+
