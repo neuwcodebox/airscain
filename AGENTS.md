@@ -13,12 +13,9 @@ This file defines repository-wide operating guidance for AI coding agents: how t
 
 ## Planning and Commits
 
-- For any non-trivial task, maintain `docs/PLAN.md` as a concise checklist of high-level, runnable work units.
-- Keep the plan aligned with the current intended result. Record completed outcomes and their validation evidence; do not use it as a transcript of abandoned approaches or conversational revisions.
-- Complete and validate one high-level unit at a time. Keep the project runnable between units.
-- When a unit is complete, update `docs/PLAN.md` and commit the implementation, tests, and plan entry together.
-- Make each commit a coherent, verified checkpoint with a descriptive message. Do not commit broken intermediate states, unrelated user changes, or work that has not actually satisfied its checklist item.
-- Before declaring the task complete, ensure the plan reflects the current repository state and that all required items are checked off with appropriate evidence.
+- For non-trivial tasks, track high-level runnable units and validation evidence in `docs/PLAN.md`; keep it aligned with the current intended result rather than conversational history.
+- Complete and validate one unit at a time, then commit its implementation, tests, and plan update together as a runnable checkpoint.
+- Before declaring completion, confirm the plan matches the repository and excludes broken, unverified, or unrelated work.
 
 Typical CLI usage:
 
