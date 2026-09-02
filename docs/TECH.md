@@ -137,6 +137,7 @@ C#, GDExtension, 별도 ECS, 멀티스레드 gameplay, 커스텀 렌더 파이�
 
 | 모듈 | 책임 |
 |---|---|
+| App Shell | 메인 메뉴, 모드 진입, Esc 메뉴와 gameplay scene 생명주기 |
 | Session | 게임 단계, 시간, 예산, 통계, 게임오버와 저장 진입점 |
 | Scenario / Content | 사용할 전장, 자산, 위협과 밸런스 정의 |
 | World | 절차적 지형, 도시, 공간 질의와 객체 생명주기 |
@@ -691,6 +692,8 @@ Director는 예산 안에서 정찰, 기만, 제압, 포화와 타격 역할을 
 ---
 
 ## 20. UI와 표현 계층
+
+제품 진입점은 gameplay scene과 분리된 App Shell이다. App Shell이 메인 메뉴에서 모드를 확정해 gameplay scene을 생성하고, `Esc` 메뉴에서 세션을 일시정지하거나 gameplay scene을 폐기해 메인 메뉴로 복귀한다. HUD는 현재 모드의 전술 조작만 제공하며 실행 중 모드 전환을 소유하지 않는다.
 
 제품 전술 UI는 플레이어 지식과 공개된 아군 상태만 소비한다.
 

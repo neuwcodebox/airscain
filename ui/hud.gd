@@ -16,7 +16,6 @@ signal relocation_requested
 signal focus_requested
 signal save_requested
 signal load_requested
-signal mode_requested(mode: int)
 signal sandbox_threat_selected(definition: ThreatDefinition)
 
 var session: GameSession
@@ -55,7 +54,6 @@ const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전
 @onready var repair_button: Button = %RepairButton
 @onready var relocation_button: Button = %RelocationButton
 @onready var focus_button: Button = %FocusButton
-@onready var mode_option: OptionButton = %ModeOption
 @onready var sandbox_threat_option: OptionButton = %SandboxThreatOption
 @onready var sandbox_threat_button: Button = %SandboxThreatButton
 @onready var save_button: Button = %SaveButton
@@ -78,10 +76,6 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	set_selected_track(null, false)
 
 func _build_mode_controls(game_mode: int) -> void:
-	mode_option.clear()
-	for label: String in ["지속 작전", "훈련", "샌드박스"]:
-		mode_option.add_item(label)
-	mode_option.select(game_mode)
 	sandbox_threat_option.clear()
 	for definition: ThreatDefinition in threat_definitions:
 		sandbox_threat_option.add_item(definition.display_name)
@@ -279,9 +273,6 @@ func _on_save_pressed() -> void:
 
 func _on_load_pressed() -> void:
 	load_requested.emit()
-
-func _on_mode_selected(index: int) -> void:
-	mode_requested.emit(index)
 
 func _on_sandbox_threat_pressed() -> void:
 	var index := sandbox_threat_option.selected

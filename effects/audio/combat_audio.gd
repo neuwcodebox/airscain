@@ -14,8 +14,11 @@ var cooldowns: Dictionary[StringName, float] = {}
 var event_counts: Dictionary[StringName, int] = {}
 var players: Array[AudioStreamPlayer] = []
 var next_player_index: int = 0
+@export var enabled: bool = false
 
 func _ready() -> void:
+	if not enabled:
+		return
 	_build_streams()
 	for index: int in 8:
 		var player := AudioStreamPlayer.new()
@@ -37,7 +40,7 @@ func stop_all() -> void:
 	streams.clear()
 
 func play_event(event_id: StringName, intensity: float = 1.0) -> bool:
-	if not streams.has(event_id) or float(cooldowns.get(event_id, 0.0)) > 0.0 or players.is_empty():
+	if not enabled or not streams.has(event_id) or float(cooldowns.get(event_id, 0.0)) > 0.0 or players.is_empty():
 		return false
 	var player := _available_player()
 	player.stream = streams[event_id]

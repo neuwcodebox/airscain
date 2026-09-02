@@ -164,7 +164,6 @@ func _connect_flow() -> void:
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
 	hud.focus_requested.connect(_on_focus_requested)
-	hud.mode_requested.connect(_on_mode_requested)
 	hud.sandbox_threat_selected.connect(placement.select_sandbox_threat)
 	placement.sandbox_threat_placement_requested.connect(_on_sandbox_threat_placement_requested)
 	player_knowledge.connect("track_removed", _on_track_removed)
@@ -435,12 +434,6 @@ func _on_load_requested() -> void:
 
 func capture_save_document() -> Dictionary:
 	return SaveDocument.create(SessionSnapshot.capture_payload(self))
-
-func _on_mode_requested(mode: int) -> void:
-	if mode < GameMode.SUSTAINED or mode > GameMode.SANDBOX or mode == game_mode:
-		return
-	requested_mode = mode as GameMode
-	get_tree().reload_current_scene()
 
 func _sandbox_threat_definitions() -> Array[ThreatDefinition]:
 	var result: Array[ThreatDefinition] = []

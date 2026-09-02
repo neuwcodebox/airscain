@@ -1,6 +1,6 @@
 [application]
 config/name="Airscain"
-run/main_scene="res://main/main.tscn"
+run/main_scene="res://main/app.tscn"
 
 [display]
 window/size/viewport_width=1280
@@ -23,4 +23,3 @@ cancel_placement={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_key
 
 [layer_names]
 3d_physics/layer_1="Terrain"
-

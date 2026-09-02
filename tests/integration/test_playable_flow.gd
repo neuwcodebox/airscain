@@ -97,25 +97,21 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	sandbox._on_start_requested()
 	assert_false(sandbox.director.enabled)
 
-func test_combat_audio_synthesizes_and_throttles_distinct_events() -> void:
+func test_combat_audio_is_disabled_until_production_sources_exist() -> void:
 	var streams: Dictionary = main.combat_audio.get("streams")
-	assert_eq(streams.size(), 6)
-	for stream: AudioStreamWAV in streams.values():
-		assert_gt(stream.data.size(), 1000)
-	assert_eq((main.combat_audio.get("players") as Array).size(), 8)
-	assert_true(main.combat_audio.call("play_event", &"contact", 0.5))
+	assert_false(main.combat_audio.get("enabled"))
+	assert_true(streams.is_empty())
+	assert_true((main.combat_audio.get("players") as Array).is_empty())
 	assert_false(main.combat_audio.call("play_event", &"contact", 0.5))
-	main.combat_audio.call("_process", 0.5)
-	assert_true(main.combat_audio.call("play_event", &"contact", 0.5))
 	main._on_pressure_changed(3)
-	assert_eq(int(main.combat_audio.call("played_count", &"pressure")), 1)
+	assert_eq(int(main.combat_audio.call("played_count", &"pressure")), 0)
 	var result: Dictionary = main.session.request_placement(main.scenario.available_defenses[0], _find_valid_position_for(main.scenario.available_defenses[0].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var unit := result.unit as DefenseUnit
 	unit.weapon_fired.emit(unit, true)
-	assert_eq(int(main.combat_audio.call("played_count", &"launch")), 1)
-	assert_eq(int(main.combat_audio.call("played_count", &"low_ammo")), 1)
+	assert_eq(int(main.combat_audio.call("played_count", &"launch")), 0)
+	assert_eq(int(main.combat_audio.call("played_count", &"low_ammo")), 0)
 	unit.receive_damage(50.0)
-	assert_eq(int(main.combat_audio.call("played_count", &"damage")), 1)
+	assert_eq(int(main.combat_audio.call("played_count", &"damage")), 0)
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
@@ -325,8 +321,8 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_not_null(falling_wreck)
 	assert_not_null(explosion)
 	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
-	assert_gt(int(main.combat_audio.call("played_count", &"launch")), 0)
-	assert_gt(int(main.combat_audio.call("played_count", &"explosion")), 0)
+	assert_eq(int(main.combat_audio.call("played_count", &"launch")), 0)
+	assert_eq(int(main.combat_audio.call("played_count", &"explosion")), 0)
 	assert_eq(main.session.neutralized_count, 1)
 	assert_eq(main.session.neutralized_by_type.get(String(threat.definition.id), 0), 1)
 	assert_eq(main.session.neutralized_reward_total, threat.definition.neutralization_reward)
