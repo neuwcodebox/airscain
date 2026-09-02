@@ -980,7 +980,8 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	var lingering_trail := main.projectile_parent.get_node_or_null("SmokeTrail") as GPUParticles3D
 	assert_not_null(lingering_trail)
 	assert_false(lingering_trail.emitting)
-	assert_gte(lingering_trail.lifetime, 7.0)
+	assert_gte(lingering_trail.lifetime, 24.0)
+	assert_gte(float(lingering_trail.get("release_fade_duration")), 16.0)
 	assert_eq(lingering_trail.get_parent(), main.projectile_parent)
 
 func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
@@ -991,8 +992,8 @@ func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
 	assert_gte(int(smoke.get("emitted_sample_count")), 28)
 	assert_gt((smoke.get("last_emitted_world_position") as Vector3).z, 24.0)
 	assert_true(smoke.emitting)
-	assert_gte(smoke.lifetime, 12.0)
-	assert_gte(smoke.amount, 900)
+	assert_gte(smoke.lifetime, 24.0)
+	assert_gte(smoke.amount, 1900)
 	assert_lt((smoke.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
 	assert_lte((smoke.process_material as ParticleProcessMaterial).initial_velocity_max, 0.8)
 	assert_true((smoke.process_material as ParticleProcessMaterial).turbulence_enabled)

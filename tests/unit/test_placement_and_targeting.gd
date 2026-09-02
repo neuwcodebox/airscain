@@ -48,8 +48,11 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	var burst := projectile_parent.get_node_or_null("CountermeasureBurst") as Node3D
 	assert_not_null(burst)
 	assert_true((burst.get_node("Chaff") as GPUParticles3D).emitting)
+	assert_true((burst.get_node("ChaffGlints") as GPUParticles3D).emitting)
 	assert_null(burst.get_node_or_null("Reason"))
-	assert_gte((burst.get_node("Chaff") as GPUParticles3D).amount, 150)
+	assert_gte((burst.get_node("Chaff") as GPUParticles3D).amount, 300)
+	assert_gte((burst.get_node("Chaff") as GPUParticles3D).lifetime, 7.0)
+	assert_gte((burst.get_node("ChaffGlints") as GPUParticles3D).amount, 120)
 	var diverted_state := interceptor.capture_state()
 	assert_true(bool(diverted_state.countermeasure_decoy_active))
 	assert_eq(SaveDocument.vector3_from_data(diverted_state.countermeasure_decoy_position), interceptor.countermeasure_decoy_position)

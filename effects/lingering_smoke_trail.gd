@@ -4,7 +4,7 @@ extends GPUParticles3D
 @export_range(0.5, 20.0, 0.5) var sample_spacing: float = 3.0
 @export_range(1, 4, 1) var particles_per_sample: int = 1
 @export_range(0.0, 2.0, 0.05) var sample_radius: float = 0.0
-@export_range(1.0, 20.0, 0.5) var release_fade_duration: float = 8.0
+@export_range(1.0, 40.0, 0.5) var release_fade_duration: float = 16.0
 @export_range(0.1, 2.0, 0.1) var transparent_cleanup_delay: float = 0.5
 
 var release_remaining: float = -1.0

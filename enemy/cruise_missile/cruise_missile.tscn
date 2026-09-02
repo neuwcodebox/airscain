@@ -125,8 +125,8 @@ omni_range = 24.0
 [node name="ExhaustTrail" type="GPUParticles3D" parent="Body"]
 position = Vector3(0, 0, 6.2)
 emitting = true
-amount = 780
-lifetime = 9.0
+amount = 1560
+lifetime = 18.0
 visibility_aabb = AABB(-160, -80, -160, 320, 240, 320)
 local_coords = false
 process_material = SubResource("ExhaustProcess")

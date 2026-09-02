@@ -87,8 +87,8 @@ omni_range = 22.0
 [node name="SmokeTrail" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0, 1.8)
 emitting = true
-amount = 360
-lifetime = 6.5
+amount = 720
+lifetime = 13.0
 visibility_aabb = AABB(-100, -60, -100, 200, 160, 200)
 local_coords = false
 process_material = SubResource("SmokeProcess")

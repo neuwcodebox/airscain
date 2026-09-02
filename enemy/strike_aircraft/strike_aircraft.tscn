@@ -113,8 +113,8 @@ omni_range = 28.0
 [node name="LeftExhaustTrail" type="GPUParticles3D" parent="Body"]
 position = Vector3(-1.25, 0, 8.8)
 emitting = true
-amount = 520
-lifetime = 7.0
+amount = 1040
+lifetime = 14.0
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
 local_coords = false
 process_material = SubResource("ContrailProcess")
@@ -125,8 +125,8 @@ sample_spacing = 2.6
 [node name="RightExhaustTrail" type="GPUParticles3D" parent="Body"]
 position = Vector3(1.25, 0, 8.8)
 emitting = true
-amount = 520
-lifetime = 7.0
+amount = 1040
+lifetime = 14.0
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
 local_coords = false
 process_material = SubResource("ContrailProcess")
