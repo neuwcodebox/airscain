@@ -1,0 +1,93 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource path="res://defense/missile_battery/missile_battery.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="BaseMaterial"]
+albedo_color = Color(0.16, 0.23, 0.19, 1)
+metallic = 0.3
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="CanisterMaterial"]
+albedo_color = Color(0.28, 0.4, 0.31, 1)
+metallic = 0.25
+roughness = 0.48
+
+[sub_resource type="BoxMesh" id="BaseMesh"]
+size = Vector3(8, 1.8, 7)
+
+[sub_resource type="CylinderMesh" id="TurretMesh"]
+top_radius = 2.5
+bottom_radius = 3.1
+height = 2.2
+radial_segments = 10
+
+[sub_resource type="CylinderMesh" id="CanisterMesh"]
+top_radius = 0.85
+bottom_radius = 0.85
+height = 8.5
+radial_segments = 10
+
+[sub_resource type="SphereMesh" id="FlashMesh"]
+radius = 0.8
+height = 1.6
+
+[sub_resource type="StandardMaterial3D" id="FlashMaterial"]
+albedo_color = Color(1, 0.45, 0.05, 0.8)
+emission_enabled = true
+emission = Color(1, 0.24, 0.02, 1)
+transparency = 1
+
+[node name="MissileBattery" type="Node3D"]
+script = ExtResource("1")
+turret_turn_speed_degrees = 110.0
+launcher_elevation_speed_degrees = 90.0
+metadata/visual_role = "short_quick_reaction_cluster"
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("BaseMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Turret" type="Node3D" parent="."]
+position = Vector3(0, 2.6, 0)
+
+[node name="Pivot" type="MeshInstance3D" parent="Turret"]
+mesh = SubResource("TurretMesh")
+material_override = SubResource("BaseMaterial")
+
+[node name="Elevation" type="Node3D" parent="Turret"]
+rotation = Vector3(0.78, 0, 0)
+
+[node name="Launcher" type="Node3D" parent="Turret/Elevation"]
+position = Vector3(0, 2.2, -1.5)
+
+[node name="QuickReactionCluster" type="Node3D" parent="Turret/Elevation/Launcher"]
+rotation = Vector3(1.5708, 0, 0)
+
+[node name="CanisterLeftRear" type="MeshInstance3D" parent="Turret/Elevation/Launcher/QuickReactionCluster"]
+position = Vector3(-1.15, -0.9, 0)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("CanisterMaterial")
+
+[node name="CanisterRightRear" type="MeshInstance3D" parent="Turret/Elevation/Launcher/QuickReactionCluster"]
+position = Vector3(1.15, -0.9, 0)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("CanisterMaterial")
+
+[node name="CanisterLeftFront" type="MeshInstance3D" parent="Turret/Elevation/Launcher/QuickReactionCluster"]
+position = Vector3(-1.15, 0.9, 0)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("CanisterMaterial")
+
+[node name="CanisterRightFront" type="MeshInstance3D" parent="Turret/Elevation/Launcher/QuickReactionCluster"]
+position = Vector3(1.15, 0.9, 0)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("CanisterMaterial")
+
+[node name="LaunchPoint" type="Marker3D" parent="Turret/Elevation/Launcher"]
+position = Vector3(0, 0, -4.8)
+
+[node name="MuzzleFlash" type="MeshInstance3D" parent="."]
+visible = false
+mesh = SubResource("FlashMesh")
+material_override = SubResource("FlashMaterial")

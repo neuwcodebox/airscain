@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=7 format=3]
 
 [ext_resource path="res://defense/missile_battery/missile_battery_definition.gd" type="Script" id="1"]
-[ext_resource path="res://defense/missile_battery/missile_battery.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://defense/long_range_missile/long_range_missile.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
 [ext_resource path="res://defense/missile_battery/missile_munition_definition.gd" type="Script" id="4"]
 

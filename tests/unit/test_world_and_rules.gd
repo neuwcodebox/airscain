@@ -188,6 +188,18 @@ func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> v
 	assert_true(long_range.munitions[1].high_cost)
 	assert_eq(long_range.munitions[1].salvo_size, 2)
 	assert_eq(long_range.munitions[1].preferred_classes, [&"ballistic_missile", &"rocket", &"strike_aircraft"])
+	assert_ne(long_range.scene.resource_path, medium.scene.resource_path)
+	assert_ne(short_range.scene.resource_path, medium.scene.resource_path)
+	assert_ne(short_range.scene.resource_path, long_range.scene.resource_path)
+	var medium_model := autofree(medium.scene.instantiate()) as MissileBattery
+	var long_model := autofree(long_range.scene.instantiate()) as MissileBattery
+	var short_model := autofree(short_range.scene.instantiate()) as MissileBattery
+	assert_not_null(medium_model.get_node_or_null("Turret/Elevation/Launcher/SixCellRack"))
+	assert_not_null(long_model.get_node_or_null("Turret/Elevation/Launcher/FourCanisterBank"))
+	assert_not_null(short_model.get_node_or_null("Turret/Elevation/Launcher/QuickReactionCluster"))
+	assert_eq(medium_model.get_meta("visual_role"), "medium_six_cell_rack")
+	assert_eq(long_model.get_meta("visual_role"), "long_four_canister_bank")
+	assert_eq(short_model.get_meta("visual_role"), "short_quick_reaction_cluster")
 	var hpm := SCENARIO.available_defenses[9] as HighPowerMicrowaveDefinition
 	assert_gt(hpm.effect_radius, 0.0)
 	assert_gt(hpm.energy_per_pulse, 0.0)

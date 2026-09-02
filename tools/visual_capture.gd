@@ -27,6 +27,11 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	await _capture_missile_battery_variants()
+	if OS.get_cmdline_user_args().has("--capture-batteries-only"):
+		print("VISUAL_CAPTURE_OK missile_battery_variants")
+		quit(0)
+		return
 	await _capture_missile_smoke_trail()
 	var city_camera_position := main.camera_rig.global_position
 	var city_camera_zoom := main.camera_rig.zoom_distance
@@ -157,7 +162,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
+	print("VISUAL_CAPTURE_OK initial placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:
@@ -203,6 +208,44 @@ func _spawn_swarm_near_close_in_gun() -> void:
 		threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
 		main.registry.add(threat)
 		main._on_threat_spawned(threat)
+
+func _capture_missile_battery_variants() -> void:
+	var definitions: Array[MissileBatteryDefinition] = [
+		main.scenario.available_defenses[8] as MissileBatteryDefinition,
+		main.scenario.available_defenses[0] as MissileBatteryDefinition,
+		main.scenario.available_defenses[7] as MissileBatteryDefinition,
+	]
+	var expected_nodes: Array[String] = ["QuickReactionCluster", "SixCellRack", "FourCanisterBank"]
+	var showcase: Array[MissileBattery] = []
+	var center := main.objective.global_position + Vector3(0.0, 0.0, 360.0)
+	for index: int in definitions.size():
+		var battery := definitions[index].scene.instantiate() as MissileBattery
+		main.effects_parent.add_child(battery)
+		var position := center + Vector3((float(index) - 1.0) * 30.0, 0.0, 0.0)
+		position.y = main.battlefield.terrain_height(position.x, position.z)
+		battery.global_position = position
+		battery.rotation.y = -0.45
+		if battery.get_node_or_null("Turret/Elevation/Launcher/%s" % expected_nodes[index]) == null:
+			push_error("Missile battery variant did not expose its distinct launcher silhouette")
+			quit(1)
+			return
+		showcase.append(battery)
+	var previous_camera_position := main.camera_rig.global_position
+	var previous_zoom := main.camera_rig.zoom_distance
+	main.camera_rig.camera.global_position = center + Vector3(58.0, 34.0, 72.0)
+	main.camera_rig.camera.look_at(center + Vector3.UP * 7.0, Vector3.UP)
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_missile_battery_variants.png")
+	for battery: MissileBattery in showcase:
+		battery.queue_free()
+	main.hud.visible = true
+	main.altitude_profile.visible = true
+	main.camera_rig.global_position = previous_camera_position
+	main.camera_rig.zoom_distance = previous_zoom
+	main.camera_rig._update_camera()
 
 func _capture_strike_vfx() -> void:
 	var strike := main.director._spawn_entry(main.scenario.threat_entries[11], 0.0, 0.0) as AttackUav

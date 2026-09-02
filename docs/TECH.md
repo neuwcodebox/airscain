@@ -506,6 +506,8 @@ lateral_acceleration =
 
 미사일 포대 definition은 지형 기준 최소·최대 교전고도를 가지며 항적 선택 단계에서 사거리와 함께 검사한다. 단거리 0–180m, 중거리 0–450m, 장거리 100–1500m를 기본 계층으로 사용한다.
 
+포대 계층은 definition마다 별도 scene을 연결해 외형도 분리한다. 단거리는 IRIS-T SLS 계열에서 가져온 소형 4연장·고각 실루엣, 중거리는 NASAMS의 6발 모듈식 2×3 랙, 장거리는 Patriot 계열의 대형 4발 2×2 캐니스터와 넓은 차대 비례를 로우폴리로 단순화한다. 공통 스크립트가 요구하는 `Turret/Elevation/Launcher/LaunchPoint` 계층은 유지한다.
+
 고속 객체의 명중과 근접신관은 한 tick의 이전 위치와 현재 위치를 잇는 swept query로 판정한다. discrete overlap만 사용해 표적을 통과하지 않게 한다.
 
 ### 기관포
