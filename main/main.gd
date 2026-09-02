@@ -85,6 +85,7 @@ func _ready() -> void:
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
+	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge)
 	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	_connect_flow()
@@ -518,7 +519,7 @@ func _set_training_step(step: TrainingStep) -> void:
 	training_step = step
 	match step:
 		TrainingStep.CAMERA:
-			hud.set_training_lesson(1, 13, "전장 살펴보기", "WASD로 이동하고 마우스 휠로 확대·축소하세요. 섬 동쪽의 '훈련 표적 진입 방향' 표시도 확인하세요.", true)
+			hud.set_training_lesson(1, 13, "전장 살펴보기", "WASD로 이동하고 Q/E 또는 우클릭 드래그로 회전하며 마우스 휠로 확대·축소하세요. 섬 동쪽의 '훈련 표적 진입 방향' 표시도 확인하세요.", true)
 		TrainingStep.RADAR:
 			hud.set_training_lesson(2, 13, "탐색 센서", "표적은 섬 동쪽에서 옵니다. 오른쪽 목록의 탐색 레이더를 도시 동쪽 평탄한 지형에 배치하세요.")
 		TrainingStep.COMMAND:

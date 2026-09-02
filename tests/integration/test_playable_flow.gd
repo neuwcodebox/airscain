@@ -277,6 +277,19 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_gte(catalog.size.y, 480.0)
 	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
 	assert_gte(defense_scroll.size.y, 360.0)
+	assert_eq(catalog.mouse_filter, Control.MOUSE_FILTER_STOP)
+	assert_false(catalog.mouse_force_pass_scroll_events)
+	assert_false(defense_scroll.mouse_force_pass_scroll_events)
+	defense_scroll.scroll_vertical = int(defense_scroll.get_v_scroll_bar().max_value)
+	var initial_zoom := main.camera_rig.zoom_distance
+	var wheel_at_bottom := InputEventMouseButton.new()
+	wheel_at_bottom.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	wheel_at_bottom.pressed = true
+	wheel_at_bottom.position = defense_scroll.get_global_rect().get_center()
+	wheel_at_bottom.global_position = wheel_at_bottom.position
+	assert_true(main.camera_rig.wheel_input_exclusions.has(catalog))
+	main.camera_rig._unhandled_input(wheel_at_bottom)
+	assert_eq(main.camera_rig.zoom_distance, initial_zoom)
 
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()

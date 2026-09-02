@@ -15,6 +15,11 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	await _capture_camera_rotation()
+	if OS.get_cmdline_user_args().has("--capture-camera-only"):
+		print("VISUAL_CAPTURE_OK camera_rotation")
+		quit(0)
+		return
 	main.placement.select(main.scenario.available_defenses[1])
 	var rooftop_position: Vector3 = main.battlefield.rooftop_pads[0].position
 	Input.warp_mouse(main.camera_rig.camera.unproject_position(rooftop_position))
@@ -162,8 +167,23 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
+	print("VISUAL_CAPTURE_OK initial camera_rotation placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
+
+func _capture_camera_rotation() -> void:
+	var initial_yaw := main.camera_rig.yaw_radians
+	var initial_camera_position := main.camera_rig.camera.position
+	main.camera_rig.yaw_radians += deg_to_rad(55.0)
+	main.camera_rig._update_camera()
+	for index: int in 5:
+		await process_frame
+	if main.camera_rig.camera.position.is_equal_approx(initial_camera_position):
+		push_error("Camera rotation did not orbit the battlefield view")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_camera_rotated.png")
+	main.camera_rig.yaw_radians = initial_yaw
+	main.camera_rig._update_camera()
 
 func _apply_requested_seed() -> void:
 	for argument: String in OS.get_cmdline_user_args():
