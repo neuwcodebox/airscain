@@ -39,6 +39,15 @@ func test_city_keeps_a_dense_core_and_uses_an_irregular_terrain_suitable_edge() 
 	assert_gt(distinct_row_widths.size(), 2)
 	assert_gt(generator.building_transforms().size(), blocks.size())
 
+func test_active_city_footprint_is_flattened_below_roads_and_buildings() -> void:
+	var generator := WorldGenerator.new()
+	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
+	var block_step := SCENARIO.city_size / float(SCENARIO.battlefield_layout().city_blocks)
+	for block: Dictionary in generator.city_block_layout():
+		var position: Vector3 = block.position
+		for offset: Vector2 in [Vector2.ZERO, Vector2(block_step * 0.4, block_step * 0.4), Vector2(-block_step * 0.4, block_step * 0.4), Vector2(block_step * 0.4, -block_step * 0.4), Vector2(-block_step * 0.4, -block_step * 0.4)]:
+			assert_almost_eq(generator.height_at(position.x + offset.x, position.z + offset.y), WorldGenerator.CITY_GROUND_HEIGHT, 0.25)
+
 func test_city_skyline_is_taller_near_the_center() -> void:
 	var generator := WorldGenerator.new()
 	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
@@ -78,6 +87,16 @@ func test_city_objective_uses_a_civic_landmark() -> void:
 	assert_not_null(city.get_node_or_null("CivicHall"))
 	assert_not_null(city.get_node_or_null("CivicTower"))
 	assert_gt((city.get_node("CoreMarker") as MeshInstance3D).position.y, 28.0)
+
+func test_tactical_units_use_a_smaller_presentation_scale_without_changing_profiles() -> void:
+	var defense := add_child_autofree(SCENARIO.available_defenses[0].scene.instantiate()) as DefenseUnit
+	defense.setup(1, SCENARIO.available_defenses[0])
+	var threat := add_child_autofree(SCENARIO.threat_entries[0].threat_definition.scene.instantiate()) as ThreatUnit
+	threat.setup(1, SCENARIO.threat_entries[0].threat_definition)
+	assert_eq(defense.scale, Vector3.ONE * DefenseUnit.PRESENTATION_SCALE)
+	assert_eq(threat.scale, Vector3.ONE * ThreatUnit.PRESENTATION_SCALE)
+	assert_eq(defense.definition.placement_profile.footprint_radius, SCENARIO.available_defenses[0].placement_profile.footprint_radius)
+	assert_eq(threat.definition.radar_signature, SCENARIO.threat_entries[0].threat_definition.radar_signature)
 
 func _average(values: Array[float]) -> float:
 	var total := 0.0

@@ -446,6 +446,7 @@ func _capture_missile_battery_variants() -> void:
 	for index: int in definitions.size():
 		var battery := definitions[index].scene.instantiate() as MissileBattery
 		main.effects_parent.add_child(battery)
+		battery.setup(-100 - index, definitions[index])
 		var position := center + Vector3((float(index) - 1.0) * 30.0, 0.0, 0.0)
 		position.y = main.battlefield.terrain_height(position.x, position.z)
 		battery.global_position = position

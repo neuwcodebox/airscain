@@ -6,6 +6,7 @@ signal weapon_fired(unit: DefenseUnit, low_resources: bool)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 const STATUS_MARKER_SCENE := preload("res://effects/unit_status_marker/unit_status_marker.tscn")
+const PRESENTATION_SCALE := 0.9
 
 enum C2Role { SENSOR = 1, COMMAND = 2, DEFENSE = 4, RELAY = 8 }
 
@@ -20,6 +21,7 @@ var damage_smoke: Node
 var status_marker: Node3D
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
+	scale = Vector3.ONE * PRESENTATION_SCALE
 	runtime_id = id_value
 	definition = definition_value
 	integrity = definition.maximum_integrity

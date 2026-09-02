@@ -1,6 +1,9 @@
 class_name WorldGenerator
 extends RefCounted
 
+const CITY_GROUND_HEIGHT := 10.0
+const CITY_PRESENTATION_SCALE := 0.9
+
 var size: float
 var resolution: int
 var city_size: float
@@ -8,6 +11,7 @@ var seed_value: int
 var heights: PackedFloat32Array
 var sea_level: float = 0.0
 var layout: BattlefieldLayoutDefinition
+var _city_blocks: Array[Dictionary] = []
 
 func generate(seed_input: int, size_input: float, resolution_input: int, city_size_input: float, layout_value: BattlefieldLayoutDefinition = null) -> void:
 	seed_value = seed_input
@@ -15,6 +19,7 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 	resolution = resolution_input
 	city_size = city_size_input
 	layout = layout_value if layout_value != null else BattlefieldLayoutDefinition.new()
+	_city_blocks.clear()
 	heights = PackedFloat32Array()
 	heights.resize(resolution * resolution)
 	var noise := FastNoiseLite.new()
@@ -37,7 +42,7 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 			var raw := noise.get_noise_2d(x, z) * layout.terrain_height_scale
 			var distance_from_city := Vector2(x, z).length()
 			var flatten := smoothstep(city_size * 0.27, city_size * 0.62, distance_from_city)
-			var land_height := maxf(raw * flatten + 10.0, sea_level + 6.0)
+			var land_height := maxf(raw * flatten + CITY_GROUND_HEIGHT, sea_level + 6.0)
 			var radial_distance := Vector2(x, z).length() / (size * 0.5)
 			var coast_angle := atan2(z, x)
 			var coast_radius_scale := 1.0 + sin(coast_angle * 3.0 + coast_phase_a) * 0.11 + sin(coast_angle * 5.0 + coast_phase_b) * 0.065 + coast_noise.get_noise_2d(x, z) * 0.075
@@ -47,6 +52,9 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 			var edge_falloff := smoothstep(0.9, 0.985, radial_distance)
 			var coast_falloff := maxf(shaped_falloff, edge_falloff)
 			heights[z_index * resolution + x_index] = lerpf(land_height, sea_level - 35.0, coast_falloff)
+	_city_blocks = _create_city_block_layout()
+	_flatten_city_footprint()
+	_refresh_city_block_heights()
 
 func height_at(x: float, z: float) -> float:
 	var half := size * 0.5
@@ -107,12 +115,15 @@ func building_transforms() -> Array[Transform3D]:
 			var width := rng.randf_range(width_limit * 0.78, width_limit)
 			var depth := rng.randf_range(depth_limit * 0.78, depth_limit)
 			var zone_height_scale := lerpf(0.32, 1.18, center_weight)
-			var height := clampf(rng.randf_range(layout.minimum_building_height, layout.maximum_building_height) * zone_height_scale, layout.minimum_building_height, layout.maximum_building_height * 1.08)
+			var height := clampf(rng.randf_range(layout.minimum_building_height, layout.maximum_building_height) * zone_height_scale, layout.minimum_building_height, layout.maximum_building_height * 1.08) * CITY_PRESENTATION_SCALE
 			var basis := Basis.IDENTITY.scaled(Vector3(width, height, depth))
 			result.append(Transform3D(basis, Vector3(x, height * 0.5 + height_at(x, z), z)))
 	return result
 
 func city_block_layout() -> Array[Dictionary]:
+	return _city_blocks.duplicate(true)
+
+func _create_city_block_layout() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var block_count := layout.city_blocks
 	var block_step := city_size / float(block_count)
@@ -139,6 +150,35 @@ func city_block_layout() -> Array[Dictionary]:
 					"normalized_distance": normalized_distance,
 				})
 	return result
+
+func _flatten_city_footprint() -> void:
+	var block_step := city_size / float(layout.city_blocks)
+	var terrain_step := size / float(resolution - 1)
+	var block_half_extent := block_step * 0.54 + terrain_step * 0.75
+	var feather_distance := block_step * 0.72
+	for z_index: int in resolution:
+		for x_index: int in resolution:
+			var x := _grid_world(x_index)
+			var z := _grid_world(z_index)
+			var flatten_weight := 0.0
+			for block: Dictionary in _city_blocks:
+				var position: Vector3 = block.position
+				var outside_x := maxf(absf(x - position.x) - block_half_extent, 0.0)
+				var outside_z := maxf(absf(z - position.z) - block_half_extent, 0.0)
+				var distance := Vector2(outside_x, outside_z).length()
+				flatten_weight = maxf(flatten_weight, 1.0 - smoothstep(0.0, feather_distance, distance))
+				if is_equal_approx(flatten_weight, 1.0):
+					break
+			var height_index := z_index * resolution + x_index
+			heights[height_index] = lerpf(heights[height_index], CITY_GROUND_HEIGHT, flatten_weight)
+
+func _refresh_city_block_heights() -> void:
+	for index: int in _city_blocks.size():
+		var block: Dictionary = _city_blocks[index]
+		var position: Vector3 = block.position
+		position.y = height_at(position.x, position.z)
+		block.position = position
+		_city_blocks[index] = block
 
 func _grid_world(index: int) -> float:
 	return -size * 0.5 + size * float(index) / float(resolution - 1)

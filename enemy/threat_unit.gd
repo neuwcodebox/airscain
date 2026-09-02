@@ -3,6 +3,8 @@ extends Node3D
 
 signal resolved(threat: ThreatUnit, neutralized: bool, reward: int)
 
+const PRESENTATION_SCALE := 0.9
+
 var runtime_id: int
 var definition: ThreatDefinition
 var active: bool = true
@@ -12,6 +14,7 @@ var enemy_knowledge: EnemyKnowledge
 var countermeasure_charges_remaining: int = 0
 
 func setup(id_value: int, definition_value: ThreatDefinition) -> void:
+	scale = Vector3.ONE * PRESENTATION_SCALE
 	runtime_id = id_value
 	definition = definition_value
 	countermeasure_charges_remaining = definition.countermeasure_charges
