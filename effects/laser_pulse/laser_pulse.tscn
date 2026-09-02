@@ -1,15 +1,75 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource path="res://effects/laser_pulse/laser_pulse.gd" type="Script" id="1"]
 
 [sub_resource type="StandardMaterial3D" id="BeamMaterial"]
+transparency = 1
 shading_mode = 0
-albedo_color = Color(0.18, 0.95, 1, 1)
+albedo_color = Color(0.72, 0.98, 1, 1)
 emission_enabled = true
-emission = Color(0.05, 0.8, 1, 1)
+emission = Color(0.18, 0.9, 1, 1)
+emission_energy_multiplier = 24.0
+
+[sub_resource type="StandardMaterial3D" id="GlowMaterial"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+albedo_color = Color(0.05, 0.72, 1, 0.16)
+emission_enabled = true
+emission = Color(0.02, 0.55, 1, 0.24)
+emission_energy_multiplier = 12.0
+
+[sub_resource type="StandardMaterial3D" id="FlashMaterial"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+albedo_color = Color(0.65, 0.96, 1, 0.82)
+emission_enabled = true
+emission = Color(0.12, 0.82, 1, 1)
+emission_energy_multiplier = 28.0
+
+[sub_resource type="CylinderMesh" id="BeamMesh"]
+material = SubResource("BeamMaterial")
+top_radius = 0.16
+bottom_radius = 0.16
+height = 1.0
+radial_segments = 8
+
+[sub_resource type="CylinderMesh" id="GlowMesh"]
+material = SubResource("GlowMaterial")
+top_radius = 0.72
+bottom_radius = 0.72
+height = 1.0
+radial_segments = 10
+
+[sub_resource type="SphereMesh" id="FlashMesh"]
+material = SubResource("FlashMaterial")
+radius = 0.9
+height = 1.8
+radial_segments = 10
+rings = 6
 
 [node name="LaserPulse" type="Node3D"]
 script = ExtResource("1")
 
 [node name="Beam" type="MeshInstance3D" parent="."]
+mesh = SubResource("BeamMesh")
 material_override = SubResource("BeamMaterial")
+
+[node name="GlowBeam" type="MeshInstance3D" parent="."]
+mesh = SubResource("GlowMesh")
+material_override = SubResource("GlowMaterial")
+
+[node name="SourceFlash" type="MeshInstance3D" parent="."]
+mesh = SubResource("FlashMesh")
+material_override = SubResource("FlashMaterial")
+
+[node name="ImpactFlash" type="MeshInstance3D" parent="."]
+scale = Vector3(1.35, 1.35, 1.35)
+mesh = SubResource("FlashMesh")
+material_override = SubResource("FlashMaterial")
+
+[node name="ImpactLight" type="OmniLight3D" parent="."]
+light_color = Color(0.3, 0.88, 1, 1)
+light_energy = 12.0
+omni_range = 24.0

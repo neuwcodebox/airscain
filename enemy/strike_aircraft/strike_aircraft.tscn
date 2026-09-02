@@ -22,7 +22,7 @@ shading_mode = 0
 albedo_color = Color(1, 0.58, 0.14, 0.92)
 emission_enabled = true
 emission = Color(1, 0.16, 0.01, 1)
-emission_energy_multiplier = 6.0
+emission_energy_multiplier = 12.0
 
 [sub_resource type="SphereMesh" id="EngineMesh"]
 material = SubResource("EngineMaterial")
@@ -101,13 +101,13 @@ material_override = SubResource("EngineMaterial")
 [node name="LeftEngineLight" type="OmniLight3D" parent="Body"]
 position = Vector3(-1.25, 0, 8.4)
 light_color = Color(1, 0.28, 0.04, 1)
-light_energy = 9.0
+light_energy = 13.0
 omni_range = 28.0
 
 [node name="RightEngineLight" type="OmniLight3D" parent="Body"]
 position = Vector3(1.25, 0, 8.4)
 light_color = Color(1, 0.28, 0.04, 1)
-light_energy = 9.0
+light_energy = 13.0
 omni_range = 28.0
 
 [node name="LeftExhaustTrail" type="GPUParticles3D" parent="Body"]

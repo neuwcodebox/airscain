@@ -942,6 +942,13 @@ func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	assert_true(threat.resolved_state)
 	assert_lt(laser.energy_state.energy, starting_energy)
 	assert_gt(laser.energy_state.heat, 0.0)
+	var pulse := main.projectile_parent.get_node_or_null("LaserPulse") as LaserPulse
+	assert_not_null(pulse)
+	assert_true((main.get_node("WorldEnvironment") as WorldEnvironment).environment.glow_enabled)
+	assert_true((pulse.get_node("Beam") as MeshInstance3D).mesh is CylinderMesh)
+	assert_gt(((pulse.get_node("GlowBeam") as MeshInstance3D).mesh as CylinderMesh).top_radius, ((pulse.get_node("Beam") as MeshInstance3D).mesh as CylinderMesh).top_radius)
+	assert_gte(((pulse.get_node("Beam") as MeshInstance3D).material_override as StandardMaterial3D).emission_energy_multiplier, 20.0)
+	assert_gt((pulse.get_node("ImpactLight") as OmniLight3D).light_energy, 0.0)
 
 func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor

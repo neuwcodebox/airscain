@@ -33,6 +33,11 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	if OS.get_cmdline_user_args().has("--capture-light-only"):
+		await _capture_hdr_light_vfx()
+		print("VISUAL_CAPTURE_OK hdr_explosion laser_glow")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-city-status-only"):
 		await _capture_city_smoke_and_ammo_status()
 		print("VISUAL_CAPTURE_OK city_damage_smoke ammo_depleted_status")
@@ -280,6 +285,33 @@ func _spawn_swarm_near_close_in_gun() -> void:
 		threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
 		main.registry.add(threat)
 		main._on_threat_spawned(threat)
+
+func _capture_hdr_light_vfx() -> void:
+	var environment := (main.get_node("WorldEnvironment") as WorldEnvironment).environment
+	if not environment.glow_enabled or environment.glow_strength < 0.75:
+		push_error("HDR glow environment was not enabled strongly enough")
+		quit(1)
+		return
+	var center := main.objective.global_position + Vector3(0.0, 82.0, 260.0)
+	var laser_from := center + Vector3(-92.0, -18.0, 0.0)
+	var laser_to := center + Vector3(36.0, 18.0, 0.0)
+	var pulse := preload("res://effects/laser_pulse/laser_pulse.tscn").instantiate() as LaserPulse
+	main.projectile_parent.add_child(pulse)
+	pulse.setup(laser_from, laser_to)
+	var explosion := preload("res://effects/explosion/explosion.tscn").instantiate() as ExplosionEffect
+	main.effects_parent.add_child(explosion)
+	explosion.global_position = center + Vector3(92.0, 8.0, -12.0)
+	explosion.setup(Color(1.0, 0.3, 0.04), 12.0)
+	main.camera_rig.camera.global_position = center + Vector3(15.0, 72.0, 190.0)
+	main.camera_rig.camera.look_at(center, Vector3.UP)
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	await process_frame
+	if not is_instance_valid(pulse) or not (pulse.get_node("Beam") as MeshInstance3D).mesh is CylinderMesh:
+		push_error("Laser pulse did not render a volumetric core")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_hdr_light_vfx.png")
 
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position

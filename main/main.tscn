@@ -28,6 +28,13 @@ ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.73, 0.82, 1)
 ambient_light_energy = 0.72
 tonemap_mode = 2
+glow_enabled = true
+glow_normalized = true
+glow_intensity = 0.8
+glow_strength = 0.8
+glow_bloom = 0.15
+glow_hdr_threshold = 1.5
+glow_hdr_scale = 2.0
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1")
