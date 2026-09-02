@@ -74,7 +74,7 @@ func set_selected(enabled: bool) -> void:
 	_apply_selection()
 
 func _apply_selection() -> void:
-	icon.text = "%s\nT-%03d" % [base_icon_text, track.track_id] if selected and track != null else base_icon_text
+	icon.text = base_icon_text
 	icon.outline_size = 12 if selected else 8
 	icon.scale = Vector3.ONE * (1.18 if selected else 1.0)
 

@@ -103,7 +103,7 @@ func run() -> void:
 		return
 	for index: int in 3:
 		await process_frame
-	if not main.hud.selected_track_label.text.contains("T-"):
+	if main.hud.selected_track_label.text.is_empty() or not main.hud.selected_track_label.visible:
 		push_error("Selected track detail panel was not populated")
 		quit(1)
 		return

@@ -44,9 +44,12 @@ const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전
 @onready var feedback_label: Label = %FeedbackLabel
 @onready var game_over_panel: PanelContainer = %GameOverPanel
 @onready var final_stats: Label = %FinalStats
+@onready var final_combat_stats: Label = %FinalCombatStats
+@onready var final_network_stats: Label = %FinalNetworkStats
 @onready var selected_asset_panel: PanelContainer = %SelectedAssetPanel
 @onready var selected_asset_label: Label = %SelectedAssetLabel
 @onready var selected_track_label: Label = %SelectedTrackLabel
+@onready var relation_legend: Label = %RelationLegend
 @onready var hold_fire_button: CheckButton = %HoldFireButton
 @onready var engage_unknown_button: CheckButton = %EngageUnknownButton
 @onready var priority_target_button: Button = %PriorityTargetButton
@@ -110,8 +113,10 @@ func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Arr
 func set_feedback(message: String) -> void:
 	feedback_label.text = message
 
-func set_final_stats(text: String) -> void:
-	final_stats.text = text
+func set_final_stats(stats: Dictionary) -> void:
+	final_stats.text = String(stats.get("summary", ""))
+	final_combat_stats.text = String(stats.get("combat", ""))
+	final_network_stats.text = String(stats.get("network", ""))
 
 func _process(_delta: float) -> void:
 	if selected_asset != null and is_instance_valid(selected_asset):
@@ -174,11 +179,25 @@ func set_selected_track(track: PlayerTrack, can_prioritize: bool, sensor_count: 
 	selected_asset_panel.visible = selected_asset != null or track != null
 	focus_button.visible = selected_asset != null or track != null
 	if track == null:
-		selected_track_label.text = "항적을 클릭해 상세 확인"
+		selected_track_label.visible = false
+		relation_legend.visible = false
 		priority_target_button.disabled = true
 		return
-	selected_track_label.text = "T-%03d  %s · %s\n분류 %s %d%% · 소속 %d%%\n추적 %d%% · 오차 ±%dm · 속도 %dm/s\n센서 %d · 교전 자산 %d" % [track.track_id, _track_state_text(track.state), _affiliation_text(track), String(track.classification).to_upper(), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0), roundi(track.position_uncertainty), roundi(track.estimated_velocity.length()), sensor_count, engagement_count]
+	selected_track_label.visible = true
+	relation_legend.visible = true
+	selected_track_label.text = "%s %s · %s\n분류 확신 %d%% · 소속 확신 %d%%\n추적 품질 %d%% · 오차 ±%dm · 속도 %dm/s\n센서 %d · 교전 자산 %d" % [_affiliation_text(track), _classification_text(track.classification), _track_state_text(track.state), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0), roundi(track.position_uncertainty), roundi(track.estimated_velocity.length()), sensor_count, engagement_count]
 	priority_target_button.disabled = not can_prioritize
+
+func _classification_text(classification: StringName) -> String:
+	match classification:
+		&"uav": return "무인기"
+		&"small_uav": return "소형 무인기"
+		&"cruise_missile": return "순항미사일"
+		&"ballistic_missile": return "탄도미사일"
+		&"rocket": return "로켓"
+		&"strike_aircraft", &"aircraft": return "고속 항공기"
+		&"air_contact": return "항공 접촉"
+	return "미분류 표적" if classification.is_empty() else String(classification).replace("_", " ").capitalize()
 
 func _track_state_text(state: PlayerTrack.State) -> String:
 	match state:

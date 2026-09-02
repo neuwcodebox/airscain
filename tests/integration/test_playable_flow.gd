@@ -223,16 +223,22 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	var track: PlayerTrack = main.player_knowledge.call("get_active_tracks")[0]
 	assert_true(main.engagement_coordinator.try_reserve(track.track_id, radar.runtime_id, 2.0))
 	main._on_asset_selected(radar)
+	assert_false(main.hud.selected_track_label.visible)
 	var marker_screen_position := main.camera_rig.camera.unproject_position(track.estimated_position + Vector3.UP * 12.0)
 	main._on_world_selected(Vector3(900.0, 0.0, 900.0), marker_screen_position)
 	main.track_display._process(0.0)
 	var marker := main.track_display.markers[track.track_id] as TrackMarker
 	assert_true(marker.selected)
-	assert_string_contains(marker.icon.text, "T-%03d" % track.track_id)
+	assert_false(marker.icon.text.contains("T-"))
 	assert_not_null(main.track_display.selection_lines.mesh)
 	assert_eq(main.track_display.selection_details(), {"sensor_count": 1, "engagement_count": 1})
 	assert_true(main.hud.selected_asset_panel.visible)
+	assert_string_contains(main.hud.selected_track_label.text, "무인기")
 	assert_string_contains(main.hud.selected_track_label.text, "센서 1 · 교전 자산 1")
+	var stable_panel_width := main.hud.selected_asset_panel.size.x
+	track.classification_confidence = 0.09
+	main.hud.set_selected_track(track, false, 1, 1)
+	assert_eq(main.hud.selected_asset_panel.size.x, stable_panel_width)
 	assert_eq(int(main.tactical_screen_overlay.get("selected_track_id")), track.track_id)
 	main._on_focus_requested()
 	assert_almost_eq(main.camera_rig.global_position.x, track.estimated_position.x, 0.01)
@@ -421,8 +427,9 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_string_contains(main.hud.final_stats.text, "방어 구간")
 	assert_string_contains(main.hud.final_stats.text, "도시 피해")
-	assert_string_contains(main.hud.final_stats.text, "방공망")
-	assert_string_contains(main.hud.final_stats.text, "최종 구성")
+	assert_string_contains(main.hud.final_combat_stats.text, "무력화")
+	assert_string_contains(main.hud.final_network_stats.text, "가동 자산")
+	assert_lt(main.hud.final_stats.text.length(), 100)
 
 func test_swarm_entry_spawns_a_close_formation_package() -> void:
 	main.registry.clear()

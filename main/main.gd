@@ -241,7 +241,7 @@ func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 		return
 	director.enabled = false
 	session.end_game()
-	hud.set_final_stats(_final_statistics_text())
+	hud.set_final_stats(_final_statistics())
 	placement.cancel()
 
 func _on_pressure_changed(level: int) -> void:
@@ -277,37 +277,26 @@ func _spawn_explosion(position: Vector3, color: Color, radius: float) -> void:
 	effect.global_position = position
 	effect.setup(color, radius)
 
-func _final_statistics_text() -> String:
+func _final_statistics() -> Dictionary:
 	var neutralized_parts: Array[String] = []
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
 		var count := int(session.neutralized_by_type.get(String(entry.threat_definition.id), 0))
 		if count > 0:
 			neutralized_parts.append("%s %d" % [entry.threat_definition.display_name, count])
-	var composition: Dictionary[String, int] = {}
 	var operational_count := 0
 	var asset_damage := 0
 	for defense: DefenseUnit in defenses:
 		if not is_instance_valid(defense):
 			continue
-		var name := defense.definition.display_name
-		composition[name] = composition.get(name, 0) + 1
 		if defense.active:
 			operational_count += 1
 		asset_damage += roundi(defense.definition.maximum_integrity - defense.integrity)
-	var composition_parts: Array[String] = []
-	for name: String in composition:
-		composition_parts.append("%s %d" % [name, composition[name]])
-	var total_spending := session.defense_spending + session.support_spending
-	var exchange_ratio := float(session.neutralized_reward_total) / float(maxi(1, total_spending))
-	var neutralized_text := _parts_in_rows(neutralized_parts, 4) if not neutralized_parts.is_empty() else "없음"
-	var composition_text := _parts_in_rows(composition_parts, 4) if not composition_parts.is_empty() else "없음"
-	return "생존 시간  %02d:%02d · 방어 구간 %d\n무력화한 위협  %d\n%s\n도시 피해 %d · 자산 피해 %d\n무기 발사/펄스 %d회\n방공망 $%d · 지원 $%d · 보상 $%d · 교환 %.2f\n최고 공격 강도 %d\n최종 구성 · 가동 %d / %d\n%s" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.completed_attack_windows, session.neutralized_count, neutralized_text, objective.definition.maximum_integrity - objective.current_integrity, asset_damage, session.weapon_fire_count, session.defense_spending, session.support_spending, session.neutralized_reward_total, exchange_ratio, session.highest_pressure, operational_count, session.defense_count, composition_text]
-
-func _parts_in_rows(parts: Array[String], row_size: int) -> String:
-	var rows: Array[String] = []
-	for start: int in range(0, parts.size(), row_size):
-		rows.append(", ".join(parts.slice(start, mini(parts.size(), start + row_size))))
-	return "\n".join(rows)
+	var neutralized_text := " · ".join(neutralized_parts.slice(0, mini(3, neutralized_parts.size()))) if not neutralized_parts.is_empty() else "없음"
+	return {
+		"summary": "생존  %02d:%02d\n방어 구간  %d\n최고 강도  %d\n도시 피해  %d" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.completed_attack_windows, session.highest_pressure, objective.definition.maximum_integrity - objective.current_integrity],
+		"combat": "무력화  %d\n무기 운용  %d회\n\n주요 격추\n%s" % [session.neutralized_count, session.weapon_fire_count, neutralized_text],
+		"network": "가동 자산  %d / %d\n자산 피해  %d\n\n방공망  $%d\n지원  $%d\n회수 보상  $%d" % [operational_count, session.defense_count, asset_damage, session.defense_spending, session.support_spending, session.neutralized_reward_total],
+	}
 
 func _on_restart_requested(same_seed: bool) -> void:
 	if same_seed:

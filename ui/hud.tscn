@@ -271,7 +271,7 @@ anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 18.0
 offset_top = -520.0
-offset_right = 286.0
+offset_right = 398.0
 offset_bottom = -18.0
 grow_vertical = 0
 mouse_filter = 1
@@ -283,11 +283,13 @@ theme_override_constants/separation = 7
 
 [node name="SelectedAssetLabel" type="Label" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(350, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
 theme_override_font_sizes/font_size = 17
 text = "선택 자산"
 vertical_alignment = 1
+autowrap_mode = 2
 
 [node name="SelectedTrackLabel" type="Label" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
@@ -296,8 +298,10 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.8, 1)
 theme_override_font_sizes/font_size = 15
 text = "항적을 클릭해 상세 확인"
+autowrap_mode = 2
 
 [node name="RelationLegend" type="Label" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.78, 0.84, 1)
 theme_override_font_sizes/font_size = 13
@@ -357,10 +361,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -230.0
-offset_top = -185.0
-offset_right = 230.0
-offset_bottom = 185.0
+offset_left = -390.0
+offset_top = -235.0
+offset_right = 390.0
+offset_bottom = 235.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
@@ -377,13 +381,67 @@ theme_override_font_sizes/font_size = 34
 text = "도시 기능 상실"
 horizontal_alignment = 1
 
-[node name="FinalStats" type="Label" parent="GameOverPanel/VBox"]
+[node name="StatColumns" type="HBoxContainer" parent="GameOverPanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 28
+
+[node name="Outcome" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns"]
+custom_minimum_size = Vector2(210, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Outcome"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.42, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "작전 결과"
+
+[node name="FinalStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Outcome"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 17
 text = "최종 통계"
-horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Combat" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Combat"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.72, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+text = "교전 성과"
+
+[node name="FinalCombatStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Combat"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 17
+text = "교전 통계"
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="Network" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Network"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.52, 0.92, 0.64, 1)
+theme_override_font_sizes/font_size = 20
+text = "방공망"
+
+[node name="FinalNetworkStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Network"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 17
+text = "방공망 통계"
 vertical_alignment = 1
 
 [node name="SameSeedButton" type="Button" parent="GameOverPanel/VBox"]
