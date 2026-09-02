@@ -2,7 +2,7 @@ class_name AirscainMain
 extends Node3D
 
 enum GameMode { SUSTAINED, TRAINING, SANDBOX }
-enum TrainingStep { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, DOCTRINE, SUPPORT, RESUPPLY, OVERLAY, COMPLETE }
+enum TrainingStep { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, OVERLAY, COMPLETE }
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
@@ -23,6 +23,8 @@ var save_path: String = SaveStore.DEFAULT_PATH
 var tactical_ui_refresh_remaining: float = 0.0
 var game_mode: GameMode = GameMode.SUSTAINED
 var training_step: int = 0
+var training_threat_runtime_id: int = 0
+var training_approach_marker: Label3D
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -85,6 +87,7 @@ func _ready() -> void:
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:
+		_create_training_approach_marker()
 		_set_training_step(TrainingStep.CAMERA)
 	elif game_mode == GameMode.SANDBOX:
 		hud.set_feedback("샌드박스 · 자산은 무제한이며 목록에서 위협을 골라 지도에 투입할 수 있습니다")
@@ -178,6 +181,7 @@ func _on_start_requested() -> void:
 	if session.start_defense():
 		director.enabled = game_mode == GameMode.SUSTAINED
 		if game_mode == GameMode.TRAINING:
+			session.set_simulation_speed(1.0)
 			_set_training_step(TrainingStep.ACQUIRE)
 			_spawn_training_threat()
 		elif game_mode == GameMode.SANDBOX:
@@ -214,6 +218,9 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 		_spawn_falling_wreck(threat)
 	combat_audio.call("play_event", &"explosion", 0.8 if neutralized else 1.0)
 	_spawn_explosion(threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
+	if game_mode == GameMode.TRAINING and threat.runtime_id == training_threat_runtime_id and training_step == TrainingStep.ENGAGE:
+		session.set_simulation_speed(0.0)
+		_set_training_step(TrainingStep.SUPPORT)
 	threat.queue_free()
 
 func _leaves_falling_wreck(threat: ThreatUnit) -> bool:
@@ -384,6 +391,9 @@ func _refresh_tactical_ui() -> void:
 		warnings.append("도시 기능 위험")
 	hud.set_tactical_alert(hostile_count, engagement_coordinator.reservations.size(), warnings)
 	if game_mode == GameMode.TRAINING and training_step == TrainingStep.ACQUIRE and hostile_count > 0:
+		session.set_simulation_speed(0.0)
+		if training_approach_marker != null:
+			training_approach_marker.visible = false
 		_set_training_step(TrainingStep.SELECT_TRACK)
 	if selected_track != null:
 		_refresh_selected_track_panel()
@@ -406,7 +416,8 @@ func _on_hold_fire_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.has_method("set_hold_fire"):
 		selected_asset.call("set_hold_fire", enabled)
 		if game_mode == GameMode.TRAINING and training_step == TrainingStep.DOCTRINE and not enabled:
-			_set_training_step(TrainingStep.SUPPORT)
+			session.set_simulation_speed(1.0)
+			_set_training_step(TrainingStep.ENGAGE)
 
 func _on_engage_unknown_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.has_method("set_engage_unknown"):
@@ -495,11 +506,17 @@ func _advance_training_after_placement(unit: DefenseUnit) -> void:
 		_set_training_step(TrainingStep.WEAPON)
 	elif training_step == TrainingStep.WEAPON and unit is MissileBattery:
 		(unit as MissileBattery).set_hold_fire(true)
+		hud.refresh_selected_asset()
 		_set_training_step(TrainingStep.START)
 	elif training_step == TrainingStep.SUPPORT and unit is SupportFacility:
 		var battery := _training_battery()
 		if battery != null:
-			battery.magazine.reserve = 0
+			for munition_magazine: WeaponMagazine in battery.magazines.values():
+				munition_magazine.reserve = 0
+		selected_asset = null
+		c2_overlay.select_asset(null)
+		hud.set_selected_asset(null, 0)
+		hud.set_selected_track(null, false)
 		_set_training_step(TrainingStep.RESUPPLY)
 
 func _on_training_next_requested() -> void:
@@ -510,31 +527,34 @@ func _set_training_step(step: TrainingStep) -> void:
 	training_step = step
 	match step:
 		TrainingStep.CAMERA:
-			hud.set_training_lesson(1, 12, "전장 살펴보기", "WASD로 이동하고 마우스 휠로 확대·축소해 도시와 주변 섬 지형을 확인하세요.", true)
+			hud.set_training_lesson(1, 13, "전장 살펴보기", "WASD로 이동하고 마우스 휠로 확대·축소하세요. 섬 동쪽의 '훈련 표적 진입 방향' 표시도 확인하세요.", true)
 		TrainingStep.RADAR:
-			hud.set_training_lesson(2, 12, "탐색 센서", "오른쪽 목록에서 탐색 레이더를 선택해 도시 주변 평탄한 지형에 배치하세요.")
+			hud.set_training_lesson(2, 13, "탐색 센서", "표적은 섬 동쪽에서 옵니다. 오른쪽 목록의 탐색 레이더를 도시 동쪽 평탄한 지형에 배치하세요.")
 		TrainingStep.COMMAND:
-			hud.set_training_lesson(3, 12, "지휘통제 연결", "지휘통제소를 레이더와 연결될 거리 안에 배치해 항적 공유 경로를 만드세요.")
+			hud.set_training_lesson(3, 13, "지휘통제 연결", "지휘통제소를 레이더와 연결될 거리 안에 배치해 항적 공유 경로를 만드세요.")
 		TrainingStep.WEAPON:
-			hud.set_training_lesson(4, 12, "요격 계층", "미사일 포대를 지휘통제망 안에 배치하세요. 훈련을 위해 처음에는 사격중지 상태가 됩니다.")
+			hud.set_training_lesson(4, 13, "요격 계층", "미사일 포대를 도시와 동쪽 진입 방향 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다.")
 		TrainingStep.START:
-			hud.set_training_lesson(5, 12, "방어 시작", "오른쪽 아래의 방어 시작을 눌러 통제된 단일 표적 훈련을 시작하세요.")
+			hud.set_training_lesson(5, 13, "방어 시작", "오른쪽 아래의 방어 시작을 누르세요. 표적 탐지까지 훈련이 자동 재생됩니다.")
 		TrainingStep.ACQUIRE:
-			hud.set_training_lesson(6, 12, "탐지와 항적", "레이더가 실제 표적을 관측해 확인 항적을 만들 때까지 기다리세요. 실제 객체와 항적 표식은 별개입니다.")
+			hud.set_training_lesson(6, 13, "탐지와 항적 · 자동 재생", "동쪽에서 오는 표적을 레이더가 확인할 때까지 관찰하세요. 확인 즉시 자동 일시정지됩니다.")
 		TrainingStep.SELECT_TRACK:
-			hud.set_training_lesson(7, 12, "항적 선택", "지도에 나타난 적성 항적 표식을 클릭해 분류·소속·추적 품질을 확인하세요.")
+			hud.set_training_lesson(7, 13, "항적 선택 · 일시정지", "지도에 나타난 적성 항적 표식을 클릭해 분류·소속·추적 품질을 확인하세요.")
 		TrainingStep.SELECT_ASSET:
-			hud.set_training_lesson(8, 12, "방어자산 선택", "배치한 미사일 포대를 클릭해 탄약, C2 연결과 교전규칙을 확인하세요.")
+			hud.set_training_lesson(8, 13, "방어자산 선택 · 일시정지", "배치한 미사일 포대를 클릭해 탄약, C2 연결과 교전규칙을 확인하세요.")
 		TrainingStep.DOCTRINE:
-			hud.set_training_lesson(9, 12, "자동교전 허용", "선택 패널에서 켜져 있는 사격중지를 해제하세요. 포대가 공유 항적을 자동으로 교전합니다.")
+			hud.set_training_lesson(9, 13, "자동교전 허용 · 일시정지", "선택 패널에서 체크된 사격중지를 해제하세요. 해제하면 자동 재생됩니다.")
+		TrainingStep.ENGAGE:
+			hud.set_training_lesson(10, 13, "자동교전 관찰 · 자동 재생", "포대가 선회·조준하고 표적을 요격하는 과정을 관찰하세요. 교전 종료 후 자동 일시정지됩니다.")
 		TrainingStep.SUPPORT:
-			hud.set_training_lesson(10, 12, "군수지원", "군수지원시설을 배치하세요. 이후 포대의 소진된 예비탄을 지원 작업으로 보충합니다.")
+			hud.set_training_lesson(11, 13, "군수지원 · 일시정지", "군수지원시설을 배치하세요. 배치 후 포대의 예비탄을 훈련용으로 소진시킵니다.")
 		TrainingStep.RESUPPLY:
-			hud.set_training_lesson(11, 12, "재보급 작업", "미사일 포대를 다시 선택하고 재보급 요청을 눌러 지원 대기열에 작업을 넣으세요.")
+			hud.set_training_lesson(12, 13, "재보급 작업 · 일시정지", "미사일 포대를 다시 선택하세요. 활성화된 재보급 요청을 눌러 지원 대기열에 작업을 넣으세요.")
 		TrainingStep.OVERLAY:
-			hud.set_training_lesson(12, 12, "전술 오버레이", "상단의 범위 없음 버튼을 눌러 센서·교전·지원 또는 C2 오버레이를 확인하세요.")
+			hud.set_training_lesson(13, 13, "전술 오버레이 · 일시정지", "상단의 범위 없음 버튼을 눌러 센서·교전·지원 또는 C2 오버레이를 확인하세요.")
 		TrainingStep.COMPLETE:
-			hud.set_training_lesson(12, 12, "훈련 완료", "핵심 운용을 완료했습니다. 배치와 교전규칙을 바꾸며 자유롭게 연습하거나 Esc로 메인 메뉴에 돌아가세요.")
+			session.set_simulation_speed(1.0)
+			hud.set_training_lesson(13, 13, "훈련 완료 · 재생", "핵심 운용을 완료했습니다. 자유롭게 연습하거나 Esc로 메인 메뉴에 돌아가세요.")
 
 func _spawn_training_threat() -> void:
 	var battery := _training_battery()
@@ -548,15 +568,26 @@ func _spawn_training_threat() -> void:
 	var threat := director._spawn_entry(scenario.threat_entries[0], 0.0, 0.0)
 	if threat == null:
 		return
-	var away := radar.global_position - objective.global_position
-	away.y = 0.0
-	if away.length_squared() < 0.01:
-		away = Vector3.RIGHT
-	away = away.normalized()
-	var position := radar.global_position + away * 420.0
+	training_threat_runtime_id = threat.runtime_id
+	var position := objective.global_position + Vector3.RIGHT * 560.0
 	threat.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z) + 80.0, position.z)
 	if threat is AttackUav:
 		(threat as AttackUav).speed_multiplier = 0.45
+	if training_approach_marker != null:
+		training_approach_marker.text = "훈련 표적 진입 중  ←"
+
+func _create_training_approach_marker() -> void:
+	training_approach_marker = Label3D.new()
+	training_approach_marker.name = "TrainingApproachMarker"
+	training_approach_marker.text = "훈련 표적 진입 방향  ←"
+	training_approach_marker.font_size = 42
+	training_approach_marker.outline_size = 10
+	training_approach_marker.modulate = Color(1.0, 0.76, 0.18)
+	training_approach_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	training_approach_marker.no_depth_test = true
+	effects_parent.add_child(training_approach_marker)
+	var position := objective.global_position + Vector3.RIGHT * 560.0
+	training_approach_marker.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z) + 24.0, position.z)
 
 func _training_battery() -> MissileBattery:
 	for defense: DefenseUnit in defenses:

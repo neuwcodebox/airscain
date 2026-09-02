@@ -117,6 +117,10 @@ func _process(_delta: float) -> void:
 	if selected_asset != null and is_instance_valid(selected_asset):
 		_refresh_selected_asset_label()
 
+func refresh_selected_asset() -> void:
+	if selected_asset != null and is_instance_valid(selected_asset):
+		set_selected_asset(selected_asset, selected_asset_connection_count)
+
 func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
 	selected_asset = unit
 	selected_asset_connection_count = connection_count
