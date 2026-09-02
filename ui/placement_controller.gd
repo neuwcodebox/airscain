@@ -3,7 +3,7 @@ extends Node3D
 
 signal feedback_changed(message: String)
 signal asset_selected(unit: DefenseUnit)
-signal world_selected(position: Vector3)
+signal world_selected(position: Vector3, screen_position: Vector2)
 signal sandbox_threat_placement_requested(definition: ThreatDefinition, position: Vector3)
 
 var session: GameSession
@@ -89,7 +89,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				var hit := _terrain_hit(get_viewport().get_mouse_position())
 				if not hit.is_empty():
 					if pick_asset_at(hit.position) == null:
-						world_selected.emit(hit.position)
+						world_selected.emit(hit.position, get_viewport().get_mouse_position())
 		return
 	if event.is_action_pressed("cancel_placement"):
 		cancel()

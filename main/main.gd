@@ -326,15 +326,31 @@ func _on_overlay_requested(mode: StringName) -> void:
 	if game_mode == GameMode.TRAINING and training_step == TrainingStep.OVERLAY and mode != &"none":
 		_set_training_step(TrainingStep.COMPLETE)
 
-func _on_world_selected(position: Vector3) -> void:
+func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.INF) -> void:
 	var nearest_distance := 32.0
 	selected_track = null
 	var tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	if screen_position.is_finite():
+		var nearest_screen_distance := 34.0
+		for track: PlayerTrack in tracks:
+			if camera_rig.camera.is_position_behind(track.estimated_position):
+				continue
+			var track_screen_position := camera_rig.camera.unproject_position(track.estimated_position + Vector3.UP * 12.0)
+			var screen_distance := track_screen_position.distance_to(screen_position)
+			if screen_distance < nearest_screen_distance:
+				nearest_screen_distance = screen_distance
+				selected_track = track
 	for track: PlayerTrack in tracks:
+		if selected_track != null:
+			break
 		var flat_distance := Vector2(track.estimated_position.x - position.x, track.estimated_position.z - position.z).length()
 		if flat_distance < nearest_distance:
 			nearest_distance = flat_distance
 			selected_track = track
+	if selected_track == null:
+		selected_asset = null
+		c2_overlay.select_asset(null)
+		hud.set_selected_asset(null, 0)
 	track_display.select_track(selected_track)
 	tactical_screen_overlay.select_track(selected_track)
 	_refresh_selected_track_panel()

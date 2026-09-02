@@ -5,6 +5,7 @@ var objective: ProtectedObjective
 var battlefield: Battlefield
 var target_point: Vector3
 var speed_multiplier: float = 1.0
+var orbit_angle: float = 0.0
 var mover := ThreatMover.new()
 var mission_runtime := ThreatMissionRuntime.new()
 var _definition: AttackUavDefinition
@@ -28,9 +29,15 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 func gameplay_tick(delta: float) -> void:
 	if not active or resolved_state:
 		return
-	target_point = mission_runtime.navigation_target()
+	var mission_target := mission_runtime.navigation_target()
+	target_point = mission_target
 	var holding_for_recon := _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and mission_runtime.phase == ThreatMissionRuntime.Phase.ACTING
-	if not holding_for_recon:
+	if holding_for_recon:
+		orbit_angle = fposmod(orbit_angle + delta * 0.45, TAU)
+		var orbit_radius := clampf(_definition.mission.action_distance * 0.65, 35.0, 180.0)
+		var orbit_target := mission_target + Vector3(cos(orbit_angle) * orbit_radius, _definition.movement.cruise_altitude, sin(orbit_angle) * orbit_radius)
+		mover.advance(self, body, orbit_target, speed_multiplier, delta)
+	else:
 		mover.advance(self, body, target_point, speed_multiplier, delta)
 	var had_applied_effect := mission_runtime.effect_applied
 	if mission_runtime.gameplay_tick(global_position, delta):
@@ -50,6 +57,7 @@ func capture_content_state() -> Dictionary:
 	return {
 		"target_point": SaveDocument.vector3_to_data(target_point),
 		"speed_multiplier": speed_multiplier,
+		"orbit_angle": orbit_angle,
 		"movement": mover.capture_state(),
 		"mission": mission_runtime.capture_state(),
 	}
@@ -59,6 +67,7 @@ func restore_content_state(state: Dictionary, objective_value: ProtectedObjectiv
 	battlefield = battlefield_value
 	target_point = SaveDocument.vector3_from_data(state.get("target_point", []))
 	speed_multiplier = float(state.get("speed_multiplier", 1.0))
+	orbit_angle = float(state.get("orbit_angle", 0.0))
 	mover.restore_state(state.get("movement", {}), _definition.movement, battlefield)
 	mission_runtime.restore_state(state.get("mission", {}), _definition.mission, objective, defense_by_id)
 

@@ -206,7 +206,9 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	radar.gameplay_tick(0.8)
 	var track: PlayerTrack = main.player_knowledge.call("get_active_tracks")[0]
 	assert_true(main.engagement_coordinator.try_reserve(track.track_id, radar.runtime_id, 2.0))
-	main._on_world_selected(track.estimated_position)
+	main._on_asset_selected(radar)
+	var marker_screen_position := main.camera_rig.camera.unproject_position(track.estimated_position + Vector3.UP * 12.0)
+	main._on_world_selected(Vector3(900.0, 0.0, 900.0), marker_screen_position)
 	main.track_display._process(0.0)
 	var marker := main.track_display.markers[track.track_id] as TrackMarker
 	assert_true(marker.selected)
@@ -219,6 +221,21 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main._on_focus_requested()
 	assert_almost_eq(main.camera_rig.global_position.x, track.estimated_position.x, 0.01)
 	assert_almost_eq(main.camera_rig.global_position.z, track.estimated_position.z, 0.01)
+	main._on_world_selected(Vector3(900.0, 0.0, 900.0), Vector2(4.0, 4.0))
+	assert_null(main.selected_track)
+	assert_null(main.selected_asset)
+	assert_false(main.hud.selected_asset_panel.visible)
+
+func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
+	main.registry.clear()
+	var threat := main.director._spawn_entry(main.scenario.threat_entries[7], 0.0, 0.0) as AttackUav
+	var mission_target := threat.mission_runtime.navigation_target()
+	threat.global_position = mission_target + Vector3(80.0, 90.0, 0.0)
+	threat.mission_runtime.phase = ThreatMissionRuntime.Phase.ACTING
+	var starting_position := threat.global_position
+	threat.gameplay_tick(0.5)
+	assert_gt(threat.global_position.distance_to(starting_position), 0.1)
+	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.ACTING)
 
 func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> void:
 	var radar_definition := main.scenario.available_defenses[1]
