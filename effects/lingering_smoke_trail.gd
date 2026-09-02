@@ -1,5 +1,5 @@
 class_name LingeringSmokeTrail
-extends GPUParticles3D
+extends "res://effects/shadowed_smoke_particles.gd"
 
 @export_range(0.5, 20.0, 0.5) var sample_spacing: float = 3.0
 @export_range(1, 4, 1) var particles_per_sample: int = 1
@@ -18,8 +18,8 @@ var smoke_material: StandardMaterial3D
 var initial_material_alpha: float = 1.0
 
 func _ready() -> void:
+	super._ready()
 	_make_draw_material_unique()
-	set_process(false)
 
 func release_to(new_parent: Node) -> void:
 	if new_parent == null or not is_instance_valid(new_parent):
@@ -47,13 +47,16 @@ func sample_world_segment(from_position: Vector3, to_position: Vector3) -> void:
 		for particle_index: int in particles_per_sample:
 			var phase := float(emitted_sample_count + particle_index) * 2.399963
 			var offset := Vector3(cos(phase), sin(phase * 0.73) * 0.55, sin(phase)) * sample_radius
-			emit_particle(Transform3D(Basis.IDENTITY, world_position + offset), Vector3.ZERO, Color.WHITE, Color.WHITE, EMIT_FLAG_POSITION)
+			emit_smoke_particle(Transform3D(Basis.IDENTITY, world_position + offset), Vector3.ZERO, Color.WHITE, Color.WHITE, EMIT_FLAG_POSITION)
 			emitted_sample_count += 1
 		last_emitted_world_position = world_position
 		cursor += sample_spacing
 	sample_remainder = fposmod(sample_remainder + distance, sample_spacing)
 
 func _process(delta: float) -> void:
+	super._process(delta)
+	if release_remaining < 0.0:
+		return
 	release_elapsed += delta
 	release_remaining -= delta
 	var fade_progress := clampf(release_elapsed / release_fade_duration, 0.0, 1.0)
@@ -81,3 +84,4 @@ func _set_opacity_ratio(ratio: float) -> void:
 	var color := smoke_material.albedo_color
 	color.a = initial_material_alpha * current_opacity_ratio
 	smoke_material.albedo_color = color
+	set_shadow_opacity_ratio(current_opacity_ratio)

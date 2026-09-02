@@ -47,7 +47,7 @@ func run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--capture-smoke-shadow-only"):
 		await _capture_smoke_ground_shadow()
-		print("VISUAL_CAPTURE_OK smoke_ground_shadow shadow_capable_transparency")
+		print("VISUAL_CAPTURE_OK smoke_ground_shadow gradual_shadow_fade")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
@@ -641,7 +641,6 @@ func _capture_smoke_ground_shadow() -> void:
 	(interceptor.get_node("Trail") as MeshInstance3D).visible = false
 	(interceptor.get_node("FlameLight") as OmniLight3D).visible = false
 	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
-	smoke.emitting = false
 	var center := main.objective.global_position + Vector3(-340.0, 0.0, -80.0)
 	var ground_height := main.battlefield.terrain_height(center.x, center.z)
 	var smoke_height := ground_height + 28.0
@@ -657,14 +656,26 @@ func _capture_smoke_ground_shadow() -> void:
 	main.camera_rig.camera.global_position = center + Vector3(0.0, 115.0, 145.0)
 	main.camera_rig.camera.look_at(Vector3(center.x, ground_height + 12.0, center.z), Vector3.UP)
 	smoke.speed_scale = 0.0
-	for frame_index: int in 4:
+	for frame_index: int in 60:
 		await process_frame
 	_save_capture("/tmp/airscain_smoke_ground_shadow.png")
-	smoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
+	smoke_shadow.visible = false
 	for frame_index: int in 4:
 		await process_frame
 	_save_capture("/tmp/airscain_smoke_without_shadow.png")
-	smoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	smoke_shadow.visible = true
+	smoke.release_to(main.effects_parent)
+	smoke._process(smoke.release_fade_duration * 0.5)
+	for frame_index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_smoke_shadow_half_faded.png")
+	smoke._process(smoke.release_fade_duration * 0.35)
+	for frame_index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_smoke_shadow_near_end.png")
+	if smoke.current_shadow_opacity_ratio >= 0.1:
+		push_error("Smoke shadow opacity did not fade continuously with visible smoke")
 
 func _capture_surface_strike_smoke() -> void:
 	main.hud.visible = false

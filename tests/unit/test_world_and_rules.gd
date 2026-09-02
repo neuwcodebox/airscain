@@ -238,7 +238,9 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(smoke.preprocess, 0.0)
 	assert_false(smoke.local_coords)
 	assert_eq(smoke.fixed_fps, 30)
-	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
+	assert_eq(smoke_shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 	assert_gte(smoke.visibility_aabb.size.y, 220.0)
 	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeMiddle"))
 	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeUpper"))
@@ -280,7 +282,7 @@ func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	assert_eq(objective.damage_smoke_effects.size(), 2)
 	assert_almost_eq(objective.damage_smoke_effects.back().global_position, surface_impact, Vector3.ONE * 0.001)
 
-func test_all_smoke_particles_use_shadow_casting_materials() -> void:
+func test_all_smoke_particles_use_smooth_visible_materials_and_dithered_shadow_casters() -> void:
 	var smoke_cases: Array[Dictionary] = [
 		{"scene": preload("res://defense/missile_battery/homing_interceptor.tscn"), "paths": ["SmokeTrail"]},
 		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "paths": ["Body/ExhaustTrail"]},
@@ -295,11 +297,18 @@ func test_all_smoke_particles_use_shadow_casting_materials() -> void:
 		var effect: Node = add_child_autofree((smoke_case.scene as PackedScene).instantiate())
 		for path: String in smoke_case.paths:
 			var particles := effect.get_node(path) as GPUParticles3D
-			assert_eq(particles.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s must cast shadows" % path)
+			assert_eq(particles.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s visible pass must not cast thresholded shadows" % path)
 			var mesh := particles.draw_pass_1 as Mesh
 			var material := mesh.surface_get_material(0) as StandardMaterial3D
-			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS, "%s must use shadow-capable transparency" % path)
+			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS, "%s must keep smooth visible transparency" % path)
 			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % path)
+			var shadow := particles.get_node("SmokeShadow") as GPUParticles3D
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s shadow proxy must cast" % path)
+			assert_eq(shadow.process_material, particles.process_material, "%s shadow motion must match visible smoke" % path)
+			var shadow_mesh := shadow.draw_pass_1 as Mesh
+			var shadow_material := shadow_mesh.surface_get_material(0) as ShaderMaterial
+			assert_not_null(shadow_material, "%s shadow opacity must use the shadow-pass shader" % path)
+			assert_eq(shadow_material.shader.resource_path, "res://effects/smoke_shadow.gdshader")
 
 func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield

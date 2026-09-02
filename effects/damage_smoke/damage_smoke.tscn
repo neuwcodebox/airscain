@@ -1,6 +1,7 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource path="res://effects/damage_smoke/damage_smoke.gd" type="Script" id="1"]
+[ext_resource path="res://effects/shadowed_smoke_particles.gd" type="Script" id="2"]
 
 [sub_resource type="Gradient" id="SmokeGradient"]
 offsets = PackedFloat32Array(0, 0.03, 0.55, 0.82, 1)
@@ -88,6 +89,7 @@ visibility_aabb = AABB(-70, -10, -70, 180, 220, 180)
 cast_shadow = 1
 process_material = SubResource("SmokeProcess")
 draw_pass_1 = SubResource("SmokeMesh")
+script = ExtResource("2")
 
 [node name="Fire" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0.45, 0)

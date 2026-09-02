@@ -1,6 +1,7 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource path="res://effects/interceptor_miss/interceptor_miss.gd" type="Script" id="1"]
+[ext_resource path="res://effects/shadowed_smoke_particles.gd" type="Script" id="2"]
 
 [sub_resource type="StandardMaterial3D" id="FlashMaterial"]
 transparency = 1
@@ -56,6 +57,7 @@ visibility_aabb = AABB(-12, -12, -12, 24, 24, 24)
 cast_shadow = 1
 process_material = SubResource("SmokeProcess")
 draw_pass_1 = SubResource("SmokeMesh")
+script = ExtResource("2")
 
 [node name="Reason" type="Label3D" parent="."]
 position = Vector3(0, 5, 0)

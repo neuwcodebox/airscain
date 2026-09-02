@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource path="res://effects/falling_wreck/falling_wreck.gd" type="Script" id="1"]
+[ext_resource path="res://effects/shadowed_smoke_particles.gd" type="Script" id="2"]
 
 [sub_resource type="StandardMaterial3D" id="WreckMaterial"]
 albedo_color = Color(0.2, 0.18, 0.16, 1)
@@ -69,6 +70,7 @@ local_coords = false
 cast_shadow = 1
 process_material = SubResource("SmokeProcess")
 draw_pass_1 = SubResource("SmokeMesh")
+script = ExtResource("2")
 
 [node name="ImpactFlash" type="MeshInstance3D" parent="."]
 visible = false
