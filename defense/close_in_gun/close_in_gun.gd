@@ -76,6 +76,7 @@ func resupply_work() -> float:
 	return _definition.resupply_work
 
 func _fire_burst(track: PlayerTrack) -> void:
+	weapon_fired.emit(self, combat_resource_low())
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"gun")
 	var tracer := TRACER_SCENE.instantiate() as TracerBurst

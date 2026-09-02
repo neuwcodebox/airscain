@@ -41,6 +41,26 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.threat_entries[11].threat_definition.id, &"strike_aircraft")
 	assert_false(main.session.start_defense())
 
+func test_combat_audio_synthesizes_and_throttles_distinct_events() -> void:
+	var streams: Dictionary = main.combat_audio.get("streams")
+	assert_eq(streams.size(), 6)
+	for stream: AudioStreamWAV in streams.values():
+		assert_gt(stream.data.size(), 1000)
+	assert_eq((main.combat_audio.get("players") as Array).size(), 8)
+	assert_true(main.combat_audio.call("play_event", &"contact", 0.5))
+	assert_false(main.combat_audio.call("play_event", &"contact", 0.5))
+	main.combat_audio.call("_process", 0.5)
+	assert_true(main.combat_audio.call("play_event", &"contact", 0.5))
+	main._on_pressure_changed(3)
+	assert_eq(int(main.combat_audio.call("played_count", &"pressure")), 1)
+	var result: Dictionary = main.session.request_placement(main.scenario.available_defenses[0], _find_valid_position_for(main.scenario.available_defenses[0].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var unit := result.unit as DefenseUnit
+	unit.weapon_fired.emit(unit, true)
+	assert_eq(int(main.combat_audio.call("played_count", &"launch")), 1)
+	assert_eq(int(main.combat_audio.call("played_count", &"low_ammo")), 1)
+	unit.receive_damage(50.0)
+	assert_eq(int(main.combat_audio.call("played_count", &"damage")), 1)
+
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
 	var placement_position := _find_valid_position_for(radar_definition.placement_profile)
@@ -248,6 +268,8 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_not_null(falling_wreck)
 	assert_not_null(explosion)
 	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
+	assert_gt(int(main.combat_audio.call("played_count", &"launch")), 0)
+	assert_gt(int(main.combat_audio.call("played_count", &"explosion")), 0)
 	assert_eq(main.session.neutralized_count, 1)
 	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, battery.runtime_id)
 	assert_true(main.enemy_knowledge.recent_outcomes.back().neutralized)

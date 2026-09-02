@@ -27,6 +27,7 @@ var tactical_ui_refresh_remaining: float = 0.0
 @onready var power_manager: PowerManager = $PowerManager
 @onready var relocation_manager: RelocationManager = $RelocationManager
 @onready var enemy_knowledge: EnemyKnowledge = $EnemyKnowledge
+@onready var combat_audio: Node = $CombatAudio
 @onready var track_display: TrackDisplay = $WorldObjects/TacticalTracks
 @onready var c2_overlay: C2Overlay = $WorldObjects/C2Overlay
 @onready var tactical_range_overlay: Node = $WorldObjects/TacticalRangeOverlay
@@ -145,6 +146,8 @@ func _connect_flow() -> void:
 	hud.load_requested.connect(_on_load_requested)
 	hud.focus_requested.connect(_on_focus_requested)
 	player_knowledge.connect("track_removed", _on_track_removed)
+	player_knowledge.connect("track_created", _on_track_contact_audio)
+	objective.integrity_changed.connect(_on_objective_integrity_audio)
 
 func _on_start_requested() -> void:
 	if session.start_defense():
@@ -164,6 +167,8 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	support_manager.register_asset(unit)
 	power_manager.register_asset(unit)
 	relocation_manager.register_asset(unit)
+	unit.weapon_fired.connect(_on_weapon_fired_audio)
+	unit.damage_received.connect(_on_defense_damage_audio)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.configure_enemy_knowledge(enemy_knowledge)
@@ -175,6 +180,7 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	session.register_threat_resolution(threat, neutralized, reward)
 	if neutralized and _leaves_falling_wreck(threat):
 		_spawn_falling_wreck(threat)
+	combat_audio.call("play_event", &"explosion", 0.8 if neutralized else 1.0)
 	_spawn_explosion(threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
 	threat.queue_free()
 
@@ -201,6 +207,22 @@ func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 func _on_pressure_changed(level: int) -> void:
 	session.update_pressure(level)
 	hud.set_pressure(level)
+	combat_audio.call("play_event", &"pressure", clampf(0.45 + float(level) * 0.04, 0.45, 1.0))
+
+func _on_track_contact_audio(_track: PlayerTrack) -> void:
+	combat_audio.call("play_event", &"contact", 0.55)
+
+func _on_weapon_fired_audio(_unit: DefenseUnit, low_resources: bool) -> void:
+	combat_audio.call("play_event", &"launch", 0.52)
+	if low_resources:
+		combat_audio.call("play_event", &"low_ammo", 0.7)
+
+func _on_defense_damage_audio(_unit: DefenseUnit, _amount: float, integrity_ratio: float) -> void:
+	combat_audio.call("play_event", &"damage", clampf(1.1 - integrity_ratio, 0.45, 1.0))
+
+func _on_objective_integrity_audio(current: int, maximum: int) -> void:
+	var damage_ratio := 1.0 - float(current) / maxf(1.0, float(maximum))
+	combat_audio.call("play_event", &"damage", clampf(0.55 + damage_ratio, 0.55, 1.0))
 
 func _spawn_explosion(position: Vector3, color: Color, radius: float) -> void:
 	var effect := EXPLOSION_SCENE.instantiate() as ExplosionEffect

@@ -2,6 +2,7 @@ class_name DefenseUnit
 extends Node3D
 
 signal damage_received(unit: DefenseUnit, amount: float, integrity_ratio: float)
+signal weapon_fired(unit: DefenseUnit, low_resources: bool)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 
@@ -66,6 +67,9 @@ func resource_status_text() -> String:
 	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
 		status += " · %s" % relocation_manager.task_status(self)
 	return status
+
+func combat_resource_low() -> bool:
+	return false
 
 func receive_damage(amount: float) -> bool:
 	if amount <= 0.0 or integrity <= 0.0:

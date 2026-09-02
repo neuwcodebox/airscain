@@ -5,6 +5,7 @@ const MAIN_SCENE := preload("res://main/main.tscn")
 var main: AirscainMain
 
 func _init() -> void:
+	AudioServer.set_bus_mute(0, true)
 	call_deferred("run")
 
 func run() -> void:

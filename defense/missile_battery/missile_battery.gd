@@ -173,6 +173,7 @@ func _launch(track: PlayerTrack, munition: MissileMunitionDefinition = null) -> 
 		enemy_knowledge.record_engagement(self, &"missile")
 	if munition == null:
 		munition = _definition.munitions[0]
+	weapon_fired.emit(self, combat_resource_low())
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = launch_point.global_position

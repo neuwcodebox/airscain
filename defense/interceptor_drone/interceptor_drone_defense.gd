@@ -55,6 +55,7 @@ func _select_track() -> PlayerTrack:
 	return null
 
 func _launch(track: PlayerTrack) -> InterceptorDrone:
+	weapon_fired.emit(self, false)
 	var drone := DRONE_SCENE.instantiate() as InterceptorDrone
 	projectile_parent.add_child(drone)
 	drone.global_position = launch_point.global_position

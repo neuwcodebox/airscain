@@ -70,6 +70,9 @@ func ammunition_needs_resupply() -> bool:
 func ammunition_reserve_ratio() -> float:
 	return float(magazine.reserve) / maxf(1.0, float(magazine.reserve_capacity))
 
+func combat_resource_low() -> bool:
+	return uses_ammunition() and ammunition_reserve_ratio() <= 0.2
+
 func complete_resupply() -> void:
 	magazine.refill_reserve()
 

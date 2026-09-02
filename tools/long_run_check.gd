@@ -19,6 +19,7 @@ var spawned_by_type: Dictionary[String, int] = {}
 var leaked_by_type: Dictionary[String, int] = {}
 
 func _init() -> void:
+	AudioServer.set_bus_mute(0, true)
 	call_deferred("run")
 
 func run() -> void:
@@ -48,6 +49,11 @@ func run() -> void:
 		_fail("simulation did not reach target duration")
 		return
 	print("LONG_RUN_OK time=%.1f neutralized=%d defenses=%d pressure=%d active=%d integrity=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.session.highest_pressure, main.registry.count(), main.objective.current_integrity])
+	main.set_process(false)
+	main.combat_audio.call("stop_all")
+	main.free()
+	for index: int in 3:
+		await process_frame
 	quit(0)
 
 func _apply_requested_seed() -> void:

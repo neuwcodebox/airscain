@@ -45,6 +45,7 @@ func _select_track() -> PlayerTrack:
 	return null
 
 func _fire_pulse(track: PlayerTrack) -> int:
+	weapon_fired.emit(self, false)
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"hpm")
 	var flat_target := Vector3(track.estimated_position.x, turret.global_position.y, track.estimated_position.z)
