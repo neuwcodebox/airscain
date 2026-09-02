@@ -34,6 +34,10 @@ func test_battlefield_builds_paved_blocks_and_road_grid() -> void:
 	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
 	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneX0"))
 	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneZ0"))
+	assert_gt(battlefield.city_window_band_count, 300)
+	assert_gt(battlefield.city_rooftop_detail_count, 20)
+	assert_gt(battlefield.city_amenity_count, 0)
+	assert_not_null(battlefield.city_visuals.get_node_or_null("FacadeWindows"))
 
 func _average(values: Array[float]) -> float:
 	var total := 0.0

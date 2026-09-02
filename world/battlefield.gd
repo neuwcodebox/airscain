@@ -11,6 +11,9 @@ var rooftop_pads: Array[Dictionary] = []
 var battlefield_size: float = 2400.0
 var city_block_surface_count: int = 0
 var city_road_width: float = 11.0
+var city_window_band_count: int = 0
+var city_amenity_count: int = 0
+var city_rooftop_detail_count: int = 0
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -28,7 +31,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	ocean_mesh.size = Vector2.ONE * scenario.battlefield_size * OCEAN_SIZE_MULTIPLIER
 	ocean.position.y = generator.sea_level
 	_build_city_ground(scenario.city_size, layout.city_blocks)
-	_build_city_visuals(generator.building_transforms(), layout.rooftop_spacing)
+	_build_city_visuals(generator.building_transforms(), layout.rooftop_spacing, scenario.city_size, layout.city_blocks)
 
 func set_objective(objective_value: ProtectedObjective) -> void:
 	objective = objective_value
@@ -94,9 +97,13 @@ func clear_occupancy() -> void:
 	occupied_positions.clear()
 	occupied_radii.clear()
 
-func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int) -> void:
+func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, city_size: float, block_count: int) -> void:
 	rooftop_pads.clear()
-	var palette: Array[Color] = [Color("8795a1"), Color("a6adb4"), Color("77828a"), Color("c0aa8d")]
+	city_window_band_count = 0
+	city_amenity_count = 0
+	city_rooftop_detail_count = 0
+	var palette: Array[Color] = [Color("8f7868"), Color("b8ad99"), Color("78838b"), Color("aa9274"), Color("c4c0b5"), Color("6f7a80")]
+	var facade_bands: Array[Transform3D] = []
 	for index: int in transforms.size():
 		var building := MeshInstance3D.new()
 		building.name = "Building%d" % index
@@ -109,8 +116,138 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int) -
 		material.roughness = 0.85
 		building.material_override = material
 		city_visuals.add_child(building)
+		_add_building_architecture(index, transforms[index], material, index % rooftop_spacing == 0)
+		_append_facade_bands(transforms[index], facade_bands)
 		if index % rooftop_spacing == 0:
 			_build_rooftop_pad(index, transforms[index])
+	_build_facade_multimesh(facade_bands)
+	_build_city_amenities(transforms, city_size, block_count)
+
+func _add_building_architecture(index: int, building_transform: Transform3D, facade_material: StandardMaterial3D, reserves_rooftop: bool) -> void:
+	var building_size := building_transform.basis.get_scale()
+	var ground_y := building_transform.origin.y - building_size.y * 0.5
+	var podium_height := minf(7.0, building_size.y * 0.22)
+	if index % 3 == 0:
+		_add_city_box("Podium%d" % index, Vector3(building_size.x + 2.4, podium_height, building_size.z + 2.4), Vector3(building_transform.origin.x, ground_y + podium_height * 0.5, building_transform.origin.z), facade_material)
+	var roof_material := StandardMaterial3D.new()
+	roof_material.albedo_color = facade_material.albedo_color.darkened(0.24)
+	roof_material.roughness = 0.88
+	var roof_y := ground_y + building_size.y
+	_add_city_box("RoofCap%d" % index, Vector3(building_size.x + 0.7, 0.6, building_size.z + 0.7), Vector3(building_transform.origin.x, roof_y + 0.3, building_transform.origin.z), roof_material)
+	if reserves_rooftop:
+		return
+	if building_size.y >= 28.0 and index % 2 == 0:
+		var crown_height := clampf(building_size.y * 0.12, 3.0, 7.0)
+		_add_city_box("Penthouse%d" % index, Vector3(building_size.x * 0.5, crown_height, building_size.z * 0.48), Vector3(building_transform.origin.x, roof_y + crown_height * 0.5 + 0.6, building_transform.origin.z), roof_material)
+		city_rooftop_detail_count += 1
+	else:
+		for unit_index: int in 2:
+			var offset_x := (-0.22 if unit_index == 0 else 0.22) * building_size.x
+			_add_city_box("Hvac%d_%d" % [index, unit_index], Vector3(3.0, 1.8, 2.4), Vector3(building_transform.origin.x + offset_x, roof_y + 1.2, building_transform.origin.z), roof_material)
+			city_rooftop_detail_count += 1
+
+func _append_facade_bands(building_transform: Transform3D, bands: Array[Transform3D]) -> void:
+	var building_size := building_transform.basis.get_scale()
+	var ground_y := building_transform.origin.y - building_size.y * 0.5
+	var floor_count := clampi(floori(building_size.y / 6.0), 2, 12)
+	for floor_index: int in floor_count:
+		var y := ground_y + minf(building_size.y - 2.0, 3.5 + float(floor_index) * 5.5)
+		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(building_size.x * 0.72, 0.72, 0.12)), Vector3(building_transform.origin.x, y, building_transform.origin.z + building_size.z * 0.5 + 0.07)))
+		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(building_size.x * 0.72, 0.72, 0.12)), Vector3(building_transform.origin.x, y, building_transform.origin.z - building_size.z * 0.5 - 0.07)))
+		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.12, 0.72, building_size.z * 0.72)), Vector3(building_transform.origin.x + building_size.x * 0.5 + 0.07, y, building_transform.origin.z)))
+		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.12, 0.72, building_size.z * 0.72)), Vector3(building_transform.origin.x - building_size.x * 0.5 - 0.07, y, building_transform.origin.z)))
+
+func _build_facade_multimesh(bands: Array[Transform3D]) -> void:
+	if bands.is_empty():
+		return
+	var window_material := StandardMaterial3D.new()
+	window_material.albedo_color = Color("263c48")
+	window_material.metallic = 0.22
+	window_material.roughness = 0.3
+	window_material.emission_enabled = true
+	window_material.emission = Color("102630")
+	window_material.emission_energy_multiplier = 0.6
+	var window_mesh := BoxMesh.new()
+	window_mesh.size = Vector3.ONE
+	window_mesh.material = window_material
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = window_mesh
+	multimesh.instance_count = bands.size()
+	for index: int in bands.size():
+		multimesh.set_instance_transform(index, bands[index])
+	var windows := MultiMeshInstance3D.new()
+	windows.name = "FacadeWindows"
+	windows.multimesh = multimesh
+	city_visuals.add_child(windows)
+	city_window_band_count = bands.size()
+
+func _build_city_amenities(buildings: Array[Transform3D], city_size: float, block_count: int) -> void:
+	var block_step := city_size / float(block_count)
+	var center := float(block_count - 1) * 0.5
+	for bz: int in block_count:
+		for bx: int in block_count:
+			var block_center := Vector3((float(bx) - center) * block_step, 0.0, (float(bz) - center) * block_step)
+			if _block_has_building(block_center, buildings, block_step * 0.42):
+				continue
+			block_center.y = generator.height_at(block_center.x, block_center.z) + 0.58
+			if bx == int(center) and bz == int(center) or (bx + bz) % 2 == 0:
+				_build_park("Park%d_%d" % [bx, bz], block_center, block_step - city_road_width - 4.0)
+			else:
+				_build_parking_lot("Parking%d_%d" % [bx, bz], block_center, block_step - city_road_width - 4.0)
+			city_amenity_count += 1
+
+func _block_has_building(block_center: Vector3, buildings: Array[Transform3D], radius: float) -> bool:
+	for building: Transform3D in buildings:
+		if Vector2(building.origin.x - block_center.x, building.origin.z - block_center.z).length() <= radius:
+			return true
+	return false
+
+func _build_park(park_name: String, center: Vector3, size: float) -> void:
+	var lawn_material := StandardMaterial3D.new()
+	lawn_material.albedo_color = Color("446b43")
+	lawn_material.roughness = 1.0
+	_add_city_box(park_name, Vector3(size, 0.22, size), center, lawn_material)
+	var trunk_material := StandardMaterial3D.new()
+	trunk_material.albedo_color = Color("5b4532")
+	var crown_material := StandardMaterial3D.new()
+	crown_material.albedo_color = Color("355b39")
+	crown_material.roughness = 0.95
+	var offsets: Array[Vector2] = [Vector2(-0.27, -0.24), Vector2(0.25, -0.18), Vector2(-0.2, 0.26), Vector2(0.24, 0.25)]
+	for tree_index: int in offsets.size():
+		var tree_position := center + Vector3(offsets[tree_index].x * size, 0.0, offsets[tree_index].y * size)
+		var trunk := MeshInstance3D.new()
+		trunk.name = "%sTreeTrunk%d" % [park_name, tree_index]
+		var trunk_mesh := CylinderMesh.new()
+		trunk_mesh.top_radius = 0.45
+		trunk_mesh.bottom_radius = 0.65
+		trunk_mesh.height = 4.2
+		trunk.mesh = trunk_mesh
+		trunk.position = tree_position + Vector3.UP * 2.2
+		trunk.material_override = trunk_material
+		city_visuals.add_child(trunk)
+		var crown := MeshInstance3D.new()
+		crown.name = "%sTreeCrown%d" % [park_name, tree_index]
+		var crown_mesh := SphereMesh.new()
+		crown_mesh.radius = 2.4
+		crown_mesh.height = 4.8
+		crown_mesh.radial_segments = 7
+		crown_mesh.rings = 4
+		crown.mesh = crown_mesh
+		crown.position = tree_position + Vector3.UP * 5.2
+		crown.material_override = crown_material
+		city_visuals.add_child(crown)
+
+func _build_parking_lot(lot_name: String, center: Vector3, size: float) -> void:
+	var lot_material := StandardMaterial3D.new()
+	lot_material.albedo_color = Color("45494b")
+	lot_material.roughness = 0.95
+	_add_city_box(lot_name, Vector3(size, 0.18, size), center, lot_material)
+	var stripe_material := StandardMaterial3D.new()
+	stripe_material.albedo_color = Color("d8d5c6")
+	for stripe_index: int in 7:
+		var x := center.x - size * 0.38 + float(stripe_index) * size * 0.125
+		_add_city_box("%sStripe%d" % [lot_name, stripe_index], Vector3(0.22, 0.05, size * 0.38), Vector3(x, center.y + 0.13, center.z), stripe_material)
 
 func _build_city_ground(city_size: float, block_count: int) -> void:
 	for child: Node in city_visuals.get_children():
