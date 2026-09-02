@@ -404,7 +404,9 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	await _wait_simulation_seconds(2.4)
 	var lower_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
 	var upper_smoke := main.objective.damage_smoke_effects[0].get_node("SmokeUpper") as GPUParticles3D
-	if not upper_smoke.emitting or upper_smoke.global_position.y - lower_smoke.global_position.y < 16.0:
+	var lower_process := lower_smoke.process_material as ParticleProcessMaterial
+	var upper_process := upper_smoke.process_material as ParticleProcessMaterial
+	if not upper_smoke.emitting or upper_smoke.lifetime <= lower_smoke.lifetime or upper_process.initial_velocity_min <= lower_process.initial_velocity_min or upper_process.gravity.x <= lower_process.gravity.x:
 		push_error("City smoke did not maintain a rising upper plume")
 		quit(1)
 		return
@@ -433,6 +435,16 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	main.camera_rig.camera.look_at(gun.global_position + Vector3.UP * 11.0, Vector3.UP)
 	await _wait_seconds(0.2)
 	_save_capture("/tmp/airscain_ammo_depleted_status.png")
+	gun.receive_damage(gun.definition.maximum_integrity * 0.5)
+	gun._process(0.0)
+	if gun.damage_smoke == null or label.text != "손상":
+		push_error("Damaged unit did not expose smoke and a damage status marker")
+		quit(1)
+		return
+	main.camera_rig.camera.global_position = gun.global_position + Vector3(48.0, 34.0, 62.0)
+	main.camera_rig.camera.look_at(gun.global_position + Vector3.UP * 18.0, Vector3.UP)
+	await _wait_simulation_seconds(3.0)
+	_save_capture("/tmp/airscain_damaged_unit_smoke.png")
 
 func _capture_missile_battery_variants() -> void:
 	var definitions: Array[MissileBatteryDefinition] = [

@@ -83,6 +83,8 @@ func combat_resource_low() -> bool:
 func critical_status_text() -> String:
 	if not active:
 		return "×"
+	if operational_ratio() < 0.75:
+		return "손상"
 	return ""
 
 func receive_damage(amount: float) -> bool:
