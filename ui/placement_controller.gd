@@ -114,16 +114,26 @@ func _unhandled_input(event: InputEvent) -> void:
 				request_selected_sandbox_threat_placement()
 				get_viewport().set_input_as_handled()
 				return
-			var result: Dictionary
-			if relocating_unit != null:
-				var moved := relocation_manager.request_relocation(relocating_unit, candidate_position)
-				result = {"success": moved, "reason": "재배치 시작" if moved else "재배치할 수 없습니다"}
-			else:
-				result = session.request_placement(selected, candidate_position, battlefield, defense_parent, registry, projectile_parent)
-			feedback_changed.emit(result.reason)
-			if result.success:
-				cancel()
+			request_selected_defense_placement()
 			get_viewport().set_input_as_handled()
+
+func request_selected_defense_placement() -> bool:
+	if selected == null:
+		return false
+	var result: Dictionary
+	if relocating_unit != null:
+		var moved := relocation_manager.request_relocation(relocating_unit, candidate_position)
+		result = {"success": moved, "reason": "재배치 시작" if moved else "재배치할 수 없습니다"}
+	else:
+		result = session.request_placement(selected, candidate_position, battlefield, defense_parent, registry, projectile_parent)
+	feedback_changed.emit(result.reason)
+	if not result.success:
+		return false
+	if session.unlimited_budget and relocating_unit == null:
+		feedback_changed.emit("배치 완료 · 계속 좌클릭해 추가 배치")
+	else:
+		cancel()
+	return true
 
 func request_selected_sandbox_threat_placement() -> bool:
 	if selected_threat == null:

@@ -153,7 +153,27 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_true(sandbox.hud.sandbox_threat_option.visible)
 	assert_true(sandbox.hud.save_button.disabled)
 	var starting_budget := sandbox.session.budget
-	assert_true(_place_for(sandbox, sandbox.scenario.available_defenses[10]).success)
+	var defense_definition := sandbox.scenario.available_defenses[10]
+	var defense_positions: Array[Vector3] = []
+	for z: int in range(-420, 421, 30):
+		for x: int in range(-420, 421, 30):
+			var position := Vector3(float(x), sandbox.battlefield.terrain_height(float(x), float(z)), float(z))
+			if sandbox.battlefield.placement_result(position, defense_definition.placement_profile).valid:
+				defense_positions.append(position)
+				if defense_positions.size() == 2:
+					break
+		if defense_positions.size() == 2:
+			break
+	assert_eq(defense_positions.size(), 2)
+	sandbox.placement.select(defense_definition)
+	sandbox.placement.candidate_position = defense_positions[0]
+	assert_true(sandbox.placement.request_selected_defense_placement())
+	assert_same(sandbox.placement.selected, defense_definition)
+	assert_not_null(sandbox.placement.preview)
+	sandbox.placement.candidate_position = defense_positions[1]
+	assert_true(sandbox.placement.request_selected_defense_placement())
+	assert_same(sandbox.placement.selected, defense_definition)
+	assert_not_null(sandbox.placement.preview)
 	assert_eq(sandbox.session.budget, starting_budget)
 	var definition: ThreatDefinition = sandbox.scenario.threat_entries[0].threat_definition
 	var hostile_count := sandbox.registry.hostile_count()
@@ -173,6 +193,15 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_almost_eq(second_threat.global_position.x, 520.0, 0.001)
 	assert_almost_eq(second_threat.global_position.z, -80.0, 0.001)
 	assert_same(sandbox.placement.selected_threat, definition)
+	var replacement_definition: ThreatDefinition = sandbox.scenario.threat_entries[1].threat_definition
+	var replacement_index := sandbox.hud.threat_definitions.find(replacement_definition)
+	sandbox.hud.sandbox_threat_option.select(replacement_index)
+	sandbox.hud.sandbox_threat_option.item_selected.emit(replacement_index)
+	assert_same(sandbox.placement.selected_threat, replacement_definition)
+	assert_not_null(sandbox.placement.preview)
+	sandbox.placement.candidate_position = Vector3(610.0, 0.0, 40.0)
+	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
+	assert_same(sandbox.registry.get_hostile_active().back().definition, replacement_definition)
 	sandbox._on_start_requested()
 	assert_false(sandbox.director.enabled)
 

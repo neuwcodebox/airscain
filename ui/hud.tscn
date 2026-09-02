@@ -473,6 +473,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/SaveButton" to="." method="_on_save_pressed"]
 [connection signal="pressed" from="TopBar/Margin/LoadButton" to="." method="_on_load_pressed"]
 [connection signal="pressed" from="Catalog/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
+[connection signal="item_selected" from="Catalog/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="Catalog/VBox/CatalogToggle" to="." method="_on_catalog_toggle_pressed"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/HoldFireButton" to="." method="_on_hold_fire_toggled"]

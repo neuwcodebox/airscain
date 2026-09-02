@@ -368,6 +368,10 @@ func _on_sandbox_threat_pressed() -> void:
 	if index >= 0 and index < threat_definitions.size():
 		sandbox_threat_selected.emit(threat_definitions[index])
 
+func _on_sandbox_threat_option_selected(index: int) -> void:
+	if index >= 0 and index < threat_definitions.size():
+		sandbox_threat_selected.emit(threat_definitions[index])
+
 func _on_training_next_pressed() -> void:
 	training_next_requested.emit()
 

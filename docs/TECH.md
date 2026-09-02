@@ -711,7 +711,7 @@ Director는 예산 안에서 정찰, 기만, 제압, 포화와 타격 역할을 
 
 제품 진입점은 gameplay scene과 분리된 App Shell이다. App Shell이 메인 메뉴에서 모드를 확정해 gameplay scene을 생성하고, `Esc` 메뉴에서 세션을 일시정지하거나 gameplay scene을 폐기해 메인 메뉴로 복귀한다. 게임 오버 재시작은 gameplay scene이 요청한 모드와 같은 seed 또는 새 seed를 App Shell에 넘겨 기존 gameplay 인스턴스만 교체한다. HUD는 현재 모드의 전술 조작만 제공하며 실행 중 모드 전환을 소유하지 않는다.
 
-샌드박스 위협 투입은 `PlacementController.selected_threat`를 지속 선택 상태로 유지한다. 좌클릭은 현재 후보 위치에 위협 생성 신호만 보내고 preview와 선택을 정리하지 않으며, 우클릭·Esc·다른 배치 선택만 명시적으로 취소한다.
+샌드박스 배치는 `PlacementController.selected` 또는 `selected_threat`를 지속 선택 상태로 유지한다. 성공한 좌클릭은 현재 후보 위치에 자산이나 위협을 생성한 뒤 preview와 선택을 정리하지 않으며, 우클릭·Esc·다른 배치 도구 선택만 명시적으로 취소한다. 위협 `OptionButton.item_selected`는 버튼 재확인 없이 `selected_threat`와 preview를 즉시 새 definition으로 교체한다.
 
 제품 전술 UI는 플레이어 지식과 공개된 아군 상태만 소비한다.
 
