@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource path="res://defense/missile_battery/homing_interceptor.gd" type="Script" id="1"]
+[ext_resource path="res://effects/lingering_smoke_trail.gd" type="Script" id="2"]
 
 [sub_resource type="StandardMaterial3D" id="MissileMaterial"]
 albedo_color = Color(0.92, 0.92, 0.86, 1)
@@ -18,15 +19,22 @@ emission_enabled = true
 emission = Color(1, 0.25, 0.03, 1)
 transparency = 1
 
+[sub_resource type="Gradient" id="SmokeGradient"]
+offsets = PackedFloat32Array(0, 0.12, 0.72, 1)
+colors = PackedColorArray(0.72, 0.74, 0.72, 0, 0.62, 0.64, 0.63, 0.68, 0.43, 0.46, 0.48, 0.3, 0.32, 0.36, 0.4, 0)
+
+[sub_resource type="GradientTexture1D" id="SmokeGradientTexture"]
+gradient = SubResource("SmokeGradient")
+
 [sub_resource type="ParticleProcessMaterial" id="SmokeProcess"]
 direction = Vector3(0, 0, 1)
 spread = 18.0
-gravity = Vector3(0, 5, 0)
-initial_velocity_min = 2.0
-initial_velocity_max = 7.0
-scale_min = 0.75
-scale_max = 2.2
-color = Color(0.64, 0.66, 0.66, 0.62)
+gravity = Vector3(2.4, 3.2, 0.8)
+initial_velocity_min = 1.0
+initial_velocity_max = 4.0
+scale_min = 0.9
+scale_max = 3.1
+color_ramp = SubResource("SmokeGradientTexture")
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
 albedo_color = Color(0.58, 0.62, 0.64, 0.48)
@@ -65,10 +73,12 @@ omni_range = 18.0
 [node name="SmokeTrail" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0, 2.8)
 emitting = true
-amount = 64
-lifetime = 1.45
+amount = 180
+lifetime = 7.5
+lifetime_randomness = 0.28
 preprocess = 0.35
-visibility_aabb = AABB(-20, -20, -20, 40, 40, 40)
+visibility_aabb = AABB(-90, -35, -90, 180, 100, 180)
 local_coords = false
 process_material = SubResource("SmokeProcess")
 draw_pass_1 = SubResource("SmokeMesh")
+script = ExtResource("2")

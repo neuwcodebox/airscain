@@ -55,11 +55,15 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	watch_signals(objective)
 	assert_true(objective.apply_mission_damage(10))
 	assert_eq(objective.current_integrity, 90)
+	assert_eq(objective.damage_smoke_effects.size(), 1)
 	assert_true(objective.apply_mission_damage(100))
 	assert_eq(objective.current_integrity, 0)
+	assert_eq(objective.damage_smoke_effects.size(), 4)
 	assert_signal_emit_count(objective, "depleted", 1)
 	assert_false(objective.apply_mission_damage(10))
 	assert_signal_emit_count(objective, "depleted", 1)
+	objective.restore_integrity(75)
+	assert_eq(objective.damage_smoke_effects.size(), 1)
 
 func test_threat_resolution_can_only_happen_once() -> void:
 	var threat: ThreatUnit = autofree(ThreatUnit.new()) as ThreatUnit

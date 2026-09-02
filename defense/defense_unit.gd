@@ -5,6 +5,7 @@ signal damage_received(unit: DefenseUnit, amount: float, integrity_ratio: float)
 signal weapon_fired(unit: DefenseUnit, low_resources: bool)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
+const STATUS_MARKER_SCENE := preload("res://effects/unit_status_marker/unit_status_marker.tscn")
 
 enum C2Role { SENSOR = 1, COMMAND = 2, DEFENSE = 4, RELAY = 8 }
 
@@ -16,13 +17,19 @@ var support_manager: SupportManager
 var relocation_manager: RelocationManager
 var enemy_knowledge: EnemyKnowledge
 var damage_smoke: Node
+var status_marker: Node3D
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	runtime_id = id_value
 	definition = definition_value
 	integrity = definition.maximum_integrity
 	active = true
+	_ensure_status_marker()
 	_refresh_damage_visual()
+	_refresh_status_marker()
+
+func _process(_delta: float) -> void:
+	_refresh_status_marker()
 
 func gameplay_tick(_delta: float) -> void:
 	pass
@@ -70,6 +77,11 @@ func resource_status_text() -> String:
 
 func combat_resource_low() -> bool:
 	return false
+
+func critical_status_text() -> String:
+	if not active:
+		return "×"
+	return ""
 
 func receive_damage(amount: float) -> bool:
 	if amount <= 0.0 or integrity <= 0.0:
@@ -151,3 +163,18 @@ func _refresh_damage_visual() -> void:
 		damage_smoke = DAMAGE_SMOKE_SCENE.instantiate()
 		add_child(damage_smoke)
 	damage_smoke.call("set_damage_ratio", damage_ratio)
+
+func _ensure_status_marker() -> void:
+	if status_marker != null and is_instance_valid(status_marker):
+		return
+	status_marker = STATUS_MARKER_SCENE.instantiate() as Node3D
+	add_child(status_marker)
+	status_marker.position = Vector3(0.0, 20.0, 0.0)
+
+func _refresh_status_marker() -> void:
+	if definition == null:
+		return
+	_ensure_status_marker()
+	var message := critical_status_text()
+	var color := Color("ff4b32") if not active else Color("ffb02e")
+	status_marker.call("set_status", message, color)

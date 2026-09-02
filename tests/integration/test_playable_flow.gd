@@ -13,6 +13,9 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 900)
 	assert_not_null(main.objective)
 	assert_gt(main.battlefield.terrain.mesh.get_surface_count(), 0)
+	var terrain_material := main.battlefield.terrain.material_override as ShaderMaterial
+	assert_not_null(terrain_material)
+	assert_true(terrain_material.shader.code.contains("contour_distance"))
 	assert_eq(main.battlefield.battlefield_size, 2400.0)
 	assert_eq((main.battlefield.ocean.mesh as PlaneMesh).size.x, 19200.0)
 	assert_eq(main.camera_rig.camera.far, 14400.0)
@@ -762,6 +765,11 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	assert_true((miss_effect.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_eq((miss_effect.get_node("Reason") as Label3D).text, "유도 상실")
 	assert_eq(miss_effect.global_position, Vector3(30.0, 80.0, -20.0))
+	var lingering_trail := main.projectile_parent.get_node_or_null("SmokeTrail") as GPUParticles3D
+	assert_not_null(lingering_trail)
+	assert_false(lingering_trail.emitting)
+	assert_gte(lingering_trail.lifetime, 7.0)
+	assert_eq(lingering_trail.get_parent(), main.projectile_parent)
 
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()

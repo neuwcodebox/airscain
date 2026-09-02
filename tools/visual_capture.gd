@@ -27,6 +27,23 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	var city_camera_position := main.camera_rig.global_position
+	var city_camera_zoom := main.camera_rig.zoom_distance
+	main.objective.apply_mission_damage(35)
+	main.camera_rig.focus_on(main.objective.global_position)
+	main.camera_rig.zoom_distance = 360.0
+	main.camera_rig._update_camera()
+	for index: int in 15:
+		await process_frame
+	if main.objective.damage_smoke_effects.size() < 2:
+		push_error("City damage did not create persistent smoke sites")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_city_damage.png")
+	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
+	main.camera_rig.global_position = city_camera_position
+	main.camera_rig.zoom_distance = city_camera_zoom
+	main.camera_rig._update_camera()
 	for defense: DefenseUnit in main.defenses:
 		if defense.definition.id == &"long_range_missile":
 			defense.receive_damage(50.0)
@@ -71,6 +88,12 @@ func run() -> void:
 	main.camera_rig._update_camera()
 	for index: int in 30:
 		await process_frame
+	for defense: DefenseUnit in main.defenses:
+		if defense is CloseInGun:
+			(defense as CloseInGun).magazine.rounds = 0
+			(defense as CloseInGun).magazine.reserve = 0
+			defense._process(0.0)
+			break
 	_save_capture("/tmp/airscain_layered_defense.png")
 	main.hud._on_c2_overlay_pressed()
 	for index: int in 3:
@@ -122,11 +145,11 @@ func run() -> void:
 	for index: int in 5:
 		await process_frame
 	_save_capture("/tmp/airscain_coasting.png")
-	main.objective.apply_mission_damage(100)
+	main.objective.apply_mission_damage(main.objective.current_integrity)
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement combat_vfx layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting game_over")
+	print("VISUAL_CAPTURE_OK initial placement combat_vfx layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:

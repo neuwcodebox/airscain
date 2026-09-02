@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource path="res://effects/unit_status_marker/unit_status_marker.gd" type="Script" id="1"]
+
+[node name="UnitStatusMarker" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Label" type="Label3D" parent="."]
+billboard = 1
+no_depth_test = true
+fixed_size = true
+font_size = 10
+outline_size = 3
+modulate = Color(1, 0.38, 0.18, 1)
+text = "!"

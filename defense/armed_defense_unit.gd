@@ -73,6 +73,14 @@ func ammunition_reserve_ratio() -> float:
 func combat_resource_low() -> bool:
 	return uses_ammunition() and ammunition_reserve_ratio() <= 0.2
 
+func critical_status_text() -> String:
+	var operational_status := super.critical_status_text()
+	if not operational_status.is_empty():
+		return operational_status
+	if uses_ammunition() and magazine.is_depleted():
+		return "탄"
+	return ""
+
 func complete_resupply() -> void:
 	magazine.refill_reserve()
 

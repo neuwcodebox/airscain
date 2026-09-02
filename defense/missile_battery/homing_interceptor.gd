@@ -60,6 +60,7 @@ func gameplay_tick(delta: float) -> void:
 		var nearest := Geometry3D.get_closest_point_to_segment(physical_position, previous, global_position)
 		if nearest.distance_to(physical_position) <= proximity_radius:
 			threat.receive_damage(damage)
+			_release_smoke_trail()
 			queue_free()
 			return
 
@@ -70,7 +71,14 @@ func _expire(color: Color, reason: String) -> void:
 		parent.add_child(effect)
 		effect.global_position = global_position
 		effect.call("setup", color, reason)
+	_release_smoke_trail()
 	queue_free()
+
+func _release_smoke_trail() -> void:
+	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	var parent := get_parent()
+	if smoke != null:
+		smoke.call("release_to", parent)
 
 func _countermeasure_target() -> ThreatUnit:
 	var selected: ThreatUnit
