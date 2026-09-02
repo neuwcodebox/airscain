@@ -657,7 +657,9 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
 	var explosion := main.effects_parent.get_node_or_null("Explosion") as ExplosionEffect
 	assert_not_null(explosion)
-	assert_lt(explosion.global_position.distance_to(impact_target), definition.mission.action_distance + 3.0)
+	assert_gt(explosion.global_position.distance_to(impact_target), 0.01)
+	assert_false(main.objective.damage_smoke_effects.is_empty())
+	assert_almost_eq(main.objective.damage_smoke_effects.back().global_position, explosion.global_position, Vector3.ONE * 0.001)
 
 func test_cruise_missile_commits_to_terminal_impact_without_climbing_out() -> void:
 	var entry := main.scenario.threat_entries[5]
@@ -674,8 +676,9 @@ func test_cruise_missile_commits_to_terminal_impact_without_climbing_out() -> vo
 			break
 	assert_true(threat.terminal_committed)
 	assert_true(threat.resolved_state)
-	assert_lte(maximum_height, main.battlefield.flight_surface_height(target.x, target.z) + definition.movement.cruise_altitude + 1.0)
-	assert_lt(threat.global_position.distance_to(target + Vector3.UP * 2.0), definition.mission.action_distance + 0.01)
+	assert_lte(maximum_height, target.y + definition.movement.cruise_altitude + 1.0)
+	assert_false(main.objective.damage_smoke_effects.is_empty())
+	assert_almost_eq(main.objective.damage_smoke_effects.back().global_position, threat.global_position, Vector3.ONE * 0.001)
 
 func test_threats_spawn_over_the_ocean_and_ballistic_missiles_launch_much_farther_away() -> void:
 	var cruise_entry := main.scenario.threat_entries[5]
@@ -696,7 +699,7 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	var target := main.objective.global_position
-	threat.global_position = target + Vector3(0.0, 40.0, 80.0)
+	threat.global_position = target + Vector3(0.0, definition.movement.terminal_altitude, 80.0)
 	threat.setup(811, definition)
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, threat.global_position + Vector3(600.0, 0.0, 0.0))
 	main.registry.add(threat)

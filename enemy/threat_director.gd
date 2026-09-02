@@ -88,9 +88,8 @@ func _tick_pending_waves(delta: float) -> void:
 
 func _spawn_group(entry: ThreatSpawnEntry, group_angle: float) -> void:
 	var group_target: Variant = null
-	if entry.threat_definition is AttackUavDefinition and (entry.threat_definition as AttackUavDefinition).mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
-		group_target = objective.get_target_point(rng)
-		group_target.y = battlefield.terrain_height(group_target.x, group_target.z)
+	if entry.threat_definition is AttackUavDefinition and (entry.threat_definition as AttackUavDefinition).mission.target_role == ThreatMissionDefinition.TargetRole.CITY and (entry.threat_definition as AttackUavDefinition).mission.type == ThreatMissionDefinition.Type.IMPACT:
+		group_target = battlefield.random_city_building_target(rng)
 	for group_index: int in entry.group_size:
 		if registry.hostile_count() >= scenario.active_threat_cap:
 			return
@@ -181,8 +180,12 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	next_runtime_id += 1
 	var target := objective.get_target_point(rng)
 	var target_asset: DefenseUnit
+	var targets_city := false
 	if entry.threat_definition is AttackUavDefinition:
 		var mission := (entry.threat_definition as AttackUavDefinition).mission
+		targets_city = mission.target_role == ThreatMissionDefinition.TargetRole.CITY and mission.type == ThreatMissionDefinition.Type.IMPACT
+		if targets_city:
+			target = battlefield.random_city_building_target(rng)
 		if entry.threat_definition.id == &"anti_radiation_missile":
 			target_asset = _known_target_for_role(&"sensor")
 		else:
@@ -192,7 +195,7 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 		target_asset = null
 	elif target_asset != null:
 		target = target_asset.global_position
-	else:
+	elif not targets_city:
 		target.y = battlefield.terrain_height(target.x, target.z)
 	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed), target_asset, spawn_position)
 	registry.add(threat)

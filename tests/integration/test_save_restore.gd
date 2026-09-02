@@ -33,7 +33,9 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	main.session.grant_attack_window_reward(120)
 	main.director.in_recovery = true
 	main.director.completed_attack_windows = 1
-	main.objective.apply_mission_damage(10)
+	var building_bounds := main.battlefield.city_building_bounds(0)
+	var building_impact := Vector3(building_bounds.position.x, building_bounds.get_center().y, building_bounds.get_center().z)
+	main.objective.apply_building_impact(10, building_impact, building_bounds.size.y)
 	var threat := main.director.spawn_one()
 	var threat_runtime_id := threat.runtime_id
 	threat.global_position = Vector3(340.0, 85.0, -120.0)
@@ -44,7 +46,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	var saved_budget := main.session.budget
 	var saved_contact_count := main.registry.count()
 	main.session.budget = 9999
-	main.objective.apply_mission_damage(30)
+	main.objective.apply_building_impact(30, Vector3(building_bounds.end.x, building_bounds.get_center().y, building_bounds.get_center().z), building_bounds.size.y)
 	main.director.spawn_one()
 	assert_eq(main.restore_from_document(saved_document), "")
 	assert_eq(main.session.phase, GameSession.Phase.RUNNING)
@@ -56,6 +58,8 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(main.session.starting_budget, main.scenario.starting_budget)
 	assert_eq(main.session.defense_spending, battery_definition.price)
 	assert_eq(main.objective.current_integrity, 90)
+	assert_eq(main.objective.damage_smoke_effects.size(), 1)
+	assert_almost_eq(main.objective.damage_smoke_effects[0].global_position, building_impact, Vector3.ONE * 0.001)
 	assert_eq(main.defenses.size(), 1)
 	var restored_battery := main.defenses[0] as MissileBattery
 	assert_eq(restored_battery.runtime_id, battery_runtime_id)

@@ -66,24 +66,7 @@ func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 	battlefield.build(SCENARIO)
 	assert_eq(battlefield.city_block_surface_count, battlefield.generator.city_block_layout().size())
 	var buildings := battlefield.generator.building_transforms()
-	assert_eq(battlefield.city_damage_smoke_anchors.size(), buildings.size())
-	assert_eq(battlefield.city_damage_smoke_building_heights.size(), buildings.size())
 	assert_eq(battlefield.city_building_footprints.size(), buildings.size())
-	for index: int in mini(8, buildings.size()):
-		var building_size := buildings[index].basis.get_scale()
-		var anchor := battlefield.city_damage_smoke_anchors[index]
-		assert_eq(battlefield.city_damage_smoke_building_heights[index], building_size.y)
-		if index % 3 == 0:
-			assert_almost_eq(anchor.y, buildings[index].origin.y + building_size.y * 0.5 + 0.7, 0.001)
-			assert_gt(absf(anchor.x - buildings[index].origin.x), building_size.x * 0.25)
-			assert_gt(absf(anchor.z - buildings[index].origin.z), building_size.z * 0.24)
-		else:
-			var ground_y := buildings[index].origin.y - building_size.y * 0.5
-			var expected_ratio := 0.58 if index % 3 == 1 else 0.76
-			assert_almost_eq(anchor.y, ground_y + building_size.y * expected_ratio, 0.001)
-			var touches_x_face := absf(absf(anchor.x - buildings[index].origin.x) - (building_size.x * 0.5 + 0.12)) <= 0.001
-			var touches_z_face := absf(absf(anchor.z - buildings[index].origin.z) - (building_size.z * 0.5 + 0.12)) <= 0.001
-			assert_true(touches_x_face or touches_z_face)
 	assert_lt(battlefield.city_block_surface_count, SCENARIO.battlefield_layout().city_blocks ** 2)
 	assert_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
 	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadTile0_0"))
@@ -234,9 +217,11 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	definition.maximum_integrity = 100
 	objective.setup(1, definition)
 	watch_signals(objective)
-	assert_true(objective.apply_mission_damage(10))
+	var first_impact := Vector3(12.0, 30.0, -5.0)
+	assert_true(objective.apply_building_impact(10, first_impact, 48.0))
 	assert_eq(objective.current_integrity, 90)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
+	assert_eq(objective.damage_smoke_effects[0].global_position, first_impact)
 	var smoke := objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
 	var middle_smoke := objective.damage_smoke_effects[0].get_node("SmokeMiddle") as GPUParticles3D
 	var upper_smoke := objective.damage_smoke_effects[0].get_node("SmokeUpper") as GPUParticles3D
@@ -274,38 +259,62 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(upper_smoke.preprocess, 0.0)
 	assert_false(upper_smoke.local_coords)
 	assert_eq(upper_smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
-	assert_true(objective.apply_mission_damage(100))
+	assert_true(objective.apply_building_impact(10, Vector3(-8.0, 22.0, 14.0), 32.0))
+	assert_true(objective.apply_building_impact(10, Vector3(18.0, 42.0, 20.0), 56.0))
+	assert_true(objective.apply_building_impact(100, Vector3(-22.0, 35.0, -18.0), 44.0))
 	assert_eq(objective.current_integrity, 0)
 	assert_eq(objective.damage_smoke_effects.size(), 4)
 	assert_signal_emit_count(objective, "depleted", 1)
 	assert_false(objective.apply_mission_damage(10))
+	assert_false(objective.apply_building_impact(10, Vector3.ZERO, 20.0))
+	assert_eq(objective.damage_smoke_effects.size(), 4)
 	assert_signal_emit_count(objective, "depleted", 1)
 	objective.restore_integrity(75)
-	assert_eq(objective.damage_smoke_effects.size(), 1)
+	assert_eq(objective.damage_smoke_effects.size(), 4)
 
-func test_city_damage_smoke_anchors_to_generated_building_surfaces() -> void:
+func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	battlefield.build(SCENARIO)
 	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
 	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
-	objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors, battlefield.city_damage_smoke_building_heights)
 	var definition := ObjectiveDefinition.new()
 	definition.maximum_integrity = 100
 	objective.setup(1, definition)
-	assert_true(objective.apply_mission_damage(100))
-	assert_eq(objective.damage_smoke_effects.size(), 4)
-	for effect: Node3D in objective.damage_smoke_effects:
-		var nearest_distance := INF
-		for anchor: Vector3 in battlefield.city_damage_smoke_anchors:
-			nearest_distance = minf(nearest_distance, effect.global_position.distance_to(anchor))
-		assert_lte(nearest_distance, 0.001)
-		assert_true(bool(effect.get("city_plume_enabled")))
-		var middle := effect.get_node("SmokeMiddle") as GPUParticles3D
-		var upper := effect.get_node("SmokeUpper") as GPUParticles3D
-		assert_lte(middle.position.y, 1.0)
-		assert_lte(upper.position.y, 1.0)
-		assert_gte((middle.process_material as ParticleProcessMaterial).gravity.y, 12.0)
-		assert_gte((upper.process_material as ParticleProcessMaterial).gravity.y, 21.0)
+	var bounds := battlefield.city_building_bounds(0)
+	var impact := battlefield.building_segment_impact(bounds.get_center() + Vector3.LEFT * (bounds.size.x + 10.0), bounds.get_center())
+	assert_true(objective.apply_building_impact(25, impact.position, float(impact.building_height)))
+	assert_eq(objective.damage_smoke_effects.size(), 1)
+	var effect := objective.damage_smoke_effects[0]
+	assert_almost_eq(effect.global_position, impact.position as Vector3, Vector3.ONE * 0.001)
+	assert_true(bool(effect.get("city_plume_enabled")))
+	var middle := effect.get_node("SmokeMiddle") as GPUParticles3D
+	var upper := effect.get_node("SmokeUpper") as GPUParticles3D
+	assert_lte(middle.position.y, 1.0)
+	assert_lte(upper.position.y, 1.0)
+	assert_gte((middle.process_material as ParticleProcessMaterial).gravity.y, 12.0)
+	assert_gte((upper.process_material as ParticleProcessMaterial).gravity.y, 21.0)
+
+func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(SCENARIO)
+	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
+	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
+	objective.setup(1, SCENARIO.objective_definition)
+	var definition := SCENARIO.threat_entries[0].threat_definition as AttackUavDefinition
+	var threat := add_child_autofree(definition.scene.instantiate()) as AttackUav
+	threat.setup(4001, definition)
+	var bounds := battlefield.city_building_bounds(0)
+	var target := bounds.get_center()
+	threat.global_position = Vector3(bounds.position.x - 8.0, target.y, target.z)
+	threat.configure_mission(objective, battlefield, target, 1.0)
+	watch_signals(threat)
+	threat.gameplay_tick((bounds.size.x + 16.0) / definition.movement.speed)
+	assert_true(threat.resolved_state)
+	assert_signal_emit_count(threat, "resolved", 1)
+	assert_almost_eq(threat.global_position.x, bounds.position.x, 0.001)
+	assert_eq(objective.damage_smoke_effects.size(), 1)
+	assert_almost_eq(objective.damage_smoke_effects[0].global_position, threat.global_position, Vector3.ONE * 0.001)
+	assert_eq(objective.current_integrity, SCENARIO.objective_definition.maximum_integrity - roundi(definition.mission.damage))
 
 func test_threat_resolution_can_only_happen_once() -> void:
 	var threat: ThreatUnit = autofree(ThreatUnit.new()) as ThreatUnit

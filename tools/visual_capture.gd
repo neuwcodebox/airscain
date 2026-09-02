@@ -40,6 +40,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK broad_launch_sector curved_missile_departure")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-building-impact-only"):
+		await _capture_building_impact_smoke()
+		print("VISUAL_CAPTURE_OK building_swept_impact exact_impact_smoke")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -95,7 +100,7 @@ func run() -> void:
 		return
 	var city_camera_position := main.camera_rig.global_position
 	var city_camera_zoom := main.camera_rig.zoom_distance
-	main.objective.apply_mission_damage(35)
+	_apply_city_building_impacts(35, 2)
 	main.camera_rig.focus_on(main.objective.global_position)
 	main.camera_rig.zoom_distance = 360.0
 	main.camera_rig._update_camera()
@@ -218,7 +223,7 @@ func run() -> void:
 	for index: int in 5:
 		await process_frame
 	_save_capture("/tmp/airscain_coasting.png")
-	main.objective.apply_mission_damage(main.objective.current_integrity)
+	_apply_city_building_impacts(main.objective.current_integrity, 4)
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
@@ -567,10 +572,74 @@ func _capture_curved_missile_launch() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_curved_missile_launch.png")
 
+func _capture_building_impact_smoke() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var closest_index := 0
+	var closest_distance := INF
+	for index: int in main.battlefield.city_buildings.size():
+		var distance := main.battlefield.city_building_bounds(index).get_center().distance_squared_to(main.objective.global_position)
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_index = index
+	var bounds := main.battlefield.city_building_bounds(closest_index)
+	var target := bounds.get_center()
+	var definition := main.scenario.threat_entries[0].threat_definition as AttackUavDefinition
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	threat.setup(9801, definition)
+	var start_position := Vector3(bounds.position.x - 55.0, target.y, target.z)
+	var expected_impact := main.battlefield.building_segment_impact(start_position, target)
+	if expected_impact.is_empty():
+		push_error("Building impact capture path did not cross the city")
+		quit(1)
+		return
+	threat.global_position = start_position
+	threat.configure_mission(main.objective, main.battlefield, target, 1.0)
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	var expected_position := expected_impact.position as Vector3
+	main.camera_rig.camera.global_position = expected_position + Vector3(-105.0, 70.0, 135.0)
+	main.camera_rig.camera.look_at(expected_position, Vector3.UP)
+	for tick: int in 80:
+		if threat.resolved_state:
+			break
+		threat.gameplay_tick(0.05)
+		if threat.resolved_state:
+			break
+		await process_frame
+	if not threat.resolved_state or main.objective.damage_smoke_effects.is_empty():
+		push_error("Threat did not resolve against a procedural building")
+		quit(1)
+		return
+	var resolved_position: Vector3 = threat.global_position
+	var smoke_effect := main.objective.damage_smoke_effects.back() as Node3D
+	var smoke_position: Vector3 = smoke_effect.global_position
+	if smoke_position.distance_to(resolved_position) > 0.01:
+		push_error("Building smoke did not start at the swept impact point")
+		quit(1)
+		return
+	await _wait_simulation_seconds(0.5)
+	_save_capture("/tmp/airscain_building_impact_smoke.png")
+
+func _apply_city_building_impacts(total_damage: int, impact_count: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = main.scenario.world_seed ^ 0x31D4A7
+	var remaining_damage := total_damage
+	for impact_index: int in impact_count:
+		var target := main.battlefield.random_city_building_target(rng)
+		var approach := target + Vector3(rng.randf_range(-45.0, 45.0), 180.0, rng.randf_range(-45.0, 45.0))
+		var impact := main.battlefield.building_segment_impact(approach, target)
+		if impact.is_empty():
+			continue
+		var damage := remaining_damage if impact_index == impact_count - 1 else maxi(1, roundi(float(total_damage) / float(impact_count)))
+		remaining_damage -= damage
+		main.objective.apply_building_impact(damage, impact.position, float(impact.building_height))
+
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position
 	var smoke_start_msec := Time.get_ticks_msec()
-	main.objective.apply_mission_damage(55)
+	_apply_city_building_impacts(55, 3)
 	var smoke_spawn_msec := Time.get_ticks_msec() - smoke_start_msec
 	if smoke_spawn_msec > 100:
 		push_error("City smoke spawn blocked the main thread for %dms" % smoke_spawn_msec)

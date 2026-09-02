@@ -22,6 +22,7 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 		"session": main.session.capture_state(),
 		"world": {
 			"objective_integrity": main.objective.current_integrity,
+			"objective_damage_smoke": main.objective.capture_damage_smoke_state(),
 			"defenses": defense_states,
 			"contacts": contact_states,
 			"projectiles": projectile_states,
@@ -53,6 +54,12 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var world_state: Dictionary = payload.world
 	if int(world_state.get("objective_integrity", -1)) < 0:
 		return "도시 기능 상태가 올바르지 않습니다"
+	var damage_smoke_states: Variant = world_state.get("objective_damage_smoke", [])
+	if not damage_smoke_states is Array or damage_smoke_states.size() > ProtectedObjective.MAX_DAMAGE_SMOKE_SITES:
+		return "도시 손상 연기 상태가 올바르지 않습니다"
+	for smoke_state: Variant in damage_smoke_states:
+		if not smoke_state is Dictionary or not _valid_vector_data(smoke_state.get("offset")) or float(smoke_state.get("building_height", 0.0)) <= 0.0:
+			return "도시 손상 연기 위치가 올바르지 않습니다"
 	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary or not world_state.get("support", null) is Dictionary or not world_state.get("relocations", null) is Dictionary or not world_state.get("enemy_knowledge", null) is Dictionary:
 		return "월드 객체 목록이 올바르지 않습니다"
 	var defense_definitions := defense_definition_map(scenario)

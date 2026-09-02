@@ -5,52 +5,14 @@ signal integrity_changed(current: int, maximum: int)
 signal depleted(objective: ProtectedObjective)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
-const FALLBACK_DAMAGE_SMOKE_OFFSETS: Array[Vector3] = [
-	Vector3(-54.0, 40.0, -38.0),
-	Vector3(48.0, 44.0, 32.0),
-	Vector3(-20.0, 38.0, 58.0),
-	Vector3(62.0, 42.0, -46.0),
-]
+const MAX_DAMAGE_SMOKE_SITES := 4
 
 var runtime_id: int
 var definition: ObjectiveDefinition
 var current_integrity: int
 var exclusion_radius: float = 165.0
 var damage_smoke_effects: Array[Node3D] = []
-var damage_smoke_offsets: Array[Vector3] = FALLBACK_DAMAGE_SMOKE_OFFSETS.duplicate()
-var damage_smoke_building_heights: Array[float] = [40.0, 44.0, 38.0, 42.0]
-
-func configure_damage_smoke_anchors(global_anchors: Array[Vector3], building_heights: Array[float] = []) -> void:
-	if global_anchors.is_empty():
-		return
-	var available: Array[Vector3] = global_anchors.duplicate()
-	var available_heights: Array[float] = building_heights.duplicate()
-	if available_heights.size() != available.size():
-		available_heights.clear()
-		for anchor: Vector3 in available:
-			available_heights.append(maxf(12.0, anchor.y - global_position.y))
-	var selected_offsets: Array[Vector3] = []
-	var selected_heights: Array[float] = []
-	for target_offset: Vector3 in FALLBACK_DAMAGE_SMOKE_OFFSETS:
-		if available.is_empty():
-			break
-		var target := global_position + Vector3(target_offset.x, 0.0, target_offset.z)
-		var nearest_index := 0
-		var nearest_distance := INF
-		for index: int in available.size():
-			var flat_distance := Vector2(available[index].x - target.x, available[index].z - target.z).length_squared()
-			if flat_distance < nearest_distance:
-				nearest_distance = flat_distance
-				nearest_index = index
-		selected_offsets.append(to_local(available[nearest_index]))
-		selected_heights.append(available_heights[nearest_index])
-		available.remove_at(nearest_index)
-		available_heights.remove_at(nearest_index)
-	if not selected_offsets.is_empty():
-		damage_smoke_offsets = selected_offsets
-		damage_smoke_building_heights = selected_heights
-	if definition != null:
-		_sync_damage_visuals()
+var damage_smoke_sites: Array[Dictionary] = []
 
 func setup(id_value: int, definition_value: ObjectiveDefinition) -> void:
 	runtime_id = id_value
@@ -68,6 +30,39 @@ func apply_mission_damage(amount: int) -> bool:
 	if current_integrity == 0:
 		depleted.emit(self)
 	return true
+
+func apply_building_impact(amount: int, global_impact_position: Vector3, building_height: float) -> bool:
+	if current_integrity <= 0 or amount <= 0:
+		return false
+	_append_damage_smoke_site(global_impact_position, building_height)
+	return apply_mission_damage(amount)
+
+func capture_damage_smoke_state() -> Array[Dictionary]:
+	return damage_smoke_sites.duplicate(true)
+
+func restore_damage_smoke_state(states: Array) -> void:
+	for effect: Node3D in damage_smoke_effects:
+		if is_instance_valid(effect):
+			effect.queue_free()
+	damage_smoke_effects.clear()
+	damage_smoke_sites.clear()
+	for state: Variant in states:
+		var site := state as Dictionary
+		damage_smoke_sites.append({
+			"offset": site.offset,
+			"building_height": float(site.building_height),
+		})
+
+func _append_damage_smoke_site(global_impact_position: Vector3, building_height: float) -> void:
+	if damage_smoke_sites.size() >= MAX_DAMAGE_SMOKE_SITES:
+		damage_smoke_sites.pop_front()
+		if not damage_smoke_effects.is_empty():
+			var oldest: Node3D = damage_smoke_effects.pop_front()
+			oldest.queue_free()
+	damage_smoke_sites.append({
+		"offset": SaveDocument.vector3_to_data(to_local(global_impact_position)),
+		"building_height": maxf(1.0, building_height),
+	})
 
 func get_target_point(rng: RandomNumberGenerator) -> Vector3:
 	var angle := rng.randf_range(0.0, TAU)
@@ -87,16 +82,15 @@ func _sync_damage_visuals() -> void:
 	for index: int in range(damage_smoke_effects.size() - 1, -1, -1):
 		if not is_instance_valid(damage_smoke_effects[index]):
 			damage_smoke_effects.remove_at(index)
-	var damage_ratio := 1.0 - float(current_integrity) / maxf(1.0, float(definition.maximum_integrity))
-	var desired_count := mini(damage_smoke_offsets.size(), ceili(damage_ratio * float(damage_smoke_offsets.size())))
+	var desired_count := damage_smoke_sites.size() if current_integrity < definition.maximum_integrity else 0
 	while damage_smoke_effects.size() < desired_count:
 		var index := damage_smoke_effects.size()
 		var effect := DAMAGE_SMOKE_SCENE.instantiate() as Node3D
 		add_child(effect)
-		effect.call("set_city_scale", 1.5, damage_smoke_building_heights[index])
+		effect.call("set_city_scale", 1.5, float(damage_smoke_sites[index].building_height))
 		damage_smoke_effects.append(effect)
 	while damage_smoke_effects.size() > desired_count:
 		var effect: Node3D = damage_smoke_effects.pop_back()
 		effect.queue_free()
 	for index: int in damage_smoke_effects.size():
-		damage_smoke_effects[index].position = damage_smoke_offsets[index]
+		damage_smoke_effects[index].position = SaveDocument.vector3_from_data(damage_smoke_sites[index].offset)
