@@ -128,4 +128,4 @@ func _spawn_strike_munition(strike_target: Vector3) -> void:
 	var munition := STRIKE_MUNITION_SCENE.instantiate() as Node3D
 	parent.add_child(munition)
 	munition.global_position = global_position
-	munition.call("setup", strike_target)
+	munition.call("setup", strike_target, objective, roundi(_definition.mission.damage))

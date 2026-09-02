@@ -293,6 +293,10 @@ func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	assert_lte(upper.position.y, 1.0)
 	assert_gte((middle.process_material as ParticleProcessMaterial).gravity.y, 12.0)
 	assert_gte((upper.process_material as ParticleProcessMaterial).gravity.y, 21.0)
+	var surface_impact := Vector3(24.0, battlefield.terrain_height(24.0, -18.0), -18.0)
+	assert_true(objective.apply_surface_impact(10, surface_impact))
+	assert_eq(objective.damage_smoke_effects.size(), 2)
+	assert_almost_eq(objective.damage_smoke_effects.back().global_position, surface_impact, Vector3.ONE * 0.001)
 
 func test_all_smoke_particles_use_shadow_casting_materials() -> void:
 	var smoke_cases: Array[Dictionary] = [

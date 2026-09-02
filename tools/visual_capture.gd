@@ -50,6 +50,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK smoke_ground_shadow shadow_capable_transparency")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
+		await _capture_surface_strike_smoke()
+		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -660,6 +665,57 @@ func _capture_smoke_ground_shadow() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_smoke_without_shadow.png")
 	smoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
+func _capture_surface_strike_smoke() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var target := main.objective.global_position
+	var found_open_ground := false
+	for radius: float in [90.0, 120.0, 150.0, 180.0]:
+		for angle_index: int in 16:
+			var angle := TAU * float(angle_index) / 16.0
+			var candidate := main.objective.global_position + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
+			if main.battlefield.overlaps_city_building(candidate, 3.0):
+				continue
+			candidate.y = main.battlefield.terrain_height(candidate.x, candidate.z)
+			target = candidate
+			found_open_ground = true
+			break
+		if found_open_ground:
+			break
+	if not found_open_ground:
+		push_error("Could not find open city ground for strike capture")
+		quit(1)
+		return
+	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var strike := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(strike)
+	strike.global_position = target + Vector3(0.0, definition.movement.terminal_altitude, 80.0)
+	strike.setup(9810, definition)
+	strike.configure_mission(main.objective, main.battlefield, target, 1.0, null, strike.global_position + Vector3(600.0, 0.0, 0.0))
+	var integrity_before := main.objective.current_integrity
+	strike.gameplay_tick(0.1)
+	if main.objective.current_integrity != integrity_before or main.threat_parent.get_node_or_null("StrikeMunition") == null:
+		push_error("Surface strike did not defer damage to its visible munition")
+		quit(1)
+		return
+	main.camera_rig.camera.global_position = target + Vector3(95.0, 72.0, 120.0)
+	main.camera_rig.camera.look_at(target + Vector3.UP * 8.0, Vector3.UP)
+	for frame_index: int in 120:
+		if main.threat_parent.get_node_or_null("StrikeMunition") == null:
+			break
+		await process_frame
+	if main.objective.current_integrity != integrity_before - roundi(definition.mission.damage) or main.objective.damage_smoke_effects.is_empty():
+		push_error("Surface strike did not apply damage and smoke at munition impact")
+		quit(1)
+		return
+	var smoke_effect := main.objective.damage_smoke_effects.back() as Node3D
+	if smoke_effect.global_position.distance_to(target) > 0.01:
+		push_error("Surface strike smoke was not attached to the impact point")
+		quit(1)
+		return
+	await _wait_simulation_seconds(0.7)
+	_save_capture("/tmp/airscain_surface_strike_smoke.png")
 
 func _apply_city_building_impacts(total_damage: int, impact_count: int) -> void:
 	var rng := RandomNumberGenerator.new()

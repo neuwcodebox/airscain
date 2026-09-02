@@ -704,14 +704,20 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, threat.global_position + Vector3(600.0, 0.0, 0.0))
 	main.registry.add(threat)
 	main._on_threat_spawned(threat)
+	var integrity_before := main.objective.current_integrity
 	threat.gameplay_tick(0.1)
 	assert_true(threat.mission_runtime.effect_applied)
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_eq(main.objective.current_integrity, integrity_before, "도시 피해는 투하가 아니라 실제 탄착 때 적용됩니다")
 	var munition := main.threat_parent.get_node_or_null("StrikeMunition") as Node3D
 	assert_not_null(munition)
 	assert_gte((munition.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	assert_eq(threat.get_node("Body").find_children("*ExhaustTrail", "GPUParticles3D").size(), 2)
 	assert_gte((threat.get_node("Body/LeftEngineLight") as OmniLight3D).light_energy, 9.0)
+	munition.call("_process", 1.0)
+	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
+	assert_false(main.objective.damage_smoke_effects.is_empty())
+	assert_almost_eq(main.objective.damage_smoke_effects.back().global_position, target, Vector3.ONE * 0.001)
 
 func test_strike_aircraft_releases_above_the_city_and_climbs_out_over_the_sea() -> void:
 	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition

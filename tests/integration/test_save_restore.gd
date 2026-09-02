@@ -92,6 +92,23 @@ func test_invalid_content_id_does_not_mutate_live_session() -> void:
 	assert_eq(main.session.budget, original_budget)
 	assert_eq(main.registry.count(), 4)
 
+func test_pending_air_strike_munition_restores_and_damages_at_its_surface_impact() -> void:
+	var target := main.objective.global_position + Vector3(32.0, 0.0, -24.0)
+	target.y = main.battlefield.terrain_height(target.x, target.z)
+	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as Node3D
+	main.threat_parent.add_child(munition)
+	munition.global_position = target + Vector3.UP * 90.0
+	munition.call("setup", target, main.objective, 18)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored := main.threat_parent.get_node_or_null("StrikeMunition") as Node3D
+	assert_not_null(restored)
+	var integrity_before := main.objective.current_integrity
+	restored.call("_process", 1.0)
+	assert_eq(main.objective.current_integrity, integrity_before - 18)
+	assert_eq(main.objective.damage_smoke_effects.size(), 1)
+	assert_almost_eq(main.objective.damage_smoke_effects[0].global_position, target, Vector3.ONE * 0.001)
+
 func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
 	var entry := main.scenario.threat_entries[9]
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav

@@ -1,6 +1,8 @@
 class_name SessionSnapshot
 extends RefCounted
 
+const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
+
 static func capture_payload(main: AirscainMain) -> Dictionary:
 	var defense_states: Array[Dictionary] = []
 	for unit: DefenseUnit in main.defenses:
@@ -15,6 +17,9 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 			projectile_states.append((child as HomingInterceptor).capture_state())
 		elif child is InterceptorDrone and not child.is_queued_for_deletion():
 			projectile_states.append((child as InterceptorDrone).capture_state())
+	for child: Node in main.threat_parent.get_children():
+		if child.get_script() == AIR_STRIKE_MUNITION_SCRIPT and not child.is_queued_for_deletion():
+			projectile_states.append(child.call("capture_state") as Dictionary)
 	return {
 		"scenario": {
 			"world_seed": main.scenario.world_seed,
@@ -210,8 +215,12 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		relocation_targets[target_defense_id] = true
 	for projectile_state: Dictionary in world_state.projectiles:
 		var projectile_type := String(projectile_state.get("type", ""))
-		if projectile_type != "homing_interceptor" and projectile_type != "interceptor_drone":
+		if projectile_type != "homing_interceptor" and projectile_type != "interceptor_drone" and projectile_type != "air_strike_munition":
 			return "지원하지 않는 발사체 형식입니다"
+		if projectile_type == "air_strike_munition":
+			if not _valid_vector_data(projectile_state.get("position")) or not _valid_vector_data(projectile_state.get("target_position")) or float(projectile_state.get("speed", 0.0)) <= 0.0 or int(projectile_state.get("damage", 0)) <= 0:
+				return "공대지 탄 비행 상태가 올바르지 않습니다"
+			continue
 		var owner_id := int(projectile_state.get("owner_defense_id", 0))
 		if (projectile_type == "homing_interceptor" and not battery_ids.has(owner_id)) or (projectile_type == "interceptor_drone" and not drone_defense_ids.has(owner_id)):
 			return "요격체가 존재하지 않는 포대를 참조합니다"

@@ -10,6 +10,7 @@ const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
 const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
+const AIR_STRIKE_MUNITION_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
 const FALLING_WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
 const TRAINING_APPROACH_DISTANCE_RATIO := 0.58
 
@@ -639,6 +640,11 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	relocation_manager.restore_state(world_state.relocations)
 	enemy_knowledge.restore_state(world_state.enemy_knowledge)
 	for state: Dictionary in world_state.projectiles:
+		if String(state.type) == "air_strike_munition":
+			var strike_munition := AIR_STRIKE_MUNITION_SCENE.instantiate() as Node3D
+			threat_parent.add_child(strike_munition)
+			strike_munition.call("restore_state", state, objective)
+			continue
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
 		if String(state.type) == "homing_interceptor":
 			var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery

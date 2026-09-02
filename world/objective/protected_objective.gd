@@ -6,6 +6,7 @@ signal depleted(objective: ProtectedObjective)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 const MAX_DAMAGE_SMOKE_SITES := 4
+const SURFACE_IMPACT_PLUME_REFERENCE_HEIGHT := 18.0
 
 var runtime_id: int
 var definition: ObjectiveDefinition
@@ -35,6 +36,12 @@ func apply_building_impact(amount: int, global_impact_position: Vector3, buildin
 	if current_integrity <= 0 or amount <= 0:
 		return false
 	_append_damage_smoke_site(global_impact_position, building_height)
+	return apply_mission_damage(amount)
+
+func apply_surface_impact(amount: int, global_impact_position: Vector3) -> bool:
+	if current_integrity <= 0 or amount <= 0:
+		return false
+	_append_damage_smoke_site(global_impact_position, SURFACE_IMPACT_PLUME_REFERENCE_HEIGHT)
 	return apply_mission_damage(amount)
 
 func capture_damage_smoke_state() -> Array[Dictionary]:

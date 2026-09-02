@@ -48,7 +48,7 @@ func gameplay_tick(unit_position: Vector3, delta: float) -> bool:
 			return false
 		effect_applied = true
 	else:
-		_apply_effect()
+		_apply_effect(unit_position)
 	if profile.type == ThreatMissionDefinition.Type.IMPACT:
 		return true
 	phase = Phase.EGRESS
@@ -68,11 +68,13 @@ func restore_state(state: Dictionary, profile_value: ThreatMissionDefinition, ob
 	action_elapsed = float(state.get("action_elapsed", 0.0))
 	effect_applied = bool(state.get("effect_applied", false))
 
-func _apply_effect() -> void:
+func _apply_effect(unit_position: Vector3) -> void:
 	if effect_applied:
 		return
 	effect_applied = true
 	if target_asset != null and is_instance_valid(target_asset):
 		target_asset.receive_damage(profile.damage)
+	elif profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
+		return
 	else:
-		objective.apply_mission_damage(roundi(profile.damage))
+		objective.apply_surface_impact(roundi(profile.damage), unit_position)
