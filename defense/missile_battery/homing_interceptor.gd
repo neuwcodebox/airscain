@@ -48,6 +48,9 @@ func gameplay_tick(delta: float) -> void:
 	velocity = direction.normalized() * speed
 	global_position += velocity * delta
 	look_at(global_position + velocity, Vector3.UP)
+	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	if smoke != null:
+		smoke.call("sample_world_segment", previous, global_position)
 	if not countermeasure_attempted:
 		var countermeasure_target := _countermeasure_target()
 		if countermeasure_target != null and global_position.distance_to(countermeasure_target.get_aim_position()) <= 120.0:

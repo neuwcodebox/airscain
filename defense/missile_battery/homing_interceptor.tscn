@@ -17,6 +17,7 @@ radial_segments = 8
 albedo_color = Color(1, 0.47, 0.08, 0.75)
 emission_enabled = true
 emission = Color(1, 0.25, 0.03, 1)
+emission_energy_multiplier = 5.0
 transparency = 1
 
 [sub_resource type="Gradient" id="SmokeGradient"]
@@ -67,13 +68,13 @@ material_override = SubResource("TrailMaterial")
 [node name="FlameLight" type="OmniLight3D" parent="."]
 position = Vector3(0, 0, 3.1)
 light_color = Color(1, 0.36, 0.08, 1)
-light_energy = 3.5
-omni_range = 18.0
+light_energy = 9.0
+omni_range = 28.0
 
 [node name="SmokeTrail" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0, 2.8)
-emitting = true
-amount = 180
+emitting = false
+amount = 420
 lifetime = 7.5
 lifetime_randomness = 0.28
 preprocess = 0.35
@@ -82,3 +83,4 @@ local_coords = false
 process_material = SubResource("SmokeProcess")
 draw_pass_1 = SubResource("SmokeMesh")
 script = ExtResource("2")
+sample_spacing = 2.5

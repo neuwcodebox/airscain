@@ -64,6 +64,7 @@ func run() -> void:
 	for entry_index: int in range(9, 12):
 		var advanced_threat := main.director._spawn_entry(main.scenario.threat_entries[entry_index], PI + float(entry_index - 9) * 0.16, 0.0)
 		advanced_threat.global_position = Vector3(-520.0, 35.0 + float(entry_index - 9) * 55.0, -150.0 + float(entry_index - 9) * 150.0)
+	await _capture_strike_vfx()
 	_spawn_swarm_near_close_in_gun()
 	var visual_target := main.director._spawn_entry(main.scenario.threat_entries[0], 0.0, 0.0)
 	var visual_target_position := Vector3(-70.0, 105.0, 40.0)
@@ -149,7 +150,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement combat_vfx layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
+	print("VISUAL_CAPTURE_OK initial placement combat_vfx strike_vfx layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:
@@ -195,6 +196,30 @@ func _spawn_swarm_near_close_in_gun() -> void:
 		threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
 		main.registry.add(threat)
 		main._on_threat_spawned(threat)
+
+func _capture_strike_vfx() -> void:
+	var strike := main.director._spawn_entry(main.scenario.threat_entries[11], 0.0, 0.0) as AttackUav
+	var target := main.objective.global_position
+	strike.global_position = target + Vector3(0.0, 105.0, 20.0)
+	strike.configure_mission(main.objective, main.battlefield, target, 1.0, null, strike.global_position + Vector3(500.0, 0.0, 0.0))
+	strike.gameplay_tick(0.1)
+	var munition := main.threat_parent.get_node_or_null("StrikeMunition") as Node3D
+	if munition == null:
+		push_error("Strike aircraft did not release its visible munition")
+		quit(1)
+		return
+	var previous_camera_position := main.camera_rig.global_position
+	var previous_zoom := main.camera_rig.zoom_distance
+	main.camera_rig.camera.global_position = target + Vector3(130.0, 125.0, 165.0)
+	main.camera_rig.camera.look_at(target + Vector3.UP * 58.0, Vector3.UP)
+	main.hud.visible = false
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_strike_vfx.png")
+	main.hud.visible = true
+	main.camera_rig.global_position = previous_camera_position
+	main.camera_rig.zoom_distance = previous_zoom
+	main.camera_rig._update_camera()
 
 func _place_asset(definition: DefenseDefinition, direction: float) -> void:
 	for offset: int in range(0, 180, 10):

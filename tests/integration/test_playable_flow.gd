@@ -551,7 +551,10 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_gt(agl, 5.0)
 	assert_lt(agl, 45.0)
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
-	assert_true((threat.get_node("Body/ExhaustTrail") as GPUParticles3D).emitting)
+	var exhaust := threat.get_node("Body/ExhaustTrail") as GPUParticles3D
+	assert_false(exhaust.emitting)
+	assert_gt(int(exhaust.get("emitted_sample_count")), 20)
+	assert_gte((threat.get_node("Body/EngineLight") as OmniLight3D).light_energy, 8.0)
 	var integrity_before := main.objective.current_integrity
 	var impact_target := threat.mission_runtime.fixed_target
 	for frame: int in 500:
@@ -563,6 +566,25 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	var explosion := main.effects_parent.get_node_or_null("Explosion") as ExplosionEffect
 	assert_not_null(explosion)
 	assert_lt(explosion.global_position.distance_to(impact_target), definition.mission.action_distance + 3.0)
+
+func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
+	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	var target := main.objective.global_position
+	threat.global_position = target + Vector3(0.0, 40.0, 80.0)
+	threat.setup(811, definition)
+	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, threat.global_position + Vector3(600.0, 0.0, 0.0))
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	threat.gameplay_tick(0.1)
+	assert_true(threat.mission_runtime.effect_applied)
+	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	var munition := main.threat_parent.get_node_or_null("StrikeMunition") as Node3D
+	assert_not_null(munition)
+	assert_gte((munition.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
+	assert_eq(threat.get_node("Body").find_children("*ExhaustTrail", "GPUParticles3D").size(), 2)
+	assert_gte((threat.get_node("Body/LeftEngineLight") as OmniLight3D).light_energy, 9.0)
 
 func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	var definition := main.scenario.threat_entries[9].threat_definition as AttackUavDefinition
@@ -800,6 +822,16 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	assert_false(lingering_trail.emitting)
 	assert_gte(lingering_trail.lifetime, 7.0)
 	assert_eq(lingering_trail.get_parent(), main.projectile_parent)
+
+func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	var smoke := interceptor.get_node("SmokeTrail") as GPUParticles3D
+	smoke.call("sample_world_segment", Vector3.ZERO, Vector3(0.0, 0.0, 26.0))
+	assert_eq(int(smoke.get("emitted_sample_count")), 10)
+	assert_false(smoke.emitting)
+	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
+	interceptor.queue_free()
 
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()

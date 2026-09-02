@@ -1,6 +1,7 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource path="res://enemy/attack_uav/attack_uav.gd" type="Script" id="1"]
+[ext_resource path="res://effects/lingering_smoke_trail.gd" type="Script" id="2"]
 
 [sub_resource type="StandardMaterial3D" id="Material"]
 albedo_color = Color(0.32, 0.34, 0.38, 1)
@@ -14,6 +15,41 @@ size = Vector3(22, 1, 8)
 
 [sub_resource type="BoxMesh" id="Tail"]
 size = Vector3(8, 0.8, 3)
+
+[sub_resource type="StandardMaterial3D" id="EngineMaterial"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0.58, 0.14, 0.92)
+emission_enabled = true
+emission = Color(1, 0.16, 0.01, 1)
+emission_energy_multiplier = 6.0
+
+[sub_resource type="SphereMesh" id="EngineMesh"]
+material = SubResource("EngineMaterial")
+radius = 0.7
+height = 2.8
+radial_segments = 8
+rings = 4
+
+[sub_resource type="ParticleProcessMaterial" id="ContrailProcess"]
+gravity = Vector3(1.8, 1.0, 0.5)
+initial_velocity_min = 0.5
+initial_velocity_max = 2.0
+scale_min = 0.55
+scale_max = 1.5
+color = Color(0.72, 0.76, 0.8, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="ContrailMaterial"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.72, 0.76, 0.8, 0.48)
+
+[sub_resource type="SphereMesh" id="ContrailMesh"]
+material = SubResource("ContrailMaterial")
+radius = 0.5
+height = 1.0
+radial_segments = 6
+rings = 3
 
 [node name="StrikeAircraft" type="Node3D"]
 script = ExtResource("1")
@@ -32,3 +68,51 @@ material_override = SubResource("Material")
 position = Vector3(0, 1.8, 6)
 mesh = SubResource("Tail")
 material_override = SubResource("Material")
+
+[node name="LeftEngineGlow" type="MeshInstance3D" parent="Body"]
+position = Vector3(-1.25, 0, 8.5)
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("EngineMesh")
+material_override = SubResource("EngineMaterial")
+
+[node name="RightEngineGlow" type="MeshInstance3D" parent="Body"]
+position = Vector3(1.25, 0, 8.5)
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("EngineMesh")
+material_override = SubResource("EngineMaterial")
+
+[node name="LeftEngineLight" type="OmniLight3D" parent="Body"]
+position = Vector3(-1.25, 0, 8.4)
+light_color = Color(1, 0.28, 0.04, 1)
+light_energy = 9.0
+omni_range = 28.0
+
+[node name="RightEngineLight" type="OmniLight3D" parent="Body"]
+position = Vector3(1.25, 0, 8.4)
+light_color = Color(1, 0.28, 0.04, 1)
+light_energy = 9.0
+omni_range = 28.0
+
+[node name="LeftExhaustTrail" type="GPUParticles3D" parent="Body"]
+position = Vector3(-1.25, 0, 8.8)
+emitting = false
+amount = 260
+lifetime = 4.0
+visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
+local_coords = false
+process_material = SubResource("ContrailProcess")
+draw_pass_1 = SubResource("ContrailMesh")
+script = ExtResource("2")
+sample_spacing = 3.5
+
+[node name="RightExhaustTrail" type="GPUParticles3D" parent="Body"]
+position = Vector3(1.25, 0, 8.8)
+emitting = false
+amount = 260
+lifetime = 4.0
+visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
+local_coords = false
+process_material = SubResource("ContrailProcess")
+draw_pass_1 = SubResource("ContrailMesh")
+script = ExtResource("2")
+sample_spacing = 3.5

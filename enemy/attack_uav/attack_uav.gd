@@ -1,6 +1,8 @@
 class_name AttackUav
 extends ThreatUnit
 
+const STRIKE_MUNITION_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
+
 var objective: ProtectedObjective
 var battlefield: Battlefield
 var target_point: Vector3
@@ -31,6 +33,7 @@ func gameplay_tick(delta: float) -> void:
 		return
 	var mission_target := mission_runtime.navigation_target()
 	target_point = mission_target
+	var previous_position := global_position
 	var holding_for_recon := _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and mission_runtime.phase == ThreatMissionRuntime.Phase.ACTING
 	if holding_for_recon:
 		orbit_angle = fposmod(orbit_angle + delta * 0.45, TAU)
@@ -39,11 +42,20 @@ func gameplay_tick(delta: float) -> void:
 		mover.advance(self, body, orbit_target, speed_multiplier, delta)
 	else:
 		mover.advance(self, body, target_point, speed_multiplier, delta)
+	_sample_exhaust(previous_position, global_position)
 	var had_applied_effect := mission_runtime.effect_applied
 	if mission_runtime.gameplay_tick(global_position, delta):
 		resolve_once(false)
+	if not had_applied_effect and mission_runtime.effect_applied and _definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
+		_spawn_strike_munition(mission_target)
 	if not had_applied_effect and mission_runtime.effect_applied and enemy_knowledge != null and _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
 		enemy_knowledge.record_recon(mission_runtime.target_asset)
+
+func resolve_once(neutralized: bool) -> bool:
+	if resolved_state:
+		return false
+	_release_exhaust_trail()
+	return super.resolve_once(neutralized)
 
 func get_urgency() -> float:
 	if objective == null:
@@ -78,3 +90,25 @@ func _apply_visual_color() -> void:
 			var material := mesh_instance.material_override.duplicate() as StandardMaterial3D
 			material.albedo_color = _definition.visual_color
 			mesh_instance.material_override = material
+
+func _sample_exhaust(from_position: Vector3, to_position: Vector3) -> void:
+	for child: Node in body.get_children():
+		if child is GPUParticles3D and child.has_method("sample_world_segment"):
+			child.call("sample_world_segment", from_position, to_position)
+
+func _release_exhaust_trail() -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	for child: Node in body.get_children():
+		if child is GPUParticles3D and child.has_method("release_to"):
+			child.call("release_to", parent)
+
+func _spawn_strike_munition(strike_target: Vector3) -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var munition := STRIKE_MUNITION_SCENE.instantiate() as Node3D
+	parent.add_child(munition)
+	munition.global_position = global_position
+	munition.call("setup", strike_target)
