@@ -9,6 +9,8 @@ var occupied_positions: Array[Vector3] = []
 var occupied_radii: Array[float] = []
 var rooftop_pads: Array[Dictionary] = []
 var battlefield_size: float = 2400.0
+var city_block_surface_count: int = 0
+var city_road_width: float = 11.0
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -25,6 +27,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	var ocean_mesh := ocean.mesh as PlaneMesh
 	ocean_mesh.size = Vector2.ONE * scenario.battlefield_size * OCEAN_SIZE_MULTIPLIER
 	ocean.position.y = generator.sea_level
+	_build_city_ground(scenario.city_size, layout.city_blocks)
 	_build_city_visuals(generator.building_transforms(), layout.rooftop_spacing)
 
 func set_objective(objective_value: ProtectedObjective) -> void:
@@ -92,8 +95,6 @@ func clear_occupancy() -> void:
 	occupied_radii.clear()
 
 func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int) -> void:
-	for child: Node in city_visuals.get_children():
-		child.free()
 	rooftop_pads.clear()
 	var palette: Array[Color] = [Color("8795a1"), Color("a6adb4"), Color("77828a"), Color("c0aa8d")]
 	for index: int in transforms.size():
@@ -110,6 +111,50 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int) -
 		city_visuals.add_child(building)
 		if index % rooftop_spacing == 0:
 			_build_rooftop_pad(index, transforms[index])
+
+func _build_city_ground(city_size: float, block_count: int) -> void:
+	for child: Node in city_visuals.get_children():
+		child.free()
+	city_block_surface_count = 0
+	var asphalt := StandardMaterial3D.new()
+	asphalt.albedo_color = Color("343a40")
+	asphalt.roughness = 0.96
+	_add_city_box("RoadNetwork", Vector3(city_size + 18.0, 0.35, city_size + 18.0), Vector3(0.0, generator.height_at(0.0, 0.0) + 0.08, 0.0), asphalt)
+	var block_step := city_size / float(block_count)
+	var block_size := block_step - city_road_width
+	var center := float(block_count - 1) * 0.5
+	var pavement_palette: Array[Color] = [Color("777a78"), Color("85847f"), Color("6f7472")]
+	for bz: int in block_count:
+		for bx: int in block_count:
+			var x := (float(bx) - center) * block_step
+			var z := (float(bz) - center) * block_step
+			var material := StandardMaterial3D.new()
+			material.albedo_color = pavement_palette[(bx + bz * block_count) % pavement_palette.size()]
+			material.roughness = 0.9
+			_add_city_box("CityBlock%d_%d" % [bx, bz], Vector3(block_size, 0.55, block_size), Vector3(x, generator.height_at(x, z) + 0.24, z), material)
+			city_block_surface_count += 1
+	_build_road_markings(city_size, block_count, block_step)
+
+func _build_road_markings(city_size: float, block_count: int, block_step: float) -> void:
+	var marking_material := StandardMaterial3D.new()
+	marking_material.albedo_color = Color("d7c46a")
+	marking_material.roughness = 0.82
+	var center := float(block_count - 1) * 0.5
+	for boundary: int in block_count - 1:
+		var offset := (float(boundary) - center + 0.5) * block_step
+		_add_city_box("LaneX%d" % boundary, Vector3(city_size, 0.06, 0.38), Vector3(0.0, generator.height_at(0.0, offset) + 0.31, offset), marking_material)
+		_add_city_box("LaneZ%d" % boundary, Vector3(0.38, 0.06, city_size), Vector3(offset, generator.height_at(offset, 0.0) + 0.31, 0.0), marking_material)
+
+func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, material: Material) -> MeshInstance3D:
+	var visual := MeshInstance3D.new()
+	visual.name = node_name
+	var mesh := BoxMesh.new()
+	mesh.size = box_size
+	visual.mesh = mesh
+	visual.position = position
+	visual.material_override = material
+	city_visuals.add_child(visual)
+	return visual
 
 func _build_rooftop_pad(index: int, building_transform: Transform3D) -> void:
 	var building_size := building_transform.basis.get_scale()

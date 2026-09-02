@@ -82,9 +82,12 @@ func building_transforms() -> Array[Transform3D]:
 		for bx: int in blocks:
 			if (absf(float(bx) - center) < 0.75 and absf(float(bz) - center) < 0.75) or rng.randf() < 0.08:
 				continue
-			var width := rng.randf_range(20.0, 34.0)
-			var depth := rng.randf_range(20.0, 34.0)
-			var height := rng.randf_range(layout.minimum_building_height, layout.maximum_building_height)
+			var block_distance := maxf(absf(float(bx) - center), absf(float(bz) - center)) / maxf(center, 1.0)
+			var center_weight := 1.0 - smoothstep(0.15, 1.0, block_distance)
+			var width := rng.randf_range(18.0, 28.0) + center_weight * rng.randf_range(2.0, 8.0)
+			var depth := rng.randf_range(18.0, 28.0) + center_weight * rng.randf_range(2.0, 8.0)
+			var zone_height_scale := lerpf(0.52, 1.18, center_weight)
+			var height := clampf(rng.randf_range(layout.minimum_building_height, layout.maximum_building_height) * zone_height_scale, layout.minimum_building_height, layout.maximum_building_height * 1.08)
 			var x := (float(bx) - center) * block_step + rng.randf_range(-4.0, 4.0)
 			var z := (float(bz) - center) * block_step + rng.randf_range(-4.0, 4.0)
 			var basis := Basis.IDENTITY.scaled(Vector3(width, height, depth))

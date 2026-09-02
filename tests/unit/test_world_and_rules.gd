@@ -14,6 +14,33 @@ func test_world_seed_reproduces_height_and_city_layout() -> void:
 	assert_eq(first.heights, second.heights)
 	assert_eq(first.building_transforms(), second.building_transforms())
 
+func test_city_skyline_is_taller_near_the_center() -> void:
+	var generator := WorldGenerator.new()
+	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
+	var inner_heights: Array[float] = []
+	var outer_heights: Array[float] = []
+	for building: Transform3D in generator.building_transforms():
+		var height := building.basis.get_scale().y
+		if Vector2(building.origin.x, building.origin.z).length() < SCENARIO.city_size * 0.3:
+			inner_heights.append(height)
+		else:
+			outer_heights.append(height)
+	assert_gt(_average(inner_heights), _average(outer_heights))
+
+func test_battlefield_builds_paved_blocks_and_road_grid() -> void:
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(SCENARIO)
+	assert_eq(battlefield.city_block_surface_count, SCENARIO.battlefield_layout().city_blocks ** 2)
+	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
+	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneX0"))
+	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneZ0"))
+
+func _average(values: Array[float]) -> float:
+	var total := 0.0
+	for value: float in values:
+		total += value
+	return total / maxf(float(values.size()), 1.0)
+
 func test_different_world_seed_changes_height_field() -> void:
 	var first := WorldGenerator.new()
 	var second := WorldGenerator.new()
