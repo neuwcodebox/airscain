@@ -48,10 +48,13 @@ func run() -> void:
 	if main.session.survival_time < TARGET_DURATION - STEP:
 		_fail("simulation did not reach target duration")
 		return
-	print("LONG_RUN_OK time=%.1f neutralized=%d defenses=%d pressure=%d active=%d integrity=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.session.highest_pressure, main.registry.count(), main.objective.current_integrity])
+	print("LONG_RUN_OK time=%.1f neutralized=%d defenses=%d pressure=%d active=%d integrity=%d budget=%d support=%d windows=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.session.highest_pressure, main.registry.count(), main.objective.current_integrity, main.session.budget, main.session.support_payment_count, main.session.completed_attack_windows])
 	main.set_process(false)
 	main.combat_audio.call("stop_all")
 	main.free()
+	main = null
+	placement_candidates.clear()
+	sensor_candidates.clear()
 	for index: int in 3:
 		await process_frame
 	quit(0)
@@ -122,6 +125,9 @@ func _buy_available_defenses() -> void:
 	var required_tracking_count := 2 if support_facility_count >= 2 else 1
 	if tracking_radar_count < required_tracking_count and support_facility_count > 0:
 		var tracking_definition := main.scenario.available_defenses[3]
+		if tracking_definition.unlock_pressure_level > main.session.current_pressure:
+			_request_low_ammunition_resupply()
+			return
 		if main.session.budget < tracking_definition.price:
 			_request_low_ammunition_resupply()
 			return
@@ -139,6 +145,9 @@ func _buy_available_defenses() -> void:
 			next_layer_index = (next_layer_index + 1) % layer_indices.size()
 			continue
 		var definition: DefenseDefinition = main.scenario.available_defenses[definition_index]
+		if definition.unlock_pressure_level > main.session.current_pressure:
+			next_layer_index = (next_layer_index + 1) % layer_indices.size()
+			continue
 		if main.session.budget < definition.price:
 			break
 		var position := placement_candidates[next_candidate]

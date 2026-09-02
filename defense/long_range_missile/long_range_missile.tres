@@ -58,6 +58,7 @@ id = &"long_range_missile"
 display_name = "장거리 미사일 포대"
 scene = ExtResource("2")
 price = 340
+unlock_pressure_level = 4
 placement_profile = SubResource("PlacementProfile")
 preview_range = 640.0
 attack_range = 640.0

@@ -16,5 +16,6 @@ id = &"high_energy_laser"
 display_name = "고출력 레이저"
 scene = ExtResource("2")
 price = 180
+unlock_pressure_level = 3
 placement_profile = SubResource("PlacementProfile")
 preview_range = 260.0

@@ -135,7 +135,8 @@ func _apply_requested_seed() -> void:
 			AirscainMain.requested_seed = int(argument.trim_prefix("--seed="))
 
 func _place_initial_assets() -> void:
-	main.session.budget += 900
+	main.session.budget = 5000
+	main._on_pressure_changed(5)
 	_place_asset(main.scenario.available_defenses[0], -1.0)
 	_place_asset(main.scenario.available_defenses[1], 1.0)
 	_place_asset(main.scenario.available_defenses[2], 1.0)

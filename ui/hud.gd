@@ -70,6 +70,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 func set_pressure(level: int) -> void:
 	pressure_level = level
 	pressure_label.text = "전투 강도  %d" % level
+	_on_state_changed()
 
 func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Array[String]) -> void:
 	var parts: Array[String] = ["▲ 적성 항적 %d" % hostile_count, "교전 %d" % engagement_count]
@@ -170,7 +171,10 @@ func _on_state_changed() -> void:
 	time_label.text = "생존  %02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 	speed_label.text = "일시정지" if is_zero_approx(session.simulation_speed) else "%d×" % int(session.simulation_speed)
 	for index: int in defense_buttons.size():
-		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or session.budget < defense_definitions[index].price
+		var definition := defense_definitions[index]
+		var locked := definition.unlock_pressure_level > session.current_pressure
+		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or session.budget < definition.price or locked
+		defense_buttons[index].text = "%s  강도 %d 해금" % [definition.display_name, definition.unlock_pressure_level] if locked else "%s  $%d" % [definition.display_name, definition.price]
 	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
 
 func _on_integrity_changed(current: int, maximum: int) -> void:

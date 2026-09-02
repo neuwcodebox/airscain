@@ -17,6 +17,7 @@ id = &"tracking_radar"
 display_name = "정밀 추적 레이더"
 scene = ExtResource("2")
 price = 160
+unlock_pressure_level = 2
 placement_profile = SubResource("PlacementProfile")
 preview_range = 340.0
 detection_range = 340.0

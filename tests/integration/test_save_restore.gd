@@ -28,6 +28,10 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_true(battery.request_resupply())
 	assert_true(main.session.start_defense())
 	main.session.gameplay_delta(7.5)
+	main.session.update_pressure(4)
+	main.session.grant_attack_window_reward(120)
+	main.director.in_recovery = true
+	main.director.completed_attack_windows = 1
 	main.objective.apply_mission_damage(10)
 	var threat := main.director.spawn_one()
 	var threat_runtime_id := threat.runtime_id
@@ -45,6 +49,9 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(main.session.phase, GameSession.Phase.RUNNING)
 	assert_eq(main.session.budget, saved_budget)
 	assert_eq(main.session.survival_time, 7.5)
+	assert_eq(main.session.current_pressure, 4)
+	assert_eq(main.session.completed_attack_windows, 1)
+	assert_eq(main.session.total_support_received, 120)
 	assert_eq(main.objective.current_integrity, 90)
 	assert_eq(main.defenses.size(), 1)
 	var restored_battery := main.defenses[0] as MissileBattery
@@ -61,6 +68,8 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(restored_threat.global_position, Vector3(340.0, 85.0, -120.0))
 	assert_eq(restored_threat.health, 42.0)
 	assert_eq(main.director.elapsed, 33.0)
+	assert_true(main.director.in_recovery)
+	assert_eq(main.director.completed_attack_windows, 1)
 	assert_eq(main.director.rng.state, saved_director_rng_state)
 
 func test_invalid_content_id_does_not_mutate_live_session() -> void:
@@ -313,6 +322,7 @@ func _find_defense(runtime_id: int) -> DefenseUnit:
 	return null
 
 func _place_defense(definition: DefenseDefinition) -> DefenseUnit:
+	main._on_pressure_changed(definition.unlock_pressure_level)
 	var position := _find_valid_position(definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(result.success)

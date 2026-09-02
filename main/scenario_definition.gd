@@ -6,7 +6,7 @@ extends Resource
 @export var terrain_resolution: int = 97
 @export var city_size: float = 330.0
 @export var battlefield_layouts: Array[BattlefieldLayoutDefinition] = []
-@export var starting_budget: int = 620
+@export var starting_budget: int = 1900
 @export var objective_definition: ObjectiveDefinition
 @export var available_defenses: Array[DefenseDefinition] = []
 @export var threat_entries: Array[ThreatSpawnEntry] = []
@@ -15,6 +15,11 @@ extends Resource
 @export var ambient_contacts_per_type: int = 4
 @export var initial_spawn_interval: float = 4.0
 @export var active_threat_cap: int = 200
+@export var support_interval: float = 90.0
+@export var support_amount: int = 180
+@export var attack_window_duration: float = 55.0
+@export var recovery_duration: float = 30.0
+@export var attack_window_reward: int = 120
 
 func validation_error() -> String:
 	if battlefield_size <= 0.0 or terrain_resolution < 2 or city_size <= 0.0 or city_size >= battlefield_size:
@@ -29,7 +34,7 @@ func validation_error() -> String:
 		if not layout_error.is_empty():
 			return layout_error
 		layout_ids[layout.id] = true
-	if starting_budget < 0 or initial_spawn_interval <= 0.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0:
+	if starting_budget < 0 or initial_spawn_interval <= 0.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
 		return "보호 목표 Definition이 없습니다"

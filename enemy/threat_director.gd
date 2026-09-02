@@ -3,6 +3,7 @@ extends Node
 
 signal pressure_changed(level: int)
 signal threat_spawned(threat: ThreatUnit)
+signal recovery_started(completed_window: int)
 
 var scenario: ScenarioDefinition
 var battlefield: Battlefield
@@ -18,6 +19,8 @@ var pressure_level: int = 1
 var next_runtime_id: int = 1
 var enabled: bool = false
 var pending_waves: Array[Dictionary] = []
+var in_recovery: bool = false
+var completed_attack_windows: int = 0
 
 func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D, enemy_knowledge_value: EnemyKnowledge) -> void:
 	scenario = scenario_value
@@ -37,6 +40,8 @@ func reset() -> void:
 	next_runtime_id = 1
 	enabled = false
 	pending_waves.clear()
+	in_recovery = false
+	completed_attack_windows = 0
 	pressure_changed.emit(pressure_level)
 
 func gameplay_tick(delta: float) -> void:
@@ -48,6 +53,17 @@ func gameplay_tick(delta: float) -> void:
 	if new_level != pressure_level:
 		pressure_level = new_level
 		pressure_changed.emit(pressure_level)
+	var cycle_duration := scenario.attack_window_duration + scenario.recovery_duration
+	var should_recover := fmod(elapsed, cycle_duration) >= scenario.attack_window_duration
+	if should_recover != in_recovery:
+		in_recovery = should_recover
+		if in_recovery:
+			completed_attack_windows += 1
+			recovery_started.emit(completed_attack_windows)
+		else:
+			until_spawn = maxf(until_spawn, scenario.initial_spawn_interval)
+	if in_recovery:
+		return
 	until_spawn -= delta
 	if until_spawn > 0.0:
 		return
@@ -285,6 +301,8 @@ func capture_state() -> Dictionary:
 		"enabled": enabled,
 		"rng_state": str(rng.state),
 		"pending_waves": pending_waves.duplicate(true),
+		"in_recovery": in_recovery,
+		"completed_attack_windows": completed_attack_windows,
 	}
 
 func restore_state(state: Dictionary) -> void:
@@ -297,4 +315,6 @@ func restore_state(state: Dictionary) -> void:
 	pending_waves.clear()
 	for wave: Dictionary in state.get("pending_waves", []):
 		pending_waves.append({"definition_id": String(wave.definition_id), "remaining": float(wave.remaining), "angle": float(wave.angle)})
+	in_recovery = bool(state.in_recovery)
+	completed_attack_windows = int(state.completed_attack_windows)
 	pressure_changed.emit(pressure_level)

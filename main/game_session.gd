@@ -7,6 +7,7 @@ signal budget_changed(amount: int)
 signal phase_changed(phase: Phase)
 signal statistics_changed
 signal defense_placed(unit: DefenseUnit)
+signal support_received(amount: int, reason: String)
 
 var phase := Phase.PREPARATION
 var budget: int = 0
@@ -14,18 +15,32 @@ var survival_time: float = 0.0
 var neutralized_count: int = 0
 var defense_count: int = 0
 var highest_pressure: int = 1
+var current_pressure: int = 1
 var simulation_speed: float = 1.0
 var next_defense_id: int = 1
+var support_interval: float = 90.0
+var support_amount: int = 180
+var next_support_at: float = 90.0
+var support_payment_count: int = 0
+var completed_attack_windows: int = 0
+var total_support_received: int = 0
 
-func reset(starting_budget: int) -> void:
+func reset(starting_budget: int, support_interval_value: float = 90.0, support_amount_value: int = 180) -> void:
 	phase = Phase.PREPARATION
 	budget = starting_budget
 	survival_time = 0.0
 	neutralized_count = 0
 	defense_count = 0
 	highest_pressure = 1
+	current_pressure = 1
 	simulation_speed = 1.0
 	next_defense_id = 1
+	support_interval = support_interval_value
+	support_amount = support_amount_value
+	next_support_at = support_interval
+	support_payment_count = 0
+	completed_attack_windows = 0
+	total_support_received = 0
 	budget_changed.emit(budget)
 	phase_changed.emit(phase)
 	statistics_changed.emit()
@@ -42,6 +57,10 @@ func gameplay_delta(delta: float) -> float:
 		return 0.0
 	var result := delta * simulation_speed
 	survival_time += result
+	while survival_time >= next_support_at:
+		_grant_support(support_amount, "정기 작전 지원")
+		support_payment_count += 1
+		next_support_at += support_interval
 	statistics_changed.emit()
 	return result
 
@@ -50,6 +69,8 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 		return {"success": false, "reason": "게임이 종료되었습니다"}
 	if definition == null or definition.placement_profile == null:
 		return {"success": false, "reason": "잘못된 방어 수단입니다"}
+	if definition.unlock_pressure_level > current_pressure:
+		return {"success": false, "reason": "전투 강도 %d에서 해금됩니다" % definition.unlock_pressure_level}
 	if budget < definition.price:
 		return {"success": false, "reason": "예산이 부족합니다"}
 	var validation := battlefield.placement_result(position, definition.placement_profile)
@@ -81,8 +102,23 @@ func register_threat_resolution(_threat: ThreatUnit, neutralized: bool, reward: 
 	statistics_changed.emit()
 
 func update_pressure(level: int) -> void:
-	highest_pressure = maxi(highest_pressure, level)
+	current_pressure = maxi(current_pressure, level)
+	highest_pressure = maxi(highest_pressure, current_pressure)
 	statistics_changed.emit()
+
+func grant_attack_window_reward(amount: int) -> void:
+	if phase != Phase.RUNNING:
+		return
+	completed_attack_windows += 1
+	_grant_support(amount, "공격 구간 방어 보상")
+
+func _grant_support(amount: int, reason: String) -> void:
+	if amount <= 0 or phase == Phase.GAME_OVER:
+		return
+	budget += amount
+	total_support_received += amount
+	budget_changed.emit(budget)
+	support_received.emit(amount, reason)
 
 func end_game() -> void:
 	if phase == Phase.GAME_OVER:
@@ -112,8 +148,15 @@ func capture_state() -> Dictionary:
 		"neutralized_count": neutralized_count,
 		"defense_count": defense_count,
 		"highest_pressure": highest_pressure,
+		"current_pressure": current_pressure,
 		"simulation_speed": simulation_speed,
 		"next_defense_id": next_defense_id,
+		"support_interval": support_interval,
+		"support_amount": support_amount,
+		"next_support_at": next_support_at,
+		"support_payment_count": support_payment_count,
+		"completed_attack_windows": completed_attack_windows,
+		"total_support_received": total_support_received,
 	}
 
 func restore_state(state: Dictionary) -> void:
@@ -123,8 +166,15 @@ func restore_state(state: Dictionary) -> void:
 	neutralized_count = int(state.neutralized_count)
 	defense_count = int(state.defense_count)
 	highest_pressure = int(state.highest_pressure)
+	current_pressure = int(state.current_pressure)
 	simulation_speed = float(state.simulation_speed)
 	next_defense_id = int(state.next_defense_id)
+	support_interval = float(state.support_interval)
+	support_amount = int(state.support_amount)
+	next_support_at = float(state.next_support_at)
+	support_payment_count = int(state.support_payment_count)
+	completed_attack_windows = int(state.completed_attack_windows)
+	total_support_received = int(state.total_support_received)
 	budget_changed.emit(budget)
 	phase_changed.emit(phase)
 	statistics_changed.emit()

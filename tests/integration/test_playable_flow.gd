@@ -41,6 +41,18 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.threat_entries[11].threat_definition.id, &"strike_aircraft")
 	assert_false(main.session.start_defense())
 
+func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
+	var definition := main.scenario.available_defenses[3]
+	var position := _find_valid_position_for(definition.placement_profile)
+	var locked_result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_false(locked_result.success)
+	assert_string_contains(locked_result.reason, "전투 강도 2")
+	assert_true(main.hud.defense_buttons[3].disabled)
+	assert_string_contains(main.hud.defense_buttons[3].text, "강도 2 해금")
+	main._on_pressure_changed(2)
+	assert_false(main.hud.defense_buttons[3].disabled)
+	assert_true(main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
+
 func test_combat_audio_synthesizes_and_throttles_distinct_events() -> void:
 	var streams: Dictionary = main.combat_audio.get("streams")
 	assert_eq(streams.size(), 6)
@@ -77,6 +89,7 @@ func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 
 func test_long_range_launcher_exposes_munition_mode_control() -> void:
 	var definition := main.scenario.available_defenses[7]
+	main._on_pressure_changed(definition.unlock_pressure_level)
 	var position := _find_valid_position_for(definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var battery := result.unit as MissileBattery
@@ -519,6 +532,7 @@ func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> v
 	main.placement.cancel()
 
 func test_support_power_capacity_recharges_laser_and_scales_with_damage() -> void:
+	main._on_pressure_changed(3)
 	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var laser_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[6], _find_valid_position_for(main.scenario.available_defenses[6].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(support_result.success)
@@ -539,6 +553,7 @@ func test_support_power_capacity_recharges_laser_and_scales_with_damage() -> voi
 
 func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	main.registry.clear()
+	main._on_pressure_changed(3)
 	var laser_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[6], _find_valid_position_for(main.scenario.available_defenses[6].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
@@ -573,6 +588,7 @@ func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()
+	main._on_pressure_changed(5)
 	var hpm_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[9], _find_valid_position_for(main.scenario.available_defenses[9].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(hpm_result.success)
 	var hpm := hpm_result.unit as HighPowerMicrowave
@@ -596,6 +612,7 @@ func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> vo
 
 func test_interceptor_drone_returns_and_recharges_for_reuse() -> void:
 	main.registry.clear()
+	main._on_pressure_changed(5)
 	var result: Dictionary = main.session.request_placement(main.scenario.available_defenses[10], _find_valid_position_for(main.scenario.available_defenses[10].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(result.success)
 	var base := result.unit as InterceptorDroneDefense

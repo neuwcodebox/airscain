@@ -43,6 +43,8 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		return "세션 단계가 올바르지 않습니다"
 	if int(session_state.get("budget", -1)) < 0 or float(session_state.get("survival_time", -1.0)) < 0.0:
 		return "세션 경제 또는 시간이 올바르지 않습니다"
+	if int(session_state.get("current_pressure", 0)) < 1 or float(session_state.get("support_interval", 0.0)) <= 0.0 or int(session_state.get("support_amount", -1)) < 0 or float(session_state.get("next_support_at", -1.0)) < 0.0 or int(session_state.get("support_payment_count", -1)) < 0 or int(session_state.get("completed_attack_windows", -1)) < 0 or int(session_state.get("total_support_received", -1)) < 0:
+		return "세션 성장 또는 작전 지원 상태가 올바르지 않습니다"
 	var world_state: Dictionary = payload.world
 	if int(world_state.get("objective_integrity", -1)) < 0:
 		return "도시 기능 상태가 올바르지 않습니다"
@@ -213,7 +215,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		elif int(projectile_state.get("state", -1)) < InterceptorDrone.State.OUTBOUND or int(projectile_state.get("state", -1)) > InterceptorDrone.State.RETURNING or float(projectile_state.get("age", -1.0)) < 0.0:
 			return "요격드론 비행 상태가 올바르지 않습니다"
 	var director_state: Dictionary = payload.director
-	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or not director_state.get("pending_waves", null) is Array:
+	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"
 	for wave: Dictionary in director_state.pending_waves:
 		var definition_id := StringName(String(wave.get("definition_id", "")))

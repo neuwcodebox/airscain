@@ -109,6 +109,45 @@ func test_pressure_rises_and_spawn_load_is_bounded() -> void:
 	assert_eq(SCENARIO.raid_archetypes[0].phase_delays, [0.0, 4.0, 8.0])
 	assert_eq(SCENARIO.raid_archetypes[0].total_cost(), 9.0)
 
+func test_running_session_receives_timed_and_attack_window_support() -> void:
+	var session := autofree(GameSession.new()) as GameSession
+	session.reset(100, 10.0, 25)
+	session.defense_count = 1
+	assert_true(session.start_defense())
+	assert_eq(session.gameplay_delta(9.0), 9.0)
+	assert_eq(session.budget, 100)
+	session.gameplay_delta(1.0)
+	assert_eq(session.budget, 125)
+	assert_eq(session.support_payment_count, 1)
+	session.grant_attack_window_reward(40)
+	assert_eq(session.budget, 165)
+	assert_eq(session.completed_attack_windows, 1)
+	assert_eq(session.total_support_received, 65)
+
+func test_director_enters_recovery_once_per_attack_window() -> void:
+	var director := autofree(ThreatDirector.new()) as ThreatDirector
+	director.scenario = SCENARIO
+	director.enabled = true
+	director.until_spawn = 1000.0
+	var recovery_count: Array[int] = [0]
+	director.recovery_started.connect(func(_window: int) -> void: recovery_count[0] += 1)
+	director.gameplay_tick(SCENARIO.attack_window_duration)
+	assert_true(director.in_recovery)
+	assert_eq(recovery_count[0], 1)
+	var paused_spawn_time := director.until_spawn
+	director.gameplay_tick(SCENARIO.recovery_duration - 0.1)
+	assert_eq(director.until_spawn, paused_spawn_time)
+	director.gameplay_tick(0.1)
+	assert_false(director.in_recovery)
+	assert_eq(recovery_count[0], 1)
+
+func test_advanced_defenses_require_matching_pressure_level() -> void:
+	assert_eq(SCENARIO.available_defenses[0].unlock_pressure_level, 1)
+	assert_eq(SCENARIO.available_defenses[3].unlock_pressure_level, 2)
+	assert_eq(SCENARIO.available_defenses[6].unlock_pressure_level, 3)
+	assert_eq(SCENARIO.available_defenses[7].unlock_pressure_level, 4)
+	assert_eq(SCENARIO.available_defenses[9].unlock_pressure_level, 5)
+
 func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void:
 	var definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
 	var gun: CloseInGun = autofree(definition.scene.instantiate()) as CloseInGun

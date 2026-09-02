@@ -57,7 +57,7 @@ func _ready() -> void:
 	camera_rig.configure_for_battlefield(scenario.battlefield_size)
 	_spawn_objective()
 	_spawn_ambient_contacts()
-	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus)
+	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus, scenario.support_interval, scenario.support_amount)
 	support_manager.configure(session)
 	relocation_manager.configure(battlefield)
 	enemy_knowledge.reset()
@@ -126,7 +126,9 @@ func _connect_flow() -> void:
 	objective.depleted.connect(_on_objective_depleted)
 	director.threat_spawned.connect(_on_threat_spawned)
 	director.pressure_changed.connect(_on_pressure_changed)
+	director.recovery_started.connect(_on_recovery_started)
 	session.defense_placed.connect(_on_defense_placed)
+	session.support_received.connect(_on_support_received)
 	hud.defense_selected.connect(placement.select)
 	hud.start_requested.connect(_on_start_requested)
 	hud.speed_requested.connect(session.set_simulation_speed)
@@ -208,6 +210,12 @@ func _on_pressure_changed(level: int) -> void:
 	session.update_pressure(level)
 	hud.set_pressure(level)
 	combat_audio.call("play_event", &"pressure", clampf(0.45 + float(level) * 0.04, 0.45, 1.0))
+
+func _on_recovery_started(_completed_window: int) -> void:
+	session.grant_attack_window_reward(scenario.attack_window_reward)
+
+func _on_support_received(amount: int, reason: String) -> void:
+	hud.set_feedback("%s +$%d · 다음 공격 전 방공망을 정비하세요" % [reason, amount])
 
 func _on_track_contact_audio(_track: PlayerTrack) -> void:
 	combat_audio.call("play_event", &"contact", 0.55)

@@ -15,5 +15,6 @@ id = &"high_power_microwave"
 display_name = "고출력 마이크로파"
 scene = ExtResource("2")
 price = 230
+unlock_pressure_level = 5
 placement_profile = SubResource("Placement")
 preview_range = 210.0

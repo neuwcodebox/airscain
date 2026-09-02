@@ -15,6 +15,7 @@ id = &"interceptor_drone_defense"
 display_name = "요격드론 기지"
 scene = ExtResource("2")
 price = 210
+unlock_pressure_level = 5
 placement_profile = SubResource("Placement")
 preview_range = 280.0
 mobile = false
