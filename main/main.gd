@@ -133,7 +133,7 @@ func _spawn_objective() -> void:
 	objective = scenario.objective_definition.scene.instantiate() as ProtectedObjective
 	objectives.add_child(objective)
 	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
-	objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors)
+	objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors, battlefield.city_damage_smoke_building_heights)
 	objective.exclusion_radius = scenario.city_size * 0.5
 	objective.setup(1, scenario.objective_definition)
 	battlefield.set_objective(objective)
@@ -606,7 +606,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		scenario.world_seed = restored_seed
 		requested_seed = restored_seed
 		battlefield.build(scenario)
-		objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors)
+		objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors, battlefield.city_damage_smoke_building_heights)
 	var world_state: Dictionary = payload.world
 	objective.restore_integrity(int(world_state.objective_integrity))
 	var defense_definitions := SessionSnapshot.defense_definition_map(scenario)

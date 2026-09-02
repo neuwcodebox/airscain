@@ -6,25 +6,21 @@ var smoke_middle: GPUParticles3D
 var smoke_upper: GPUParticles3D
 var fire: GPUParticles3D
 var city_plume_enabled: bool = false
-var city_plume_elapsed: float = 0.0
-var city_middle_height: float = 70.0
-var city_upper_height: float = 120.0
+var plume_layers_configured: bool = false
 
 func _ready() -> void:
-	smoke = $Smoke
-	smoke_middle = $SmokeMiddle
-	smoke_upper = $SmokeUpper
-	fire = $Fire
-	_configure_plume_layers()
+	_ensure_plume_layers()
 
-func _process(delta: float) -> void:
-	if not city_plume_enabled:
+func _ensure_plume_layers() -> void:
+	if smoke == null:
+		smoke = get_node("Smoke") as GPUParticles3D
+		smoke_middle = get_node("SmokeMiddle") as GPUParticles3D
+		smoke_upper = get_node("SmokeUpper") as GPUParticles3D
+		fire = get_node("Fire") as GPUParticles3D
+	if plume_layers_configured:
 		return
-	city_plume_elapsed += delta
-	var middle_progress := fposmod(city_plume_elapsed, 5.5) / 5.5
-	var upper_progress := fposmod(city_plume_elapsed, 8.0) / 8.0
-	smoke_middle.position = Vector3(middle_progress * 8.0, lerpf(0.7, city_middle_height, middle_progress), middle_progress * 3.0)
-	smoke_upper.position = Vector3(upper_progress * 18.0, lerpf(0.8, city_upper_height, upper_progress), upper_progress * 7.0)
+	_configure_plume_layers()
+	plume_layers_configured = true
 
 func _configure_plume_layers() -> void:
 	var lower_process := smoke.process_material.duplicate(true) as ParticleProcessMaterial
@@ -53,14 +49,7 @@ func _configure_plume_layers() -> void:
 	smoke_upper.process_material = upper_process
 
 func set_damage_ratio(damage_ratio: float) -> void:
-	if smoke == null:
-		smoke = get_node("Smoke") as GPUParticles3D
-	if smoke_upper == null:
-		smoke_upper = get_node("SmokeUpper") as GPUParticles3D
-	if smoke_middle == null:
-		smoke_middle = get_node("SmokeMiddle") as GPUParticles3D
-	if fire == null:
-		fire = get_node("Fire") as GPUParticles3D
+	_ensure_plume_layers()
 	var intensity := clampf(damage_ratio, 0.0, 1.0)
 	smoke.amount = maxi(120, roundi(120.0 + intensity * 180.0))
 	smoke.lifetime = lerpf(8.5, 11.5, intensity)
@@ -90,14 +79,20 @@ func set_city_scale(scale_multiplier: float, building_height: float = 30.0) -> v
 	middle_process.initial_velocity_max = 30.0 * height_ratio
 	upper_process.initial_velocity_min = 29.0 * height_ratio
 	upper_process.initial_velocity_max = 40.0 * height_ratio
-	smoke.amount = maxi(smoke.amount, 480)
-	smoke_middle.amount = maxi(smoke_middle.amount, 520)
-	smoke_upper.amount = maxi(smoke_upper.amount, 560)
+	lower_process.gravity = Vector3(0.8, 8.0 * height_ratio, 0.3)
+	middle_process.gravity = Vector3(1.4, 16.0 * height_ratio, 0.45)
+	upper_process.gravity = Vector3(2.2, 28.0 * height_ratio, 0.7)
+	lower_process.damping_min = 0.0
+	lower_process.damping_max = 0.08
+	middle_process.damping_min = 0.0
+	middle_process.damping_max = 0.05
+	upper_process.damping_min = 0.0
+	upper_process.damping_max = 0.03
+	smoke.amount = maxi(smoke.amount, 700)
+	smoke_middle.amount = maxi(smoke_middle.amount, 1800)
+	smoke_upper.amount = maxi(smoke_upper.amount, 2600)
 	smoke_middle.lifetime = maxf(smoke_middle.lifetime, 17.0)
 	smoke_upper.lifetime = maxf(smoke_upper.lifetime, 24.0)
-	city_middle_height = maxf(70.0, building_height * 1.4)
-	city_upper_height = maxf(120.0, building_height * 2.2)
-	city_plume_elapsed = 0.0
 	city_plume_enabled = true
 	smoke.scale *= scale_multiplier
 	smoke_middle.scale *= scale_multiplier

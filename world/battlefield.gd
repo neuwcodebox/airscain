@@ -16,6 +16,7 @@ var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_damage_smoke_anchors: Array[Vector3] = []
+var city_damage_smoke_building_heights: Array[float] = []
 var city_building_footprints: Array[Rect2] = []
 
 @onready var terrain: MeshInstance3D = $Terrain
@@ -36,20 +37,31 @@ func build(scenario: ScenarioDefinition) -> void:
 	var city_blocks := generator.city_block_layout()
 	var building_transforms := generator.building_transforms()
 	_cache_city_building_footprints(building_transforms)
-	_cache_city_damage_smoke_anchors(building_transforms, layout.rooftop_spacing)
+	_cache_city_damage_smoke_anchors(building_transforms)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
 
-func _cache_city_damage_smoke_anchors(buildings: Array[Transform3D], rooftop_spacing: int) -> void:
+func _cache_city_damage_smoke_anchors(buildings: Array[Transform3D]) -> void:
 	city_damage_smoke_anchors.clear()
+	city_damage_smoke_building_heights.clear()
 	for index: int in buildings.size():
 		var building := buildings[index]
-		var building_height := building.basis.get_scale().y
-		var roof_offset := building_height * 0.5 + 0.7
-		var reserves_rooftop := index % rooftop_spacing == 0
-		if not reserves_rooftop and building_height >= 28.0 and index % 2 == 0:
-			roof_offset += clampf(building_height * 0.12, 3.0, 7.0)
-		city_damage_smoke_anchors.append(building.origin + Vector3.UP * roof_offset)
+		var building_size := building.basis.get_scale()
+		var side_x := -1.0 if index % 2 == 0 else 1.0
+		var side_z := -1.0 if index % 4 < 2 else 1.0
+		var damage_point: Vector3
+		if index % 3 == 0:
+			damage_point = building.origin + Vector3(side_x * building_size.x * 0.32, building_size.y * 0.5 + 0.7, side_z * building_size.z * 0.30)
+		else:
+			var ground_y := building.origin.y - building_size.y * 0.5
+			var damage_y := ground_y + building_size.y * (0.58 if index % 3 == 1 else 0.76)
+			var face := index % 4
+			if face < 2:
+				damage_point = Vector3(building.origin.x + (-1.0 if face == 0 else 1.0) * (building_size.x * 0.5 + 0.12), damage_y, building.origin.z + side_z * building_size.z * 0.18)
+			else:
+				damage_point = Vector3(building.origin.x + side_x * building_size.x * 0.18, damage_y, building.origin.z + (-1.0 if face == 2 else 1.0) * (building_size.z * 0.5 + 0.12))
+		city_damage_smoke_anchors.append(damage_point)
+		city_damage_smoke_building_heights.append(building_size.y)
 
 func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 	city_building_footprints.clear()

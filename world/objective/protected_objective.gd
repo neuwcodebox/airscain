@@ -18,12 +18,19 @@ var current_integrity: int
 var exclusion_radius: float = 165.0
 var damage_smoke_effects: Array[Node3D] = []
 var damage_smoke_offsets: Array[Vector3] = FALLBACK_DAMAGE_SMOKE_OFFSETS.duplicate()
+var damage_smoke_building_heights: Array[float] = [40.0, 44.0, 38.0, 42.0]
 
-func configure_damage_smoke_anchors(global_anchors: Array[Vector3]) -> void:
+func configure_damage_smoke_anchors(global_anchors: Array[Vector3], building_heights: Array[float] = []) -> void:
 	if global_anchors.is_empty():
 		return
 	var available: Array[Vector3] = global_anchors.duplicate()
+	var available_heights: Array[float] = building_heights.duplicate()
+	if available_heights.size() != available.size():
+		available_heights.clear()
+		for anchor: Vector3 in available:
+			available_heights.append(maxf(12.0, anchor.y - global_position.y))
 	var selected_offsets: Array[Vector3] = []
+	var selected_heights: Array[float] = []
 	for target_offset: Vector3 in FALLBACK_DAMAGE_SMOKE_OFFSETS:
 		if available.is_empty():
 			break
@@ -36,9 +43,12 @@ func configure_damage_smoke_anchors(global_anchors: Array[Vector3]) -> void:
 				nearest_distance = flat_distance
 				nearest_index = index
 		selected_offsets.append(to_local(available[nearest_index]))
+		selected_heights.append(available_heights[nearest_index])
 		available.remove_at(nearest_index)
+		available_heights.remove_at(nearest_index)
 	if not selected_offsets.is_empty():
 		damage_smoke_offsets = selected_offsets
+		damage_smoke_building_heights = selected_heights
 	if definition != null:
 		_sync_damage_visuals()
 
@@ -83,8 +93,7 @@ func _sync_damage_visuals() -> void:
 		var index := damage_smoke_effects.size()
 		var effect := DAMAGE_SMOKE_SCENE.instantiate() as Node3D
 		add_child(effect)
-		var roof_height := maxf(12.0, damage_smoke_offsets[index].y)
-		effect.call("set_city_scale", 1.5, roof_height)
+		effect.call("set_city_scale", 1.5, damage_smoke_building_heights[index])
 		damage_smoke_effects.append(effect)
 	while damage_smoke_effects.size() > desired_count:
 		var effect: Node3D = damage_smoke_effects.pop_back()

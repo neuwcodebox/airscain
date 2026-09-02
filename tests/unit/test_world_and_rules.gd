@@ -67,14 +67,23 @@ func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 	assert_eq(battlefield.city_block_surface_count, battlefield.generator.city_block_layout().size())
 	var buildings := battlefield.generator.building_transforms()
 	assert_eq(battlefield.city_damage_smoke_anchors.size(), buildings.size())
+	assert_eq(battlefield.city_damage_smoke_building_heights.size(), buildings.size())
 	assert_eq(battlefield.city_building_footprints.size(), buildings.size())
 	for index: int in mini(8, buildings.size()):
-		var building_height := buildings[index].basis.get_scale().y
-		var roof_offset := building_height * 0.5 + 0.7
-		if index % SCENARIO.battlefield_layout().rooftop_spacing != 0 and building_height >= 28.0 and index % 2 == 0:
-			roof_offset += clampf(building_height * 0.12, 3.0, 7.0)
-		var expected_roof := buildings[index].origin + Vector3.UP * roof_offset
-		assert_almost_eq(battlefield.city_damage_smoke_anchors[index], expected_roof, Vector3.ONE * 0.001)
+		var building_size := buildings[index].basis.get_scale()
+		var anchor := battlefield.city_damage_smoke_anchors[index]
+		assert_eq(battlefield.city_damage_smoke_building_heights[index], building_size.y)
+		if index % 3 == 0:
+			assert_almost_eq(anchor.y, buildings[index].origin.y + building_size.y * 0.5 + 0.7, 0.001)
+			assert_gt(absf(anchor.x - buildings[index].origin.x), building_size.x * 0.25)
+			assert_gt(absf(anchor.z - buildings[index].origin.z), building_size.z * 0.24)
+		else:
+			var ground_y := buildings[index].origin.y - building_size.y * 0.5
+			var expected_ratio := 0.58 if index % 3 == 1 else 0.76
+			assert_almost_eq(anchor.y, ground_y + building_size.y * expected_ratio, 0.001)
+			var touches_x_face := absf(absf(anchor.x - buildings[index].origin.x) - (building_size.x * 0.5 + 0.12)) <= 0.001
+			var touches_z_face := absf(absf(anchor.z - buildings[index].origin.z) - (building_size.z * 0.5 + 0.12)) <= 0.001
+			assert_true(touches_x_face or touches_z_face)
 	assert_lt(battlefield.city_block_surface_count, SCENARIO.battlefield_layout().city_blocks ** 2)
 	assert_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
 	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadTile0_0"))
@@ -224,7 +233,7 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	var upper_process := upper_smoke.process_material as ParticleProcessMaterial
 	assert_gt(upper_process.initial_velocity_min, smoke_process.initial_velocity_min)
 	assert_gt(upper_process.gravity.x, smoke_process.gravity.x)
-	assert_lt(upper_process.gravity.y, smoke_process.gravity.y)
+	assert_gt(upper_process.gravity.y, smoke_process.gravity.y)
 	assert_gt(upper_process.initial_velocity_min * 3.0, 85.0)
 	assert_gte(smoke.visibility_aabb.size.y, 220.0)
 	assert_gte(middle_smoke.visibility_aabb.size.y, 260.0)
@@ -241,12 +250,12 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	objective.restore_integrity(75)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 
-func test_city_damage_smoke_anchors_to_generated_building_roofs() -> void:
+func test_city_damage_smoke_anchors_to_generated_building_surfaces() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	battlefield.build(SCENARIO)
 	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
 	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
-	objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors)
+	objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors, battlefield.city_damage_smoke_building_heights)
 	var definition := ObjectiveDefinition.new()
 	definition.maximum_integrity = 100
 	objective.setup(1, definition)
@@ -258,9 +267,12 @@ func test_city_damage_smoke_anchors_to_generated_building_roofs() -> void:
 			nearest_distance = minf(nearest_distance, effect.global_position.distance_to(anchor))
 		assert_lte(nearest_distance, 0.001)
 		assert_true(bool(effect.get("city_plume_enabled")))
-		assert_gte(float(effect.get("city_upper_height")), 120.0)
-		effect.call("_process", 5.2)
-		assert_gte((effect.get_node("SmokeUpper") as GPUParticles3D).position.y, 70.0)
+		var middle := effect.get_node("SmokeMiddle") as GPUParticles3D
+		var upper := effect.get_node("SmokeUpper") as GPUParticles3D
+		assert_lte(middle.position.y, 1.0)
+		assert_lte(upper.position.y, 1.0)
+		assert_gte((middle.process_material as ParticleProcessMaterial).gravity.y, 12.0)
+		assert_gte((upper.process_material as ParticleProcessMaterial).gravity.y, 21.0)
 
 func test_threat_resolution_can_only_happen_once() -> void:
 	var threat: ThreatUnit = autofree(ThreatUnit.new()) as ThreatUnit
