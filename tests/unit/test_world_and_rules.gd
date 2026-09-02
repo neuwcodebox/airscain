@@ -282,7 +282,7 @@ func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	assert_eq(objective.damage_smoke_effects.size(), 2)
 	assert_almost_eq(objective.damage_smoke_effects.back().global_position, surface_impact, Vector3.ONE * 0.001)
 
-func test_all_smoke_particles_use_smooth_visible_materials_and_dithered_shadow_casters() -> void:
+func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_casters() -> void:
 	var smoke_cases: Array[Dictionary] = [
 		{"scene": preload("res://defense/missile_battery/homing_interceptor.tscn"), "paths": ["SmokeTrail"]},
 		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "paths": ["Body/ExhaustTrail"]},
@@ -309,6 +309,8 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_dithered_shadow_c
 			var shadow_material := shadow_mesh.surface_get_material(0) as ShaderMaterial
 			assert_not_null(shadow_material, "%s shadow opacity must use the shadow-pass shader" % path)
 			assert_eq(shadow_material.shader.resource_path, "res://effects/smoke_shadow.gdshader")
+			assert_false(shadow_material.shader.code.contains("ALPHA_HASH_SCALE"), "%s shadow must remain a solid surface instead of a pixel hash" % path)
+			assert_true(shadow_material.shader.code.contains("VERTEX *= sqrt"), "%s shadow fade must contract the solid particle silhouette" % path)
 
 func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield

@@ -1,10 +1,7 @@
 shader_type spatial;
 render_mode cull_disabled, unshaded;
 
-uniform sampler2D albedo_texture : source_color;
-uniform bool use_albedo_texture = false;
 uniform bool billboard_enabled = false;
-uniform float base_alpha : hint_range(0.0, 1.0) = 1.0;
 uniform float opacity_ratio : hint_range(0.0, 1.0) = 1.0;
 
 void vertex() {
@@ -17,16 +14,15 @@ void vertex() {
 		);
 		MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
 	}
+	float particle_visibility = smoothstep(0.02, 0.35, COLOR.a) * opacity_ratio;
+	VERTEX *= sqrt(max(particle_visibility, 0.0));
 }
 
 void fragment() {
 	if (!IN_SHADOW_PASS) {
 		discard;
 	}
-	float particle_alpha = base_alpha * opacity_ratio * COLOR.a;
-	if (use_albedo_texture) {
-		particle_alpha *= texture(albedo_texture, UV).a;
+	if (opacity_ratio <= 0.001 || COLOR.a <= 0.02) {
+		discard;
 	}
-	ALPHA = particle_alpha;
-	ALPHA_HASH_SCALE = 1.0;
 }

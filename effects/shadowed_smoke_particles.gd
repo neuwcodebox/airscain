@@ -5,7 +5,6 @@ const SHADOW_SHADER := preload("res://effects/smoke_shadow.gdshader")
 
 var shadow_particles: GPUParticles3D
 var shadow_material: ShaderMaterial
-var initial_shadow_alpha: float = 1.0
 var current_shadow_opacity_ratio: float = 1.0
 
 func _ready() -> void:
@@ -45,13 +44,8 @@ func _create_shadow_particles() -> void:
 	var standard_material := source_material as StandardMaterial3D
 	shadow_material = ShaderMaterial.new()
 	shadow_material.shader = SHADOW_SHADER
-	shadow_material.set_shader_parameter("base_alpha", standard_material.albedo_color.a)
 	shadow_material.set_shader_parameter("billboard_enabled", standard_material.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED)
-	if standard_material.albedo_texture != null:
-		shadow_material.set_shader_parameter("use_albedo_texture", true)
-		shadow_material.set_shader_parameter("albedo_texture", standard_material.albedo_texture)
 	shadow_mesh.surface_set_material(0, shadow_material)
-	initial_shadow_alpha = standard_material.albedo_color.a
 
 	shadow_particles = GPUParticles3D.new()
 	shadow_particles.name = SHADOW_NODE_NAME
