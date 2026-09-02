@@ -8,6 +8,7 @@ const DETONATION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const COUNTERMEASURE_SCENE := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
 const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 const BOOST_GUIDANCE_RAMP_DURATION := 0.55
+const REACQUISITION_GRACE_DURATION := 2.5
 
 var target_track: PlayerTrack
 var registry: ThreatRegistry
@@ -24,8 +25,8 @@ var radar_sensitivity: float = 0.65
 var countermeasure_attempted: bool = false
 var countermeasure_decoy_active: bool = false
 var countermeasure_decoy_position: Vector3
-var target_resolved: bool = false
-var target_resolution_reason: String = "표적 소실"
+var reacquisition_remaining: float = -1.0
+var reacquisition_reason: String = "표적 소실"
 var closest_guidance_distance: float = INF
 var boost_guidance_ramp_active: bool = false
 var alternative_tracks: Array[PlayerTrack] = []
@@ -57,18 +58,21 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 	_connect_registry_signal()
 
 func gameplay_tick(delta: float) -> void:
-	if target_resolved:
-		_expire(Color(0.86, 0.72, 0.42), target_resolution_reason)
-		return
-	if target_track == null or target_track.state == PlayerTrack.State.LOST:
-		if _try_retarget():
-			return
-		_expire(Color(0.62, 0.72, 0.8), "유도 상실")
-		return
 	age += delta
 	if age >= maximum_lifetime:
 		_expire(Color(0.72, 0.78, 0.82), "요격 실패")
 		return
+	if reacquisition_remaining >= 0.0 or target_track == null or target_track.state == PlayerTrack.State.LOST:
+		if _try_retarget():
+			pass
+		else:
+			_begin_reacquisition("유도 상실" if target_track == null or target_track.state == PlayerTrack.State.LOST else reacquisition_reason)
+			reacquisition_remaining -= delta
+			if reacquisition_remaining <= 0.0:
+				_expire(Color(0.62, 0.72, 0.8), reacquisition_reason)
+				return
+			_coast_without_target(delta)
+			return
 	var previous := global_position
 	var guidance_point := countermeasure_decoy_position if countermeasure_decoy_active else INTERCEPT_GUIDANCE.lead_point(global_position, speed, target_track.estimated_position, target_track.estimated_velocity, 1.8)
 	var desired := global_position.direction_to(guidance_point)
@@ -94,6 +98,27 @@ func gameplay_tick(delta: float) -> void:
 				closest_guidance_distance = INF
 				_spawn_countermeasure(countermeasure_decoy_position, countermeasure_type)
 				return
+	if _resolve_proximity_intercept(previous):
+		return
+	var guidance_distance := global_position.distance_to(target_track.estimated_position)
+	if guidance_distance < closest_guidance_distance:
+		closest_guidance_distance = guidance_distance
+	elif closest_guidance_distance <= maxf(45.0, proximity_radius * 3.0) and guidance_distance >= closest_guidance_distance + maxf(8.0, speed * delta * 0.25):
+		_expire(Color(0.72, 0.78, 0.82), "유도 이탈")
+
+func _coast_without_target(delta: float) -> void:
+	var previous := global_position
+	global_position += velocity * delta
+	if velocity.length_squared() > 0.001:
+		look_at(global_position + velocity, Vector3.UP)
+	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	if smoke != null:
+		smoke.call("sample_world_segment", previous, global_position)
+	_resolve_proximity_intercept(previous)
+
+func _resolve_proximity_intercept(previous: Vector3) -> bool:
+	if registry == null:
+		return false
 	for threat: ThreatUnit in registry.get_active():
 		var physical_position := threat.get_aim_position()
 		var nearest := Geometry3D.get_closest_point_to_segment(physical_position, previous, global_position)
@@ -103,12 +128,8 @@ func gameplay_tick(delta: float) -> void:
 			threat.receive_damage(damage)
 			_release_smoke_trail()
 			queue_free()
-			return
-	var guidance_distance := global_position.distance_to(target_track.estimated_position)
-	if guidance_distance < closest_guidance_distance:
-		closest_guidance_distance = guidance_distance
-	elif closest_guidance_distance <= maxf(45.0, proximity_radius * 3.0) and guidance_distance >= closest_guidance_distance + maxf(8.0, speed * delta * 0.25):
-		_expire(Color(0.72, 0.78, 0.82), "유도 이탈")
+			return true
+	return false
 
 func _expire(color: Color, reason: String) -> void:
 	var parent := get_parent()
@@ -179,8 +200,13 @@ func _on_threat_removed(threat: ThreatUnit) -> void:
 		return
 	if _try_retarget():
 		return
-	target_resolved = true
-	target_resolution_reason = "표적 격추" if threat.health <= 0.0 else "표적 소실"
+	_begin_reacquisition("표적 격추" if threat.health <= 0.0 else "표적 소실")
+
+func _begin_reacquisition(reason: String) -> void:
+	if reacquisition_remaining >= 0.0:
+		return
+	reacquisition_remaining = REACQUISITION_GRACE_DURATION
+	reacquisition_reason = reason
 
 func _try_retarget() -> bool:
 	var remaining_lifetime := maximum_lifetime - age
@@ -212,7 +238,8 @@ func _try_retarget() -> bool:
 		return false
 	var previous_track_id := target_track.track_id if target_track != null else -1
 	target_track = selected
-	target_resolved = false
+	reacquisition_remaining = -1.0
+	reacquisition_reason = "표적 소실"
 	countermeasure_attempted = false
 	countermeasure_decoy_active = false
 	closest_guidance_distance = INF
@@ -243,8 +270,8 @@ func capture_state() -> Dictionary:
 		"countermeasure_attempted": countermeasure_attempted,
 		"countermeasure_decoy_active": countermeasure_decoy_active,
 		"countermeasure_decoy_position": SaveDocument.vector3_to_data(countermeasure_decoy_position),
-		"target_resolved": target_resolved,
-		"target_resolution_reason": target_resolution_reason,
+		"reacquisition_remaining": reacquisition_remaining,
+		"reacquisition_reason": reacquisition_reason,
 		"closest_guidance_distance": closest_guidance_distance if closest_guidance_distance < INF else -1.0,
 		"boost_guidance_ramp_active": boost_guidance_ramp_active,
 		"preferred_classes": preferred_classes.map(func(classification: StringName) -> String: return String(classification)),
@@ -278,8 +305,8 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	countermeasure_attempted = bool(state.get("countermeasure_attempted", false))
 	countermeasure_decoy_active = bool(state.get("countermeasure_decoy_active", false))
 	countermeasure_decoy_position = SaveDocument.vector3_from_data(state.get("countermeasure_decoy_position", [0.0, 0.0, 0.0]))
-	target_resolved = bool(state.get("target_resolved", false))
-	target_resolution_reason = String(state.get("target_resolution_reason", "표적 소실"))
+	reacquisition_remaining = float(state.get("reacquisition_remaining", 0.0 if bool(state.get("target_resolved", false)) else -1.0))
+	reacquisition_reason = String(state.get("reacquisition_reason", state.get("target_resolution_reason", "표적 소실")))
 	var saved_guidance_distance := float(state.get("closest_guidance_distance", -1.0))
 	closest_guidance_distance = INF if saved_guidance_distance < 0.0 else saved_guidance_distance
 	boost_guidance_ramp_active = bool(state.get("boost_guidance_ramp_active", false))

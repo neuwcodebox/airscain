@@ -74,7 +74,7 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_gt(interceptor.global_position.distance_to(threat.global_position), interceptor.proximity_radius)
 	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "유도 이탈")
 
-func test_interceptor_stops_before_moving_when_correlated_target_is_removed() -> void:
+func test_interceptor_coasts_during_reacquisition_grace_before_self_destructing() -> void:
 	var registry := ThreatRegistry.new()
 	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
 	var threat_definition := ThreatDefinition.new()
@@ -98,8 +98,15 @@ func test_interceptor_stops_before_moving_when_correlated_target_is_removed() ->
 	var position_before_resolution := interceptor.global_position
 	registry.remove(threat)
 	interceptor.gameplay_tick(0.1)
+	assert_false(interceptor.is_queued_for_deletion())
+	assert_gt(interceptor.global_position.x, position_before_resolution.x)
+	assert_almost_eq(interceptor.reacquisition_remaining, HomingInterceptor.REACQUISITION_GRACE_DURATION - 0.1, 0.001)
+	var waiting_state := interceptor.capture_state()
+	assert_almost_eq(float(waiting_state.reacquisition_remaining), interceptor.reacquisition_remaining, 0.001)
+	interceptor.gameplay_tick(HomingInterceptor.REACQUISITION_GRACE_DURATION - 0.11)
+	assert_false(interceptor.is_queued_for_deletion())
+	interceptor.gameplay_tick(0.02)
 	assert_true(interceptor.is_queued_for_deletion())
-	assert_eq(interceptor.global_position, position_before_resolution)
 	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "표적 격추")
 
 func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructing() -> void:
@@ -126,6 +133,7 @@ func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructin
 	alternate_track.classification = &"aircraft"
 	alternate_track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	alternate_track.affiliation_confidence = 1.0
+	alternate_track.state = PlayerTrack.State.LOST
 	var candidates: Array[PlayerTrack] = [original_track, alternate_track]
 	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
 	var interceptor := HomingInterceptor.new()
@@ -134,8 +142,14 @@ func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructin
 	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
 	interceptor.configure(original_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 4, 0, candidates)
 	registry.remove(original)
+	assert_same(interceptor.target_track, original_track)
+	assert_eq(interceptor.reacquisition_remaining, HomingInterceptor.REACQUISITION_GRACE_DURATION)
+	interceptor.gameplay_tick(0.35)
+	assert_false(interceptor.is_queued_for_deletion())
+	alternate_track.state = PlayerTrack.State.CONFIRMED
+	interceptor.gameplay_tick(0.05)
 	assert_same(interceptor.target_track, alternate_track)
-	assert_false(interceptor.target_resolved)
+	assert_eq(interceptor.reacquisition_remaining, -1.0)
 	interceptor.gameplay_tick(0.1)
 	assert_false(interceptor.is_queued_for_deletion())
 	assert_gt(interceptor.global_position.x, -100.0)

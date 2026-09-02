@@ -30,9 +30,14 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK actual_building_footprints open_city_ground")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-reacquisition-only"):
+		await _capture_retarget_and_cruise_terminal_guidance()
+		print("VISUAL_CAPTURE_OK interceptor_reacquisition_grace interceptor_retarget")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-terminal-guidance-only"):
 		await _capture_retarget_and_cruise_terminal_guidance()
-		print("VISUAL_CAPTURE_OK interceptor_retarget cruise_terminal_impact")
+		print("VISUAL_CAPTURE_OK interceptor_reacquisition_grace interceptor_retarget cruise_terminal_impact")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-curved-launch-only"):
@@ -474,7 +479,7 @@ func _capture_retarget_and_cruise_terminal_guidance() -> void:
 	original_track.estimated_position = original.global_position
 	var alternate_track := PlayerTrack.new()
 	alternate_track.track_id = 9802
-	alternate_track.state = PlayerTrack.State.CONFIRMED
+	alternate_track.state = PlayerTrack.State.LOST
 	alternate_track.classification = threat_definition.signature_class
 	alternate_track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	alternate_track.affiliation_confidence = 1.0
@@ -491,11 +496,28 @@ func _capture_retarget_and_cruise_terminal_guidance() -> void:
 	original.health = 0.0
 	main.registry.remove(original)
 	original.queue_free()
-	if interceptor.target_track != alternate_track:
+	for index: int in 10:
+		interceptor.gameplay_tick(0.05)
+		await process_frame
+	if interceptor.target_track != original_track or interceptor.reacquisition_remaining <= 0.0 or interceptor.is_queued_for_deletion():
+		push_error("Interceptor did not remain in the reacquisition grace state")
+		quit(1)
+		return
+	var grace_center := interceptor.global_position
+	main.camera_rig.camera.global_position = grace_center + Vector3(0.0, 75.0, 180.0)
+	main.camera_rig.camera.look_at(grace_center, Vector3.UP)
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_interceptor_reacquisition_grace.png")
+	alternate_track.state = PlayerTrack.State.CONFIRMED
+	interceptor.gameplay_tick(0.05)
+	if interceptor.target_track != alternate_track or interceptor.reacquisition_remaining >= 0.0:
 		push_error("Interceptor did not acquire the alternate visible track")
 		quit(1)
 		return
 	for index: int in 20:
+		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
+			break
 		interceptor.gameplay_tick(0.05)
 		await process_frame
 	var retarget_center := original_track.estimated_position.lerp(alternate_track.estimated_position, 0.35)
@@ -504,9 +526,12 @@ func _capture_retarget_and_cruise_terminal_guidance() -> void:
 	for index: int in 8:
 		await process_frame
 	_save_capture("/tmp/airscain_interceptor_retarget.png")
-	interceptor.queue_free()
+	if is_instance_valid(interceptor):
+		interceptor.queue_free()
 	alternate.queue_free()
 	main.registry.clear()
+	if OS.get_cmdline_user_args().has("--capture-reacquisition-only"):
+		return
 	var cruise_entry := main.scenario.threat_entries[5]
 	var cruise_definition := cruise_entry.threat_definition as AttackUavDefinition
 	var cruise := main.director._spawn_entry(cruise_entry, 0.0, 0.0) as AttackUav

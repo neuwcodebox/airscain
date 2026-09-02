@@ -994,12 +994,17 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	interceptor.target_track = PlayerTrack.new()
 	interceptor.target_track.state = PlayerTrack.State.LOST
 	interceptor.global_position = Vector3(30.0, 80.0, -20.0)
+	var search_start := interceptor.global_position
 	interceptor.gameplay_tick(0.1)
+	assert_false(interceptor.is_queued_for_deletion())
+	assert_gt(interceptor.global_position.distance_to(search_start), 0.0)
+	assert_null(main.projectile_parent.get_node_or_null("InterceptorMiss"))
+	interceptor.gameplay_tick(HomingInterceptor.REACQUISITION_GRACE_DURATION)
 	var miss_effect := main.projectile_parent.get_node_or_null("InterceptorMiss") as Node3D
 	assert_not_null(miss_effect)
 	assert_true((miss_effect.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_eq((miss_effect.get_node("Reason") as Label3D).text, "유도 상실")
-	assert_eq(miss_effect.global_position, Vector3(30.0, 80.0, -20.0))
+	assert_eq(miss_effect.global_position, interceptor.global_position)
 	var self_destruct := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
 	assert_not_null(self_destruct)
 	assert_eq(self_destruct.effect_radius, 7.0)
