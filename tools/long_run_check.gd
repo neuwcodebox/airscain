@@ -17,6 +17,7 @@ var hpm_count: int = 0
 var next_layer_index: int = 0
 var spawned_by_type: Dictionary[String, int] = {}
 var leaked_by_type: Dictionary[String, int] = {}
+var process_samples_usec: Array[int] = []
 
 func _init() -> void:
 	AudioServer.set_bus_mute(0, true)
@@ -28,6 +29,7 @@ func run() -> void:
 	root.add_child(main)
 	await process_frame
 	main.set_process(false)
+	main.combat_audio.call("stop_all")
 	main.director.threat_spawned.connect(_track_spawned_threat)
 	_build_candidates()
 	_buy_available_defenses()
@@ -38,7 +40,9 @@ func run() -> void:
 	var steps := int(TARGET_DURATION / STEP)
 	for index: int in steps:
 		_buy_available_defenses()
+		var started_at := Time.get_ticks_usec()
 		main._process(STEP)
+		process_samples_usec.append(Time.get_ticks_usec() - started_at)
 		if main.session.phase == GameSession.Phase.GAME_OVER:
 			var ammunition := _ammunition_totals()
 			_fail("game over at %.1f seconds; neutralized=%d defenses=%d active=%d tracks=%d ammo=%d+%d depleted=%d deployed=%s munitions=%s spawned=%s leaked=%s" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.registry.count(), main.player_knowledge.get("tracks").size(), ammunition.rounds, ammunition.reserve, ammunition.depleted, _deployed_by_type(), _munition_inventory(), spawned_by_type, leaked_by_type])
@@ -48,7 +52,13 @@ func run() -> void:
 	if main.session.survival_time < TARGET_DURATION - STEP:
 		_fail("simulation did not reach target duration")
 		return
-	print("LONG_RUN_OK time=%.1f neutralized=%d defenses=%d pressure=%d active=%d integrity=%d budget=%d support=%d windows=%d" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.session.highest_pressure, main.registry.count(), main.objective.current_integrity, main.session.budget, main.session.support_payment_count, main.session.completed_attack_windows])
+	process_samples_usec.sort()
+	var total_usec := 0
+	for sample: int in process_samples_usec:
+		total_usec += sample
+	var average_ms := float(total_usec) / float(process_samples_usec.size()) / 1000.0
+	var p95_ms := float(process_samples_usec[mini(process_samples_usec.size() - 1, int(floor(float(process_samples_usec.size()) * 0.95)))]) / 1000.0
+	print("LONG_RUN_OK time=%.1f neutralized=%d defenses=%d pressure=%d active=%d integrity=%d budget=%d support=%d windows=%d avg_ms=%.3f p95_ms=%.3f" % [main.session.survival_time, main.session.neutralized_count, main.session.defense_count, main.session.highest_pressure, main.registry.count(), main.objective.current_integrity, main.session.budget, main.session.support_payment_count, main.session.completed_attack_windows, average_ms, p95_ms])
 	main.set_process(false)
 	main.combat_audio.call("stop_all")
 	main.free()
