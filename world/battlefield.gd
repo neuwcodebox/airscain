@@ -2,6 +2,8 @@ class_name Battlefield
 extends Node3D
 
 const OCEAN_SIZE_MULTIPLIER := 8.0
+const CITY_TARGET_HORIZONTAL_FRACTION := Vector2(-0.34, 0.34)
+const CITY_TARGET_HEIGHT_FRACTION := Vector2(0.32, 0.86)
 
 var generator := WorldGenerator.new()
 var objective: ProtectedObjective
@@ -18,6 +20,7 @@ var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_damage_smoke_anchors: Array[Vector3] = []
 var city_damage_smoke_building_heights: Array[float] = []
 var city_building_footprints: Array[Rect2] = []
+var city_buildings: Array[Transform3D] = []
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -36,6 +39,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	ocean.position.y = generator.sea_level
 	var city_blocks := generator.city_block_layout()
 	var building_transforms := generator.building_transforms()
+	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_cache_city_damage_smoke_anchors(building_transforms)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
@@ -71,6 +75,43 @@ func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 		var architecture_margin := 1.2 if index % 3 == 0 else 0.35
 		var half_extents := Vector2(size.x, size.z) * 0.5 + Vector2.ONE * architecture_margin
 		city_building_footprints.append(Rect2(Vector2(building.origin.x, building.origin.z) - half_extents, half_extents * 2.0))
+
+func random_city_building_target(rng: RandomNumberGenerator) -> Vector3:
+	if city_buildings.is_empty():
+		return Vector3.ZERO
+	var building := city_buildings[rng.randi_range(0, city_buildings.size() - 1)]
+	var size := building.basis.get_scale()
+	var ground_y := building.origin.y - size.y * 0.5
+	return Vector3(
+		building.origin.x + size.x * rng.randf_range(CITY_TARGET_HORIZONTAL_FRACTION.x, CITY_TARGET_HORIZONTAL_FRACTION.y),
+		ground_y + size.y * rng.randf_range(CITY_TARGET_HEIGHT_FRACTION.x, CITY_TARGET_HEIGHT_FRACTION.y),
+		building.origin.z + size.z * rng.randf_range(CITY_TARGET_HORIZONTAL_FRACTION.x, CITY_TARGET_HORIZONTAL_FRACTION.y)
+	)
+
+func building_segment_impact(from_position: Vector3, to_position: Vector3) -> Dictionary:
+	var nearest_distance := INF
+	var result: Dictionary = {}
+	for index: int in city_buildings.size():
+		var building := city_buildings[index]
+		var intersection: Variant = city_building_bounds(index).intersects_segment(from_position, to_position)
+		if not intersection is Vector3:
+			continue
+		var impact_position := intersection as Vector3
+		var distance := from_position.distance_squared_to(impact_position)
+		if distance >= nearest_distance:
+			continue
+		nearest_distance = distance
+		result = {
+			"position": impact_position,
+			"building_index": index,
+			"building_height": building.basis.get_scale().y,
+		}
+	return result
+
+func city_building_bounds(index: int) -> AABB:
+	var building := city_buildings[index]
+	var size := building.basis.get_scale()
+	return AABB(building.origin - size * 0.5, size)
 
 func set_objective(objective_value: ProtectedObjective) -> void:
 	objective = objective_value

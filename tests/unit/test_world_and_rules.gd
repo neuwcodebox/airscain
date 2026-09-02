@@ -101,6 +101,39 @@ func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 		assert_true(pad.visible)
 	battlefield.set_rooftop_pads_visible(false)
 
+func test_city_building_targets_use_seeded_ranges_and_segments_hit_the_first_surface() -> void:
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(SCENARIO)
+	assert_eq(battlefield.city_buildings.size(), battlefield.generator.building_transforms().size())
+	var first_rng := RandomNumberGenerator.new()
+	var second_rng := RandomNumberGenerator.new()
+	first_rng.seed = 90817
+	second_rng.seed = 90817
+	var first_target := Vector3.ZERO
+	var last_target := Vector3.ZERO
+	for sample: int in 24:
+		var target := battlefield.random_city_building_target(first_rng)
+		assert_eq(target, battlefield.random_city_building_target(second_rng))
+		var contained := false
+		for index: int in battlefield.city_buildings.size():
+			if battlefield.city_building_bounds(index).has_point(target):
+				contained = true
+				break
+		assert_true(contained)
+		if sample == 0:
+			first_target = target
+		last_target = target
+	assert_gt(first_target.distance_to(last_target), 1.0)
+	var bounds := battlefield.city_building_bounds(0)
+	var center := bounds.get_center()
+	var impact := battlefield.building_segment_impact(Vector3(bounds.position.x - 20.0, center.y, center.z), Vector3(bounds.end.x + 20.0, center.y, center.z))
+	assert_false(impact.is_empty())
+	assert_almost_eq((impact.position as Vector3).x, bounds.position.x, 0.001)
+	assert_eq(int(impact.building_index), 0)
+	assert_eq(float(impact.building_height), bounds.size.y)
+	var miss := battlefield.building_segment_impact(Vector3(bounds.position.x - 20.0, bounds.end.y + 10.0, center.z), Vector3(bounds.end.x + 20.0, bounds.end.y + 10.0, center.z))
+	assert_true(miss.is_empty())
+
 func test_city_objective_uses_a_civic_landmark() -> void:
 	var city := add_child_autofree(preload("res://world/objective/city/city_objective.tscn").instantiate()) as CityObjective
 	assert_not_null(city.get_node_or_null("CivicHall"))
