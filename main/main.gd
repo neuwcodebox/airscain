@@ -50,6 +50,7 @@ var training_approach_marker: Label3D
 @onready var placement: PlacementController = $PlacementController
 @onready var hud: Hud = $UI/HUD
 @onready var tactical_screen_overlay: Node = $UI/TacticalScreenOverlay
+@onready var altitude_profile: Control = $UI/AltitudeProfile
 
 func _ready() -> void:
 	scenario = BASE_SCENARIO.duplicate(true) as ScenarioDefinition
@@ -85,6 +86,7 @@ func _ready() -> void:
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge)
+	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:
 		_create_training_approach_marker()

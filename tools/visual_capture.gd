@@ -95,6 +95,12 @@ func run() -> void:
 			(defense as CloseInGun).magazine.reserve = 0
 			defense._process(0.0)
 			break
+	main.altitude_profile.call("refresh_snapshot")
+	if (main.altitude_profile.get("track_markers") as Array).is_empty() or (main.altitude_profile.get("projectile_markers") as Array).is_empty():
+		push_error("Altitude profile did not render public tracks and friendly projectiles")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_altitude_profile.png")
 	_save_capture("/tmp/airscain_layered_defense.png")
 	main.hud._on_c2_overlay_pressed()
 	for index: int in 3:
@@ -150,7 +156,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement combat_vfx strike_vfx layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
+	print("VISUAL_CAPTURE_OK initial placement combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:

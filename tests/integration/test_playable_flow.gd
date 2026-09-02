@@ -237,6 +237,31 @@ func test_high_altitude_radar_tracks_targets_above_search_radar_ceiling() -> voi
 	assert_eq(tracks[0].contributing_sensor_ids, [high_radar.runtime_id])
 	assert_string_contains(high_radar.resource_status_text(), "감시 고도 120–1500m")
 
+func test_altitude_profile_shows_public_tracks_and_friendly_projectiles_by_layer() -> void:
+	main.player_knowledge.call("reset")
+	var track := PlayerTrack.new()
+	track.track_id = 501
+	track.estimated_position = main.objective.global_position + Vector3(120.0, 920.0, 0.0)
+	track.state = PlayerTrack.State.CONFIRMED
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 0.9
+	main.player_knowledge.tracks.append(track)
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	interceptor.global_position = main.objective.global_position + Vector3(-80.0, 320.0, 0.0)
+	main.altitude_profile.call("refresh_snapshot")
+	assert_true(main.altitude_profile.visible)
+	assert_lte(main.altitude_profile.size.x, 150.0)
+	assert_eq((main.altitude_profile.get("track_markers") as Array).size(), 1)
+	assert_eq((main.altitude_profile.get("projectile_markers") as Array).size(), 1)
+	var low_y := float(main.altitude_profile.call("altitude_to_plot_y", 100.0))
+	var medium_y := float(main.altitude_profile.call("altitude_to_plot_y", 300.0))
+	var high_y := float(main.altitude_profile.call("altitude_to_plot_y", 1000.0))
+	assert_gt(low_y, medium_y)
+	assert_gt(medium_y, high_y)
+	assert_true(interceptor.is_in_group("friendly_altitude_projectiles"))
+	interceptor.queue_free()
+
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
