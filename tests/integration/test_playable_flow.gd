@@ -243,6 +243,11 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 		if threat.resolved_state:
 			break
 	assert_true(threat.resolved_state)
+	var falling_wreck := main.effects_parent.get_node_or_null("FallingWreck")
+	var explosion := main.effects_parent.get_node_or_null("Explosion")
+	assert_not_null(falling_wreck)
+	assert_not_null(explosion)
+	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_eq(main.session.neutralized_count, 1)
 	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, battery.runtime_id)
 	assert_true(main.enemy_knowledge.recent_outcomes.back().neutralized)

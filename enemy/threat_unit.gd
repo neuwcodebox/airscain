@@ -37,6 +37,9 @@ func get_aim_position() -> Vector3:
 func get_urgency() -> float:
 	return 0.0
 
+func presentation_velocity() -> Vector3:
+	return Vector3.ZERO
+
 func get_sensor_signature() -> Dictionary:
 	return {
 		"classification_hint": definition.signature_class,

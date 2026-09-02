@@ -43,6 +43,9 @@ func get_urgency() -> float:
 		return 0.0
 	return 1.0 / maxf(1.0, global_position.distance_to(target_point))
 
+func presentation_velocity() -> Vector3:
+	return mover.velocity
+
 func capture_content_state() -> Dictionary:
 	return {
 		"target_point": SaveDocument.vector3_to_data(target_point),

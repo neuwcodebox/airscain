@@ -323,9 +323,11 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	manager.register_asset(facility)
 	manager.register_asset(gun)
 	assert_true(facility.receive_damage(50.0))
+	assert_not_null(facility.damage_smoke)
 	assert_eq(facility.operational_status_text(), "상태 성능저하 · 내구도 50%")
 	assert_almost_eq(facility.support_capacity(), 2.0, 0.0001)
 	assert_true(gun.receive_damage(50.0))
+	assert_not_null(gun.damage_smoke)
 	assert_almost_eq(gun.c2_link_range(), (SCENARIO.available_defenses[4] as CloseInGunDefinition).c2_range * 0.5, 0.0001)
 	assert_true(gun.request_repair())
 	assert_eq(support_session.budget, 90)
@@ -342,6 +344,7 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	manager.gameplay_tick(0.2)
 	assert_eq(gun.integrity, gun.definition.maximum_integrity)
 	assert_true(gun.active)
+	assert_null(gun.damage_smoke)
 	assert_eq(manager.task_status(gun), "")
 
 func _find_valid_position(profile: PlacementProfile) -> Vector3:

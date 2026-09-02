@@ -5,6 +5,7 @@ const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
 const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
+const FALLING_WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
 
 static var requested_seed: int = -1
 
@@ -172,8 +173,23 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	enemy_knowledge.record_outcome(neutralized, threat.global_position, threat.definition.id)
 	registry.remove(threat)
 	session.register_threat_resolution(threat, neutralized, reward)
+	if neutralized and _leaves_falling_wreck(threat):
+		_spawn_falling_wreck(threat)
 	_spawn_explosion(threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
 	threat.queue_free()
+
+func _leaves_falling_wreck(threat: ThreatUnit) -> bool:
+	return threat.definition.signature_class in [&"uav", &"small_uav", &"aircraft", &"air_contact"]
+
+func _spawn_falling_wreck(threat: ThreatUnit) -> void:
+	var effect := FALLING_WRECK_SCENE.instantiate() as Node3D
+	effects_parent.add_child(effect)
+	effect.global_position = threat.global_position
+	var color := Color(0.45, 0.16, 0.1)
+	if threat.definition is AttackUavDefinition:
+		color = (threat.definition as AttackUavDefinition).visual_color
+	var ground_height := battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
+	effect.call("setup", color, threat.presentation_velocity(), ground_height)
 
 func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 	if not _objective.definition.required_for_survival:

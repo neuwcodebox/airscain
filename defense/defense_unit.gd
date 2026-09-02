@@ -1,6 +1,10 @@
 class_name DefenseUnit
 extends Node3D
 
+signal damage_received(unit: DefenseUnit, amount: float, integrity_ratio: float)
+
+const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
+
 enum C2Role { SENSOR = 1, COMMAND = 2, DEFENSE = 4, RELAY = 8 }
 
 var runtime_id: int
@@ -10,12 +14,14 @@ var integrity: float
 var support_manager: SupportManager
 var relocation_manager: RelocationManager
 var enemy_knowledge: EnemyKnowledge
+var damage_smoke: Node
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	runtime_id = id_value
 	definition = definition_value
 	integrity = definition.maximum_integrity
 	active = true
+	_refresh_damage_visual()
 
 func gameplay_tick(_delta: float) -> void:
 	pass
@@ -66,6 +72,8 @@ func receive_damage(amount: float) -> bool:
 		return false
 	integrity = maxf(0.0, integrity - amount)
 	active = operational_ratio() >= 0.35
+	_refresh_damage_visual()
+	damage_received.emit(self, amount, operational_ratio())
 	return true
 
 func operational_ratio() -> float:
@@ -102,6 +110,7 @@ func can_request_relocation() -> bool:
 func complete_repair() -> void:
 	integrity = definition.maximum_integrity
 	active = true
+	_refresh_damage_visual()
 
 func capture_state() -> Dictionary:
 	return {
@@ -119,7 +128,22 @@ func capture_content_state() -> Dictionary:
 func restore_state(state: Dictionary) -> void:
 	integrity = float(state.integrity)
 	active = bool(state.active) and operational_ratio() >= 0.35
+	_refresh_damage_visual()
 	restore_content_state(state.get("content_state", {}))
 
 func restore_content_state(_state: Dictionary) -> void:
 	pass
+
+func _refresh_damage_visual() -> void:
+	if definition == null:
+		return
+	var damage_ratio := 1.0 - operational_ratio()
+	if damage_ratio < 0.25:
+		if damage_smoke != null and is_instance_valid(damage_smoke):
+			damage_smoke.free()
+		damage_smoke = null
+		return
+	if damage_smoke == null or not is_instance_valid(damage_smoke):
+		damage_smoke = DAMAGE_SMOKE_SCENE.instantiate()
+		add_child(damage_smoke)
+	damage_smoke.call("set_damage_ratio", damage_ratio)

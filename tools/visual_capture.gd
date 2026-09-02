@@ -47,6 +47,27 @@ func run() -> void:
 		var advanced_threat := main.director._spawn_entry(main.scenario.threat_entries[entry_index], PI + float(entry_index - 9) * 0.16, 0.0)
 		advanced_threat.global_position = Vector3(-520.0, 35.0 + float(entry_index - 9) * 55.0, -150.0 + float(entry_index - 9) * 150.0)
 	_spawn_swarm_near_close_in_gun()
+	var visual_target := main.director._spawn_entry(main.scenario.threat_entries[0], 0.0, 0.0)
+	var visual_target_position := Vector3(-70.0, 105.0, 40.0)
+	visual_target.global_position = visual_target_position
+	visual_target.receive_damage(10000.0)
+	for index: int in 6:
+		await process_frame
+	if main.effects_parent.get_node_or_null("FallingWreck") == null:
+		push_error("Neutralized aircraft did not leave a falling wreck")
+		quit(1)
+		return
+	var previous_camera_position := main.camera_rig.global_position
+	var previous_zoom := main.camera_rig.zoom_distance
+	main.camera_rig.focus_on(visual_target_position)
+	main.camera_rig.zoom_distance = 260.0
+	main.camera_rig._update_camera()
+	for index: int in 3:
+		await process_frame
+	_save_capture("/tmp/airscain_combat_vfx.png")
+	main.camera_rig.global_position = previous_camera_position
+	main.camera_rig.zoom_distance = previous_zoom
+	main.camera_rig._update_camera()
 	for index: int in 30:
 		await process_frame
 	_save_capture("/tmp/airscain_layered_defense.png")
@@ -104,7 +125,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting game_over")
+	print("VISUAL_CAPTURE_OK initial placement combat_vfx layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:
