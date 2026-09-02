@@ -36,11 +36,19 @@
 
 ## Run
 
-Godot 4.7.2가 필요합니다.
+Godot 4.7.2가 필요하며 `godot` 명령이 `PATH`에 있어야 합니다. 새로 clone한 저장소에서는 먼저 에디터 메타데이터와 import 결과를 생성합니다.
+
+```bash
+godot --headless --audio-driver Dummy --editor --path . --quit
+```
+
+최초 초기화가 끝나면 게임을 실행합니다.
 
 ```bash
 godot --path .
 ```
+
+`.godot/`은 Git에 포함되지 않으므로 clone한 직후 초기화를 건너뛰면 `class_name` 타입을 찾지 못하는 parse error가 발생할 수 있습니다. Windows PowerShell에서도 같은 명령을 사용합니다.
 
 메인 메뉴에서 지속 작전, 훈련 또는 샌드박스를 선택합니다. 플레이 중 `Esc`를 누르면 일시정지, 저장 또는 메인 메뉴 복귀가 가능합니다. 저장과 불러오기는 지속 작전에서만 제공됩니다.
 

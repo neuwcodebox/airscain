@@ -20,8 +20,9 @@ This file defines repository-wide operating guidance for AI coding agents: how t
 Typical CLI usage:
 
 ```bash
-godot --headless --path .
-godot --headless --path . --script res://path/to/script.gd --check-only
+godot --headless --audio-driver Dummy --editor --path . --quit  # once after a fresh clone
+godot --headless --audio-driver Dummy --path .
+godot --headless --audio-driver Dummy --path . --script res://path/to/script.gd --check-only
 godot --path . --scene res://path/to/scene.tscn
 ```
 
