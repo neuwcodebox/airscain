@@ -35,6 +35,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK interceptor_retarget cruise_terminal_impact")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-curved-launch-only"):
+		await _capture_curved_missile_launch()
+		print("VISUAL_CAPTURE_OK broad_launch_sector curved_missile_departure")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -512,6 +517,55 @@ func _capture_retarget_and_cruise_terminal_guidance() -> void:
 	for index: int in 5:
 		await process_frame
 	_save_capture("/tmp/airscain_cruise_terminal_impact.png")
+
+func _capture_curved_missile_launch() -> void:
+	main.registry.clear()
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var definition := main.scenario.available_defenses[0] as MissileBatteryDefinition
+	var battery := definition.scene.instantiate() as MissileBattery
+	main.effects_parent.add_child(battery)
+	battery.setup(9701, definition)
+	battery.global_position = main.objective.global_position + Vector3(-120.0, 0.0, 210.0)
+	battery.global_position.y = main.battlefield.terrain_height(battery.global_position.x, battery.global_position.z)
+	battery.configure_combat(main.registry, main.projectile_parent)
+	var launch_origin := battery.launch_point.global_position
+	var launch_direction := battery.launcher_forward()
+	var target_direction := launch_direction.rotated(Vector3.UP, deg_to_rad(battery.launch_sector_degrees * 0.68))
+	var target_position := launch_origin + target_direction * 360.0
+	var initial_yaw := battery.turret.rotation.y
+	var initial_pitch := battery.elevation.rotation.x
+	if not battery._aim_turret(target_position, 0.1) or battery.turret.rotation.y != initial_yaw or battery.elevation.rotation.x != initial_pitch:
+		push_error("Battery rotated despite target being inside its launch sector")
+		quit(1)
+		return
+	var track := PlayerTrack.new()
+	track.track_id = 9702
+	track.state = PlayerTrack.State.CONFIRMED
+	track.classification = &"aircraft"
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 1.0
+	track.estimated_position = target_position
+	battery._spawn_interceptor(track, definition.munitions[0], 0, 0.0)
+	var interceptor := battery.interceptors[0]
+	if interceptor.velocity.normalized().angle_to(target_direction) < deg_to_rad(10.0):
+		push_error("Interceptor did not depart along the physical launcher direction")
+		quit(1)
+		return
+	for index: int in 24:
+		interceptor.gameplay_tick(0.04)
+		await process_frame
+	var closest_on_launch_ray := Geometry3D.get_closest_point_to_segment(interceptor.global_position, launch_origin, launch_origin + launch_direction * 600.0)
+	if interceptor.global_position.distance_to(closest_on_launch_ray) < 8.0:
+		push_error("Interceptor departure path did not curve toward the off-axis target")
+		quit(1)
+		return
+	var camera_target := launch_origin.lerp(interceptor.global_position, 0.5)
+	main.camera_rig.camera.global_position = camera_target + Vector3(80.0, 90.0, 210.0)
+	main.camera_rig.camera.look_at(camera_target, Vector3.UP)
+	for index: int in 10:
+		await process_frame
+	_save_capture("/tmp/airscain_curved_missile_launch.png")
 
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position

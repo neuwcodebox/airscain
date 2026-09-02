@@ -277,6 +277,33 @@ func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	available.state = PlayerTrack.State.LOST
 	assert_null(battery.select_track(tracks, Vector3.ZERO))
 
+func test_missile_battery_launches_within_a_broad_sector_without_exact_alignment() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(5, SCENARIO.available_defenses[0])
+	var initial_yaw := battery.turret.rotation.y
+	var initial_pitch := battery.elevation.rotation.x
+	var launch_direction := battery.launcher_forward()
+	var target_direction := launch_direction.rotated(Vector3.UP, deg_to_rad(battery.launch_sector_degrees * 0.65))
+	var target_position := battery.launch_point.global_position + target_direction * 220.0
+	assert_true(battery._aim_turret(target_position, 0.1))
+	assert_eq(battery.turret.rotation.y, initial_yaw)
+	assert_eq(battery.elevation.rotation.x, initial_pitch)
+	var track := _confirmed_track(target_position)
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	battery.configure_combat(ThreatRegistry.new(), projectiles)
+	battery._spawn_interceptor(track, (SCENARIO.available_defenses[0] as MissileBatteryDefinition).munitions[0], 0, 0.0)
+	assert_eq(battery.interceptors.size(), 1)
+	assert_almost_eq(battery.interceptors[0].velocity.normalized(), launch_direction, Vector3.ONE * 0.001)
+	var launch_error := battery.interceptors[0].velocity.normalized().angle_to(target_direction)
+	assert_gt(launch_error, deg_to_rad(10.0))
+	battery.interceptors[0].gameplay_tick(0.05)
+	var guided_error := battery.interceptors[0].velocity.normalized().angle_to(target_direction)
+	assert_lt(guided_error, launch_error)
+	assert_gt(guided_error, deg_to_rad(5.0))
+	var far_target := battery.launch_point.global_position + launch_direction.rotated(Vector3.UP, deg_to_rad(80.0)) * 220.0
+	assert_false(battery._aim_turret(far_target, 0.1))
+	assert_ne(battery.turret.rotation.y, initial_yaw)
+
 func test_long_range_launcher_selects_and_preserves_specialized_munition() -> void:
 	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery

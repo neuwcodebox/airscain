@@ -6,7 +6,7 @@ const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 
 @export var turret_turn_speed_degrees: float = 75.0
 @export var launcher_elevation_speed_degrees: float = 55.0
-@export var firing_alignment_degrees: float = 4.0
+@export var launch_sector_degrees: float = 30.0
 
 var registry: ThreatRegistry
 var projectile_parent: Node3D
@@ -62,7 +62,13 @@ func gameplay_tick(delta: float) -> void:
 		cooldown = _definition.fire_interval
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
-	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, launcher_elevation_speed_degrees, firing_alignment_degrees, delta, 4.0, 75.0)
+	var target_direction := launch_point.global_position.direction_to(target_position)
+	if target_direction.length_squared() <= 0.001 or launcher_forward().angle_to(target_direction) <= deg_to_rad(launch_sector_degrees):
+		return true
+	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, launcher_elevation_speed_degrees, launch_sector_degrees, delta, 4.0, 75.0)
+
+func launcher_forward() -> Vector3:
+	return -launch_point.global_basis.z.normalized()
 
 func _active_interceptor_count() -> int:
 	var result := 0
@@ -191,7 +197,7 @@ func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition,
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = launch_point.global_position + launch_point.global_basis.x * lateral_offset
-	var initial_direction := interceptor.global_position.direction_to(track.estimated_position)
+	var initial_direction := launcher_forward()
 	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks())
 	interceptor.target_changed.connect(_on_interceptor_target_changed)
 	interceptors.append(interceptor)

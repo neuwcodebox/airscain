@@ -7,6 +7,7 @@ const MISS_EFFECT_SCENE := preload("res://effects/interceptor_miss/interceptor_m
 const DETONATION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const COUNTERMEASURE_SCENE := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
 const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
+const BOOST_GUIDANCE_RAMP_DURATION := 0.55
 
 var target_track: PlayerTrack
 var registry: ThreatRegistry
@@ -26,6 +27,7 @@ var countermeasure_decoy_position: Vector3
 var target_resolved: bool = false
 var target_resolution_reason: String = "표적 소실"
 var closest_guidance_distance: float = INF
+var boost_guidance_ramp_active: bool = false
 var alternative_tracks: Array[PlayerTrack] = []
 var preferred_classes: Array[StringName] = []
 var minimum_preferred_speed: float = 0.0
@@ -50,6 +52,7 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 	small_target_match = definition.small_target_match
 	alternative_tracks = track_candidates.duplicate()
 	velocity = initial_direction.normalized() * speed
+	boost_guidance_ramp_active = initial_direction.angle_to(global_position.direction_to(track_value.estimated_position)) > deg_to_rad(5.0)
 	rng.seed = owner_defense_id ^ track_value.track_id ^ launch_sequence * 0x45D9F3B ^ 0x5E3C9A
 	_connect_registry_signal()
 
@@ -71,7 +74,9 @@ func gameplay_tick(delta: float) -> void:
 	var desired := global_position.direction_to(guidance_point)
 	var current := velocity.normalized()
 	var angle := current.angle_to(desired)
-	var direction := desired if angle <= turn_rate * delta else current.slerp(desired, (turn_rate * delta) / angle)
+	var guidance_ratio := smoothstep(0.0, 1.0, age / BOOST_GUIDANCE_RAMP_DURATION) if boost_guidance_ramp_active else 1.0
+	var effective_turn_rate := turn_rate * lerpf(0.28, 1.0, guidance_ratio)
+	var direction := desired if angle <= effective_turn_rate * delta else current.slerp(desired, (effective_turn_rate * delta) / angle)
 	velocity = direction.normalized() * speed
 	global_position += velocity * delta
 	look_at(global_position + velocity, Vector3.UP)
@@ -241,6 +246,7 @@ func capture_state() -> Dictionary:
 		"target_resolved": target_resolved,
 		"target_resolution_reason": target_resolution_reason,
 		"closest_guidance_distance": closest_guidance_distance if closest_guidance_distance < INF else -1.0,
+		"boost_guidance_ramp_active": boost_guidance_ramp_active,
 		"preferred_classes": preferred_classes.map(func(classification: StringName) -> String: return String(classification)),
 		"minimum_preferred_speed": minimum_preferred_speed,
 		"other_target_match": other_target_match,
@@ -276,6 +282,7 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	target_resolution_reason = String(state.get("target_resolution_reason", "표적 소실"))
 	var saved_guidance_distance := float(state.get("closest_guidance_distance", -1.0))
 	closest_guidance_distance = INF if saved_guidance_distance < 0.0 else saved_guidance_distance
+	boost_guidance_ramp_active = bool(state.get("boost_guidance_ramp_active", false))
 	rng.state = int(state.get("rng_state", rng.state))
 	_connect_registry_signal()
 	if velocity.length_squared() > 0.001:
