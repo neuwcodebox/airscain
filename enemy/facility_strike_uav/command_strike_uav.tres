@@ -9,7 +9,7 @@
 script = ExtResource("3")
 mode = 0
 speed = 36.0
-cruise_altitude = 82.0
+cruise_altitude = 130.0
 terminal_distance = 120.0
 maximum_turn_rate_degrees = 82.0
 maximum_climb_rate = 32.0

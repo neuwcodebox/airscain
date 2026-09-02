@@ -55,12 +55,23 @@ func signal_quality_for(distance: float) -> float:
 		jamming_multiplier = 1.0 - registry.jamming_at(global_position) * 0.75
 	return clampf(_definition.sensor_quality * range_factor * jamming_multiplier, 0.0, 1.0)
 
+func altitude_in_envelope(target_position: Vector3) -> bool:
+	if battlefield == null:
+		return false
+	var altitude := target_position.y - battlefield.terrain_height(target_position.x, target_position.z)
+	return altitude >= _definition.minimum_detection_altitude and altitude <= _definition.maximum_detection_altitude
+
+func resource_status_text() -> String:
+	return "%s\n감시 고도 %d–%dm · 탐지거리 %dm" % [super.resource_status_text(), roundi(_definition.minimum_detection_altitude), roundi(_definition.maximum_detection_altitude), roundi(_definition.detection_range)]
+
 func _scan() -> void:
 	if enemy_knowledge != null:
 		enemy_knowledge.record_emission(self)
 	var sensor_position := global_position + Vector3.UP * 11.0
 	for threat: ThreatUnit in registry.get_active():
 		var target_position := threat.get_aim_position()
+		if not altitude_in_envelope(target_position):
+			continue
 		var distance := sensor_position.distance_to(target_position)
 		if distance > _definition.detection_range * operational_efficiency() or not _has_line_of_sight(sensor_position, target_position):
 			continue

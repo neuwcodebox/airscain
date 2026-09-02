@@ -77,11 +77,33 @@ func _advance_ballistic(unit: Node3D, body: Node3D, target: Vector3, speed_multi
 		ballistic_initialized = true
 	var previous := unit.global_position
 	ballistic_progress = minf(1.0, ballistic_progress + delta / ballistic_duration)
-	unit.global_position = ballistic_origin.lerp(ballistic_target, ballistic_progress)
-	unit.global_position.y += 4.0 * profile.ballistic_apex * ballistic_progress * (1.0 - ballistic_progress)
+	var horizontal_progress := 0.0
+	var altitude := ballistic_origin.y
+	var apex_altitude := maxf(ballistic_origin.y, ballistic_target.y) + profile.ballistic_apex
+	if ballistic_progress < profile.ballistic_boost_fraction:
+		var phase := ballistic_progress / profile.ballistic_boost_fraction
+		horizontal_progress = lerpf(0.0, 0.07, phase * phase)
+		altitude = lerpf(ballistic_origin.y, apex_altitude, 1.0 - pow(1.0 - phase, 2.0))
+	elif ballistic_progress < profile.ballistic_reentry_fraction:
+		var phase := (ballistic_progress - profile.ballistic_boost_fraction) / (profile.ballistic_reentry_fraction - profile.ballistic_boost_fraction)
+		horizontal_progress = lerpf(0.07, 0.70, phase)
+		altitude = lerpf(apex_altitude, ballistic_target.y + profile.ballistic_apex * 0.82, smoothstep(0.0, 1.0, phase))
+	else:
+		var phase := (ballistic_progress - profile.ballistic_reentry_fraction) / (1.0 - profile.ballistic_reentry_fraction)
+		horizontal_progress = lerpf(0.70, 1.0, phase)
+		altitude = lerpf(ballistic_target.y + profile.ballistic_apex * 0.82, ballistic_target.y, phase * phase)
+	unit.global_position = ballistic_origin.lerp(ballistic_target, horizontal_progress)
+	unit.global_position.y = altitude
 	velocity = (unit.global_position - previous) / maxf(delta, 0.0001)
 	if velocity.length_squared() > 0.001:
 		body.look_at(unit.global_position + velocity.normalized(), Vector3.UP)
+
+func ballistic_phase() -> StringName:
+	if not ballistic_initialized or ballistic_progress < profile.ballistic_boost_fraction:
+		return &"boost"
+	if ballistic_progress < profile.ballistic_reentry_fraction:
+		return &"midcourse"
+	return &"reentry"
 
 func _cruise_height(position: Vector3, horizontal_to_target: Vector2) -> float:
 	var terrain_height := battlefield.terrain_height(position.x, position.z)

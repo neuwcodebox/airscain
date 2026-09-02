@@ -14,7 +14,9 @@ cruise_altitude = 20.0
 terminal_distance = 60.0
 maximum_turn_rate_degrees = 12.0
 maximum_climb_rate = 220.0
-ballistic_apex = 190.0
+ballistic_apex = 260.0
+ballistic_boost_fraction = 0.16
+ballistic_reentry_fraction = 0.68
 
 [sub_resource type="Resource" id="Mission"]
 script = ExtResource("4")

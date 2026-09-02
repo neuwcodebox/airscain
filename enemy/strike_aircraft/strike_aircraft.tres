@@ -10,10 +10,10 @@ script = ExtResource("3")
 mode = 0
 speed = 96.0
 maximum_speed_multiplier = 1.25
-cruise_altitude = 160.0
+cruise_altitude = 320.0
 terminal_distance = 220.0
 maximum_turn_rate_degrees = 48.0
-maximum_climb_rate = 42.0
+maximum_climb_rate = 75.0
 
 [sub_resource type="Resource" id="Mission"]
 script = ExtResource("4")

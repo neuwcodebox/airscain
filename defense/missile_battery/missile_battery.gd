@@ -84,6 +84,9 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range * operational_efficiency():
 			continue
+		var altitude := track.estimated_position.y - battlefield.terrain_height(track.estimated_position.x, track.estimated_position.z) if battlefield != null else track.estimated_position.y
+		if altitude < _definition.minimum_engagement_altitude or altitude > _definition.maximum_engagement_altitude:
+			continue
 		if track.track_id == doctrine.priority_track_id:
 			return track
 		var urgency := track.track_quality * weapon_match(track) / maxf(1.0, track.estimated_position.distance_to(protected_position))
@@ -169,7 +172,7 @@ func complete_resupply() -> void:
 		munition_magazine.refill_reserve()
 
 func resource_status_text() -> String:
-	var lines: Array[String] = [operational_status_text(), "탄종 %s" % munition_mode_text()]
+	var lines: Array[String] = [operational_status_text(), "교전 고도 %d–%dm" % [roundi(_definition.minimum_engagement_altitude), roundi(_definition.maximum_engagement_altitude)], "탄종 %s" % munition_mode_text()]
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		var munition_magazine: WeaponMagazine = magazines[munition.id]
 		lines.append("탄약 %s %d + %d" % [munition.display_name, munition_magazine.rounds, munition_magazine.reserve])

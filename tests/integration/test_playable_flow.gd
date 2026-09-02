@@ -215,6 +215,28 @@ func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	main.player_knowledge.call("gameplay_tick", 1.4)
 	assert_false(marker.visible)
 
+func test_high_altitude_radar_tracks_targets_above_search_radar_ceiling() -> void:
+	main.registry.clear()
+	main.player_knowledge.call("reset")
+	main._on_pressure_changed(2)
+	var search_definition := main.scenario.available_defenses[1]
+	var high_definition := main.scenario.available_defenses[3]
+	var search_result: Dictionary = main.session.request_placement(search_definition, _find_valid_position_for(search_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var high_result: Dictionary = main.session.request_placement(high_definition, _find_valid_position_for(high_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var search_radar := search_result.unit as SearchRadar
+	var high_radar := high_result.unit as SearchRadar
+	var threat := main.director.spawn_one()
+	var target_ground := main.battlefield.terrain_height(high_radar.global_position.x, high_radar.global_position.z + 220.0)
+	threat.global_position = Vector3(high_radar.global_position.x, target_ground + 700.0, high_radar.global_position.z + 220.0)
+	assert_false(search_radar.altitude_in_envelope(threat.global_position))
+	assert_true(high_radar.altitude_in_envelope(threat.global_position))
+	search_radar.gameplay_tick(0.8)
+	high_radar.gameplay_tick(0.8)
+	var tracks: Array = main.player_knowledge.call("get_active_tracks")
+	assert_eq(tracks.size(), 1)
+	assert_eq(tracks[0].contributing_sensor_ids, [high_radar.runtime_id])
+	assert_string_contains(high_radar.resource_status_text(), "감시 고도 120–1500m")
+
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
@@ -552,14 +574,22 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	main.registry.add(threat)
 	main._on_threat_spawned(threat)
 	var starting_integrity := main.objective.current_integrity
-	for step: int in 28:
-		threat.gameplay_tick(0.1)
-	assert_gt(threat.global_position.y, 300.0)
-	for step: int in 40:
+	var phases: Dictionary[StringName, bool] = {}
+	var maximum_altitude := threat.global_position.y
+	for step: int in 90:
 		if threat.resolved_state:
 			break
 		threat.gameplay_tick(0.1)
+		phases[threat.mover.ballistic_phase()] = true
+		maximum_altitude = maxf(maximum_altitude, threat.global_position.y)
+		if step == 7:
+			assert_lt(Vector2(threat.global_position.x - 900.0, threat.global_position.z).length(), 100.0)
+			assert_gt(threat.global_position.y, 500.0)
 	assert_true(threat.resolved_state)
+	assert_true(phases.has(&"boost"))
+	assert_true(phases.has(&"midcourse"))
+	assert_true(phases.has(&"reentry"))
+	assert_gt(maximum_altitude, 900.0)
 	assert_eq(main.objective.current_integrity, starting_integrity - roundi(definition.mission.damage))
 
 func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> void:

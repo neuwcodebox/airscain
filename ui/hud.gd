@@ -185,7 +185,7 @@ func set_selected_track(track: PlayerTrack, can_prioritize: bool, sensor_count: 
 		return
 	selected_track_label.visible = true
 	relation_legend.visible = true
-	selected_track_label.text = "%s %s · %s\n분류 확신 %d%% · 소속 확신 %d%%\n추적 품질 %d%% · 오차 ±%dm · 속도 %dm/s\n센서 %d · 교전 자산 %d" % [_affiliation_text(track), _classification_text(track.classification), _track_state_text(track.state), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0), roundi(track.position_uncertainty), roundi(track.estimated_velocity.length()), sensor_count, engagement_count]
+	selected_track_label.text = "%s %s · %s\n분류 확신 %d%% · 소속 확신 %d%%\n추적 품질 %d%% · 오차 ±%dm\n고도 %dm · 속도 %dm/s\n센서 %d · 교전 자산 %d" % [_affiliation_text(track), _classification_text(track.classification), _track_state_text(track.state), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0), roundi(track.position_uncertainty), roundi(track.estimated_position.y), roundi(track.estimated_velocity.length()), sensor_count, engagement_count]
 	priority_target_button.disabled = not can_prioritize
 
 func _classification_text(classification: StringName) -> String:

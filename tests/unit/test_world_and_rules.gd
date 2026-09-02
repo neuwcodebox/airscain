@@ -180,6 +180,9 @@ func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> v
 	assert_lt(long_range.munitions[0].magazine_capacity, medium.munitions[0].magazine_capacity)
 	assert_gt(short_range.munitions[0].magazine_capacity, medium.munitions[0].magazine_capacity)
 	assert_gt(long_range.engagement_channels, medium.engagement_channels)
+	assert_gt(long_range.maximum_engagement_altitude, medium.maximum_engagement_altitude)
+	assert_gt(medium.maximum_engagement_altitude, short_range.maximum_engagement_altitude)
+	assert_gt(long_range.minimum_engagement_altitude, short_range.minimum_engagement_altitude)
 	assert_gt(short_range.munitions[0].small_target_match, medium.munitions[0].small_target_match)
 	assert_eq(long_range.munitions.size(), 2)
 	assert_true(long_range.munitions[1].high_cost)
@@ -218,7 +221,8 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	var rockets := SCENARIO.threat_entries[10]
 	var aircraft := SCENARIO.threat_entries[11].threat_definition as AttackUavDefinition
 	assert_eq(ballistic.movement.mode, ThreatMovementDefinition.Mode.BALLISTIC_ARC)
-	assert_gt(ballistic.movement.ballistic_apex, 300.0)
+	assert_gt(ballistic.movement.ballistic_apex, 900.0)
+	assert_lt(ballistic.movement.ballistic_boost_fraction, ballistic.movement.ballistic_reentry_fraction)
 	assert_lte(ballistic.movement.maximum_speed_multiplier, 1.2)
 	assert_eq(rockets.group_size, 4)
 	assert_lte((rockets.threat_definition as AttackUavDefinition).movement.maximum_speed_multiplier, 1.2)
@@ -231,6 +235,11 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_eq(cruise.movement.mode, ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING)
 	assert_lt(cruise.movement.cruise_altitude, swarm.movement.cruise_altitude)
 	assert_gt(cruise.movement.speed, swarm.movement.speed)
+	assert_gt(aircraft.movement.cruise_altitude, jammer.movement.cruise_altitude)
+	var search_radar := SCENARIO.available_defenses[1] as SearchRadarDefinition
+	var high_altitude_radar := SCENARIO.available_defenses[3] as SearchRadarDefinition
+	assert_lt(search_radar.maximum_detection_altitude, high_altitude_radar.minimum_detection_altitude + 150.0)
+	assert_gt(high_altitude_radar.maximum_detection_altitude, ballistic.movement.ballistic_apex)
 
 func test_recon_and_strike_missions_act_then_egress() -> void:
 	var objective: ProtectedObjective = autofree(ProtectedObjective.new()) as ProtectedObjective

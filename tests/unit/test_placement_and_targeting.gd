@@ -148,7 +148,7 @@ func test_long_range_launcher_selects_and_preserves_specialized_munition() -> vo
 	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	battery.setup(7, definition)
-	var ballistic := _confirmed_track(Vector3(200.0, 0.0, 0.0))
+	var ballistic := _confirmed_track(Vector3(200.0, 420.0, 0.0))
 	ballistic.classification = &"ballistic_missile"
 	assert_eq(battery.munition_for_track(ballistic).id, &"high_speed_interceptor")
 	var coordinator := EngagementCoordinator.new()
