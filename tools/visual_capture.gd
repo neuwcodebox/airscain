@@ -27,6 +27,7 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	await _capture_missile_smoke_trail()
 	var city_camera_position := main.camera_rig.global_position
 	var city_camera_zoom := main.camera_rig.zoom_distance
 	main.objective.apply_mission_damage(35)
@@ -156,7 +157,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial placement combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
+	print("VISUAL_CAPTURE_OK initial placement missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
 
 func _apply_requested_seed() -> void:
@@ -226,6 +227,43 @@ func _capture_strike_vfx() -> void:
 	main.camera_rig.global_position = previous_camera_position
 	main.camera_rig.zoom_distance = previous_zoom
 	main.camera_rig._update_camera()
+
+func _capture_missile_smoke_trail() -> void:
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	var start := main.objective.global_position + Vector3(-120.0, 95.0, -35.0)
+	var target := PlayerTrack.new()
+	target.track_id = 9901
+	target.state = PlayerTrack.State.CONFIRMED
+	target.estimated_position = main.objective.global_position + Vector3(150.0, 125.0, -35.0)
+	interceptor.global_position = start
+	var battery_definition := main.scenario.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(target, ThreatRegistry.new(), battery_definition.munitions[0], start.direction_to(target.estimated_position), 9901)
+	for index: int in 18:
+		interceptor.gameplay_tick(0.04)
+		await process_frame
+	var previous_camera_position := main.camera_rig.global_position
+	var previous_zoom := main.camera_rig.zoom_distance
+	var midpoint := start.lerp(interceptor.global_position, 0.5)
+	main.camera_rig.camera.global_position = midpoint + Vector3(0.0, 75.0, 190.0)
+	main.camera_rig.camera.look_at(midpoint, Vector3.UP)
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	for index: int in 4:
+		await process_frame
+	var smoke := interceptor.get_node("SmokeTrail") as GPUParticles3D
+	var smoke_bounds := smoke.capture_aabb()
+	_save_capture("/tmp/airscain_missile_smoke_trail.png")
+	if smoke_bounds.size.length() < 25.0:
+		push_error("Missile smoke trail did not produce a visible particle footprint")
+		quit(1)
+		return
+	main.hud.visible = true
+	main.altitude_profile.visible = true
+	main.camera_rig.global_position = previous_camera_position
+	main.camera_rig.zoom_distance = previous_zoom
+	main.camera_rig._update_camera()
+	interceptor.queue_free()
 
 func _place_asset(definition: DefenseDefinition, direction: float) -> void:
 	for offset: int in range(0, 180, 10):

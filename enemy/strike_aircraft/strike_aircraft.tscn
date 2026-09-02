@@ -95,7 +95,7 @@ omni_range = 28.0
 
 [node name="LeftExhaustTrail" type="GPUParticles3D" parent="Body"]
 position = Vector3(-1.25, 0, 8.8)
-emitting = false
+emitting = true
 amount = 260
 lifetime = 4.0
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
@@ -107,7 +107,7 @@ sample_spacing = 3.5
 
 [node name="RightExhaustTrail" type="GPUParticles3D" parent="Body"]
 position = Vector3(1.25, 0, 8.8)
-emitting = false
+emitting = true
 amount = 260
 lifetime = 4.0
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)

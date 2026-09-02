@@ -577,7 +577,7 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_lt(agl, 45.0)
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
 	var exhaust := threat.get_node("Body/ExhaustTrail") as GPUParticles3D
-	assert_false(exhaust.emitting)
+	assert_true(exhaust.emitting)
 	assert_gt(int(exhaust.get("emitted_sample_count")), 20)
 	assert_gte((threat.get_node("Body/EngineLight") as OmniLight3D).light_energy, 8.0)
 	var integrity_before := main.objective.current_integrity
@@ -854,7 +854,8 @@ func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
 	var smoke := interceptor.get_node("SmokeTrail") as GPUParticles3D
 	smoke.call("sample_world_segment", Vector3.ZERO, Vector3(0.0, 0.0, 26.0))
 	assert_eq(int(smoke.get("emitted_sample_count")), 10)
-	assert_false(smoke.emitting)
+	assert_eq(smoke.get("last_emitted_world_position") as Vector3, Vector3(0.0, 0.0, 25.0))
+	assert_true(smoke.emitting)
 	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	interceptor.queue_free()
 

@@ -6,6 +6,7 @@ extends GPUParticles3D
 var release_remaining: float = -1.0
 var sample_remainder: float = 0.0
 var emitted_sample_count: int = 0
+var last_emitted_world_position: Vector3
 
 func _ready() -> void:
 	set_process(false)
@@ -27,8 +28,9 @@ func sample_world_segment(from_position: Vector3, to_position: Vector3) -> void:
 	var direction := segment / distance
 	var cursor := sample_spacing - sample_remainder
 	while cursor <= distance:
-		var local_position := to_local(from_position + direction * cursor)
-		emit_particle(Transform3D(Basis.IDENTITY, local_position), Vector3.ZERO, Color.WHITE, Color.WHITE, EMIT_FLAG_POSITION)
+		var world_position := from_position + direction * cursor
+		emit_particle(Transform3D(Basis.IDENTITY, world_position), Vector3.ZERO, Color.WHITE, Color.WHITE, EMIT_FLAG_POSITION)
+		last_emitted_world_position = world_position
 		emitted_sample_count += 1
 		cursor += sample_spacing
 	sample_remainder = fposmod(sample_remainder + distance, sample_spacing)

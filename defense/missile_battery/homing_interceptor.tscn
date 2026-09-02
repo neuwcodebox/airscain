@@ -73,7 +73,7 @@ omni_range = 28.0
 
 [node name="SmokeTrail" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0, 2.8)
-emitting = false
+emitting = true
 amount = 420
 lifetime = 7.5
 lifetime_randomness = 0.28
