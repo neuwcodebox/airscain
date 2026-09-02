@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource path="res://effects/air_strike_munition/air_strike_munition.gd" type="Script" id="1"]
 [ext_resource path="res://effects/lingering_smoke_trail.gd" type="Script" id="2"]
@@ -29,15 +29,30 @@ height = 1.8
 radial_segments = 8
 rings = 4
 
+[sub_resource type="Gradient" id="SmokeGradient"]
+offsets = PackedFloat32Array(0, 0.08, 0.5, 0.8, 1)
+colors = PackedColorArray(0.38, 0.4, 0.41, 0, 0.36, 0.38, 0.39, 0.62, 0.32, 0.34, 0.35, 0.46, 0.29, 0.31, 0.32, 0.18, 0.27, 0.29, 0.3, 0)
+
+[sub_resource type="GradientTexture1D" id="SmokeGradientTexture"]
+gradient = SubResource("SmokeGradient")
+
 [sub_resource type="ParticleProcessMaterial" id="SmokeProcess"]
-gravity = Vector3(0.12, 0.08, 0.03)
+gravity = Vector3(0.04, 0.02, 0.012)
 initial_velocity_min = 0.08
-initial_velocity_max = 0.4
+initial_velocity_max = 0.65
 damping_min = 0.1
 damping_max = 0.18
 scale_min = 0.5
 scale_max = 1.8
-color = Color(0.32, 0.34, 0.35, 0.55)
+color_ramp = SubResource("SmokeGradientTexture")
+lifetime_randomness = 0.0
+turbulence_enabled = true
+turbulence_noise_strength = 1.9
+turbulence_noise_scale = 2.5
+turbulence_noise_speed = Vector3(0.03, 0.01, 0.02)
+turbulence_noise_speed_random = 0.3
+turbulence_influence_min = 0.15
+turbulence_influence_max = 0.28
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
 transparency = 1
@@ -74,7 +89,6 @@ position = Vector3(0, 0, 1.8)
 emitting = true
 amount = 360
 lifetime = 6.5
-lifetime_randomness = 0.15
 visibility_aabb = AABB(-100, -60, -100, 200, 160, 200)
 local_coords = false
 process_material = SubResource("SmokeProcess")

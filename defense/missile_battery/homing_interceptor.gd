@@ -2,6 +2,7 @@ class_name HomingInterceptor
 extends Node3D
 
 const MISS_EFFECT_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
+const DETONATION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 
 var target_track: PlayerTrack
@@ -64,6 +65,8 @@ func gameplay_tick(delta: float) -> void:
 		var physical_position := threat.get_aim_position()
 		var nearest := Geometry3D.get_closest_point_to_segment(physical_position, previous, global_position)
 		if nearest.distance_to(physical_position) <= proximity_radius:
+			global_position = nearest
+			_spawn_detonation(Color(0.45, 0.78, 1.0), 6.0)
 			threat.receive_damage(damage)
 			_release_smoke_trail()
 			queue_free()
@@ -72,12 +75,22 @@ func gameplay_tick(delta: float) -> void:
 func _expire(color: Color, reason: String) -> void:
 	var parent := get_parent()
 	if parent != null:
+		_spawn_detonation(color, 7.0)
 		var effect := MISS_EFFECT_SCENE.instantiate() as Node3D
 		parent.add_child(effect)
 		effect.global_position = global_position
 		effect.call("setup", color, reason)
 	_release_smoke_trail()
 	queue_free()
+
+func _spawn_detonation(color: Color, radius: float) -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var detonation := DETONATION_SCENE.instantiate() as ExplosionEffect
+	parent.add_child(detonation)
+	detonation.global_position = global_position
+	detonation.setup(color, radius)
 
 func _release_smoke_trail() -> void:
 	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D

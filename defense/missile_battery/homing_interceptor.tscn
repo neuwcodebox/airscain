@@ -21,8 +21,8 @@ emission_energy_multiplier = 5.0
 transparency = 1
 
 [sub_resource type="Gradient" id="SmokeGradient"]
-offsets = PackedFloat32Array(0, 0.12, 0.72, 1)
-colors = PackedColorArray(0.72, 0.74, 0.72, 0, 0.62, 0.64, 0.63, 0.68, 0.43, 0.46, 0.48, 0.3, 0.32, 0.36, 0.4, 0)
+offsets = PackedFloat32Array(0, 0.08, 0.48, 0.78, 1)
+colors = PackedColorArray(0.72, 0.74, 0.72, 0, 0.62, 0.64, 0.63, 0.72, 0.5, 0.53, 0.55, 0.56, 0.4, 0.43, 0.46, 0.24, 0.34, 0.37, 0.4, 0)
 
 [sub_resource type="GradientTexture1D" id="SmokeGradientTexture"]
 gradient = SubResource("SmokeGradient")
@@ -30,14 +30,24 @@ gradient = SubResource("SmokeGradient")
 [sub_resource type="ParticleProcessMaterial" id="SmokeProcess"]
 direction = Vector3(0, 0, 1)
 spread = 18.0
-gravity = Vector3(0.16, 0.1, 0.05)
+gravity = Vector3(0.045, 0.025, 0.015)
 initial_velocity_min = 0.1
-initial_velocity_max = 0.55
-damping_min = 0.12
-damping_max = 0.22
+initial_velocity_max = 0.75
+damping_min = 0.08
+damping_max = 0.16
 scale_min = 1.15
 scale_max = 4.2
 color_ramp = SubResource("SmokeGradientTexture")
+lifetime_randomness = 0.0
+turbulence_enabled = true
+turbulence_noise_strength = 2.2
+turbulence_noise_scale = 2.6
+turbulence_noise_speed = Vector3(0.035, 0.012, 0.022)
+turbulence_noise_speed_random = 0.32
+turbulence_influence_min = 0.18
+turbulence_influence_max = 0.32
+turbulence_initial_displacement_min = 0.15
+turbulence_initial_displacement_max = 0.55
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
 albedo_color = Color(0.58, 0.62, 0.64, 0.48)
@@ -78,7 +88,6 @@ position = Vector3(0, 0, 2.8)
 emitting = true
 amount = 960
 lifetime = 12.0
-lifetime_randomness = 0.18
 preprocess = 0.35
 visibility_aabb = AABB(-90, -35, -90, 180, 100, 180)
 local_coords = false

@@ -605,7 +605,10 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_gte(exhaust.lifetime, 9.0)
 	assert_gte(exhaust.amount, 700)
 	assert_lt((exhaust.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
-	assert_lte((exhaust.process_material as ParticleProcessMaterial).initial_velocity_max, 0.6)
+	assert_lte((exhaust.process_material as ParticleProcessMaterial).initial_velocity_max, 0.8)
+	assert_true((exhaust.process_material as ParticleProcessMaterial).turbulence_enabled)
+	assert_eq((exhaust.process_material as ParticleProcessMaterial).lifetime_randomness, 0.0)
+	assert_not_null((exhaust.process_material as ParticleProcessMaterial).color_ramp)
 	assert_gte((threat.get_node("Body/EngineLight") as OmniLight3D).light_energy, 8.0)
 	var integrity_before := main.objective.current_integrity
 	var impact_target := threat.mission_runtime.fixed_target
@@ -926,6 +929,10 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	assert_true((miss_effect.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_eq((miss_effect.get_node("Reason") as Label3D).text, "유도 상실")
 	assert_eq(miss_effect.global_position, Vector3(30.0, 80.0, -20.0))
+	var self_destruct := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
+	assert_not_null(self_destruct)
+	assert_eq(self_destruct.effect_radius, 7.0)
+	assert_true((self_destruct.get_node("Sparks") as GPUParticles3D).emitting)
 	var lingering_trail := main.projectile_parent.get_node_or_null("SmokeTrail") as GPUParticles3D
 	assert_not_null(lingering_trail)
 	assert_false(lingering_trail.emitting)
@@ -943,9 +950,39 @@ func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
 	assert_gte(smoke.lifetime, 12.0)
 	assert_gte(smoke.amount, 900)
 	assert_lt((smoke.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
-	assert_lte((smoke.process_material as ParticleProcessMaterial).initial_velocity_max, 0.6)
+	assert_lte((smoke.process_material as ParticleProcessMaterial).initial_velocity_max, 0.8)
+	assert_true((smoke.process_material as ParticleProcessMaterial).turbulence_enabled)
+	assert_eq((smoke.process_material as ParticleProcessMaterial).lifetime_randomness, 0.0)
 	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	interceptor.queue_free()
+
+func test_interceptor_detonation_remains_visible_when_strike_aircraft_survives_hit() -> void:
+	main.registry.clear()
+	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	threat.setup(9912, definition)
+	threat.global_position = Vector3(80.0, 220.0, 0.0)
+	main.registry.add(threat)
+	var track := PlayerTrack.new()
+	track.track_id = 9912
+	track.state = PlayerTrack.State.CONFIRMED
+	track.estimated_position = threat.global_position
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	interceptor.global_position = threat.global_position - Vector3.RIGHT * 12.0
+	var area_defense := (main.scenario.available_defenses[7] as MissileBatteryDefinition).munitions[0]
+	interceptor.configure(track, main.registry, area_defense, Vector3.RIGHT, 77)
+	interceptor.gameplay_tick(0.05)
+	assert_false(threat.resolved_state)
+	assert_eq(threat.health, definition.maximum_health - area_defense.interceptor_damage)
+	assert_true(interceptor.is_queued_for_deletion())
+	var detonation := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
+	assert_not_null(detonation)
+	assert_eq(detonation.effect_radius, 6.0)
+	var smoke_process := (detonation.get_node("Smoke") as GPUParticles3D).process_material as ParticleProcessMaterial
+	assert_eq(smoke_process.spread, 180.0)
+	assert_lt(absf(smoke_process.gravity.y), 1.0)
 
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()

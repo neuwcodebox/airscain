@@ -258,12 +258,38 @@ func _capture_missile_smoke_trail() -> void:
 		push_error("Missile smoke trail did not produce a visible particle footprint")
 		quit(1)
 		return
+	smoke.call("release_to", main.effects_parent)
+	interceptor.queue_free()
+	for index: int in 120:
+		await process_frame
+	var aged_smoke_bounds := smoke.capture_aabb()
+	_save_capture("/tmp/airscain_missile_smoke_aged.png")
+	if maxf(aged_smoke_bounds.size.y, aged_smoke_bounds.size.z) < 4.0:
+		push_error("Missile smoke trail did not develop a visible turbulent cross-section")
+		quit(1)
+		return
+	var self_destruct := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(self_destruct)
+	var lost_track := PlayerTrack.new()
+	lost_track.track_id = 9902
+	lost_track.state = PlayerTrack.State.LOST
+	lost_track.estimated_position = midpoint
+	self_destruct.global_position = midpoint + Vector3(0.0, 15.0, 0.0)
+	self_destruct.configure(lost_track, ThreatRegistry.new(), battery_definition.munitions[0], Vector3.FORWARD, 9902)
+	self_destruct.gameplay_tick(0.05)
+	for index: int in 3:
+		await process_frame
+	var detonation := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
+	if detonation == null or detonation.effect_radius < 7.0:
+		push_error("Interceptor self-destruct did not leave a visible detonation")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_interceptor_self_destruct.png")
 	main.hud.visible = true
 	main.altitude_profile.visible = true
 	main.camera_rig.global_position = previous_camera_position
 	main.camera_rig.zoom_distance = previous_zoom
 	main.camera_rig._update_camera()
-	interceptor.queue_free()
 
 func _place_asset(definition: DefenseDefinition, direction: float) -> void:
 	for offset: int in range(0, 180, 10):
