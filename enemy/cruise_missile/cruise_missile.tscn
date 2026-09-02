@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource path="res://enemy/attack_uav/attack_uav.gd" type="Script" id="1"]
 
@@ -24,6 +24,43 @@ size = Vector3(7.0, 0.35, 2.2)
 
 [sub_resource type="BoxMesh" id="TailMesh"]
 size = Vector3(3.8, 0.3, 1.4)
+
+[sub_resource type="StandardMaterial3D" id="EngineMaterial"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0.44, 0.08, 0.9)
+emission_enabled = true
+emission = Color(1, 0.16, 0.01, 1)
+
+[sub_resource type="SphereMesh" id="EngineMesh"]
+material = SubResource("EngineMaterial")
+radius = 0.7
+height = 2.4
+radial_segments = 8
+rings = 4
+
+[sub_resource type="ParticleProcessMaterial" id="ExhaustProcess"]
+direction = Vector3(0, 0, 1)
+spread = 12.0
+gravity = Vector3(0, 2, 0)
+initial_velocity_min = 2.0
+initial_velocity_max = 6.0
+scale_min = 0.45
+scale_max = 1.2
+color = Color(0.2, 0.22, 0.22, 0.48)
+
+[sub_resource type="StandardMaterial3D" id="ExhaustMaterial"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.18, 0.2, 0.2, 0.52)
+roughness = 1.0
+
+[sub_resource type="SphereMesh" id="ExhaustMesh"]
+material = SubResource("ExhaustMaterial")
+radius = 0.45
+height = 0.9
+radial_segments = 6
+rings = 3
 
 [node name="CruiseMissile" type="Node3D"]
 script = ExtResource("1")
@@ -51,3 +88,26 @@ position = Vector3(0, 1.1, 4.5)
 rotation = Vector3(0, 0, 1.5708)
 mesh = SubResource("TailMesh")
 material_override = SubResource("MissileMaterial")
+
+[node name="EngineGlow" type="MeshInstance3D" parent="Body"]
+position = Vector3(0, 0, 6.0)
+rotation = Vector3(1.5708, 0, 0)
+mesh = SubResource("EngineMesh")
+material_override = SubResource("EngineMaterial")
+
+[node name="EngineLight" type="OmniLight3D" parent="Body"]
+position = Vector3(0, 0, 6.0)
+light_color = Color(1, 0.3, 0.06, 1)
+light_energy = 2.5
+omni_range = 13.0
+
+[node name="ExhaustTrail" type="GPUParticles3D" parent="Body"]
+position = Vector3(0, 0, 6.2)
+emitting = true
+amount = 28
+lifetime = 1.0
+preprocess = 0.25
+visibility_aabb = AABB(-18, -18, -18, 36, 36, 36)
+local_coords = false
+process_material = SubResource("ExhaustProcess")
+draw_pass_1 = SubResource("ExhaustMesh")

@@ -492,6 +492,18 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_gt(agl, 5.0)
 	assert_lt(agl, 45.0)
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
+	assert_true((threat.get_node("Body/ExhaustTrail") as GPUParticles3D).emitting)
+	var integrity_before := main.objective.current_integrity
+	var impact_target := threat.mission_runtime.fixed_target
+	for frame: int in 500:
+		threat.gameplay_tick(0.05)
+		if threat.resolved_state:
+			break
+	assert_true(threat.resolved_state)
+	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
+	var explosion := main.effects_parent.get_node_or_null("Explosion") as ExplosionEffect
+	assert_not_null(explosion)
+	assert_lt(explosion.global_position.distance_to(impact_target), definition.mission.action_distance + 3.0)
 
 func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	var definition := main.scenario.threat_entries[9].threat_definition as AttackUavDefinition

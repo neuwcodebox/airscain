@@ -40,8 +40,14 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 	var vertical_speed := move_toward(velocity.y, desired_vertical_speed, profile.maximum_climb_rate * delta)
 	velocity = steered_direction * profile.speed * effective_speed_multiplier
 	velocity.y = vertical_speed
-	unit.global_position += velocity * delta
-	if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING:
+	var previous_position := unit.global_position
+	var movement := velocity * delta
+	if horizontal_to_target.length() <= profile.terminal_distance and previous_position.distance_to(desired_position) <= movement.length():
+		unit.global_position = desired_position
+		velocity = (unit.global_position - previous_position) / maxf(delta, 0.0001)
+	else:
+		unit.global_position += movement
+	if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING and horizontal_to_target.length() > profile.terminal_distance:
 		var safety_height := battlefield.terrain_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * 0.6
 		if unit.global_position.y < safety_height:
 			unit.global_position.y = safety_height
