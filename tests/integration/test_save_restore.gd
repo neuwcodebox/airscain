@@ -6,6 +6,7 @@ var main: AirscainMain
 var save_path: String
 
 func before_each() -> void:
+	AirscainMain.requested_seed = 73129
 	main = add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
 	await get_tree().process_frame
 	save_path = "user://main_save_restore_test_%d.json" % get_instance_id()

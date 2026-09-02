@@ -13,6 +13,14 @@ const TRAINING_APPROACH_DISTANCE_RATIO := 0.58
 
 static var requested_seed: int = -1
 static var requested_mode: GameMode = GameMode.SUSTAINED
+static var last_generated_seed: int = -1
+
+static func generate_world_seed() -> int:
+	var generated := (int(Time.get_unix_time_from_system() * 1000.0) ^ int(Time.get_ticks_usec())) & 0x7fffffff
+	if generated == last_generated_seed:
+		generated = (generated + 1) & 0x7fffffff
+	last_generated_seed = generated
+	return generated
 
 var scenario: ScenarioDefinition
 var registry := ThreatRegistry.new()

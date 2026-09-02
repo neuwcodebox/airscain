@@ -23,6 +23,7 @@ func start_game(mode: AirscainMain.GameMode) -> void:
 	if gameplay != null:
 		return
 	AirscainMain.requested_mode = mode
+	AirscainMain.requested_seed = AirscainMain.generate_world_seed()
 	gameplay = GAMEPLAY_SCENE.instantiate() as AirscainMain
 	add_child(gameplay)
 	main_menu.visible = false

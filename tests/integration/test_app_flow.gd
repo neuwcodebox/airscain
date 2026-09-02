@@ -2,6 +2,10 @@ extends GutTest
 
 const APP_SCENE := preload("res://main/app.tscn")
 
+func after_each() -> void:
+	AirscainMain.requested_seed = -1
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+
 func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	var app: Node = add_child_autofree(APP_SCENE.instantiate())
 	await get_tree().process_frame
@@ -14,6 +18,7 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	await get_tree().process_frame
 	var gameplay := app.get("gameplay") as AirscainMain
 	assert_not_null(gameplay)
+	var first_seed := gameplay.scenario.world_seed
 	assert_eq(gameplay.game_mode, AirscainMain.GameMode.TRAINING)
 	assert_false(main_menu.visible)
 	assert_null(gameplay.hud.get_node_or_null("%ModeOption"))
@@ -27,3 +32,9 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	app.call("return_to_main_menu")
 	assert_true(main_menu.visible)
 	assert_null(app.get("gameplay"))
+	await get_tree().process_frame
+	app.call("start_game", AirscainMain.GameMode.SANDBOX)
+	await get_tree().process_frame
+	var next_gameplay := app.get("gameplay") as AirscainMain
+	assert_not_null(next_gameplay)
+	assert_ne(next_gameplay.scenario.world_seed, first_seed)

@@ -5,6 +5,7 @@ const MAIN_SCENE := preload("res://main/main.tscn")
 var main: AirscainMain
 
 func before_each() -> void:
+	AirscainMain.requested_seed = 73129
 	main = add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
 	await get_tree().process_frame
 
