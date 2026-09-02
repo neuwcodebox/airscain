@@ -39,7 +39,7 @@ func gameplay_tick(delta: float) -> void:
 		orbit_angle = fposmod(orbit_angle + delta * 0.45, TAU)
 		var orbit_radius := clampf(_definition.mission.action_distance * 0.82, 45.0, 320.0)
 		var orbit_target := mission_target + Vector3(cos(orbit_angle) * orbit_radius, _definition.movement.cruise_altitude, sin(orbit_angle) * orbit_radius)
-		mover.advance(self, body, orbit_target, speed_multiplier, delta)
+		mover.advance(self, body, orbit_target, speed_multiplier, delta, true)
 	else:
 		mover.advance(self, body, target_point, speed_multiplier, delta)
 	_sample_exhaust(previous_position, global_position)

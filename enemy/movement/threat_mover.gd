@@ -18,14 +18,16 @@ func setup(profile_value: ThreatMovementDefinition, battlefield_value: Battlefie
 	ballistic_initialized = false
 	ballistic_progress = 0.0
 
-func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: float, delta: float) -> void:
+func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: float, delta: float, preserve_target_altitude: bool = false) -> void:
 	var effective_speed_multiplier := minf(speed_multiplier, profile.maximum_speed_multiplier)
 	if profile.mode == ThreatMovementDefinition.Mode.BALLISTIC_ARC:
 		_advance_ballistic(unit, body, target, effective_speed_multiplier, delta)
 		return
 	var desired_position := target
 	var horizontal_to_target := Vector2(target.x - unit.global_position.x, target.z - unit.global_position.z)
-	if horizontal_to_target.length() > profile.terminal_distance:
+	if preserve_target_altitude:
+		desired_position.y = maxf(target.y, battlefield.flight_surface_height(target.x, target.z) + profile.cruise_altitude)
+	elif horizontal_to_target.length() > profile.terminal_distance:
 		desired_position.y = _cruise_height(unit.global_position, horizontal_to_target)
 	else:
 		desired_position.y = battlefield.flight_surface_height(target.x, target.z) + profile.terminal_altitude
@@ -47,7 +49,7 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		velocity = (unit.global_position - previous_position) / maxf(delta, 0.0001)
 	else:
 		unit.global_position += movement
-	if horizontal_to_target.length() > profile.terminal_distance:
+	if preserve_target_altitude or horizontal_to_target.length() > profile.terminal_distance:
 		var clearance_ratio := 0.6 if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING else 0.35
 		var safety_height := battlefield.flight_surface_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * clearance_ratio
 		if unit.global_position.y < safety_height:

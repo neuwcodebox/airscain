@@ -33,7 +33,10 @@ func navigation_target() -> Vector3:
 
 func gameplay_tick(unit_position: Vector3, delta: float) -> bool:
 	var target := navigation_target()
-	if unit_position.distance_to(target + Vector3.UP * 2.0) > profile.action_distance:
+	var action_distance := unit_position.distance_to(target + Vector3.UP * 2.0)
+	if profile.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
+		action_distance = Vector2(unit_position.x - target.x, unit_position.z - target.z).length()
+	if action_distance > profile.action_distance:
 		return false
 	if phase == Phase.EGRESS:
 		return true

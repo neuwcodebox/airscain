@@ -2,6 +2,7 @@ class_name HomingInterceptor
 extends Node3D
 
 const MISS_EFFECT_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
+const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 
 var target_track: PlayerTrack
 var registry: ThreatRegistry
@@ -18,7 +19,7 @@ var radar_sensitivity: float = 0.65
 var countermeasure_attempted: bool = false
 var rng := RandomNumberGenerator.new()
 
-func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0) -> void:
+func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0) -> void:
 	target_track = track_value
 	registry = registry_value
 	owner_defense_id = owner_id
@@ -30,7 +31,7 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 	infrared_sensitivity = definition.infrared_sensitivity
 	radar_sensitivity = definition.radar_sensitivity
 	velocity = initial_direction.normalized() * speed
-	rng.seed = owner_defense_id ^ track_value.track_id ^ 0x5E3C9A
+	rng.seed = owner_defense_id ^ track_value.track_id ^ launch_sequence * 0x45D9F3B ^ 0x5E3C9A
 
 func gameplay_tick(delta: float) -> void:
 	if target_track == null or target_track.state == PlayerTrack.State.LOST:
@@ -41,7 +42,8 @@ func gameplay_tick(delta: float) -> void:
 		_expire(Color(0.72, 0.78, 0.82), "요격 실패")
 		return
 	var previous := global_position
-	var desired := global_position.direction_to(target_track.estimated_position)
+	var guidance_point := INTERCEPT_GUIDANCE.lead_point(global_position, speed, target_track.estimated_position, target_track.estimated_velocity, 1.8)
+	var desired := global_position.direction_to(guidance_point)
 	var current := velocity.normalized()
 	var angle := current.angle_to(desired)
 	var direction := desired if angle <= turn_rate * delta else current.slerp(desired, (turn_rate * delta) / angle)

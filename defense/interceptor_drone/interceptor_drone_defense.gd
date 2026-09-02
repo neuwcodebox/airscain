@@ -50,7 +50,7 @@ func gameplay_tick(delta: float) -> void:
 
 func _select_track() -> PlayerTrack:
 	for track: PlayerTrack in available_tracks():
-		if doctrine.allows(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency():
+		if doctrine.allows(track) and is_track_available_for_engagement(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency():
 			return track
 	return null
 
@@ -68,6 +68,10 @@ func _launch(track: PlayerTrack) -> InterceptorDrone:
 
 func recover_drone(_drone: InterceptorDrone) -> void:
 	recharge_queue.append(_definition.recharge_duration)
+
+func release_engagement(track_id: int) -> void:
+	if engagement_coordinator != null:
+		engagement_coordinator.release(track_id, runtime_id)
 
 func resource_status_text() -> String:
 	return "%s\n드론 대기 %d · 출격 %d · 충전 %d" % [operational_status_text(), available_drones, active_drones.size(), recharge_queue.size()]

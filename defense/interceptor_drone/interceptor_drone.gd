@@ -1,6 +1,8 @@
 class_name InterceptorDrone
 extends Node3D
 
+const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
+
 enum State { OUTBOUND, RETURNING }
 
 var base_owner: InterceptorDroneDefense
@@ -34,8 +36,8 @@ func gameplay_tick(delta: float) -> void:
 		return
 	age += delta
 	if state == State.OUTBOUND and (target_track == null or target_track.state == PlayerTrack.State.LOST or age >= endurance):
-		state = State.RETURNING
-	var destination := target_track.estimated_position if state == State.OUTBOUND else base_owner.global_position + Vector3.UP * 6.0
+		_begin_returning()
+	var destination := INTERCEPT_GUIDANCE.lead_point(global_position, speed, target_track.estimated_position, target_track.estimated_velocity, 2.4) if state == State.OUTBOUND else base_owner.global_position + Vector3.UP * 6.0
 	var desired := global_position.direction_to(destination)
 	var current := velocity.normalized()
 	var angle := current.angle_to(desired)
@@ -50,11 +52,18 @@ func gameplay_tick(delta: float) -> void:
 			var target_position := threat.get_aim_position()
 			if Geometry3D.get_closest_point_to_segment(target_position, previous, global_position).distance_to(target_position) <= proximity_radius:
 				threat.receive_damage(damage)
-				state = State.RETURNING
+				_begin_returning()
 				break
 	elif global_position.distance_to(destination) <= 8.0:
 		base_owner.recover_drone(self)
 		queue_free()
+
+func _begin_returning() -> void:
+	if state == State.RETURNING:
+		return
+	state = State.RETURNING
+	if target_track != null:
+		base_owner.release_engagement(target_track.track_id)
 
 func capture_state() -> Dictionary:
 	return {"type": "interceptor_drone", "owner_defense_id": owner_defense_id, "target_track_id": target_track.track_id if target_track != null else -1, "position": SaveDocument.vector3_to_data(global_position), "velocity": SaveDocument.vector3_to_data(velocity), "state": int(state), "age": age}

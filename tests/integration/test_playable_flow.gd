@@ -330,7 +330,7 @@ func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
 		minimum_city_distance = minf(minimum_city_distance, Vector2(threat.global_position.x - main.objective.global_position.x, threat.global_position.z - main.objective.global_position.z).length())
 	assert_gt(threat.global_position.distance_to(starting_position), 0.1)
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.ACTING)
-	assert_gt(minimum_agl, 10.0)
+	assert_gt(minimum_agl, 100.0)
 	assert_gt(minimum_city_distance, main.objective.exclusion_radius)
 
 func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> void:
@@ -700,6 +700,29 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	assert_gt(maximum_altitude, 900.0)
 	assert_eq(main.objective.current_integrity, starting_integrity - roundi(definition.mission.damage))
 
+func test_long_range_layer_intercepts_a_live_ballistic_attack_with_specialized_salvo() -> void:
+	main.registry.clear()
+	main._on_pressure_changed(4)
+	var radar_result := _place_for(main, main.scenario.available_defenses[3])
+	var command_result := _place_for(main, main.scenario.available_defenses[2])
+	var battery_result := _place_for(main, main.scenario.available_defenses[7])
+	assert_true(radar_result.success)
+	assert_true(command_result.success)
+	assert_true(battery_result.success)
+	var battery := battery_result.unit as MissileBattery
+	assert_true(main.session.start_defense())
+	main.director.enabled = false
+	var approach_angle := atan2(battery.global_position.z, battery.global_position.x)
+	var ballistic := main.director._spawn_entry(main.scenario.threat_entries[9], approach_angle, 0.0) as AttackUav
+	for frame: int in 280:
+		main._process(0.1)
+		if ballistic.resolved_state:
+			break
+	assert_true(ballistic.resolved_state)
+	assert_eq(int(main.session.neutralized_by_type.get("ballistic_missile", 0)), 1)
+	assert_lt(battery.magazines[&"high_speed_interceptor"].rounds, 3)
+	assert_gte(main.session.weapon_fire_count, 2)
+
 func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> void:
 	main.registry.clear()
 	var archetype := main.scenario.raid_archetypes[0]
@@ -967,17 +990,47 @@ func test_interceptor_drone_returns_and_recharges_for_reuse() -> void:
 	track.track_id = 610
 	track.state = PlayerTrack.State.CONFIRMED
 	track.estimated_position = threat.global_position
+	track.estimated_velocity = Vector3(-26.0, 0.0, 18.0)
+	assert_true(main.engagement_coordinator.try_reserve(track.track_id, base.runtime_id, base.drone_definition().drone_endurance))
 	var drone := base._launch(track)
 	assert_eq(base.available_drones, base.drone_definition().drone_count - 1)
-	drone.global_position = threat.global_position - Vector3.RIGHT
-	drone.gameplay_tick(0.02)
-	assert_lt(threat.health, 100.0)
+	for frame: int in 90:
+		threat.global_position += track.estimated_velocity * 0.05
+		track.estimated_position = threat.global_position
+		drone.gameplay_tick(0.05)
+		if drone.state == InterceptorDrone.State.RETURNING:
+			break
+	assert_true(threat.resolved_state)
 	assert_eq(drone.state, InterceptorDrone.State.RETURNING)
+	assert_false(main.engagement_coordinator.has_reservation(track.track_id))
 	drone.global_position = base.global_position + Vector3.UP * 6.0
 	drone.gameplay_tick(0.01)
 	assert_eq(base.recharge_queue.size(), 1)
 	base.gameplay_tick(base.drone_definition().recharge_duration + 0.1)
 	assert_eq(base.available_drones, base.drone_definition().drone_count)
+
+func test_interceptor_drone_acquires_and_neutralizes_a_live_moving_uav() -> void:
+	main.registry.clear()
+	main._on_pressure_changed(5)
+	var radar_result := _place_for(main, main.scenario.available_defenses[1])
+	var command_result := _place_for(main, main.scenario.available_defenses[2])
+	var drone_result := _place_for(main, main.scenario.available_defenses[10])
+	assert_true(radar_result.success)
+	assert_true(command_result.success)
+	assert_true(drone_result.success)
+	var base := drone_result.unit as InterceptorDroneDefense
+	assert_true(main.session.start_defense())
+	main.director.enabled = false
+	var threat := main.director._spawn_entry(main.scenario.threat_entries[0], 0.0, 0.0) as AttackUav
+	threat.global_position = base.global_position + Vector3(280.0, 70.0, 0.0)
+	threat.mover.setup((threat.definition as AttackUavDefinition).movement, main.battlefield, threat.global_position.direction_to(main.objective.global_position))
+	for frame: int in 180:
+		main._process(0.1)
+		if threat.resolved_state:
+			break
+	assert_true(threat.resolved_state)
+	assert_eq(int(main.session.neutralized_by_type.get("attack_uav", 0)), 1)
+	assert_lt(base.available_drones, base.drone_definition().drone_count)
 
 func _find_valid_position() -> Vector3:
 	return _find_valid_position_for(main.scenario.available_defenses[0].placement_profile)

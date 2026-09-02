@@ -4,6 +4,7 @@ const BATTLEFIELD_SCENE := preload("res://world/battlefield.tscn")
 const CITY_SCENE := preload("res://world/objective/city/city_objective.tscn")
 const BATTERY_SCENE := preload("res://defense/missile_battery/missile_battery.tscn")
 const SCENARIO := preload("res://main/first_scenario.tres")
+const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 
 class RoleDefenseDouble:
 	extends DefenseUnit
@@ -167,6 +168,29 @@ func test_long_range_launcher_selects_and_preserves_specialized_munition() -> vo
 	assert_eq(battery.munition_for_track(ballistic).id, &"high_speed_interceptor")
 	battery.set_munition_mode(&"area_defense")
 	assert_eq(battery.munition_for_track(ballistic).id, &"area_defense")
+
+func test_high_speed_interceptor_leads_moving_track_and_launches_configured_salvo() -> void:
+	var target_position := Vector3(500.0, 600.0, 0.0)
+	var target_velocity := Vector3(-120.0, -180.0, 70.0)
+	var lead := INTERCEPT_GUIDANCE.lead_point(Vector3.ZERO, 520.0, target_position, target_velocity, 1.8)
+	assert_lt(lead.x, target_position.x)
+	assert_lt(lead.y, target_position.y)
+	assert_gt(lead.z, target_position.z)
+	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(71, definition)
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	battery.configure_combat(ThreatRegistry.new(), projectiles)
+	var ballistic := _confirmed_track(target_position)
+	ballistic.classification = &"ballistic_missile"
+	ballistic.estimated_velocity = target_velocity
+	var munition := battery.munition_for_track(ballistic)
+	var rounds_before := battery.magazines[munition.id].rounds
+	battery._launch_salvo(ballistic, munition, munition.salvo_size)
+	assert_eq(projectiles.get_child_count(), 2)
+	assert_eq(battery.interceptors.size(), 2)
+	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 2)
+	assert_ne(battery.interceptors[0].global_position, battery.interceptors[1].global_position)
 
 func test_doctrine_rejects_neutral_low_quality_and_hold_fire_tracks() -> void:
 	var doctrine := EngagementDoctrine.new()

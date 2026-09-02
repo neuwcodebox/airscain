@@ -56,9 +56,9 @@ func gameplay_tick(delta: float) -> void:
 		return
 	var is_aimed := _aim_turret(track.estimated_position, delta)
 	var munition := munition_for_track(track)
-	if is_aimed and munition != null and cooldown <= 0.0 and _active_interceptor_count() < _definition.engagement_channels and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, munition.interceptor_lifetime, munition.salvo_size):
-		magazines[munition.id].consume()
-		_launch(track, munition)
+	var volley_size := mini(munition.salvo_size, magazines[munition.id].rounds) if munition != null else 0
+	if is_aimed and munition != null and volley_size > 0 and cooldown <= 0.0 and _active_interceptor_count() + volley_size <= _definition.engagement_channels and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, munition.interceptor_lifetime, munition.salvo_size):
+		_launch_salvo(track, munition, volley_size)
 		cooldown = _definition.fire_interval
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
@@ -184,15 +184,32 @@ func _launch(track: PlayerTrack, munition: MissileMunitionDefinition = null) -> 
 	if munition == null:
 		munition = _definition.munitions[0]
 	weapon_fired.emit(self, combat_resource_low())
+	_spawn_interceptor(track, munition, 0, 0.0)
+	_show_muzzle_flash()
+
+func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition, launch_sequence: int, lateral_offset: float) -> void:
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
-	interceptor.global_position = launch_point.global_position
-	var initial_direction := launch_point.global_position.direction_to(track.estimated_position)
-	interceptor.configure(track, registry, munition, initial_direction, runtime_id)
+	interceptor.global_position = launch_point.global_position + launch_point.global_basis.x * lateral_offset
+	var initial_direction := interceptor.global_position.direction_to(track.estimated_position)
+	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence)
 	interceptors.append(interceptor)
+
+func _show_muzzle_flash() -> void:
 	$MuzzleFlash.global_position = launch_point.global_position
 	$MuzzleFlash.visible = true
 	get_tree().create_timer(0.08).timeout.connect(func() -> void: $MuzzleFlash.visible = false)
+
+func _launch_salvo(track: PlayerTrack, munition: MissileMunitionDefinition, volley_size: int) -> void:
+	for launch_index: int in volley_size:
+		if not magazines[munition.id].consume():
+			break
+		if enemy_knowledge != null:
+			enemy_knowledge.record_engagement(self, &"missile")
+		weapon_fired.emit(self, combat_resource_low())
+		var lateral_offset := (float(launch_index) - float(volley_size - 1) * 0.5) * 1.4
+		_spawn_interceptor(track, munition, launch_index, lateral_offset)
+	_show_muzzle_flash()
 
 func capture_content_state() -> Dictionary:
 	var magazine_states: Dictionary = {}
