@@ -192,8 +192,15 @@ func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition,
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = launch_point.global_position + launch_point.global_basis.x * lateral_offset
 	var initial_direction := interceptor.global_position.direction_to(track.estimated_position)
-	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence)
+	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks())
+	interceptor.target_changed.connect(_on_interceptor_target_changed)
 	interceptors.append(interceptor)
+
+func _on_interceptor_target_changed(previous_track_id: int, new_track_id: int, remaining_lifetime: float) -> void:
+	if engagement_coordinator == null:
+		return
+	engagement_coordinator.release(previous_track_id, runtime_id)
+	engagement_coordinator.try_reserve(new_track_id, runtime_id, remaining_lifetime, 99)
 
 func _show_muzzle_flash() -> void:
 	$MuzzleFlash.global_position = launch_point.global_position

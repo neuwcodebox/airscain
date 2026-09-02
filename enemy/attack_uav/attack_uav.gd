@@ -11,6 +11,7 @@ var orbit_angle: float = 0.0
 var mover := ThreatMover.new()
 var mission_runtime := ThreatMissionRuntime.new()
 var _definition: AttackUavDefinition
+var terminal_committed: bool = false
 
 @onready var body: Node3D = $Body
 
@@ -34,6 +35,8 @@ func gameplay_tick(delta: float) -> void:
 	var mission_target := mission_runtime.navigation_target()
 	target_point = mission_target
 	var previous_position := global_position
+	if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT and Vector2(target_point.x - global_position.x, target_point.z - global_position.z).length() <= _definition.movement.terminal_distance:
+		terminal_committed = true
 	var holding_for_recon := _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and mission_runtime.phase == ThreatMissionRuntime.Phase.ACTING
 	if holding_for_recon:
 		orbit_angle = fposmod(orbit_angle + delta * 0.45, TAU)
@@ -41,7 +44,12 @@ func gameplay_tick(delta: float) -> void:
 		var orbit_target := mission_target + Vector3(cos(orbit_angle) * orbit_radius, _definition.movement.cruise_altitude, sin(orbit_angle) * orbit_radius)
 		mover.advance(self, body, orbit_target, speed_multiplier, delta, true)
 	else:
-		mover.advance(self, body, target_point, speed_multiplier, delta)
+		mover.advance(self, body, target_point, speed_multiplier, delta, false, terminal_committed)
+	if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
+		var impact_point := mission_target + Vector3.UP * 2.0
+		var nearest_impact := Geometry3D.get_closest_point_to_segment(impact_point, previous_position, global_position)
+		if nearest_impact.distance_to(impact_point) <= _definition.mission.action_distance:
+			global_position = nearest_impact
 	_sample_exhaust(previous_position, global_position)
 	var had_applied_effect := mission_runtime.effect_applied
 	if mission_runtime.gameplay_tick(global_position, delta):
@@ -72,6 +80,7 @@ func capture_content_state() -> Dictionary:
 		"orbit_angle": orbit_angle,
 		"movement": mover.capture_state(),
 		"mission": mission_runtime.capture_state(),
+		"terminal_committed": terminal_committed,
 	}
 
 func restore_content_state(state: Dictionary, objective_value: ProtectedObjective, battlefield_value: Battlefield, defense_by_id: Dictionary[int, DefenseUnit] = {}) -> void:
@@ -82,6 +91,7 @@ func restore_content_state(state: Dictionary, objective_value: ProtectedObjectiv
 	orbit_angle = float(state.get("orbit_angle", 0.0))
 	mover.restore_state(state.get("movement", {}), _definition.movement, battlefield)
 	mission_runtime.restore_state(state.get("mission", {}), _definition.mission, objective, defense_by_id)
+	terminal_committed = bool(state.get("terminal_committed", false))
 
 func _apply_visual_color() -> void:
 	for child: Node in body.get_children():

@@ -30,6 +30,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK actual_building_footprints open_city_ground")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-terminal-guidance-only"):
+		await _capture_retarget_and_cruise_terminal_guidance()
+		print("VISUAL_CAPTURE_OK interceptor_retarget cruise_terminal_impact")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -424,6 +429,89 @@ func _capture_open_city_ground_placement() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_open_city_ground_placement.png")
+
+func _capture_retarget_and_cruise_terminal_guidance() -> void:
+	main.registry.clear()
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var threat_definition := main.scenario.threat_entries[0].threat_definition
+	var original := threat_definition.scene.instantiate() as ThreatUnit
+	main.threat_parent.add_child(original)
+	original.setup(9801, threat_definition)
+	original.global_position = main.objective.global_position + Vector3(-20.0, 105.0, -25.0)
+	main.registry.add(original)
+	var alternate := threat_definition.scene.instantiate() as ThreatUnit
+	main.threat_parent.add_child(alternate)
+	alternate.setup(9802, threat_definition)
+	alternate.global_position = main.objective.global_position + Vector3(130.0, 115.0, 65.0)
+	main.registry.add(alternate)
+	var original_track := PlayerTrack.new()
+	original_track.track_id = 9801
+	original_track.state = PlayerTrack.State.CONFIRMED
+	original_track.classification = threat_definition.signature_class
+	original_track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	original_track.affiliation_confidence = 1.0
+	original_track.estimated_position = original.global_position
+	var alternate_track := PlayerTrack.new()
+	alternate_track.track_id = 9802
+	alternate_track.state = PlayerTrack.State.CONFIRMED
+	alternate_track.classification = threat_definition.signature_class
+	alternate_track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	alternate_track.affiliation_confidence = 1.0
+	alternate_track.estimated_position = alternate.global_position
+	var candidates: Array[PlayerTrack] = [original_track, alternate_track]
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	interceptor.global_position = original.global_position + Vector3(-170.0, -10.0, 0.0)
+	var munition := (main.scenario.available_defenses[0] as MissileBatteryDefinition).munitions[0]
+	interceptor.configure(original_track, main.registry, munition, Vector3.RIGHT, 9800, 0, candidates)
+	for index: int in 5:
+		interceptor.gameplay_tick(0.05)
+		await process_frame
+	original.health = 0.0
+	main.registry.remove(original)
+	original.queue_free()
+	if interceptor.target_track != alternate_track:
+		push_error("Interceptor did not acquire the alternate visible track")
+		quit(1)
+		return
+	for index: int in 20:
+		interceptor.gameplay_tick(0.05)
+		await process_frame
+	var retarget_center := original_track.estimated_position.lerp(alternate_track.estimated_position, 0.35)
+	main.camera_rig.camera.global_position = retarget_center + Vector3(0.0, 115.0, 260.0)
+	main.camera_rig.camera.look_at(retarget_center, Vector3.UP)
+	for index: int in 8:
+		await process_frame
+	_save_capture("/tmp/airscain_interceptor_retarget.png")
+	interceptor.queue_free()
+	alternate.queue_free()
+	main.registry.clear()
+	var cruise_entry := main.scenario.threat_entries[5]
+	var cruise_definition := cruise_entry.threat_definition as AttackUavDefinition
+	var cruise := main.director._spawn_entry(cruise_entry, 0.0, 0.0) as AttackUav
+	var target := cruise.mission_runtime.fixed_target
+	cruise.global_position = target + Vector3(cruise_definition.movement.terminal_distance * 0.8, cruise_definition.movement.cruise_altitude, 0.0)
+	cruise.mover.velocity = Vector3(0.0, 0.0, cruise_definition.movement.speed)
+	main.camera_rig.camera.global_position = target + Vector3(145.0, 105.0, 190.0)
+	main.camera_rig.camera.look_at(target + Vector3.UP * 12.0, Vector3.UP)
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_cruise_terminal_approach.png")
+	var maximum_height := cruise.global_position.y
+	for frame: int in 80:
+		cruise.gameplay_tick(0.25)
+		maximum_height = maxf(maximum_height, cruise.global_position.y)
+		if cruise.resolved_state:
+			break
+		await process_frame
+	if not cruise.resolved_state or maximum_height > main.battlefield.flight_surface_height(target.x, target.z) + cruise_definition.movement.cruise_altitude + 1.0:
+		push_error("Cruise missile climbed out instead of completing terminal impact")
+		quit(1)
+		return
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_cruise_terminal_impact.png")
 
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position

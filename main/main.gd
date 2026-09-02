@@ -634,6 +634,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		registry.add(contact)
 		_on_threat_spawned(contact)
 	player_knowledge.call("restore_state", payload.player_knowledge)
+	var restored_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
 	engagement_coordinator.restore_state(world_state.engagements)
 	support_manager.restore_state(world_state.support)
 	relocation_manager.restore_state(world_state.relocations)
@@ -644,7 +645,8 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 			var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
 			var interceptor := HOMING_INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 			projectile_parent.add_child(interceptor)
-			interceptor.restore_state(state, target_track, registry)
+			interceptor.restore_state(state, target_track, registry, restored_tracks)
+			interceptor.target_changed.connect(owner._on_interceptor_target_changed)
 			owner.interceptors.append(interceptor)
 		else:
 			var drone_owner := _find_defense(int(state.owner_defense_id)) as InterceptorDroneDefense

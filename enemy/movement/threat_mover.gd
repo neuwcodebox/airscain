@@ -18,16 +18,17 @@ func setup(profile_value: ThreatMovementDefinition, battlefield_value: Battlefie
 	ballistic_initialized = false
 	ballistic_progress = 0.0
 
-func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: float, delta: float, preserve_target_altitude: bool = false) -> void:
+func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: float, delta: float, preserve_target_altitude: bool = false, force_terminal: bool = false) -> void:
 	var effective_speed_multiplier := minf(speed_multiplier, profile.maximum_speed_multiplier)
 	if profile.mode == ThreatMovementDefinition.Mode.BALLISTIC_ARC:
 		_advance_ballistic(unit, body, target, effective_speed_multiplier, delta)
 		return
 	var desired_position := target
 	var horizontal_to_target := Vector2(target.x - unit.global_position.x, target.z - unit.global_position.z)
+	var terminal_phase := force_terminal or horizontal_to_target.length() <= profile.terminal_distance
 	if preserve_target_altitude:
 		desired_position.y = maxf(target.y, battlefield.flight_surface_height(target.x, target.z) + profile.cruise_altitude)
-	elif horizontal_to_target.length() > profile.terminal_distance:
+	elif not terminal_phase:
 		desired_position.y = _cruise_height(unit.global_position, horizontal_to_target)
 	else:
 		desired_position.y = battlefield.flight_surface_height(target.x, target.z) + profile.terminal_altitude
@@ -36,11 +37,14 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		return
 	var current_direction := velocity.normalized() if velocity.length_squared() > 0.0001 else desired_direction
 	var angle := current_direction.angle_to(desired_direction)
-	var turn_weight := 1.0 if angle <= 0.0001 else minf(1.0, deg_to_rad(profile.maximum_turn_rate_degrees) * delta / angle)
+	var terminal_turn_multiplier := 3.0 if terminal_phase and profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING else 1.0
+	var turn_weight := 1.0 if angle <= 0.0001 else minf(1.0, deg_to_rad(profile.maximum_turn_rate_degrees) * terminal_turn_multiplier * delta / angle)
 	var steered_direction := current_direction.slerp(desired_direction, turn_weight).normalized()
-	var desired_vertical_speed := steered_direction.y * profile.speed * effective_speed_multiplier
+	var terminal_speed_scale := lerpf(0.35, 1.0, maxf(0.0, steered_direction.dot(desired_direction))) if terminal_phase else 1.0
+	var movement_speed := profile.speed * effective_speed_multiplier * terminal_speed_scale
+	var desired_vertical_speed := steered_direction.y * movement_speed
 	var vertical_speed := move_toward(velocity.y, desired_vertical_speed, profile.maximum_climb_rate * delta)
-	velocity = steered_direction * profile.speed * effective_speed_multiplier
+	velocity = steered_direction * movement_speed
 	velocity.y = vertical_speed
 	var previous_position := unit.global_position
 	var movement := velocity * delta
@@ -49,7 +53,7 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		velocity = (unit.global_position - previous_position) / maxf(delta, 0.0001)
 	else:
 		unit.global_position += movement
-	if preserve_target_altitude or horizontal_to_target.length() > profile.terminal_distance:
+	if preserve_target_altitude or not terminal_phase:
 		var clearance_ratio := 0.6 if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING else 0.35
 		var safety_height := battlefield.flight_surface_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * clearance_ratio
 		if unit.global_position.y < safety_height:

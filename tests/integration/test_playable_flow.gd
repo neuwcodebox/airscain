@@ -659,6 +659,24 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_not_null(explosion)
 	assert_lt(explosion.global_position.distance_to(impact_target), definition.mission.action_distance + 3.0)
 
+func test_cruise_missile_commits_to_terminal_impact_without_climbing_out() -> void:
+	var entry := main.scenario.threat_entries[5]
+	var definition := entry.threat_definition as AttackUavDefinition
+	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var target := threat.mission_runtime.fixed_target
+	threat.global_position = target + Vector3(definition.movement.terminal_distance * 0.8, definition.movement.cruise_altitude, 0.0)
+	threat.mover.velocity = Vector3(0.0, 0.0, definition.movement.speed)
+	var maximum_height := threat.global_position.y
+	for frame: int in 80:
+		threat.gameplay_tick(0.25)
+		maximum_height = maxf(maximum_height, threat.global_position.y)
+		if threat.resolved_state:
+			break
+	assert_true(threat.terminal_committed)
+	assert_true(threat.resolved_state)
+	assert_lte(maximum_height, main.battlefield.flight_surface_height(target.x, target.z) + definition.movement.cruise_altitude + 1.0)
+	assert_lt(threat.global_position.distance_to(target + Vector3.UP * 2.0), definition.mission.action_distance + 0.01)
+
 func test_threats_spawn_over_the_ocean_and_ballistic_missiles_launch_much_farther_away() -> void:
 	var cruise_entry := main.scenario.threat_entries[5]
 	var ballistic_entry := main.scenario.threat_entries[9]

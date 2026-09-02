@@ -92,6 +92,50 @@ func test_interceptor_stops_before_moving_when_correlated_target_is_removed() ->
 	assert_eq(interceptor.global_position, position_before_resolution)
 	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "표적 격추")
 
+func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructing() -> void:
+	var registry := ThreatRegistry.new()
+	var threat_definition := ThreatDefinition.new()
+	threat_definition.signature_class = &"aircraft"
+	threat_definition.affiliation = ThreatDefinition.Affiliation.HOSTILE
+	var original := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	original.setup(101, threat_definition)
+	original.global_position = Vector3.ZERO
+	original.health = 0.0
+	registry.add(original)
+	var alternate := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	alternate.setup(102, threat_definition)
+	alternate.global_position = Vector3(120.0, 20.0, 12.0)
+	registry.add(alternate)
+	var original_track := _confirmed_track(Vector3.ZERO)
+	original_track.track_id = 101
+	original_track.classification = &"aircraft"
+	original_track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	original_track.affiliation_confidence = 1.0
+	var alternate_track := _confirmed_track(alternate.global_position)
+	alternate_track.track_id = 102
+	alternate_track.classification = &"aircraft"
+	alternate_track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	alternate_track.affiliation_confidence = 1.0
+	var candidates: Array[PlayerTrack] = [original_track, alternate_track]
+	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
+	var interceptor := HomingInterceptor.new()
+	projectile_parent.add_child(interceptor)
+	interceptor.global_position = Vector3(-100.0, 20.0, 0.0)
+	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(original_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 4, 0, candidates)
+	registry.remove(original)
+	assert_same(interceptor.target_track, alternate_track)
+	assert_false(interceptor.target_resolved)
+	interceptor.gameplay_tick(0.1)
+	assert_false(interceptor.is_queued_for_deletion())
+	assert_gt(interceptor.global_position.x, -100.0)
+	for tick: int in 30:
+		if interceptor.is_queued_for_deletion():
+			break
+		interceptor.gameplay_tick(0.05)
+	assert_true(interceptor.is_queued_for_deletion())
+	assert_true(alternate.resolved_state)
+
 func test_interceptor_self_destructs_after_passing_an_empty_guidance_point() -> void:
 	var registry := ThreatRegistry.new()
 	var track := PlayerTrack.new()
