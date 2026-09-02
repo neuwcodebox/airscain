@@ -6,10 +6,10 @@ signal depleted(objective: ProtectedObjective)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 const DAMAGE_SMOKE_OFFSETS: Array[Vector3] = [
-	Vector3(-54.0, 18.0, -38.0),
-	Vector3(48.0, 18.0, 32.0),
-	Vector3(-20.0, 18.0, 58.0),
-	Vector3(62.0, 18.0, -46.0),
+	Vector3(-54.0, 40.0, -38.0),
+	Vector3(48.0, 44.0, 32.0),
+	Vector3(-20.0, 38.0, 58.0),
+	Vector3(62.0, 42.0, -46.0),
 ]
 
 var runtime_id: int
@@ -60,7 +60,7 @@ func _sync_damage_visuals() -> void:
 		var effect := DAMAGE_SMOKE_SCENE.instantiate() as Node3D
 		add_child(effect)
 		effect.position = DAMAGE_SMOKE_OFFSETS[index]
-		effect.call("set_city_scale", 2.2)
+		effect.call("set_city_scale", 1.5)
 		damage_smoke_effects.append(effect)
 	while damage_smoke_effects.size() > desired_count:
 		var effect: Node3D = damage_smoke_effects.pop_back()

@@ -283,17 +283,33 @@ func _spawn_swarm_near_close_in_gun() -> void:
 
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position
+	var smoke_start_msec := Time.get_ticks_msec()
 	main.objective.apply_mission_damage(55)
+	var smoke_spawn_msec := Time.get_ticks_msec() - smoke_start_msec
+	if smoke_spawn_msec > 100:
+		push_error("City smoke spawn blocked the main thread for %dms" % smoke_spawn_msec)
+		quit(1)
+		return
 	main.camera_rig.camera.global_position = target + Vector3(165.0, 105.0, 185.0)
 	main.camera_rig.camera.look_at(target + Vector3.UP * 32.0, Vector3.UP)
 	main.hud.visible = false
 	main.altitude_profile.visible = false
-	await _wait_seconds(0.8)
+	await _wait_simulation_seconds(0.8)
 	if main.objective.damage_smoke_effects.size() < 3:
 		push_error("City damage did not create dense multi-site smoke")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_city_damage_smoke.png")
+	await _wait_simulation_seconds(2.4)
+	var lower_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
+	var upper_smoke := main.objective.damage_smoke_effects[0].get_node("SmokeUpper") as GPUParticles3D
+	if not upper_smoke.emitting or upper_smoke.global_position.y - lower_smoke.global_position.y < 16.0:
+		push_error("City smoke did not maintain a rising upper plume")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_city_damage_smoke_rising.png")
+	await _wait_simulation_seconds(2.8)
+	_save_capture("/tmp/airscain_city_damage_smoke_plume.png")
 	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
 	var gun: CloseInGun
 	for defense: DefenseUnit in main.defenses:
@@ -511,3 +527,9 @@ func _wait_seconds(duration: float) -> void:
 	var deadline := Time.get_ticks_msec() + int(duration * 1000.0)
 	while Time.get_ticks_msec() < deadline:
 		await process_frame
+
+func _wait_simulation_seconds(duration: float) -> void:
+	var elapsed := 0.0
+	while elapsed < duration:
+		await process_frame
+		elapsed += minf(main.get_process_delta_time(), 0.1)

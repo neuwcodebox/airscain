@@ -57,11 +57,24 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(objective.current_integrity, 90)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 	var smoke := objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
+	var middle_smoke := objective.damage_smoke_effects[0].get_node("SmokeMiddle") as GPUParticles3D
+	var upper_smoke := objective.damage_smoke_effects[0].get_node("SmokeUpper") as GPUParticles3D
 	var smoke_process := smoke.process_material as ParticleProcessMaterial
-	assert_gte(smoke.amount, 72)
+	assert_gte(smoke.amount, 110)
 	assert_true(smoke_process.turbulence_enabled)
-	assert_gte(smoke_process.spread, 40.0)
+	assert_lte(smoke_process.spread, 20.0)
+	assert_gte(smoke_process.initial_velocity_min, 12.0)
+	assert_gt(smoke_process.gravity.y, smoke_process.gravity.x)
 	assert_not_null(smoke_process.color_ramp)
+	assert_eq(smoke.preprocess, 0.0)
+	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	assert_true(middle_smoke.emitting)
+	assert_gte(middle_smoke.position.y - smoke.position.y, 5.0)
+	assert_eq(middle_smoke.preprocess, 0.0)
+	assert_true(upper_smoke.emitting)
+	assert_gte(upper_smoke.position.y - smoke.position.y, 16.0)
+	assert_eq(upper_smoke.preprocess, 0.0)
+	assert_eq(upper_smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 	assert_true(objective.apply_mission_damage(100))
 	assert_eq(objective.current_integrity, 0)
 	assert_eq(objective.damage_smoke_effects.size(), 4)
