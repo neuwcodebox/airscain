@@ -2,6 +2,8 @@ class_name LingeringSmokeTrail
 extends GPUParticles3D
 
 @export_range(0.5, 20.0, 0.5) var sample_spacing: float = 3.0
+@export_range(1, 4, 1) var particles_per_sample: int = 1
+@export_range(0.0, 2.0, 0.05) var sample_radius: float = 0.0
 
 var release_remaining: float = -1.0
 var sample_remainder: float = 0.0
@@ -29,9 +31,12 @@ func sample_world_segment(from_position: Vector3, to_position: Vector3) -> void:
 	var cursor := sample_spacing - sample_remainder
 	while cursor <= distance:
 		var world_position := from_position + direction * cursor
-		emit_particle(Transform3D(Basis.IDENTITY, world_position), Vector3.ZERO, Color.WHITE, Color.WHITE, EMIT_FLAG_POSITION)
+		for particle_index: int in particles_per_sample:
+			var phase := float(emitted_sample_count + particle_index) * 2.399963
+			var offset := Vector3(cos(phase), sin(phase * 0.73) * 0.55, sin(phase)) * sample_radius
+			emit_particle(Transform3D(Basis.IDENTITY, world_position + offset), Vector3.ZERO, Color.WHITE, Color.WHITE, EMIT_FLAG_POSITION)
+			emitted_sample_count += 1
 		last_emitted_world_position = world_position
-		emitted_sample_count += 1
 		cursor += sample_spacing
 	sample_remainder = fposmod(sample_remainder + distance, sample_spacing)
 

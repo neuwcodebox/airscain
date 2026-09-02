@@ -30,11 +30,13 @@ radial_segments = 8
 rings = 4
 
 [sub_resource type="ParticleProcessMaterial" id="SmokeProcess"]
-gravity = Vector3(1.2, 2.4, 0.4)
-initial_velocity_min = 0.5
-initial_velocity_max = 2.0
-scale_min = 0.35
-scale_max = 1.1
+gravity = Vector3(0.12, 0.08, 0.03)
+initial_velocity_min = 0.08
+initial_velocity_max = 0.4
+damping_min = 0.1
+damping_max = 0.18
+scale_min = 0.5
+scale_max = 1.8
 color = Color(0.32, 0.34, 0.35, 0.55)
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
@@ -70,11 +72,14 @@ omni_range = 22.0
 [node name="SmokeTrail" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0, 1.8)
 emitting = true
-amount = 180
-lifetime = 3.5
+amount = 360
+lifetime = 6.5
+lifetime_randomness = 0.15
 visibility_aabb = AABB(-100, -60, -100, 200, 160, 200)
 local_coords = false
 process_material = SubResource("SmokeProcess")
 draw_pass_1 = SubResource("SmokeMesh")
 script = ExtResource("2")
-sample_spacing = 2.0
+sample_spacing = 1.5
+particles_per_sample = 2
+sample_radius = 0.3

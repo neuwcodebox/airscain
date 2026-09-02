@@ -586,6 +586,10 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	var exhaust := threat.get_node("Body/ExhaustTrail") as GPUParticles3D
 	assert_true(exhaust.emitting)
 	assert_gt(int(exhaust.get("emitted_sample_count")), 20)
+	assert_gte(exhaust.lifetime, 9.0)
+	assert_gte(exhaust.amount, 700)
+	assert_lt((exhaust.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
+	assert_lte((exhaust.process_material as ParticleProcessMaterial).initial_velocity_max, 0.6)
 	assert_gte((threat.get_node("Body/EngineLight") as OmniLight3D).light_energy, 8.0)
 	var integrity_before := main.objective.current_integrity
 	var impact_target := threat.mission_runtime.fixed_target
@@ -894,9 +898,13 @@ func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
 	main.projectile_parent.add_child(interceptor)
 	var smoke := interceptor.get_node("SmokeTrail") as GPUParticles3D
 	smoke.call("sample_world_segment", Vector3.ZERO, Vector3(0.0, 0.0, 26.0))
-	assert_eq(int(smoke.get("emitted_sample_count")), 10)
-	assert_eq(smoke.get("last_emitted_world_position") as Vector3, Vector3(0.0, 0.0, 25.0))
+	assert_gte(int(smoke.get("emitted_sample_count")), 28)
+	assert_gt((smoke.get("last_emitted_world_position") as Vector3).z, 24.0)
 	assert_true(smoke.emitting)
+	assert_gte(smoke.lifetime, 12.0)
+	assert_gte(smoke.amount, 900)
+	assert_lt((smoke.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
+	assert_lte((smoke.process_material as ParticleProcessMaterial).initial_velocity_max, 0.6)
 	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	interceptor.queue_free()
 

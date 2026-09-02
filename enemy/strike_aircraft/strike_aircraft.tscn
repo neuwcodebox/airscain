@@ -32,11 +32,13 @@ radial_segments = 8
 rings = 4
 
 [sub_resource type="ParticleProcessMaterial" id="ContrailProcess"]
-gravity = Vector3(1.8, 1.0, 0.5)
-initial_velocity_min = 0.5
-initial_velocity_max = 2.0
-scale_min = 0.55
-scale_max = 1.5
+gravity = Vector3(0.12, 0.05, 0.03)
+initial_velocity_min = 0.08
+initial_velocity_max = 0.4
+damping_min = 0.08
+damping_max = 0.16
+scale_min = 0.7
+scale_max = 2.1
 color = Color(0.72, 0.76, 0.8, 0.5)
 
 [sub_resource type="StandardMaterial3D" id="ContrailMaterial"]
@@ -96,23 +98,25 @@ omni_range = 28.0
 [node name="LeftExhaustTrail" type="GPUParticles3D" parent="Body"]
 position = Vector3(-1.25, 0, 8.8)
 emitting = true
-amount = 260
-lifetime = 4.0
+amount = 520
+lifetime = 7.0
+lifetime_randomness = 0.14
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
 local_coords = false
 process_material = SubResource("ContrailProcess")
 draw_pass_1 = SubResource("ContrailMesh")
 script = ExtResource("2")
-sample_spacing = 3.5
+sample_spacing = 2.6
 
 [node name="RightExhaustTrail" type="GPUParticles3D" parent="Body"]
 position = Vector3(1.25, 0, 8.8)
 emitting = true
-amount = 260
-lifetime = 4.0
+amount = 520
+lifetime = 7.0
+lifetime_randomness = 0.14
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
 local_coords = false
 process_material = SubResource("ContrailProcess")
 draw_pass_1 = SubResource("ContrailMesh")
 script = ExtResource("2")
-sample_spacing = 3.5
+sample_spacing = 2.6
