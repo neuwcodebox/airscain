@@ -1,6 +1,8 @@
 class_name ThreatRegistry
 extends RefCounted
 
+signal threat_removed(threat: ThreatUnit)
+
 var _active: Array[ThreatUnit] = []
 var _jammers: Array[ThreatUnit] = []
 
@@ -11,8 +13,11 @@ func add(threat: ThreatUnit) -> void:
 			_jammers.append(threat)
 
 func remove(threat: ThreatUnit) -> void:
+	var was_registered := _active.has(threat)
 	_active.erase(threat)
 	_jammers.erase(threat)
+	if was_registered:
+		threat_removed.emit(threat)
 
 func get_active() -> Array[ThreatUnit]:
 	var result: Array[ThreatUnit] = []

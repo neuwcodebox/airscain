@@ -508,6 +508,48 @@ func _capture_countermeasure_defeat(center: Vector3) -> void:
 	_save_capture("/tmp/airscain_countermeasure_defeat.png")
 	main.registry.remove(strike)
 	strike.queue_free()
+	await _capture_resolved_target_interceptor(center)
+
+func _capture_resolved_target_interceptor(center: Vector3) -> void:
+	for effect: Node in main.projectile_parent.get_children():
+		if effect.name == "Explosion" or effect.name == "InterceptorMiss" or effect.name == "CountermeasureBurst":
+			effect.queue_free()
+	await process_frame
+	var threat_definition := main.scenario.threat_entries[0].threat_definition
+	var threat := threat_definition.scene.instantiate() as ThreatUnit
+	main.threat_parent.add_child(threat)
+	threat.setup(9960, threat_definition)
+	threat.global_position = center + Vector3(110.0, 18.0, 0.0)
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	var track := PlayerTrack.new()
+	track.track_id = 9960
+	track.state = PlayerTrack.State.CONFIRMED
+	track.classification = threat_definition.signature_class
+	track.estimated_position = threat.global_position
+	track.position_uncertainty = 8.0
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	interceptor.global_position = threat.global_position + Vector3(-260.0, 0.0, 0.0)
+	var battery_definition := main.scenario.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(track, main.registry, battery_definition.munitions[0], Vector3.RIGHT, 9960)
+	for index: int in 5:
+		interceptor.gameplay_tick(0.05)
+		await process_frame
+	var position_at_resolution := interceptor.global_position
+	threat.receive_damage(10000.0)
+	interceptor.gameplay_tick(0.05)
+	if not interceptor.is_queued_for_deletion() or not interceptor.global_position.is_equal_approx(position_at_resolution):
+		push_error("Interceptor advanced after its correlated target was destroyed")
+		quit(1)
+		return
+	await _wait_simulation_seconds(0.12)
+	var miss := main.projectile_parent.get_node_or_null("InterceptorMiss") as InterceptorMissEffect
+	if miss == null or (miss.get_node("Reason") as Label3D).text != "표적 격추":
+		push_error("Resolved target interceptor did not explain its immediate self-destruct")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_target_resolved_interceptor.png")
 
 func _place_asset(definition: DefenseDefinition, direction: float) -> void:
 	for offset: int in range(0, 180, 10):

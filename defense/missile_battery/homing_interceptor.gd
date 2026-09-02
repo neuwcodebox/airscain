@@ -19,6 +19,9 @@ var velocity: Vector3 = Vector3.FORWARD
 var infrared_sensitivity: float = 0.65
 var radar_sensitivity: float = 0.65
 var countermeasure_attempted: bool = false
+var target_resolved: bool = false
+var target_resolution_reason: String = "표적 소실"
+var closest_guidance_distance: float = INF
 var rng := RandomNumberGenerator.new()
 
 func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0) -> void:
@@ -34,8 +37,12 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 	radar_sensitivity = definition.radar_sensitivity
 	velocity = initial_direction.normalized() * speed
 	rng.seed = owner_defense_id ^ track_value.track_id ^ launch_sequence * 0x45D9F3B ^ 0x5E3C9A
+	_connect_registry_signal()
 
 func gameplay_tick(delta: float) -> void:
+	if target_resolved:
+		_expire(Color(0.86, 0.72, 0.42), target_resolution_reason)
+		return
 	if target_track == null or target_track.state == PlayerTrack.State.LOST:
 		_expire(Color(0.62, 0.72, 0.8), "유도 상실")
 		return
@@ -74,6 +81,11 @@ func gameplay_tick(delta: float) -> void:
 			_release_smoke_trail()
 			queue_free()
 			return
+	var guidance_distance := global_position.distance_to(target_track.estimated_position)
+	if guidance_distance < closest_guidance_distance:
+		closest_guidance_distance = guidance_distance
+	elif closest_guidance_distance <= maxf(45.0, proximity_radius * 3.0) and guidance_distance >= closest_guidance_distance + maxf(8.0, speed * delta * 0.25):
+		_expire(Color(0.72, 0.78, 0.82), "유도 이탈")
 
 func _expire(color: Color, reason: String) -> void:
 	var parent := get_parent()
@@ -120,6 +132,21 @@ func _countermeasure_target() -> ThreatUnit:
 			nearest_distance = distance
 	return selected
 
+func _connect_registry_signal() -> void:
+	if registry != null and not registry.threat_removed.is_connected(_on_threat_removed):
+		registry.threat_removed.connect(_on_threat_removed)
+
+func _on_threat_removed(threat: ThreatUnit) -> void:
+	if target_track == null or threat == null:
+		return
+	if target_track.classification != &"unknown" and target_track.classification != threat.definition.signature_class:
+		return
+	var correlation_gate := maxf(100.0, target_track.position_uncertainty * 2.0 + 30.0)
+	if threat.get_aim_position().distance_to(target_track.estimated_position) > correlation_gate:
+		return
+	target_resolved = true
+	target_resolution_reason = "표적 격추" if threat.health <= 0.0 else "표적 소실"
+
 func capture_state() -> Dictionary:
 	return {
 		"type": "homing_interceptor",
@@ -136,6 +163,9 @@ func capture_state() -> Dictionary:
 		"infrared_sensitivity": infrared_sensitivity,
 		"radar_sensitivity": radar_sensitivity,
 		"countermeasure_attempted": countermeasure_attempted,
+		"target_resolved": target_resolved,
+		"target_resolution_reason": target_resolution_reason,
+		"closest_guidance_distance": closest_guidance_distance if closest_guidance_distance < INF else -1.0,
 		"rng_state": str(rng.state),
 	}
 
@@ -154,6 +184,11 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	infrared_sensitivity = float(state.get("infrared_sensitivity", 0.65))
 	radar_sensitivity = float(state.get("radar_sensitivity", 0.65))
 	countermeasure_attempted = bool(state.get("countermeasure_attempted", false))
+	target_resolved = bool(state.get("target_resolved", false))
+	target_resolution_reason = String(state.get("target_resolution_reason", "표적 소실"))
+	var saved_guidance_distance := float(state.get("closest_guidance_distance", -1.0))
+	closest_guidance_distance = INF if saved_guidance_distance < 0.0 else saved_guidance_distance
 	rng.state = int(state.get("rng_state", rng.state))
+	_connect_registry_signal()
 	if velocity.length_squared() > 0.001:
 		look_at(global_position + velocity, Vector3.UP)

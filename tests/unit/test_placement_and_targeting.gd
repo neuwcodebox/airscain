@@ -49,6 +49,53 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_true((burst.get_node("Flares") as GPUParticles3D).emitting)
 	assert_eq((burst.get_node("Reason") as Label3D).text, "플레어 기만")
 
+func test_interceptor_stops_before_moving_when_correlated_target_is_removed() -> void:
+	var registry := ThreatRegistry.new()
+	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	var threat_definition := ThreatDefinition.new()
+	threat_definition.signature_class = &"aircraft"
+	threat.setup(91, threat_definition)
+	threat.global_position = Vector3.ZERO
+	threat.health = 0.0
+	registry.add(threat)
+	var track := PlayerTrack.new()
+	track.track_id = 13
+	track.state = PlayerTrack.State.CONFIRMED
+	track.classification = &"aircraft"
+	track.estimated_position = threat.global_position
+	track.position_uncertainty = 12.0
+	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
+	var interceptor := HomingInterceptor.new()
+	projectile_parent.add_child(interceptor)
+	interceptor.global_position = Vector3(-140.0, 20.0, 0.0)
+	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 2)
+	var position_before_resolution := interceptor.global_position
+	registry.remove(threat)
+	interceptor.gameplay_tick(0.1)
+	assert_true(interceptor.is_queued_for_deletion())
+	assert_eq(interceptor.global_position, position_before_resolution)
+	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "표적 격추")
+
+func test_interceptor_self_destructs_after_passing_an_empty_guidance_point() -> void:
+	var registry := ThreatRegistry.new()
+	var track := PlayerTrack.new()
+	track.track_id = 14
+	track.state = PlayerTrack.State.CONFIRMED
+	track.estimated_position = Vector3.ZERO
+	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
+	var interceptor := HomingInterceptor.new()
+	projectile_parent.add_child(interceptor)
+	interceptor.global_position = Vector3(-50.0, 0.0, 0.0)
+	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 3)
+	interceptor.gameplay_tick(0.2)
+	assert_false(interceptor.is_queued_for_deletion())
+	interceptor.gameplay_tick(0.2)
+	assert_true(interceptor.is_queued_for_deletion())
+	assert_lt(interceptor.global_position.x, 40.0)
+	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "유도 이탈")
+
 func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	var profile := SCENARIO.available_defenses[0].placement_profile
 	assert_false(battlefield.placement_result(Vector3.ZERO, profile).valid)
