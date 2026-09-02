@@ -533,14 +533,21 @@ func test_mission_roles_choose_matching_deployed_assets() -> void:
 func test_recon_mission_upgrades_enemy_sensor_estimate() -> void:
 	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var radar := radar_result.unit as SearchRadar
+	var recon_definition := main.scenario.threat_entries[2].threat_definition as AttackUavDefinition
 	main.scenario.threat_entries = [main.scenario.threat_entries[2]]
 	main.director.pressure_level = 2
 	var recon := main.director.spawn_one() as AttackUav
 	assert_same(recon.mission_runtime.target_asset, radar)
 	recon.global_position = radar.global_position + Vector3(10.0, 2.0, 0.0)
-	for frame: int in 52:
+	recon.mover.setup(recon_definition.movement, main.battlefield, recon.global_position.direction_to(radar.global_position))
+	for frame: int in 90:
 		recon.gameplay_tick(0.1)
+		if recon.mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS:
+			break
 	var estimate := main.enemy_knowledge.best_estimate_for_role(&"sensor")
+	assert_false(estimate.is_empty())
+	if estimate.is_empty():
+		return
 	assert_eq(estimate.asset_id, radar.runtime_id)
 	assert_eq(estimate.source, "reconnaissance")
 	assert_eq(recon.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
@@ -568,11 +575,11 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_eq(definition.movement.mode, ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING)
 	var threat := main.director._spawn_entry(entry, 0.4, 0.0) as AttackUav
 	assert_not_null(threat)
-	var initial_agl := threat.global_position.y - main.battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
+	var initial_agl := threat.global_position.y - main.battlefield.flight_surface_height(threat.global_position.x, threat.global_position.z)
 	assert_almost_eq(initial_agl, definition.movement.cruise_altitude, 0.001)
 	for frame: int in 30:
 		threat.gameplay_tick(0.1)
-	var agl := threat.global_position.y - main.battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
+	var agl := threat.global_position.y - main.battlefield.flight_surface_height(threat.global_position.x, threat.global_position.z)
 	assert_gt(agl, 5.0)
 	assert_lt(agl, 45.0)
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
@@ -592,6 +599,20 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_not_null(explosion)
 	assert_lt(explosion.global_position.distance_to(impact_target), definition.mission.action_distance + 3.0)
 
+func test_threats_spawn_over_the_ocean_and_ballistic_missiles_launch_much_farther_away() -> void:
+	var cruise_entry := main.scenario.threat_entries[5]
+	var ballistic_entry := main.scenario.threat_entries[9]
+	var cruise := main.director._spawn_entry(cruise_entry, 0.0, 0.0) as AttackUav
+	var ballistic := main.director._spawn_entry(ballistic_entry, 0.0, 0.0) as AttackUav
+	assert_not_null(cruise)
+	assert_not_null(ballistic)
+	var cruise_radius := Vector2(cruise.global_position.x, cruise.global_position.z).length()
+	var ballistic_radius := Vector2(ballistic.global_position.x, ballistic.global_position.z).length()
+	assert_gt(cruise_radius, main.scenario.battlefield_size * 0.6)
+	assert_gt(ballistic_radius, main.scenario.battlefield_size)
+	assert_gt(ballistic_radius, cruise_radius * 2.0)
+	assert_gte(cruise.global_position.y, main.battlefield.generator.sea_level + (cruise_entry.threat_definition as AttackUavDefinition).movement.cruise_altitude)
+
 func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
@@ -610,6 +631,26 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	assert_gte((munition.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	assert_eq(threat.get_node("Body").find_children("*ExhaustTrail", "GPUParticles3D").size(), 2)
 	assert_gte((threat.get_node("Body/LeftEngineLight") as OmniLight3D).light_energy, 9.0)
+
+func test_strike_aircraft_releases_above_the_city_and_climbs_out_over_the_sea() -> void:
+	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	var target := main.objective.global_position
+	var exit_point := Vector3(main.scenario.battlefield_size, main.battlefield.generator.sea_level + definition.movement.cruise_altitude, 0.0)
+	threat.global_position = target + Vector3(-90.0, definition.movement.terminal_altitude, 0.0)
+	threat.setup(812, definition)
+	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, exit_point)
+	threat.gameplay_tick(0.1)
+	assert_true(threat.mission_runtime.effect_applied)
+	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_gt(threat.global_position.y, main.battlefield.generator.sea_level + 90.0)
+	var minimum_egress_altitude := threat.global_position.y
+	for frame: int in 80:
+		threat.gameplay_tick(0.1)
+		minimum_egress_altitude = minf(minimum_egress_altitude, threat.global_position.y)
+	assert_gte(minimum_egress_altitude, main.battlefield.generator.sea_level + definition.movement.terminal_altitude - 0.1)
+	assert_gt(threat.global_position.y, definition.movement.terminal_altitude + 20.0)
 
 func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	var definition := main.scenario.threat_entries[9].threat_definition as AttackUavDefinition

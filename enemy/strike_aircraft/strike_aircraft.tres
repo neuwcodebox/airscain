@@ -11,7 +11,9 @@ mode = 0
 speed = 96.0
 maximum_speed_multiplier = 1.25
 cruise_altitude = 320.0
-terminal_distance = 220.0
+spawn_radius_multiplier = 0.85
+terminal_distance = 650.0
+terminal_altitude = 110.0
 maximum_turn_rate_degrees = 48.0
 maximum_climb_rate = 75.0
 
@@ -20,7 +22,7 @@ script = ExtResource("4")
 type = 2
 target_role = 0
 damage = 18.0
-action_distance = 110.0
+action_distance = 145.0
 
 [resource]
 script = ExtResource("1")

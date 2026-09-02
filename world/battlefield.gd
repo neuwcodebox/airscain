@@ -84,6 +84,9 @@ func unregister_occupancy(position: Vector3, radius: float) -> void:
 func terrain_height(x: float, z: float) -> float:
 	return generator.height_at(x, z)
 
+func flight_surface_height(x: float, z: float) -> float:
+	return maxf(generator.height_at(x, z), generator.sea_level)
+
 func clear_occupancy() -> void:
 	occupied_positions.clear()
 	occupied_radii.clear()

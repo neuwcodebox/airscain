@@ -11,6 +11,7 @@ mode = 2
 speed = 165.0
 maximum_speed_multiplier = 1.1
 cruise_altitude = 30.0
+spawn_radius_multiplier = 1.5
 terminal_distance = 80.0
 maximum_turn_rate_degrees = 20.0
 maximum_climb_rate = 250.0

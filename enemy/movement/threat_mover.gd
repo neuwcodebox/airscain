@@ -28,7 +28,7 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 	if horizontal_to_target.length() > profile.terminal_distance:
 		desired_position.y = _cruise_height(unit.global_position, horizontal_to_target)
 	else:
-		desired_position.y = battlefield.terrain_height(target.x, target.z) + 2.0
+		desired_position.y = battlefield.flight_surface_height(target.x, target.z) + profile.terminal_altitude
 	var desired_direction := unit.global_position.direction_to(desired_position)
 	if desired_direction.length_squared() <= 0.0001:
 		return
@@ -49,7 +49,7 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		unit.global_position += movement
 	if horizontal_to_target.length() > profile.terminal_distance:
 		var clearance_ratio := 0.6 if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING else 0.35
-		var safety_height := battlefield.terrain_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * clearance_ratio
+		var safety_height := battlefield.flight_surface_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * clearance_ratio
 		if unit.global_position.y < safety_height:
 			unit.global_position.y = safety_height
 			velocity.y = maxf(0.0, velocity.y)
@@ -72,7 +72,7 @@ func restore_state(state: Dictionary, profile_value: ThreatMovementDefinition, b
 func _advance_ballistic(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: float, delta: float) -> void:
 	if not ballistic_initialized:
 		ballistic_origin = unit.global_position
-		ballistic_target = Vector3(target.x, battlefield.terrain_height(target.x, target.z) + 2.0, target.z)
+		ballistic_target = Vector3(target.x, battlefield.flight_surface_height(target.x, target.z) + profile.terminal_altitude, target.z)
 		ballistic_duration = maxf(0.1, Vector2(ballistic_target.x - ballistic_origin.x, ballistic_target.z - ballistic_origin.z).length() / (profile.speed * speed_multiplier))
 		ballistic_initialized = true
 	var previous := unit.global_position
@@ -106,9 +106,9 @@ func ballistic_phase() -> StringName:
 	return &"reentry"
 
 func _cruise_height(position: Vector3, horizontal_to_target: Vector2) -> float:
-	var terrain_height := battlefield.terrain_height(position.x, position.z)
+	var terrain_height := battlefield.flight_surface_height(position.x, position.z)
 	if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING and horizontal_to_target.length_squared() > 0.001:
 		var direction := horizontal_to_target.normalized()
 		var lookahead_position := Vector2(position.x, position.z) + direction * profile.terrain_lookahead
-		terrain_height = maxf(terrain_height, battlefield.terrain_height(lookahead_position.x, lookahead_position.y))
+		terrain_height = maxf(terrain_height, battlefield.flight_surface_height(lookahead_position.x, lookahead_position.y))
 	return terrain_height + profile.cruise_altitude
