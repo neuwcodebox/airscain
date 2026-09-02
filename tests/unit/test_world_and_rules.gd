@@ -67,6 +67,7 @@ func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 	assert_eq(battlefield.city_block_surface_count, battlefield.generator.city_block_layout().size())
 	var buildings := battlefield.generator.building_transforms()
 	assert_eq(battlefield.city_damage_smoke_anchors.size(), buildings.size())
+	assert_eq(battlefield.city_building_footprints.size(), buildings.size())
 	for index: int in mini(8, buildings.size()):
 		var expected_roof := buildings[index].origin + Vector3.UP * (buildings[index].basis.get_scale().y * 0.5 + 0.75)
 		assert_almost_eq(battlefield.city_damage_smoke_anchors[index], expected_roof, Vector3.ONE * 0.001)

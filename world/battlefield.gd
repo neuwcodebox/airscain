@@ -16,6 +16,7 @@ var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_damage_smoke_anchors: Array[Vector3] = []
+var city_building_footprints: Array[Rect2] = []
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -34,6 +35,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	ocean.position.y = generator.sea_level
 	var city_blocks := generator.city_block_layout()
 	var building_transforms := generator.building_transforms()
+	_cache_city_building_footprints(building_transforms)
 	_cache_city_damage_smoke_anchors(building_transforms)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
@@ -43,6 +45,15 @@ func _cache_city_damage_smoke_anchors(buildings: Array[Transform3D]) -> void:
 	for building: Transform3D in buildings:
 		var building_height := building.basis.get_scale().y
 		city_damage_smoke_anchors.append(building.origin + Vector3.UP * (building_height * 0.5 + 0.75))
+
+func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
+	city_building_footprints.clear()
+	for index: int in buildings.size():
+		var building := buildings[index]
+		var size := building.basis.get_scale()
+		var architecture_margin := 1.2 if index % 3 == 0 else 0.35
+		var half_extents := Vector2(size.x, size.z) * 0.5 + Vector2.ONE * architecture_margin
+		city_building_footprints.append(Rect2(Vector2(building.origin.x, building.origin.z) - half_extents, half_extents * 2.0))
 
 func set_objective(objective_value: ProtectedObjective) -> void:
 	objective = objective_value
@@ -59,12 +70,25 @@ func placement_result(position: Vector3, profile: PlacementProfile) -> Dictionar
 			return {"valid": false, "reason": "옥상 공간이 부족합니다"}
 		return _occupancy_result(rooftop_pads[rooftop_index].position, profile)
 	if objective != null and objective.excludes_placement(position, profile.footprint_radius):
-		return {"valid": false, "reason": "도시 내부에는 배치할 수 없습니다"}
+		return {"valid": false, "reason": "보호 시설과 겹칩니다"}
+	if overlaps_city_building(position, profile.footprint_radius):
+		return {"valid": false, "reason": "건물과 겹칩니다"}
 	if generator.height_at(position.x, position.z) <= generator.sea_level + 1.0:
 		return {"valid": false, "reason": "바다에는 배치할 수 없습니다"}
 	if generator.slope_degrees_at(position.x, position.z, profile.footprint_radius) > profile.maximum_slope_degrees:
 		return {"valid": false, "reason": "지형 경사가 너무 가파릅니다"}
 	return _occupancy_result(position, profile)
+
+func overlaps_city_building(position: Vector3, radius: float) -> bool:
+	var center := Vector2(position.x, position.z)
+	for footprint: Rect2 in city_building_footprints:
+		var closest := Vector2(
+			clampf(center.x, footprint.position.x, footprint.end.x),
+			clampf(center.y, footprint.position.y, footprint.end.y)
+		)
+		if closest.distance_squared_to(center) <= radius * radius:
+			return true
+	return false
 
 func snap_placement_position(position: Vector3, profile: PlacementProfile) -> Vector3:
 	if profile.rooftop_allowed:

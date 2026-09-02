@@ -25,6 +25,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK collapsible_catalog offscreen_marker_full_edge")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-ground-placement-only"):
+		await _capture_open_city_ground_placement()
+		print("VISUAL_CAPTURE_OK actual_building_footprints open_city_ground")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -387,6 +392,38 @@ func _capture_offscreen_marker_full_edge() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_offscreen_marker_full_edge.png")
+
+func _capture_open_city_ground_placement() -> void:
+	var definition := main.scenario.available_defenses[0]
+	var profile := definition.placement_profile
+	var open_position := Vector3.INF
+	for z: int in range(-140, 141, 10):
+		for x: int in range(-140, 141, 10):
+			var candidate := Vector3(float(x), main.battlefield.terrain_height(float(x), float(z)), float(z))
+			if Vector2(candidate.x, candidate.z).length() < main.objective.exclusion_radius and main.battlefield.placement_result(candidate, profile).valid:
+				open_position = candidate
+				break
+		if open_position.is_finite():
+			break
+	if not open_position.is_finite():
+		push_error("No open city ground remained available for placement")
+		quit(1)
+		return
+	main.camera_rig.focus_on(open_position)
+	main.camera_rig.yaw_radians = deg_to_rad(28.0)
+	main.camera_rig.zoom_distance = 250.0
+	main.camera_rig._update_camera()
+	main.placement.select(definition)
+	for index: int in 5:
+		await process_frame
+	Input.warp_mouse(main.camera_rig.camera.unproject_position(open_position))
+	for index: int in 12:
+		await process_frame
+	if not main.placement.candidate_valid or main.placement.candidate_position.distance_to(open_position) > 3.0:
+		push_error("Open city ground did not show a valid placement preview")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_open_city_ground_placement.png")
 
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position

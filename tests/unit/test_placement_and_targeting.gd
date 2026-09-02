@@ -124,6 +124,28 @@ func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	battlefield.register_occupancy(valid_position, profile.footprint_radius)
 	assert_false(battlefield.placement_result(valid_position, profile).valid)
 
+func test_ground_placement_uses_actual_buildings_instead_of_a_city_radius() -> void:
+	var profile := SCENARIO.available_defenses[0].placement_profile
+	var building := battlefield.generator.building_transforms()[0]
+	var building_ground := Vector3(building.origin.x, battlefield.terrain_height(building.origin.x, building.origin.z), building.origin.z)
+	assert_true(battlefield.overlaps_city_building(building_ground, profile.footprint_radius))
+	assert_eq(battlefield.placement_result(building_ground, profile).reason, "건물과 겹칩니다")
+	var open_position := Vector3.INF
+	for z: int in range(-140, 141, 10):
+		for x: int in range(-140, 141, 10):
+			var candidate := Vector3(float(x), battlefield.terrain_height(float(x), float(z)), float(z))
+			if Vector2(candidate.x, candidate.z).length() >= objective.exclusion_radius:
+				continue
+			if battlefield.placement_result(candidate, profile).valid:
+				open_position = candidate
+				break
+		if open_position.is_finite():
+			break
+	assert_true(open_position.is_finite())
+	assert_lt(Vector2(open_position.x, open_position.z).length(), objective.exclusion_radius)
+	assert_false(battlefield.overlaps_city_building(open_position, profile.footprint_radius))
+	assert_true(battlefield.placement_result(open_position, profile).valid)
+
 func test_designated_rooftop_accepts_only_lightweight_compatible_assets() -> void:
 	assert_gt(battlefield.rooftop_pads.size(), 0)
 	var rooftop_position: Vector3 = battlefield.rooftop_pads[0].position
