@@ -55,19 +55,21 @@ position = Vector3(0, 4.4, 0)
 mesh = SubResource("TurretMesh")
 material_override = SubResource("BaseMaterial")
 
-[node name="LeftBarrel" type="MeshInstance3D" parent="Turret"]
+[node name="Elevation" type="Node3D" parent="Turret"]
+
+[node name="LeftBarrel" type="MeshInstance3D" parent="Turret/Elevation"]
 position = Vector3(-0.7, 0.4, -5.0)
 rotation = Vector3(1.5708, 0, 0)
 mesh = SubResource("BarrelMesh")
 material_override = SubResource("GunMaterial")
 
-[node name="RightBarrel" type="MeshInstance3D" parent="Turret"]
+[node name="RightBarrel" type="MeshInstance3D" parent="Turret/Elevation"]
 position = Vector3(0.7, 0.4, -5.0)
 rotation = Vector3(1.5708, 0, 0)
 mesh = SubResource("BarrelMesh")
 material_override = SubResource("GunMaterial")
 
-[node name="Muzzle" type="Marker3D" parent="Turret"]
+[node name="Muzzle" type="Marker3D" parent="Turret/Elevation"]
 position = Vector3(0, 0.4, -9.0)
 
 [node name="MuzzleFlash" type="MeshInstance3D" parent="."]

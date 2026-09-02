@@ -2,6 +2,11 @@ class_name HighEnergyLaser
 extends ArmedDefenseUnit
 
 const LASER_PULSE_SCENE := preload("res://effects/laser_pulse/laser_pulse.tscn")
+const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
+
+@export var turret_turn_speed_degrees: float = 95.0
+@export var emitter_elevation_speed_degrees: float = 80.0
+@export var firing_alignment_degrees: float = 2.0
 
 var registry: ThreatRegistry
 var projectile_parent: Node3D
@@ -11,7 +16,8 @@ var cooldown: float = 0.0
 var _definition: HighEnergyLaserDefinition
 
 @onready var turret: Node3D = $Turret
-@onready var emitter: Marker3D = $Turret/Emitter
+@onready var elevation: Node3D = $Turret/Elevation
+@onready var emitter: Marker3D = $Turret/Elevation/Emitter
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -39,13 +45,14 @@ func gameplay_tick(delta: float) -> void:
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	if track == null:
 		return
-	var flat_target := Vector3(track.estimated_position.x, turret.global_position.y, track.estimated_position.z)
-	if turret.global_position.distance_squared_to(flat_target) > 0.01:
-		turret.look_at(flat_target, Vector3.UP)
-	if cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.pulse_interval):
+	var is_aimed := _aim_turret(track.estimated_position, delta)
+	if is_aimed and cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.pulse_interval):
 		energy_state.consume(_definition.energy_per_pulse)
 		_fire_pulse(track)
 		cooldown = _definition.pulse_interval
+
+func _aim_turret(target_position: Vector3, delta: float) -> bool:
+	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, emitter_elevation_speed_degrees, firing_alignment_degrees, delta, -10.0, 85.0)
 
 func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> PlayerTrack:
 	var selected: PlayerTrack

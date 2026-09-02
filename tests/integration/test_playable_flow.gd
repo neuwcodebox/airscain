@@ -363,12 +363,13 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var threat: ThreatUnit = main.director.spawn_one()
 	threat.global_position = placement_position + Vector3(0.0, 70.0, 130.0)
 	var battery := result.unit as MissileBattery
-	var launcher := battery.get_node("Turret/Launcher") as MeshInstance3D
-	assert_gt(launcher.rotation.x, 0.0)
+	var launcher := battery.get_node("Turret/Elevation/Launcher") as MeshInstance3D
+	assert_gt(battery.elevation.rotation.x, 0.0)
 	assert_same(battery.launch_point.get_parent(), launcher)
 	assert_lt(battery.launch_point.position.z, 0.0)
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
+	assert_gt(battery.elevation.rotation.x, 0.0)
 	assert_false(threat.resolved_state, "레이더 항적 없이 실제 위협을 직접 교전하면 안 됩니다")
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
 	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
@@ -631,6 +632,7 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	gun.gameplay_tick(0.01)
 	assert_false(main.engagement_coordinator.has_reservation(track.track_id), "포탑은 정렬되기 전에 발사하면 안 됩니다")
 	assert_ne(gun.turret.rotation.y, starting_turret_yaw)
+	assert_gt(gun.elevation.rotation.x, 0.0)
 	for frame: int in 100:
 		gun.gameplay_tick(0.02)
 		if main.engagement_coordinator.has_reservation(track.track_id):
@@ -733,6 +735,10 @@ func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	observation.setup(radar.runtime_id, 0.0, threat.global_position, 0.98, 2.0, 1.0, &"small_uav", ThreatDefinition.Affiliation.HOSTILE, 5.0)
 	main.player_knowledge.call("submit_observation", observation)
 	var starting_energy := laser.energy_state.energy
+	laser.gameplay_tick(0.01)
+	assert_ne(laser.turret.rotation.y, 0.0)
+	assert_gt(laser.elevation.rotation.x, 0.0)
+	assert_eq(laser.energy_state.energy, starting_energy)
 	for frame: int in 80:
 		main.power_manager.begin_tick()
 		main.engagement_coordinator.gameplay_tick(0.1)
@@ -742,6 +748,20 @@ func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	assert_true(threat.resolved_state)
 	assert_lt(laser.energy_state.energy, starting_energy)
 	assert_gt(laser.energy_state.heat, 0.0)
+
+func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	interceptor.registry = main.registry
+	interceptor.target_track = PlayerTrack.new()
+	interceptor.target_track.state = PlayerTrack.State.LOST
+	interceptor.global_position = Vector3(30.0, 80.0, -20.0)
+	interceptor.gameplay_tick(0.1)
+	var miss_effect := main.projectile_parent.get_node_or_null("InterceptorMiss") as Node3D
+	assert_not_null(miss_effect)
+	assert_true((miss_effect.get_node("Smoke") as GPUParticles3D).emitting)
+	assert_eq((miss_effect.get_node("Reason") as Label3D).text, "유도 상실")
+	assert_eq(miss_effect.global_position, Vector3(30.0, 80.0, -20.0))
 
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()
@@ -762,6 +782,9 @@ func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> vo
 	var track := PlayerTrack.new()
 	track.track_id = 99
 	track.estimated_position = center
+	assert_false(hpm._aim_turret(center, 0.01))
+	assert_ne(hpm.turret.rotation.y, 0.0)
+	assert_gt(hpm.elevation.rotation.x, 0.0)
 	assert_eq(hpm._fire_pulse(track), 2)
 	assert_lt(threats[0].health, 100.0)
 	assert_lt(threats[1].health, 100.0)

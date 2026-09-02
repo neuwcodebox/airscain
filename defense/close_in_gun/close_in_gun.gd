@@ -2,8 +2,10 @@ class_name CloseInGun
 extends ArmedDefenseUnit
 
 const TRACER_SCENE := preload("res://effects/tracer_burst/tracer_burst.tscn")
+const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 
 @export var turret_turn_speed_degrees: float = 120.0
+@export var barrel_elevation_speed_degrees: float = 90.0
 @export var firing_alignment_degrees: float = 3.0
 
 var registry: ThreatRegistry
@@ -13,7 +15,8 @@ var rng := RandomNumberGenerator.new()
 var _definition: CloseInGunDefinition
 
 @onready var turret: Node3D = $Turret
-@onready var muzzle: Marker3D = $Turret/Muzzle
+@onready var elevation: Node3D = $Turret/Elevation
+@onready var muzzle: Marker3D = $Turret/Elevation/Muzzle
 @onready var muzzle_flash: MeshInstance3D = $MuzzleFlash
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
@@ -44,13 +47,7 @@ func gameplay_tick(delta: float) -> void:
 		cooldown = _definition.burst_interval
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
-	var direction := target_position - turret.global_position
-	direction.y = 0.0
-	if direction.length_squared() <= 0.01:
-		return true
-	var desired_yaw := atan2(-direction.x, -direction.z)
-	turret.rotation.y = rotate_toward(turret.rotation.y, desired_yaw, deg_to_rad(turret_turn_speed_degrees) * delta)
-	return absf(angle_difference(turret.rotation.y, desired_yaw)) <= deg_to_rad(firing_alignment_degrees)
+	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, barrel_elevation_speed_degrees, firing_alignment_degrees, delta, -8.0, 80.0)
 
 func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> PlayerTrack:
 	var selected: PlayerTrack

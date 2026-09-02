@@ -1,6 +1,8 @@
 class_name HomingInterceptor
 extends Node3D
 
+const MISS_EFFECT_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
+
 var target_track: PlayerTrack
 var registry: ThreatRegistry
 var owner_defense_id: int
@@ -32,11 +34,11 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 
 func gameplay_tick(delta: float) -> void:
 	if target_track == null or target_track.state == PlayerTrack.State.LOST:
-		queue_free()
+		_expire(Color(0.62, 0.72, 0.8), "유도 상실")
 		return
 	age += delta
 	if age >= maximum_lifetime:
-		queue_free()
+		_expire(Color(0.72, 0.78, 0.82), "요격 실패")
 		return
 	var previous := global_position
 	var desired := global_position.direction_to(target_track.estimated_position)
@@ -51,7 +53,7 @@ func gameplay_tick(delta: float) -> void:
 		if countermeasure_target != null and global_position.distance_to(countermeasure_target.get_aim_position()) <= 120.0:
 			countermeasure_attempted = true
 			if countermeasure_target.try_defeat_seeker(infrared_sensitivity, radar_sensitivity, rng.randf()):
-				queue_free()
+				_expire(Color(1.0, 0.54, 0.16), "대응책 기만")
 				return
 	for threat: ThreatUnit in registry.get_active():
 		var physical_position := threat.get_aim_position()
@@ -60,6 +62,15 @@ func gameplay_tick(delta: float) -> void:
 			threat.receive_damage(damage)
 			queue_free()
 			return
+
+func _expire(color: Color, reason: String) -> void:
+	var parent := get_parent()
+	if parent != null:
+		var effect := MISS_EFFECT_SCENE.instantiate() as Node3D
+		parent.add_child(effect)
+		effect.global_position = global_position
+		effect.call("setup", color, reason)
+	queue_free()
 
 func _countermeasure_target() -> ThreatUnit:
 	var selected: ThreatUnit

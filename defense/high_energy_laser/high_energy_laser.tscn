@@ -42,11 +42,13 @@ position = Vector3(0, 5.0, 0)
 mesh = SubResource("TurretMesh")
 material_override = SubResource("BaseMaterial")
 
-[node name="EmitterBody" type="MeshInstance3D" parent="Turret"]
+[node name="Elevation" type="Node3D" parent="Turret"]
+
+[node name="EmitterBody" type="MeshInstance3D" parent="Turret/Elevation"]
 position = Vector3(0, 0, -6)
 rotation = Vector3(1.5708, 0, 0)
 mesh = SubResource("EmitterMesh")
 material_override = SubResource("EmitterMaterial")
 
-[node name="Emitter" type="Marker3D" parent="Turret"]
+[node name="Emitter" type="Marker3D" parent="Turret/Elevation"]
 position = Vector3(0, 0, -9.2)

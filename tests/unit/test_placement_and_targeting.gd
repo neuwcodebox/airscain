@@ -33,7 +33,9 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	track.track_id = 12
 	track.state = PlayerTrack.State.CONFIRMED
 	track.estimated_position = threat.global_position
-	var interceptor := add_child_autofree(HomingInterceptor.new()) as HomingInterceptor
+	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
+	var interceptor := HomingInterceptor.new()
+	projectile_parent.add_child(interceptor)
 	interceptor.global_position = Vector3(-100.0, 0.0, 0.0)
 	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
 	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 1)

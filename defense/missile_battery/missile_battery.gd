@@ -2,8 +2,10 @@ class_name MissileBattery
 extends ArmedDefenseUnit
 
 const INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
+const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 
 @export var turret_turn_speed_degrees: float = 75.0
+@export var launcher_elevation_speed_degrees: float = 55.0
 @export var firing_alignment_degrees: float = 4.0
 
 var registry: ThreatRegistry
@@ -15,7 +17,8 @@ var magazines: Dictionary[StringName, WeaponMagazine] = {}
 var munition_mode: StringName = &"auto"
 
 @onready var turret: Node3D = $Turret
-@onready var launch_point: Marker3D = $Turret/Launcher/LaunchPoint
+@onready var elevation: Node3D = $Turret/Elevation
+@onready var launch_point: Marker3D = $Turret/Elevation/Launcher/LaunchPoint
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -59,13 +62,7 @@ func gameplay_tick(delta: float) -> void:
 		cooldown = _definition.fire_interval
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
-	var direction := target_position - turret.global_position
-	direction.y = 0.0
-	if direction.length_squared() <= 0.01:
-		return true
-	var desired_yaw := atan2(-direction.x, -direction.z)
-	turret.rotation.y = rotate_toward(turret.rotation.y, desired_yaw, deg_to_rad(turret_turn_speed_degrees) * delta)
-	return absf(angle_difference(turret.rotation.y, desired_yaw)) <= deg_to_rad(firing_alignment_degrees)
+	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, launcher_elevation_speed_degrees, firing_alignment_degrees, delta, 4.0, 75.0)
 
 func _active_interceptor_count() -> int:
 	var result := 0

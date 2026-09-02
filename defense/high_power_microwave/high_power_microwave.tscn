@@ -36,7 +36,9 @@ material_override = SubResource("BaseMaterial")
 [node name="Turret" type="Node3D" parent="."]
 position = Vector3(0, 6, 0)
 
-[node name="Dish" type="MeshInstance3D" parent="Turret"]
+[node name="Elevation" type="Node3D" parent="Turret"]
+
+[node name="Dish" type="MeshInstance3D" parent="Turret/Elevation"]
 scale = Vector3(1.4, 0.45, 1.4)
 mesh = SubResource("DishMesh")
 material_override = SubResource("PulseMaterial")
