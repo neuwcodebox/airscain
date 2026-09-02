@@ -193,14 +193,33 @@ func _connect_registry_signal() -> void:
 func _on_threat_removed(threat: ThreatUnit) -> void:
 	if target_track == null or threat == null:
 		return
-	if target_track.classification != &"unknown" and target_track.classification != threat.definition.signature_class:
-		return
-	var correlation_gate := maxf(100.0, target_track.position_uncertainty * 2.0 + 30.0)
-	if threat.get_aim_position().distance_to(target_track.estimated_position) > correlation_gate:
+	if not _removed_threat_matches_target(threat):
 		return
 	if _try_retarget():
 		return
 	_begin_reacquisition("표적 격추" if threat.health <= 0.0 else "표적 소실")
+
+func _removed_threat_matches_target(threat: ThreatUnit) -> bool:
+	var removed_position := threat.get_aim_position()
+	var matched_track: PlayerTrack
+	var matched_distance := INF
+	var candidates: Array[PlayerTrack] = [target_track]
+	for candidate: PlayerTrack in alternative_tracks:
+		if candidate != null and not candidates.has(candidate):
+			candidates.append(candidate)
+	for candidate: PlayerTrack in candidates:
+		if candidate == null or candidate.state == PlayerTrack.State.LOST:
+			continue
+		if candidate.classification != &"unknown" and candidate.classification != threat.definition.signature_class:
+			continue
+		var distance := removed_position.distance_to(candidate.estimated_position)
+		if distance < matched_distance:
+			matched_track = candidate
+			matched_distance = distance
+	if matched_track != target_track:
+		return false
+	var correlation_gate := maxf(proximity_radius * 2.0, target_track.position_uncertainty * 2.0 + proximity_radius)
+	return matched_distance <= correlation_gate
 
 func _begin_reacquisition(reason: String) -> void:
 	if reacquisition_remaining >= 0.0:

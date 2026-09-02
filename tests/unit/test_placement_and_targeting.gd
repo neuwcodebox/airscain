@@ -160,6 +160,49 @@ func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructin
 	assert_true(interceptor.is_queued_for_deletion())
 	assert_true(alternate.resolved_state)
 
+func test_removing_one_close_cruise_missile_does_not_divert_interceptors_from_the_other() -> void:
+	var registry := ThreatRegistry.new()
+	var threat_definition := ThreatDefinition.new()
+	threat_definition.signature_class = &"cruise_missile"
+	threat_definition.affiliation = ThreatDefinition.Affiliation.HOSTILE
+	var removed := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	removed.setup(201, threat_definition)
+	removed.global_position = Vector3.ZERO
+	removed.health = 0.0
+	registry.add(removed)
+	var surviving := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	surviving.setup(202, threat_definition)
+	surviving.global_position = Vector3(36.0, 0.0, 0.0)
+	registry.add(surviving)
+	var removed_track := _confirmed_track(removed.global_position)
+	removed_track.track_id = 201
+	removed_track.classification = &"cruise_missile"
+	removed_track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	removed_track.affiliation_confidence = 1.0
+	removed_track.position_uncertainty = 8.0
+	var surviving_track := _confirmed_track(surviving.global_position)
+	surviving_track.track_id = 202
+	surviving_track.classification = &"cruise_missile"
+	surviving_track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	surviving_track.affiliation_confidence = 1.0
+	surviving_track.position_uncertainty = 8.0
+	var candidates: Array[PlayerTrack] = [removed_track, surviving_track]
+	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
+	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	var removed_interceptor := HomingInterceptor.new()
+	projectile_parent.add_child(removed_interceptor)
+	removed_interceptor.global_position = Vector3(-120.0, 12.0, 0.0)
+	removed_interceptor.configure(removed_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 11, 0, candidates)
+	var surviving_interceptor := HomingInterceptor.new()
+	projectile_parent.add_child(surviving_interceptor)
+	surviving_interceptor.global_position = Vector3(-110.0, 12.0, 4.0)
+	surviving_interceptor.configure(surviving_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 12, 0, candidates)
+	registry.remove(removed)
+	assert_same(removed_interceptor.target_track, surviving_track)
+	assert_same(surviving_interceptor.target_track, surviving_track)
+	assert_eq(surviving_interceptor.reacquisition_remaining, -1.0)
+	assert_false(surviving_interceptor.is_queued_for_deletion())
+
 func test_interceptor_self_destructs_after_passing_an_empty_guidance_point() -> void:
 	var registry := ThreatRegistry.new()
 	var track := PlayerTrack.new()
