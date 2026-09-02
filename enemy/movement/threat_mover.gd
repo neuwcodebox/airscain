@@ -47,8 +47,9 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		velocity = (unit.global_position - previous_position) / maxf(delta, 0.0001)
 	else:
 		unit.global_position += movement
-	if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING and horizontal_to_target.length() > profile.terminal_distance:
-		var safety_height := battlefield.terrain_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * 0.6
+	if horizontal_to_target.length() > profile.terminal_distance:
+		var clearance_ratio := 0.6 if profile.mode == ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING else 0.35
+		var safety_height := battlefield.terrain_height(unit.global_position.x, unit.global_position.z) + profile.cruise_altitude * clearance_ratio
 		if unit.global_position.y < safety_height:
 			unit.global_position.y = safety_height
 			velocity.y = maxf(0.0, velocity.y)

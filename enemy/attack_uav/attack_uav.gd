@@ -34,7 +34,7 @@ func gameplay_tick(delta: float) -> void:
 	var holding_for_recon := _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and mission_runtime.phase == ThreatMissionRuntime.Phase.ACTING
 	if holding_for_recon:
 		orbit_angle = fposmod(orbit_angle + delta * 0.45, TAU)
-		var orbit_radius := clampf(_definition.mission.action_distance * 0.65, 35.0, 180.0)
+		var orbit_radius := clampf(_definition.mission.action_distance * 0.82, 45.0, 320.0)
 		var orbit_target := mission_target + Vector3(cos(orbit_angle) * orbit_radius, _definition.movement.cruise_altitude, sin(orbit_angle) * orbit_radius)
 		mover.advance(self, body, orbit_target, speed_multiplier, delta)
 	else:

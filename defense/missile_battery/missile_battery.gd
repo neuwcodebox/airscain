@@ -15,7 +15,7 @@ var magazines: Dictionary[StringName, WeaponMagazine] = {}
 var munition_mode: StringName = &"auto"
 
 @onready var turret: Node3D = $Turret
-@onready var launch_point: Marker3D = $Turret/LaunchPoint
+@onready var launch_point: Marker3D = $Turret/Launcher/LaunchPoint
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)

@@ -252,12 +252,20 @@ func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
 	main.registry.clear()
 	var threat := main.director._spawn_entry(main.scenario.threat_entries[7], 0.0, 0.0) as AttackUav
 	var mission_target := threat.mission_runtime.navigation_target()
-	threat.global_position = mission_target + Vector3(80.0, 90.0, 0.0)
+	var expected_orbit_radius := (threat.definition as AttackUavDefinition).mission.action_distance * 0.82
+	threat.global_position = mission_target + Vector3(expected_orbit_radius, 115.0, 0.0)
 	threat.mission_runtime.phase = ThreatMissionRuntime.Phase.ACTING
 	var starting_position := threat.global_position
-	threat.gameplay_tick(0.5)
+	var minimum_agl := INF
+	var minimum_city_distance := INF
+	for frame: int in 80:
+		threat.gameplay_tick(0.1)
+		minimum_agl = minf(minimum_agl, threat.global_position.y - main.battlefield.terrain_height(threat.global_position.x, threat.global_position.z))
+		minimum_city_distance = minf(minimum_city_distance, Vector2(threat.global_position.x - main.objective.global_position.x, threat.global_position.z - main.objective.global_position.z).length())
 	assert_gt(threat.global_position.distance_to(starting_position), 0.1)
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.ACTING)
+	assert_gt(minimum_agl, 10.0)
+	assert_gt(minimum_city_distance, main.objective.exclusion_radius)
 
 func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> void:
 	var radar_definition := main.scenario.available_defenses[1]
@@ -355,6 +363,10 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var threat: ThreatUnit = main.director.spawn_one()
 	threat.global_position = placement_position + Vector3(0.0, 70.0, 130.0)
 	var battery := result.unit as MissileBattery
+	var launcher := battery.get_node("Turret/Launcher") as MeshInstance3D
+	assert_gt(launcher.rotation.x, 0.0)
+	assert_same(battery.launch_point.get_parent(), launcher)
+	assert_lt(battery.launch_point.position.z, 0.0)
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
 	assert_false(threat.resolved_state, "레이더 항적 없이 실제 위협을 직접 교전하면 안 됩니다")
