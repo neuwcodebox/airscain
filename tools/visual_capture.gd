@@ -38,6 +38,16 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	if OS.get_cmdline_user_args().has("--capture-countermeasure-only"):
+		var countermeasure_center := main.objective.global_position + Vector3(0.0, 90.0, 80.0)
+		main.camera_rig.camera.global_position = countermeasure_center + Vector3(0.0, 65.0, 190.0)
+		main.camera_rig.camera.look_at(countermeasure_center, Vector3.UP)
+		main.hud.visible = false
+		main.altitude_profile.visible = false
+		await _capture_countermeasure_defeat(countermeasure_center, false)
+		print("VISUAL_CAPTURE_OK chaff_cloud delayed_diversion")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-light-only"):
 		await _capture_hdr_light_vfx()
 		print("VISUAL_CAPTURE_OK hdr_explosion laser_glow")
@@ -535,7 +545,7 @@ func _capture_missile_smoke_trail() -> void:
 	main.camera_rig.zoom_distance = previous_zoom
 	main.camera_rig._update_camera()
 
-func _capture_countermeasure_defeat(center: Vector3) -> void:
+func _capture_countermeasure_defeat(center: Vector3, capture_resolved_after: bool = true) -> void:
 	for effect: Node in main.projectile_parent.get_children():
 		if effect.name == "Explosion" or effect.name == "InterceptorMiss":
 			effect.queue_free()
@@ -565,18 +575,29 @@ func _capture_countermeasure_defeat(center: Vector3) -> void:
 		successful_seed += 1
 	interceptor.rng.seed = successful_seed
 	interceptor.gameplay_tick(0.01)
-	for index: int in 4:
+	for index: int in 10:
 		await process_frame
 	var burst := main.projectile_parent.get_node_or_null("CountermeasureBurst") as Node3D
+	if burst == null or burst.get_node_or_null("Reason") != null or not (burst.get_node("Chaff") as GPUParticles3D).emitting or not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
+		push_error("Chaff did not create a label-free cloud and delayed interceptor diversion")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_chaff_cloud.png")
+	for tick: int in 40:
+		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
+			break
+		interceptor.gameplay_tick(0.05)
+		await process_frame
 	var miss := main.projectile_parent.get_node_or_null("InterceptorMiss") as InterceptorMissEffect
-	if burst == null or miss == null or (burst.get_node("Reason") as Label3D).text != "채프 기만" or (miss.get_node("Reason") as Label3D).text != "채프 기만":
-		push_error("Strike aircraft countermeasure defeat did not explain the interceptor airburst")
+	if is_instance_valid(interceptor) or miss == null or (miss.get_node("Reason") as Label3D).text != "유도 이탈":
+		push_error("Chaff-diverted interceptor did not miss after flying toward the decoy cloud")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_countermeasure_defeat.png")
 	main.registry.remove(strike)
 	strike.queue_free()
-	await _capture_resolved_target_interceptor(center)
+	if capture_resolved_after:
+		await _capture_resolved_target_interceptor(center)
 
 func _capture_resolved_target_interceptor(center: Vector3) -> void:
 	for effect: Node in main.projectile_parent.get_children():

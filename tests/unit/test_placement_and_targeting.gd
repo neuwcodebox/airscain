@@ -25,7 +25,7 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
 	var threat_definition := ThreatDefinition.new()
 	threat_definition.affiliation = ThreatDefinition.Affiliation.HOSTILE
-	threat_definition.flare_effectiveness = 1.0
+	threat_definition.chaff_effectiveness = 1.0
 	threat_definition.countermeasure_charges = 1
 	threat.setup(90, threat_definition)
 	threat.global_position = Vector3.ZERO
@@ -41,13 +41,25 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
 	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 1)
 	interceptor.gameplay_tick(0.1)
-	assert_true(interceptor.is_queued_for_deletion())
+	assert_false(interceptor.is_queued_for_deletion())
+	assert_true(interceptor.countermeasure_decoy_active)
 	assert_eq(threat.countermeasure_charges_remaining, 0)
 	assert_eq(threat.health, 1.0)
 	var burst := projectile_parent.get_node_or_null("CountermeasureBurst") as Node3D
 	assert_not_null(burst)
-	assert_true((burst.get_node("Flares") as GPUParticles3D).emitting)
-	assert_eq((burst.get_node("Reason") as Label3D).text, "플레어 기만")
+	assert_true((burst.get_node("Chaff") as GPUParticles3D).emitting)
+	assert_null(burst.get_node_or_null("Reason"))
+	assert_gte((burst.get_node("Chaff") as GPUParticles3D).amount, 150)
+	var diverted_state := interceptor.capture_state()
+	assert_true(bool(diverted_state.countermeasure_decoy_active))
+	assert_eq(SaveDocument.vector3_from_data(diverted_state.countermeasure_decoy_position), interceptor.countermeasure_decoy_position)
+	for tick: int in 20:
+		if interceptor.is_queued_for_deletion():
+			break
+		interceptor.gameplay_tick(0.05)
+	assert_true(interceptor.is_queued_for_deletion())
+	assert_gt(interceptor.global_position.distance_to(threat.global_position), interceptor.proximity_radius)
+	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "유도 이탈")
 
 func test_interceptor_stops_before_moving_when_correlated_target_is_removed() -> void:
 	var registry := ThreatRegistry.new()

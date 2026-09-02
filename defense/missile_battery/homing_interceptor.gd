@@ -19,6 +19,8 @@ var velocity: Vector3 = Vector3.FORWARD
 var infrared_sensitivity: float = 0.65
 var radar_sensitivity: float = 0.65
 var countermeasure_attempted: bool = false
+var countermeasure_decoy_active: bool = false
+var countermeasure_decoy_position: Vector3
 var target_resolved: bool = false
 var target_resolution_reason: String = "표적 소실"
 var closest_guidance_distance: float = INF
@@ -51,7 +53,7 @@ func gameplay_tick(delta: float) -> void:
 		_expire(Color(0.72, 0.78, 0.82), "요격 실패")
 		return
 	var previous := global_position
-	var guidance_point := INTERCEPT_GUIDANCE.lead_point(global_position, speed, target_track.estimated_position, target_track.estimated_velocity, 1.8)
+	var guidance_point := countermeasure_decoy_position if countermeasure_decoy_active else INTERCEPT_GUIDANCE.lead_point(global_position, speed, target_track.estimated_position, target_track.estimated_velocity, 1.8)
 	var desired := global_position.direction_to(guidance_point)
 	var current := velocity.normalized()
 	var angle := current.angle_to(desired)
@@ -68,8 +70,10 @@ func gameplay_tick(delta: float) -> void:
 			countermeasure_attempted = true
 			if countermeasure_target.try_defeat_seeker(infrared_sensitivity, radar_sensitivity, rng.randf()):
 				var countermeasure_type := countermeasure_target.effective_countermeasure_type(infrared_sensitivity, radar_sensitivity)
-				_spawn_countermeasure(countermeasure_target.get_aim_position(), countermeasure_type)
-				_expire(Color(1.0, 0.54, 0.16), "%s 기만" % ("플레어" if countermeasure_type == &"flare" else "채프"))
+				countermeasure_decoy_position = _decoy_position(countermeasure_target)
+				countermeasure_decoy_active = true
+				closest_guidance_distance = INF
+				_spawn_countermeasure(countermeasure_decoy_position, countermeasure_type)
 				return
 	for threat: ThreatUnit in registry.get_active():
 		var physical_position := threat.get_aim_position()
@@ -132,6 +136,16 @@ func _countermeasure_target() -> ThreatUnit:
 			nearest_distance = distance
 	return selected
 
+func _decoy_position(threat: ThreatUnit) -> Vector3:
+	var target_position := threat.get_aim_position()
+	var travel_direction := target_track.estimated_velocity.normalized()
+	if travel_direction.length_squared() < 0.001:
+		travel_direction = velocity.normalized()
+	var distance_to_target := global_position.distance_to(target_position)
+	var trail_distance := minf(35.0, distance_to_target * 0.45)
+	var lateral := travel_direction.cross(Vector3.UP).normalized() * 12.0
+	return target_position - travel_direction * trail_distance + lateral
+
 func _connect_registry_signal() -> void:
 	if registry != null and not registry.threat_removed.is_connected(_on_threat_removed):
 		registry.threat_removed.connect(_on_threat_removed)
@@ -163,6 +177,8 @@ func capture_state() -> Dictionary:
 		"infrared_sensitivity": infrared_sensitivity,
 		"radar_sensitivity": radar_sensitivity,
 		"countermeasure_attempted": countermeasure_attempted,
+		"countermeasure_decoy_active": countermeasure_decoy_active,
+		"countermeasure_decoy_position": SaveDocument.vector3_to_data(countermeasure_decoy_position),
 		"target_resolved": target_resolved,
 		"target_resolution_reason": target_resolution_reason,
 		"closest_guidance_distance": closest_guidance_distance if closest_guidance_distance < INF else -1.0,
@@ -184,6 +200,8 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	infrared_sensitivity = float(state.get("infrared_sensitivity", 0.65))
 	radar_sensitivity = float(state.get("radar_sensitivity", 0.65))
 	countermeasure_attempted = bool(state.get("countermeasure_attempted", false))
+	countermeasure_decoy_active = bool(state.get("countermeasure_decoy_active", false))
+	countermeasure_decoy_position = SaveDocument.vector3_from_data(state.get("countermeasure_decoy_position", [0.0, 0.0, 0.0]))
 	target_resolved = bool(state.get("target_resolved", false))
 	target_resolution_reason = String(state.get("target_resolution_reason", "표적 소실"))
 	var saved_guidance_distance := float(state.get("closest_guidance_distance", -1.0))
