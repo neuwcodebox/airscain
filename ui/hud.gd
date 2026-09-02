@@ -17,6 +17,7 @@ signal focus_requested
 signal save_requested
 signal load_requested
 signal sandbox_threat_selected(definition: ThreatDefinition)
+signal training_next_requested
 
 var session: GameSession
 var objective: ProtectedObjective
@@ -58,6 +59,10 @@ const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전
 @onready var sandbox_threat_button: Button = %SandboxThreatButton
 @onready var save_button: Button = %SaveButton
 @onready var load_button: Button = %LoadButton
+@onready var training_panel: PanelContainer = %TrainingPanel
+@onready var training_title: Label = %TrainingTitle
+@onready var training_body: Label = %TrainingBody
+@onready var training_next_button: Button = %TrainingNextButton
 
 func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition], threats: Array[ThreatDefinition] = [], game_mode: int = 0) -> void:
 	session = session_value
@@ -83,6 +88,13 @@ func _build_mode_controls(game_mode: int) -> void:
 	sandbox_threat_button.visible = game_mode == 2
 	save_button.disabled = game_mode != 0
 	load_button.disabled = game_mode != 0
+	training_panel.visible = game_mode == 1
+
+func set_training_lesson(step: int, total: int, title: String, body: String, next_visible: bool = false) -> void:
+	training_panel.visible = true
+	training_title.text = "훈련 %d/%d · %s" % [step, total, title]
+	training_body.text = body
+	training_next_button.visible = next_visible
 
 func set_pressure(level: int) -> void:
 	pressure_level = level
@@ -278,6 +290,9 @@ func _on_sandbox_threat_pressed() -> void:
 	var index := sandbox_threat_option.selected
 	if index >= 0 and index < threat_definitions.size():
 		sandbox_threat_selected.emit(threat_definitions[index])
+
+func _on_training_next_pressed() -> void:
+	training_next_requested.emit()
 
 func _on_same_seed_pressed() -> void:
 	restart_requested.emit(true)

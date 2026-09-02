@@ -2,6 +2,7 @@ class_name AirscainMain
 extends Node3D
 
 enum GameMode { SUSTAINED, TRAINING, SANDBOX }
+enum TrainingStep { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, DOCTRINE, SUPPORT, RESUPPLY, OVERLAY, COMPLETE }
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
@@ -84,8 +85,7 @@ func _ready() -> void:
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:
-		training_step = 1
-		hud.set_feedback("훈련 1/5 · 탐색 레이더를 배치하세요")
+		_set_training_step(TrainingStep.CAMERA)
 	elif game_mode == GameMode.SANDBOX:
 		hud.set_feedback("샌드박스 · 자산은 무제한이며 목록에서 위협을 골라 지도에 투입할 수 있습니다")
 	else:
@@ -164,6 +164,7 @@ func _connect_flow() -> void:
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
 	hud.focus_requested.connect(_on_focus_requested)
+	hud.training_next_requested.connect(_on_training_next_requested)
 	hud.sandbox_threat_selected.connect(placement.select_sandbox_threat)
 	placement.sandbox_threat_placement_requested.connect(_on_sandbox_threat_placement_requested)
 	player_knowledge.connect("track_removed", _on_track_removed)
@@ -171,11 +172,14 @@ func _connect_flow() -> void:
 	objective.integrity_changed.connect(_on_objective_integrity_audio)
 
 func _on_start_requested() -> void:
+	if game_mode == GameMode.TRAINING and training_step != TrainingStep.START:
+		hud.set_feedback("현재 훈련 단계를 먼저 완료하세요")
+		return
 	if session.start_defense():
-		director.enabled = game_mode != GameMode.SANDBOX
+		director.enabled = game_mode == GameMode.SUSTAINED
 		if game_mode == GameMode.TRAINING:
-			training_step = maxi(training_step, 4)
-			hud.set_feedback("훈련 4/5 · 센서가 만든 항적을 지도에서 선택하세요")
+			_set_training_step(TrainingStep.ACQUIRE)
+			_spawn_training_threat()
 		elif game_mode == GameMode.SANDBOX:
 			hud.set_feedback("샌드박스 교전 진행 중 · 위협을 원하는 위치에 계속 투입할 수 있습니다")
 		else:
@@ -313,10 +317,14 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 	c2_overlay.select_asset(unit)
 	hud.set_selected_asset(unit, int(c2_overlay.get("visible_link_count")))
 	hud.set_selected_track(null, false)
+	if game_mode == GameMode.TRAINING and training_step == TrainingStep.SELECT_ASSET and unit is MissileBattery:
+		_set_training_step(TrainingStep.DOCTRINE)
 
 func _on_overlay_requested(mode: StringName) -> void:
 	c2_overlay.set_all_links(mode == &"c2")
 	tactical_range_overlay.call("set_mode", &"none" if mode == &"c2" else mode)
+	if game_mode == GameMode.TRAINING and training_step == TrainingStep.OVERLAY and mode != &"none":
+		_set_training_step(TrainingStep.COMPLETE)
 
 func _on_world_selected(position: Vector3) -> void:
 	var nearest_distance := 32.0
@@ -330,9 +338,8 @@ func _on_world_selected(position: Vector3) -> void:
 	track_display.select_track(selected_track)
 	tactical_screen_overlay.select_track(selected_track)
 	_refresh_selected_track_panel()
-	if game_mode == GameMode.TRAINING and training_step == 4 and selected_track != null:
-		training_step = 5
-		hud.set_feedback("훈련 5/5 · 방어자산을 선택해 사격중지를 켰다가 해제해 보세요")
+	if game_mode == GameMode.TRAINING and training_step == TrainingStep.SELECT_TRACK and selected_track != null:
+		_set_training_step(TrainingStep.SELECT_ASSET)
 
 func _refresh_selected_track_panel() -> void:
 	var details := track_display.selection_details()
@@ -360,6 +367,8 @@ func _refresh_tactical_ui() -> void:
 	if objective != null and objective.current_integrity <= objective.definition.maximum_integrity * 0.3:
 		warnings.append("도시 기능 위험")
 	hud.set_tactical_alert(hostile_count, engagement_coordinator.reservations.size(), warnings)
+	if game_mode == GameMode.TRAINING and training_step == TrainingStep.ACQUIRE and hostile_count > 0:
+		_set_training_step(TrainingStep.SELECT_TRACK)
 	if selected_track != null:
 		_refresh_selected_track_panel()
 
@@ -380,8 +389,8 @@ func _on_focus_requested() -> void:
 func _on_hold_fire_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.has_method("set_hold_fire"):
 		selected_asset.call("set_hold_fire", enabled)
-		if game_mode == GameMode.TRAINING and training_step >= 5:
-			hud.set_feedback("훈련 완료 · 배치, 항적, 자동교전과 국소 명령을 자유롭게 연습하세요")
+		if game_mode == GameMode.TRAINING and training_step == TrainingStep.DOCTRINE and not enabled:
+			_set_training_step(TrainingStep.SUPPORT)
 
 func _on_engage_unknown_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.has_method("set_engage_unknown"):
@@ -398,8 +407,11 @@ func _on_munition_mode_requested() -> void:
 		hud.set_feedback("탄종 운용 모드를 변경했습니다")
 
 func _on_resupply_requested() -> void:
-	if selected_asset is ArmedDefenseUnit and (selected_asset as ArmedDefenseUnit).request_resupply():
+	var requested := selected_asset is ArmedDefenseUnit and (selected_asset as ArmedDefenseUnit).request_resupply()
+	if requested:
 		hud.set_feedback("재보급 작업을 요청했습니다")
+		if game_mode == GameMode.TRAINING and training_step == TrainingStep.RESUPPLY:
+			_set_training_step(TrainingStep.OVERLAY)
 	else:
 		hud.set_feedback("현재 재보급을 요청할 수 없습니다")
 
@@ -461,14 +473,80 @@ func _on_sandbox_threat_placement_requested(definition: ThreatDefinition, positi
 func _advance_training_after_placement(unit: DefenseUnit) -> void:
 	if game_mode != GameMode.TRAINING:
 		return
-	if training_step == 1 and unit.definition.id == &"search_radar":
-		training_step = 2
-		hud.set_feedback("훈련 2/5 · 지휘통제소를 배치해 센서 정보를 공유하세요")
-	elif training_step == 2 and unit.definition.id == &"command_post":
-		training_step = 3
-		hud.set_feedback("훈련 3/5 · 미사일 포대를 배치한 뒤 방어를 시작하세요")
-	elif training_step == 3 and unit is MissileBattery:
-		hud.set_feedback("훈련 3/5 · 준비 완료, 방어 시작을 누르세요")
+	if training_step == TrainingStep.RADAR and unit.definition.id == &"search_radar":
+		_set_training_step(TrainingStep.COMMAND)
+	elif training_step == TrainingStep.COMMAND and unit.definition.id == &"command_post":
+		_set_training_step(TrainingStep.WEAPON)
+	elif training_step == TrainingStep.WEAPON and unit is MissileBattery:
+		(unit as MissileBattery).set_hold_fire(true)
+		_set_training_step(TrainingStep.START)
+	elif training_step == TrainingStep.SUPPORT and unit is SupportFacility:
+		var battery := _training_battery()
+		if battery != null:
+			battery.magazine.reserve = 0
+		_set_training_step(TrainingStep.RESUPPLY)
+
+func _on_training_next_requested() -> void:
+	if game_mode == GameMode.TRAINING and training_step == TrainingStep.CAMERA:
+		_set_training_step(TrainingStep.RADAR)
+
+func _set_training_step(step: TrainingStep) -> void:
+	training_step = step
+	match step:
+		TrainingStep.CAMERA:
+			hud.set_training_lesson(1, 12, "전장 살펴보기", "WASD로 이동하고 마우스 휠로 확대·축소해 도시와 주변 섬 지형을 확인하세요.", true)
+		TrainingStep.RADAR:
+			hud.set_training_lesson(2, 12, "탐색 센서", "오른쪽 목록에서 탐색 레이더를 선택해 도시 주변 평탄한 지형에 배치하세요.")
+		TrainingStep.COMMAND:
+			hud.set_training_lesson(3, 12, "지휘통제 연결", "지휘통제소를 레이더와 연결될 거리 안에 배치해 항적 공유 경로를 만드세요.")
+		TrainingStep.WEAPON:
+			hud.set_training_lesson(4, 12, "요격 계층", "미사일 포대를 지휘통제망 안에 배치하세요. 훈련을 위해 처음에는 사격중지 상태가 됩니다.")
+		TrainingStep.START:
+			hud.set_training_lesson(5, 12, "방어 시작", "오른쪽 아래의 방어 시작을 눌러 통제된 단일 표적 훈련을 시작하세요.")
+		TrainingStep.ACQUIRE:
+			hud.set_training_lesson(6, 12, "탐지와 항적", "레이더가 실제 표적을 관측해 확인 항적을 만들 때까지 기다리세요. 실제 객체와 항적 표식은 별개입니다.")
+		TrainingStep.SELECT_TRACK:
+			hud.set_training_lesson(7, 12, "항적 선택", "지도에 나타난 적성 항적 표식을 클릭해 분류·소속·추적 품질을 확인하세요.")
+		TrainingStep.SELECT_ASSET:
+			hud.set_training_lesson(8, 12, "방어자산 선택", "배치한 미사일 포대를 클릭해 탄약, C2 연결과 교전규칙을 확인하세요.")
+		TrainingStep.DOCTRINE:
+			hud.set_training_lesson(9, 12, "자동교전 허용", "선택 패널에서 켜져 있는 사격중지를 해제하세요. 포대가 공유 항적을 자동으로 교전합니다.")
+		TrainingStep.SUPPORT:
+			hud.set_training_lesson(10, 12, "군수지원", "군수지원시설을 배치하세요. 이후 포대의 소진된 예비탄을 지원 작업으로 보충합니다.")
+		TrainingStep.RESUPPLY:
+			hud.set_training_lesson(11, 12, "재보급 작업", "미사일 포대를 다시 선택하고 재보급 요청을 눌러 지원 대기열에 작업을 넣으세요.")
+		TrainingStep.OVERLAY:
+			hud.set_training_lesson(12, 12, "전술 오버레이", "상단의 범위 없음 버튼을 눌러 센서·교전·지원 또는 C2 오버레이를 확인하세요.")
+		TrainingStep.COMPLETE:
+			hud.set_training_lesson(12, 12, "훈련 완료", "핵심 운용을 완료했습니다. 배치와 교전규칙을 바꾸며 자유롭게 연습하거나 Esc로 메인 메뉴에 돌아가세요.")
+
+func _spawn_training_threat() -> void:
+	var battery := _training_battery()
+	var radar: DefenseUnit
+	for defense: DefenseUnit in defenses:
+		if defense.definition.id == &"search_radar":
+			radar = defense
+			break
+	if battery == null or radar == null:
+		return
+	var threat := director._spawn_entry(scenario.threat_entries[0], 0.0, 0.0)
+	if threat == null:
+		return
+	var away := radar.global_position - objective.global_position
+	away.y = 0.0
+	if away.length_squared() < 0.01:
+		away = Vector3.RIGHT
+	away = away.normalized()
+	var position := radar.global_position + away * 420.0
+	threat.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z) + 80.0, position.z)
+	if threat is AttackUav:
+		(threat as AttackUav).speed_multiplier = 0.45
+
+func _training_battery() -> MissileBattery:
+	for defense: DefenseUnit in defenses:
+		if defense is MissileBattery:
+			return defense as MissileBattery
+	return null
 
 func restore_from_document(document: Dictionary) -> String:
 	var document_error := SaveDocument.validation_error(document)

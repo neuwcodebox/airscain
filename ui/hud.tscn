@@ -224,6 +224,44 @@ theme_override_font_sizes/font_size = 18
 text = "포대를 배치한 뒤 방어를 시작하세요"
 horizontal_alignment = 1
 
+[node name="TrainingPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+offset_left = 18.0
+offset_top = 108.0
+offset_right = 356.0
+offset_bottom = 332.0
+mouse_filter = 1
+theme_override_styles/panel = SubResource("CatalogPanel")
+
+[node name="VBox" type="VBoxContainer" parent="TrainingPanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TrainingTitle" type="Label" parent="TrainingPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.42, 0.9, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "훈련"
+
+[node name="TrainingBody" type="Label" parent="TrainingPanel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 110)
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.86, 0.9, 0.88, 1)
+theme_override_font_sizes/font_size = 16
+text = "훈련 안내"
+autowrap_mode = 2
+vertical_alignment = 1
+
+[node name="TrainingNextButton" type="Button" parent="TrainingPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "확인, 다음 단계"
+
 [node name="SelectedAssetPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
@@ -366,6 +404,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/SaveButton" to="." method="_on_save_pressed"]
 [connection signal="pressed" from="TopBar/Margin/LoadButton" to="." method="_on_load_pressed"]
 [connection signal="pressed" from="Catalog/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
+[connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
