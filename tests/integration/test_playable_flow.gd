@@ -9,6 +9,8 @@ func before_each() -> void:
 	await get_tree().process_frame
 
 func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
+	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 1600)
+	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 900)
 	assert_not_null(main.objective)
 	assert_gt(main.battlefield.terrain.mesh.get_surface_count(), 0)
 	assert_eq(main.battlefield.battlefield_size, 2400.0)
@@ -370,6 +372,9 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_not_null(falling_wreck)
 	assert_not_null(explosion)
 	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
+	assert_true((explosion.get_node("Sparks") as GPUParticles3D).emitting)
+	assert_gt((explosion.get_node("BlastLight") as OmniLight3D).omni_range, 30.0)
+	assert_not_null(explosion.get_node("Shockwave"))
 	assert_eq(int(main.combat_audio.call("played_count", &"launch")), 0)
 	assert_eq(int(main.combat_audio.call("played_count", &"explosion")), 0)
 	assert_eq(main.session.neutralized_count, 1)

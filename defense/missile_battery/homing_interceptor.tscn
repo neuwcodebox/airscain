@@ -24,9 +24,9 @@ spread = 18.0
 gravity = Vector3(0, 5, 0)
 initial_velocity_min = 2.0
 initial_velocity_max = 7.0
-scale_min = 0.5
-scale_max = 1.5
-color = Color(0.48, 0.52, 0.54, 0.5)
+scale_min = 0.75
+scale_max = 2.2
+color = Color(0.64, 0.66, 0.66, 0.62)
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
 albedo_color = Color(0.58, 0.62, 0.64, 0.48)
@@ -56,12 +56,18 @@ mesh = SubResource("MissileMesh")
 scale = Vector3(0.55, 0.75, 0.55)
 material_override = SubResource("TrailMaterial")
 
+[node name="FlameLight" type="OmniLight3D" parent="."]
+position = Vector3(0, 0, 3.1)
+light_color = Color(1, 0.36, 0.08, 1)
+light_energy = 3.5
+omni_range = 18.0
+
 [node name="SmokeTrail" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0, 2.8)
 emitting = true
-amount = 30
-lifetime = 0.9
-preprocess = 0.2
+amount = 64
+lifetime = 1.45
+preprocess = 0.35
 visibility_aabb = AABB(-20, -20, -20, 40, 40, 40)
 local_coords = false
 process_material = SubResource("SmokeProcess")
