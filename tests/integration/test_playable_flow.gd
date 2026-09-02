@@ -986,12 +986,30 @@ func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
 	assert_lt((smoke.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
 	assert_lte((smoke.process_material as ParticleProcessMaterial).initial_velocity_max, 0.8)
 	assert_true((smoke.process_material as ParticleProcessMaterial).turbulence_enabled)
-	assert_eq((smoke.process_material as ParticleProcessMaterial).lifetime_randomness, 0.0)
+	assert_between((smoke.process_material as ParticleProcessMaterial).lifetime_randomness, 0.1, 0.3)
 	var smoke_gradient := ((smoke.process_material as ParticleProcessMaterial).color_ramp as GradientTexture1D).gradient
 	assert_lt(smoke_gradient.sample(0.68).a, smoke_gradient.sample(0.45).a)
 	assert_eq(smoke_gradient.sample(0.88).a, 0.0)
 	assert_eq(smoke_gradient.sample(0.96).a, 0.0)
+	assert_gte(smoke.visibility_aabb.size.x, 292.0)
 	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
+	interceptor.queue_free()
+
+func test_released_smoke_trail_reaches_zero_opacity_before_cleanup() -> void:
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
+	var initial_alpha := smoke.smoke_material.albedo_color.a
+	smoke.release_to(main.effects_parent)
+	smoke._process(smoke.release_fade_duration * 0.5)
+	assert_between(smoke.smoke_material.albedo_color.a, 0.0, initial_alpha)
+	assert_almost_eq(smoke.current_opacity_ratio, 0.5, 0.001)
+	smoke._process(smoke.release_fade_duration * 0.5)
+	assert_eq(smoke.smoke_material.albedo_color.a, 0.0)
+	assert_eq(smoke.current_opacity_ratio, 0.0)
+	assert_false(smoke.is_queued_for_deletion())
+	smoke._process(smoke.transparent_cleanup_delay + 0.01)
+	assert_true(smoke.is_queued_for_deletion())
 	interceptor.queue_free()
 
 func test_interceptor_detonation_remains_visible_when_strike_aircraft_survives_hit() -> void:
