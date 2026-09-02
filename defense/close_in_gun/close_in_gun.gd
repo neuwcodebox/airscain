@@ -3,6 +3,9 @@ extends ArmedDefenseUnit
 
 const TRACER_SCENE := preload("res://effects/tracer_burst/tracer_burst.tscn")
 
+@export var turret_turn_speed_degrees: float = 120.0
+@export var firing_alignment_degrees: float = 3.0
+
 var registry: ThreatRegistry
 var projectile_parent: Node3D
 var cooldown: float = 0.0
@@ -34,13 +37,20 @@ func gameplay_tick(delta: float) -> void:
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	if track == null:
 		return
-	var flat_target := Vector3(track.estimated_position.x, turret.global_position.y, track.estimated_position.z)
-	if turret.global_position.distance_squared_to(flat_target) > 0.01:
-		turret.look_at(flat_target, Vector3.UP)
-	if cooldown <= 0.0 and magazine.can_fire() and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.burst_interval, engagement_limit(track)):
+	var is_aimed := _aim_turret(track.estimated_position, delta)
+	if is_aimed and cooldown <= 0.0 and magazine.can_fire() and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.burst_interval, engagement_limit(track)):
 		magazine.consume()
 		_fire_burst(track)
 		cooldown = _definition.burst_interval
+
+func _aim_turret(target_position: Vector3, delta: float) -> bool:
+	var direction := target_position - turret.global_position
+	direction.y = 0.0
+	if direction.length_squared() <= 0.01:
+		return true
+	var desired_yaw := atan2(-direction.x, -direction.z)
+	turret.rotation.y = rotate_toward(turret.rotation.y, desired_yaw, deg_to_rad(turret_turn_speed_degrees) * delta)
+	return absf(angle_difference(turret.rotation.y, desired_yaw)) <= deg_to_rad(firing_alignment_degrees)
 
 func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> PlayerTrack:
 	var selected: PlayerTrack

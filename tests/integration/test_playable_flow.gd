@@ -582,8 +582,18 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	observation.setup(radar.runtime_id, 0.0, threat.global_position, 0.98, 2.0, 1.0, &"small_uav", ThreatDefinition.Affiliation.HOSTILE, 5.0)
 	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
 	assert_gt(gun.weapon_match(track), 0.9)
+	var starting_turret_yaw := gun.turret.rotation.y
 	gun.gameplay_tick(0.01)
+	assert_false(main.engagement_coordinator.has_reservation(track.track_id), "포탑은 정렬되기 전에 발사하면 안 됩니다")
+	assert_ne(gun.turret.rotation.y, starting_turret_yaw)
+	for frame: int in 100:
+		gun.gameplay_tick(0.02)
+		if main.engagement_coordinator.has_reservation(track.track_id):
+			break
 	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
+	var tracer := main.projectile_parent.get_child(0) as TracerBurst
+	assert_eq(tracer.tracers.size(), 18)
+	assert_lt((tracer.beam.mesh as BoxMesh).size.z, threat.global_position.distance_to(gun.global_position) * 0.1)
 	var saved_rounds := gun.magazine.rounds
 	var saved_cooldown := gun.cooldown
 	var saved_rng_state := gun.rng.state
