@@ -223,42 +223,25 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 	assert_eq(objective.damage_smoke_effects[0].global_position, first_impact)
 	var smoke := objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
-	var middle_smoke := objective.damage_smoke_effects[0].get_node("SmokeMiddle") as GPUParticles3D
-	var upper_smoke := objective.damage_smoke_effects[0].get_node("SmokeUpper") as GPUParticles3D
 	var smoke_process := smoke.process_material as ParticleProcessMaterial
-	assert_gte(smoke.amount, 110)
-	assert_true(smoke_process.turbulence_enabled)
-	assert_lte(smoke_process.spread, 24.0)
+	assert_eq(smoke.amount, DamageSmokeEffect.CITY_PARTICLE_COUNT)
+	assert_eq(smoke.lifetime, DamageSmokeEffect.CITY_LIFETIME)
+	assert_false(smoke_process.turbulence_enabled)
+	assert_lte(smoke_process.spread, 14.0)
 	assert_gte(smoke_process.initial_velocity_min, 7.0)
-	assert_gt(smoke_process.gravity.y, smoke_process.gravity.x)
+	assert_gt(smoke_process.gravity.y, 0.0)
+	assert_gt(smoke_process.gravity.x, 0.0)
 	assert_not_null(smoke_process.color_ramp)
 	assert_true(smoke.draw_pass_1 is QuadMesh)
 	var smoke_material := (smoke.draw_pass_1 as QuadMesh).material as StandardMaterial3D
 	assert_eq(smoke_material.billboard_mode, BaseMaterial3D.BILLBOARD_ENABLED)
 	assert_eq(smoke.preprocess, 0.0)
 	assert_false(smoke.local_coords)
+	assert_eq(smoke.fixed_fps, 30)
 	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
-	assert_true(middle_smoke.emitting)
-	assert_lte(absf(middle_smoke.position.y - smoke.position.y), 0.2)
-	assert_gt(middle_smoke.position.x, smoke.position.x)
-	assert_gt(middle_smoke.lifetime, smoke.lifetime)
-	assert_eq(middle_smoke.preprocess, 0.0)
-	assert_false(middle_smoke.local_coords)
-	assert_true(upper_smoke.emitting)
-	assert_lte(absf(upper_smoke.position.y - smoke.position.y), 0.3)
-	assert_gt(upper_smoke.position.x, middle_smoke.position.x)
-	assert_gt(upper_smoke.lifetime, middle_smoke.lifetime)
-	var upper_process := upper_smoke.process_material as ParticleProcessMaterial
-	assert_gt(upper_process.initial_velocity_min, smoke_process.initial_velocity_min)
-	assert_gt(upper_process.gravity.x, smoke_process.gravity.x)
-	assert_gt(upper_process.gravity.y, smoke_process.gravity.y)
-	assert_gt(upper_process.initial_velocity_min * 3.0, 85.0)
 	assert_gte(smoke.visibility_aabb.size.y, 220.0)
-	assert_gte(middle_smoke.visibility_aabb.size.y, 260.0)
-	assert_gte(upper_smoke.visibility_aabb.size.y, 300.0)
-	assert_eq(upper_smoke.preprocess, 0.0)
-	assert_false(upper_smoke.local_coords)
-	assert_eq(upper_smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeMiddle"))
+	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeUpper"))
 	assert_true(objective.apply_building_impact(10, Vector3(-8.0, 22.0, 14.0), 32.0))
 	assert_true(objective.apply_building_impact(10, Vector3(18.0, 42.0, 20.0), 56.0))
 	assert_true(objective.apply_building_impact(100, Vector3(-22.0, 35.0, -18.0), 44.0))
@@ -286,13 +269,12 @@ func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 	var effect := objective.damage_smoke_effects[0]
 	assert_almost_eq(effect.global_position, impact.position as Vector3, Vector3.ONE * 0.001)
-	assert_true(bool(effect.get("city_plume_enabled")))
-	var middle := effect.get_node("SmokeMiddle") as GPUParticles3D
-	var upper := effect.get_node("SmokeUpper") as GPUParticles3D
-	assert_lte(middle.position.y, 1.0)
-	assert_lte(upper.position.y, 1.0)
-	assert_gte((middle.process_material as ParticleProcessMaterial).gravity.y, 12.0)
-	assert_gte((upper.process_material as ParticleProcessMaterial).gravity.y, 21.0)
+	var city_smoke := effect.get_node("Smoke") as GPUParticles3D
+	var city_process := city_smoke.process_material as ParticleProcessMaterial
+	assert_true(city_smoke.emitting)
+	assert_false(city_process.turbulence_enabled)
+	assert_gte(city_process.initial_velocity_min, 5.0)
+	assert_gte(city_process.initial_velocity_min * city_smoke.lifetime, 80.0)
 	var surface_impact := Vector3(24.0, battlefield.terrain_height(24.0, -18.0), -18.0)
 	assert_true(objective.apply_surface_impact(10, surface_impact))
 	assert_eq(objective.damage_smoke_effects.size(), 2)
@@ -304,7 +286,7 @@ func test_all_smoke_particles_use_shadow_casting_materials() -> void:
 		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "paths": ["Body/ExhaustTrail"]},
 		{"scene": preload("res://enemy/strike_aircraft/strike_aircraft.tscn"), "paths": ["Body/LeftExhaustTrail", "Body/RightExhaustTrail"]},
 		{"scene": preload("res://effects/air_strike_munition/air_strike_munition.tscn"), "paths": ["SmokeTrail"]},
-		{"scene": preload("res://effects/damage_smoke/damage_smoke.tscn"), "paths": ["Smoke", "SmokeMiddle", "SmokeUpper"]},
+		{"scene": preload("res://effects/damage_smoke/damage_smoke.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/explosion/explosion.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/interceptor_miss/interceptor_miss.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/falling_wreck/falling_wreck.tscn"), "paths": ["SmokeTrail"]},

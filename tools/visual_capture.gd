@@ -749,28 +749,28 @@ func _capture_city_smoke_and_ammo_status() -> void:
 		push_error("City damage did not create dense multi-site smoke")
 		quit(1)
 		return
+	var emitter_positions: Array[Vector3] = []
+	for effect: Node3D in main.objective.damage_smoke_effects:
+		emitter_positions.append((effect.get_node("Smoke") as GPUParticles3D).global_position)
 	_save_capture("/tmp/airscain_city_damage_smoke.png")
 	await _wait_simulation_seconds(2.4)
-	var lower_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
-	var upper_smoke := main.objective.damage_smoke_effects[0].get_node("SmokeUpper") as GPUParticles3D
-	var lower_process := lower_smoke.process_material as ParticleProcessMaterial
-	var upper_process := upper_smoke.process_material as ParticleProcessMaterial
-	if not upper_smoke.emitting or upper_smoke.lifetime <= lower_smoke.lifetime or upper_process.initial_velocity_min <= lower_process.initial_velocity_min or upper_process.gravity.x <= lower_process.gravity.x:
-		push_error("City smoke did not maintain a rising upper plume")
+	var city_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
+	var city_process := city_smoke.process_material as ParticleProcessMaterial
+	if not city_smoke.emitting or city_smoke.lifetime < 15.0 or city_process.initial_velocity_min < 7.0 or city_process.gravity.y <= 0.0 or city_process.turbulence_enabled:
+		push_error("City smoke did not maintain a stable rising plume")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_city_damage_smoke_rising.png")
 	await _wait_simulation_seconds(2.8)
 	_save_capture("/tmp/airscain_city_damage_smoke_plume.png")
-	if upper_smoke.amount < 2000 or upper_process.gravity.y < 20.0:
-		push_error("City smoke upper plume lacks sustained rising particle density")
+	if city_smoke.amount < 500 or city_smoke.capture_aabb().size.y < 15.0:
+		push_error("City smoke plume lacks sustained rising particle density")
 		quit(1)
 		return
-	for effect: Node3D in main.objective.damage_smoke_effects:
-		var middle := effect.get_node("SmokeMiddle") as GPUParticles3D
-		var upper := effect.get_node("SmokeUpper") as GPUParticles3D
-		if middle.local_coords or upper.local_coords or not bool(effect.get("city_plume_enabled")):
-			push_error("City smoke layers did not leave a continuous world-space plume from the roof")
+	for index: int in main.objective.damage_smoke_effects.size():
+		var smoke := main.objective.damage_smoke_effects[index].get_node("Smoke") as GPUParticles3D
+		if smoke.local_coords or smoke.global_position.distance_to(emitter_positions[index]) > 0.001 or main.objective.damage_smoke_effects[index].get_node_or_null("SmokeMiddle") != null:
+			push_error("City smoke emitter moved or retained obsolete plume layers")
 			quit(1)
 			return
 	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
