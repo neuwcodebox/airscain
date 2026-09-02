@@ -22,10 +22,22 @@ func _unhandled_input(event: InputEvent) -> void:
 func start_game(mode: AirscainMain.GameMode) -> void:
 	if gameplay != null:
 		return
+	_create_gameplay(mode, AirscainMain.generate_world_seed())
+
+func restart_game(mode: AirscainMain.GameMode, world_seed: int) -> void:
+	if gameplay != null:
+		var previous_gameplay := gameplay
+		gameplay = null
+		remove_child(previous_gameplay)
+		previous_gameplay.queue_free()
+	_create_gameplay(mode, world_seed)
+
+func _create_gameplay(mode: AirscainMain.GameMode, world_seed: int) -> void:
 	AirscainMain.requested_mode = mode
-	AirscainMain.requested_seed = AirscainMain.generate_world_seed()
+	AirscainMain.requested_seed = world_seed
 	gameplay = GAMEPLAY_SCENE.instantiate() as AirscainMain
 	add_child(gameplay)
+	gameplay.restart_game_requested.connect(restart_game)
 	main_menu.visible = false
 	pause_menu.visible = false
 

@@ -2,7 +2,6 @@ class_name TacticalScreenOverlay
 extends Control
 
 const EDGE_MARGIN := 42.0
-const RIGHT_UI_INSET := 340.0
 
 var camera: Camera3D
 var player_knowledge: Node
@@ -94,7 +93,7 @@ func training_marker_screen_position() -> Vector2:
 	if camera.is_position_behind(training_approach_position):
 		projected = size - projected
 	return Vector2(
-		clampf(projected.x, EDGE_MARGIN, maxf(EDGE_MARGIN, size.x - RIGHT_UI_INSET)),
+		clampf(projected.x, EDGE_MARGIN, maxf(EDGE_MARGIN, size.x - EDGE_MARGIN)),
 		clampf(projected.y, 100.0, maxf(100.0, size.y - 70.0))
 	)
 
@@ -113,7 +112,7 @@ static func marker_position(projected: Vector2, viewport_size: Vector2, behind: 
 	return marker_position_in_safe_area(projected, viewport_size, behind, margin, margin, margin, margin)
 
 static func tactical_marker_position(projected: Vector2, viewport_size: Vector2, behind: bool) -> Vector2:
-	return marker_position_in_safe_area(projected, viewport_size, behind, EDGE_MARGIN, EDGE_MARGIN, RIGHT_UI_INSET, EDGE_MARGIN)
+	return marker_position(projected, viewport_size, behind, EDGE_MARGIN)
 
 static func marker_position_in_safe_area(projected: Vector2, viewport_size: Vector2, behind: bool, left: float, top: float, right: float, bottom: float) -> Vector2:
 	var center := viewport_size * 0.5

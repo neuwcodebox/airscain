@@ -29,6 +29,8 @@ var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var selected_asset_connection_count: int = 0
 var overlay_mode_index: int = 0
+var catalog_expanded: bool = true
+var configured_game_mode: int = 0
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
 const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전 영역", "지원 작업", "전자전", "C2 연결"]
 const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special"]
@@ -47,6 +49,9 @@ const CATALOG_GROUP_LABELS := {
 @onready var alert_label: Label = %AlertLabel
 @onready var overlay_button: Button = %OverlayButton
 @onready var defense_list: VBoxContainer = %DefenseList
+@onready var catalog: PanelContainer = %Catalog
+@onready var catalog_toggle: Button = %CatalogToggle
+@onready var defense_scroll: ScrollContainer = %DefenseScroll
 @onready var start_button: Button = %StartButton
 @onready var feedback_label: Label = %FeedbackLabel
 @onready var game_over_panel: PanelContainer = %GameOverPanel
@@ -79,6 +84,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	objective = objective_value
 	defense_definitions = defenses
 	threat_definitions = threats
+	configured_game_mode = game_mode
 	_build_defense_catalog()
 	_build_mode_controls(game_mode)
 	session.budget_changed.connect(_on_state_changed.unbind(1))
@@ -89,6 +95,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
 	set_selected_asset(null, 0)
 	set_selected_track(null, false)
+	set_catalog_expanded(true)
 
 func _build_mode_controls(game_mode: int) -> void:
 	sandbox_threat_option.clear()
@@ -99,6 +106,23 @@ func _build_mode_controls(game_mode: int) -> void:
 	save_button.disabled = game_mode != 0
 	load_button.disabled = game_mode != 0
 	training_panel.visible = game_mode == 1
+
+func set_catalog_expanded(expanded: bool) -> void:
+	catalog_expanded = expanded
+	catalog_toggle.text = "방공망 자산  ▾" if expanded else "방공망 자산  ▴"
+	defense_scroll.visible = expanded
+	start_button.visible = expanded and session.phase == GameSession.Phase.PREPARATION
+	sandbox_threat_option.visible = expanded and configured_game_mode == 2
+	sandbox_threat_button.visible = expanded and configured_game_mode == 2
+	if expanded:
+		catalog.anchor_top = 0.0
+		catalog.offset_top = 380.0
+	else:
+		catalog.anchor_top = 1.0
+		catalog.offset_top = -66.0
+
+func _on_catalog_toggle_pressed() -> void:
+	set_catalog_expanded(not catalog_expanded)
 
 func set_training_lesson(step: int, total: int, title: String, body: String, next_visible: bool = false) -> void:
 	training_panel.visible = true
@@ -243,7 +267,7 @@ func _on_integrity_changed(current: int, maximum: int) -> void:
 	integrity_label.text = "도시  %d / %d" % [current, maximum]
 
 func _on_phase_changed(new_phase: GameSession.Phase) -> void:
-	start_button.visible = new_phase == GameSession.Phase.PREPARATION
+	start_button.visible = catalog_expanded and new_phase == GameSession.Phase.PREPARATION
 	game_over_panel.visible = new_phase == GameSession.Phase.GAME_OVER
 	if new_phase == GameSession.Phase.GAME_OVER:
 		final_stats.text = "생존 시간  %02d:%02d\n무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.neutralized_count, session.defense_count, session.highest_pressure]

@@ -4,6 +4,8 @@ extends Node3D
 enum GameMode { SUSTAINED, TRAINING, SANDBOX }
 enum TrainingStep { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, OVERLAY, COMPLETE }
 
+signal restart_game_requested(mode: GameMode, world_seed: int)
+
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
@@ -311,11 +313,12 @@ func _final_statistics() -> Dictionary:
 	}
 
 func _on_restart_requested(same_seed: bool) -> void:
-	if same_seed:
-		requested_seed = scenario.world_seed
-	else:
-		requested_seed = int(Time.get_unix_time_from_system()) ^ int(Time.get_ticks_msec())
-	get_tree().reload_current_scene()
+	var next_seed := scenario.world_seed if same_seed else generate_world_seed()
+	requested_seed = next_seed
+	if restart_game_requested.get_connections().is_empty():
+		get_tree().reload_current_scene()
+		return
+	restart_game_requested.emit(game_mode, next_seed)
 
 func _on_asset_selected(unit: DefenseUnit) -> void:
 	selected_asset = unit

@@ -154,6 +154,7 @@ text = "▲ 적성 항적 0  ·  교전 0"
 horizontal_alignment = 1
 
 [node name="Catalog" type="PanelContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 11
 anchor_left = 1.0
@@ -174,11 +175,13 @@ theme_override_styles/panel = SubResource("CatalogPanel")
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Title" type="Label" parent="Catalog/VBox"]
+[node name="CatalogToggle" type="Button" parent="Catalog/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
 theme_override_font_sizes/font_size = 16
-text = "방공망 자산"
+text = "방공망 자산  ▾"
+alignment = 0
 
 [node name="SandboxThreatOption" type="OptionButton" parent="Catalog/VBox"]
 unique_name_in_owner = true
@@ -192,6 +195,7 @@ layout_mode = 2
 text = "선택 위협 투입"
 
 [node name="DefenseScroll" type="ScrollContainer" parent="Catalog/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
@@ -469,6 +473,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/SaveButton" to="." method="_on_save_pressed"]
 [connection signal="pressed" from="TopBar/Margin/LoadButton" to="." method="_on_load_pressed"]
 [connection signal="pressed" from="Catalog/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
+[connection signal="pressed" from="Catalog/VBox/CatalogToggle" to="." method="_on_catalog_toggle_pressed"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]

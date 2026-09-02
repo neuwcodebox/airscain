@@ -38,3 +38,23 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	var next_gameplay := app.get("gameplay") as AirscainMain
 	assert_not_null(next_gameplay)
 	assert_ne(next_gameplay.scenario.world_seed, first_seed)
+
+func test_game_over_restart_replaces_gameplay_without_showing_main_menu() -> void:
+	var app: AirscainApp = add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	await get_tree().process_frame
+	app.start_game(AirscainMain.GameMode.SUSTAINED)
+	await get_tree().process_frame
+	var first_gameplay := app.gameplay
+	var first_seed := first_gameplay.scenario.world_seed
+	first_gameplay._on_restart_requested(true)
+	await get_tree().process_frame
+	assert_not_same(app.gameplay, first_gameplay)
+	assert_eq(app.gameplay.scenario.world_seed, first_seed)
+	assert_eq(app.gameplay.game_mode, AirscainMain.GameMode.SUSTAINED)
+	assert_false(app.main_menu.visible)
+	var same_seed_gameplay := app.gameplay
+	same_seed_gameplay._on_restart_requested(false)
+	await get_tree().process_frame
+	assert_not_same(app.gameplay, same_seed_gameplay)
+	assert_ne(app.gameplay.scenario.world_seed, first_seed)
+	assert_false(app.main_menu.visible)

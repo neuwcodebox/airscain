@@ -21,8 +21,8 @@ func run() -> void:
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-marker-only"):
-		await _capture_offscreen_marker_safe_area()
-		print("VISUAL_CAPTURE_OK offscreen_marker_safe_area")
+		await _capture_offscreen_marker_full_edge()
+		print("VISUAL_CAPTURE_OK collapsible_catalog offscreen_marker_full_edge")
 		quit(0)
 		return
 	await _verify_catalog_wheel_input()
@@ -368,8 +368,9 @@ func _capture_city_detail() -> void:
 	_save_capture("/tmp/airscain_western_city_rooftop_placement.png")
 	main.placement.cancel()
 
-func _capture_offscreen_marker_safe_area() -> void:
+func _capture_offscreen_marker_full_edge() -> void:
 	var viewport_size := root.get_visible_rect().size
+	main.hud.set_catalog_expanded(false)
 	var track := PlayerTrack.new()
 	track.track_id = 9991
 	track.state = PlayerTrack.State.CONFIRMED
@@ -381,11 +382,11 @@ func _capture_offscreen_marker_safe_area() -> void:
 		await process_frame
 	var projected := main.camera_rig.camera.unproject_position(track.estimated_position)
 	var marker := TacticalScreenOverlay.tactical_marker_position(projected, viewport_size, false)
-	if marker.x > viewport_size.x - TacticalScreenOverlay.RIGHT_UI_INSET + 0.01:
-		push_error("Offscreen marker overlapped the right-side UI safe area")
+	if marker.x > viewport_size.x - TacticalScreenOverlay.EDGE_MARGIN + 0.01 or marker.x < viewport_size.x - TacticalScreenOverlay.EDGE_MARGIN - 0.01:
+		push_error("Offscreen marker did not use the full viewport edge")
 		quit(1)
 		return
-	_save_capture("/tmp/airscain_offscreen_marker_safe_area.png")
+	_save_capture("/tmp/airscain_offscreen_marker_full_edge.png")
 
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position
