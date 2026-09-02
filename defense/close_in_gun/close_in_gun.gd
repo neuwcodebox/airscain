@@ -18,6 +18,7 @@ var _definition: CloseInGunDefinition
 @onready var elevation: Node3D = $Turret/Elevation
 @onready var muzzle: Marker3D = $Turret/Elevation/Muzzle
 @onready var muzzle_flash: MeshInstance3D = $MuzzleFlash
+@onready var muzzle_light: OmniLight3D = $MuzzleLight
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -90,10 +91,15 @@ func _fire_burst(track: PlayerTrack) -> void:
 	projectile_parent.add_child(tracer)
 	tracer.setup(muzzle.global_position, track.estimated_position)
 	muzzle_flash.global_position = muzzle.global_position
+	muzzle_flash.scale = Vector3.ONE * rng.randf_range(0.85, 1.2)
 	muzzle_flash.visible = true
-	get_tree().create_timer(0.06).timeout.connect(func() -> void:
+	muzzle_light.global_position = muzzle.global_position
+	muzzle_light.visible = true
+	get_tree().create_timer(0.12).timeout.connect(func() -> void:
 		if is_instance_valid(muzzle_flash):
 			muzzle_flash.visible = false
+		if is_instance_valid(muzzle_light):
+			muzzle_light.visible = false
 	)
 	var distance := global_position.distance_to(track.estimated_position)
 	var range_ratio := distance / (_definition.attack_range * operational_efficiency())

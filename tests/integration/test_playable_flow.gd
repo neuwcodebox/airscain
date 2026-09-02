@@ -889,8 +889,15 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 			break
 	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
 	var tracer := main.projectile_parent.get_child(0) as TracerBurst
-	assert_eq(tracer.tracers.size(), 18)
+	assert_gte(tracer.tracers.size(), 48)
+	assert_eq(tracer.tracer_glows.size(), tracer.tracers.size())
+	assert_lte(tracer.tracer_spacing, 4.0)
+	assert_gte(tracer.target_spread_radius, 5.0)
+	assert_gt(tracer.target_spread_radius, tracer.muzzle_spread_radius * 12.0)
 	assert_lt((tracer.beam.mesh as BoxMesh).size.z, threat.global_position.distance_to(gun.global_position) * 0.1)
+	var tracer_material := (tracer.beam.mesh as BoxMesh).material as StandardMaterial3D
+	assert_gte(tracer_material.emission_energy_multiplier, 16.0)
+	assert_gt((tracer.glow_beam.mesh as BoxMesh).size.x, (tracer.beam.mesh as BoxMesh).size.x * 2.0)
 	var saved_rounds := gun.magazine.rounds
 	var saved_cooldown := gun.cooldown
 	var saved_rng_state := gun.rng.state

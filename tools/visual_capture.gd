@@ -78,6 +78,11 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	if OS.get_cmdline_user_args().has("--capture-cram-only"):
+		await _capture_close_in_gun_barrage()
+		print("VISUAL_CAPTURE_OK close_in_gun dense_tracer_barrage muzzle_flash")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-friendly-icons-only"):
 		await _capture_friendly_identity_icons()
 		print("VISUAL_CAPTURE_OK friendly_role_icons persistent_status_markers")
@@ -345,6 +350,45 @@ func _spawn_swarm_near_close_in_gun() -> void:
 		threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
 		main.registry.add(threat)
 		main._on_threat_spawned(threat)
+
+func _capture_close_in_gun_barrage() -> void:
+	var gun: CloseInGun
+	for defense: DefenseUnit in main.defenses:
+		if defense is CloseInGun:
+			gun = defense as CloseInGun
+			break
+	if gun == null:
+		push_error("Close-in gun was not available for barrage capture")
+		quit(1)
+		return
+	var target := gun.global_position + Vector3(230.0, 95.0, -35.0)
+	for index: int in 8:
+		gun._aim_turret(target, 0.25)
+	var burst := preload("res://effects/tracer_burst/tracer_burst.tscn").instantiate() as TracerBurst
+	main.projectile_parent.add_child(burst)
+	burst.setup(gun.muzzle.global_position, target)
+	burst._process(0.19)
+	burst.set_process(false)
+	gun.muzzle_flash.global_position = gun.muzzle.global_position
+	gun.muzzle_flash.visible = true
+	gun.muzzle_light.global_position = gun.muzzle.global_position
+	gun.muzzle_light.visible = true
+	var visible_tracers := 0
+	for tracer: MeshInstance3D in burst.tracers:
+		if tracer.visible:
+			visible_tracers += 1
+	if visible_tracers < 40:
+		push_error("Close-in gun barrage did not expose enough simultaneous tracer streaks")
+		quit(1)
+		return
+	var center := gun.muzzle.global_position.lerp(target, 0.5)
+	main.camera_rig.camera.global_position = center + Vector3(20.0, 78.0, 190.0)
+	main.camera_rig.camera.look_at(center, Vector3.UP)
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_close_in_gun_barrage.png")
 
 func _capture_hdr_light_vfx() -> void:
 	var environment := (main.get_node("WorldEnvironment") as WorldEnvironment).environment
