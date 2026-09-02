@@ -15,6 +15,11 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	if OS.get_cmdline_user_args().has("--capture-marker-only"):
+		await _capture_offscreen_marker_safe_area()
+		print("VISUAL_CAPTURE_OK offscreen_marker_safe_area")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -312,6 +317,25 @@ func _capture_hdr_light_vfx() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_hdr_light_vfx.png")
+
+func _capture_offscreen_marker_safe_area() -> void:
+	var viewport_size := root.get_visible_rect().size
+	var track := PlayerTrack.new()
+	track.track_id = 9991
+	track.state = PlayerTrack.State.CONFIRMED
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 1.0
+	track.estimated_position = main.camera_rig.camera.project_position(Vector2(viewport_size.x + 500.0, viewport_size.y * 0.5), 500.0)
+	main.player_knowledge.tracks.append(track)
+	for index: int in 3:
+		await process_frame
+	var projected := main.camera_rig.camera.unproject_position(track.estimated_position)
+	var marker := TacticalScreenOverlay.tactical_marker_position(projected, viewport_size, false)
+	if marker.x > viewport_size.x - TacticalScreenOverlay.RIGHT_UI_INSET + 0.01:
+		push_error("Offscreen marker overlapped the right-side UI safe area")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_offscreen_marker_safe_area.png")
 
 func _capture_city_smoke_and_ammo_status() -> void:
 	var target := main.objective.global_position

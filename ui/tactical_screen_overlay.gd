@@ -2,7 +2,7 @@ class_name TacticalScreenOverlay
 extends Control
 
 const EDGE_MARGIN := 42.0
-const TRAINING_RIGHT_INSET := 340.0
+const RIGHT_UI_INSET := 340.0
 
 var camera: Camera3D
 var player_knowledge: Node
@@ -46,7 +46,7 @@ func _draw() -> void:
 	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
 		if track.state == PlayerTrack.State.TENTATIVE or _is_on_screen(track.estimated_position, viewport_size):
 			continue
-		var marker := marker_position(camera.unproject_position(track.estimated_position), viewport_size, camera.is_position_behind(track.estimated_position), EDGE_MARGIN)
+		var marker := tactical_marker_position(camera.unproject_position(track.estimated_position), viewport_size, camera.is_position_behind(track.estimated_position))
 		var direction := (marker - viewport_size * 0.5).normalized()
 		var tangent := Vector2(-direction.y, direction.x)
 		var scale := 1.35 if track.track_id == selected_track_id else 1.0
@@ -94,7 +94,7 @@ func training_marker_screen_position() -> Vector2:
 	if camera.is_position_behind(training_approach_position):
 		projected = size - projected
 	return Vector2(
-		clampf(projected.x, EDGE_MARGIN, maxf(EDGE_MARGIN, size.x - TRAINING_RIGHT_INSET)),
+		clampf(projected.x, EDGE_MARGIN, maxf(EDGE_MARGIN, size.x - RIGHT_UI_INSET)),
 		clampf(projected.y, 100.0, maxf(100.0, size.y - 70.0))
 	)
 
@@ -110,14 +110,23 @@ func _is_on_screen(world_position: Vector3, viewport_size: Vector2) -> bool:
 	return Rect2(Vector2.ZERO, viewport_size).grow(-EDGE_MARGIN).has_point(screen_position)
 
 static func marker_position(projected: Vector2, viewport_size: Vector2, behind: bool, margin: float) -> Vector2:
+	return marker_position_in_safe_area(projected, viewport_size, behind, margin, margin, margin, margin)
+
+static func tactical_marker_position(projected: Vector2, viewport_size: Vector2, behind: bool) -> Vector2:
+	return marker_position_in_safe_area(projected, viewport_size, behind, EDGE_MARGIN, EDGE_MARGIN, RIGHT_UI_INSET, EDGE_MARGIN)
+
+static func marker_position_in_safe_area(projected: Vector2, viewport_size: Vector2, behind: bool, left: float, top: float, right: float, bottom: float) -> Vector2:
 	var center := viewport_size * 0.5
 	var direction := projected - center
 	if behind:
 		direction = -direction
 	if direction.length_squared() < 0.001:
 		direction = Vector2.UP
-	var limit := center - Vector2.ONE * margin
-	var factor := minf(limit.x / maxf(absf(direction.x), 0.001), limit.y / maxf(absf(direction.y), 0.001))
+	var safe_min := Vector2(left, top)
+	var safe_max := Vector2(maxf(left, viewport_size.x - right), maxf(top, viewport_size.y - bottom))
+	var horizontal_limit := safe_max.x - center.x if direction.x >= 0.0 else center.x - safe_min.x
+	var vertical_limit := safe_max.y - center.y if direction.y >= 0.0 else center.y - safe_min.y
+	var factor := minf(horizontal_limit / maxf(absf(direction.x), 0.001), vertical_limit / maxf(absf(direction.y), 0.001))
 	return center + direction * factor
 
 func _track_color(track: PlayerTrack) -> Color:

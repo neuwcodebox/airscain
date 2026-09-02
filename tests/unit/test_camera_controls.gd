@@ -96,3 +96,10 @@ func test_offscreen_marker_stays_inside_viewport_margin() -> void:
 	assert_between(position.x, 42.0, 1238.0)
 	assert_between(position.y, 42.0, 678.0)
 	assert_almost_eq(position.y, 42.0, 0.01)
+
+func test_tactical_marker_stays_left_of_right_side_panels() -> void:
+	var viewport_size := Vector2(1600.0, 900.0)
+	var position: Vector2 = TACTICAL_SCREEN_OVERLAY.tactical_marker_position(Vector2(2200.0, 500.0), viewport_size, false)
+	assert_lte(position.x, viewport_size.x - TACTICAL_SCREEN_OVERLAY.RIGHT_UI_INSET)
+	assert_between(position.y, TACTICAL_SCREEN_OVERLAY.EDGE_MARGIN, viewport_size.y - TACTICAL_SCREEN_OVERLAY.EDGE_MARGIN)
+	assert_almost_eq(position.x, 1260.0, 0.01)
