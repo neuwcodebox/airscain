@@ -104,6 +104,9 @@ func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Arr
 func set_feedback(message: String) -> void:
 	feedback_label.text = message
 
+func set_final_stats(text: String) -> void:
+	final_stats.text = text
+
 func _process(_delta: float) -> void:
 	if selected_asset != null and is_instance_valid(selected_asset):
 		_refresh_selected_asset_label()

@@ -45,6 +45,11 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		return "세션 경제 또는 시간이 올바르지 않습니다"
 	if int(session_state.get("current_pressure", 0)) < 1 or float(session_state.get("support_interval", 0.0)) <= 0.0 or int(session_state.get("support_amount", -1)) < 0 or float(session_state.get("next_support_at", -1.0)) < 0.0 or int(session_state.get("support_payment_count", -1)) < 0 or int(session_state.get("completed_attack_windows", -1)) < 0 or int(session_state.get("total_support_received", -1)) < 0:
 		return "세션 성장 또는 작전 지원 상태가 올바르지 않습니다"
+	if int(session_state.get("starting_budget", -1)) < 0 or int(session_state.get("defense_spending", -1)) < 0 or int(session_state.get("support_spending", -1)) < 0 or int(session_state.get("weapon_fire_count", -1)) < 0 or int(session_state.get("neutralized_reward_total", -1)) < 0 or not session_state.get("neutralized_by_type", null) is Dictionary:
+		return "세션 결과 통계가 올바르지 않습니다"
+	for definition_id: String in session_state.neutralized_by_type:
+		if not contact_definition_map(scenario).has(StringName(definition_id)) or int(session_state.neutralized_by_type[definition_id]) < 0:
+			return "위협 유형별 결과 통계가 올바르지 않습니다"
 	var world_state: Dictionary = payload.world
 	if int(world_state.get("objective_integrity", -1)) < 0:
 		return "도시 기능 상태가 올바르지 않습니다"

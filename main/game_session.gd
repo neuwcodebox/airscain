@@ -25,6 +25,12 @@ var support_payment_count: int = 0
 var completed_attack_windows: int = 0
 var total_support_received: int = 0
 var unlimited_budget: bool = false
+var starting_budget: int = 0
+var defense_spending: int = 0
+var support_spending: int = 0
+var weapon_fire_count: int = 0
+var neutralized_reward_total: int = 0
+var neutralized_by_type: Dictionary[String, int] = {}
 
 func reset(starting_budget: int, support_interval_value: float = 90.0, support_amount_value: int = 180) -> void:
 	phase = Phase.PREPARATION
@@ -43,6 +49,12 @@ func reset(starting_budget: int, support_interval_value: float = 90.0, support_a
 	completed_attack_windows = 0
 	total_support_received = 0
 	unlimited_budget = false
+	self.starting_budget = starting_budget
+	defense_spending = 0
+	support_spending = 0
+	weapon_fire_count = 0
+	neutralized_reward_total = 0
+	neutralized_by_type.clear()
 	budget_changed.emit(budget)
 	phase_changed.emit(phase)
 	statistics_changed.emit()
@@ -89,6 +101,7 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 	battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
 	if not unlimited_budget:
 		budget -= definition.price
+		defense_spending += definition.price
 	defense_count += 1
 	budget_changed.emit(budget)
 	statistics_changed.emit()
@@ -101,6 +114,9 @@ func register_threat_resolution(_threat: ThreatUnit, neutralized: bool, reward: 
 	if neutralized and _threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
 		neutralized_count += 1
 		budget += reward
+		neutralized_reward_total += reward
+		var definition_id := String(_threat.definition.id)
+		neutralized_by_type[definition_id] = neutralized_by_type.get(definition_id, 0) + 1
 		budget_changed.emit(budget)
 	statistics_changed.emit()
 
@@ -141,9 +157,14 @@ func try_spend(amount: int) -> bool:
 	if unlimited_budget:
 		return true
 	budget -= amount
+	support_spending += amount
 	budget_changed.emit(budget)
 	statistics_changed.emit()
 	return true
+
+func register_weapon_fire() -> void:
+	weapon_fire_count += 1
+	statistics_changed.emit()
 
 func capture_state() -> Dictionary:
 	return {
@@ -162,6 +183,12 @@ func capture_state() -> Dictionary:
 		"support_payment_count": support_payment_count,
 		"completed_attack_windows": completed_attack_windows,
 		"total_support_received": total_support_received,
+		"starting_budget": starting_budget,
+		"defense_spending": defense_spending,
+		"support_spending": support_spending,
+		"weapon_fire_count": weapon_fire_count,
+		"neutralized_reward_total": neutralized_reward_total,
+		"neutralized_by_type": neutralized_by_type.duplicate(true),
 	}
 
 func restore_state(state: Dictionary) -> void:
@@ -180,6 +207,14 @@ func restore_state(state: Dictionary) -> void:
 	support_payment_count = int(state.support_payment_count)
 	completed_attack_windows = int(state.completed_attack_windows)
 	total_support_received = int(state.total_support_received)
+	starting_budget = int(state.starting_budget)
+	defense_spending = int(state.defense_spending)
+	support_spending = int(state.support_spending)
+	weapon_fire_count = int(state.weapon_fire_count)
+	neutralized_reward_total = int(state.neutralized_reward_total)
+	neutralized_by_type.clear()
+	for definition_id: String in state.neutralized_by_type:
+		neutralized_by_type[definition_id] = int(state.neutralized_by_type[definition_id])
 	budget_changed.emit(budget)
 	phase_changed.emit(phase)
 	statistics_changed.emit()

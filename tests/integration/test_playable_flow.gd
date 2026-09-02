@@ -328,6 +328,10 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_gt(int(main.combat_audio.call("played_count", &"launch")), 0)
 	assert_gt(int(main.combat_audio.call("played_count", &"explosion")), 0)
 	assert_eq(main.session.neutralized_count, 1)
+	assert_eq(main.session.neutralized_by_type.get(String(threat.definition.id), 0), 1)
+	assert_eq(main.session.neutralized_reward_total, threat.definition.neutralization_reward)
+	assert_eq(main.session.defense_spending, main.scenario.available_defenses[0].price + radar_definition.price + command_definition.price)
+	assert_gt(main.session.weapon_fire_count, 0)
 	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, battery.runtime_id)
 	assert_true(main.enemy_knowledge.recent_outcomes.back().neutralized)
 	var expected_budget := main.scenario.starting_budget - main.scenario.available_defenses[0].price - radar_definition.price - command_definition.price + threat.definition.neutralization_reward
@@ -351,6 +355,10 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	assert_eq(main.session.phase, GameSession.Phase.GAME_OVER)
 	assert_false(main.director.enabled)
 	assert_eq(main.registry.hostile_count(), 0)
+	assert_string_contains(main.hud.final_stats.text, "방어 구간")
+	assert_string_contains(main.hud.final_stats.text, "도시 피해")
+	assert_string_contains(main.hud.final_stats.text, "방공망")
+	assert_string_contains(main.hud.final_stats.text, "최종 구성")
 
 func test_swarm_entry_spawns_a_close_formation_package() -> void:
 	main.registry.clear()

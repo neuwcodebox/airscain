@@ -52,6 +52,8 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(main.session.current_pressure, 4)
 	assert_eq(main.session.completed_attack_windows, 1)
 	assert_eq(main.session.total_support_received, 120)
+	assert_eq(main.session.starting_budget, main.scenario.starting_budget)
+	assert_eq(main.session.defense_spending, battery_definition.price)
 	assert_eq(main.objective.current_integrity, 90)
 	assert_eq(main.defenses.size(), 1)
 	var restored_battery := main.defenses[0] as MissileBattery

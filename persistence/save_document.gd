@@ -2,7 +2,7 @@ class_name SaveDocument
 extends RefCounted
 
 const FORMAT_ID := "airscain-save"
-const CURRENT_VERSION := 15
+const CURRENT_VERSION := 16
 const MIN_SUPPORTED_VERSION := CURRENT_VERSION
 const REQUIRED_SECTIONS: Array[String] = ["scenario", "session", "world", "player_knowledge", "director"]
 
