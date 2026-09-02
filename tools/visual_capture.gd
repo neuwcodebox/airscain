@@ -597,6 +597,18 @@ func _capture_city_smoke_and_ammo_status() -> void:
 		return
 	_save_capture("/tmp/airscain_city_damage_smoke_rising.png")
 	await _wait_simulation_seconds(2.8)
+	var upper_rise := upper_smoke.global_position.y - main.objective.damage_smoke_effects[0].global_position.y
+	if upper_rise < 70.0:
+		push_error("City smoke upper plume rose only %.1fm" % upper_rise)
+		quit(1)
+		return
+	for effect: Node3D in main.objective.damage_smoke_effects:
+		var middle := effect.get_node("SmokeMiddle") as GPUParticles3D
+		var upper := effect.get_node("SmokeUpper") as GPUParticles3D
+		if middle.local_coords or upper.local_coords or not bool(effect.get("city_plume_enabled")):
+			push_error("City smoke layers did not leave a continuous world-space plume from the roof")
+			quit(1)
+			return
 	_save_capture("/tmp/airscain_city_damage_smoke_plume.png")
 	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
 	var gun: CloseInGun

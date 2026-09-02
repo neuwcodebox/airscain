@@ -36,15 +36,20 @@ func build(scenario: ScenarioDefinition) -> void:
 	var city_blocks := generator.city_block_layout()
 	var building_transforms := generator.building_transforms()
 	_cache_city_building_footprints(building_transforms)
-	_cache_city_damage_smoke_anchors(building_transforms)
+	_cache_city_damage_smoke_anchors(building_transforms, layout.rooftop_spacing)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
 
-func _cache_city_damage_smoke_anchors(buildings: Array[Transform3D]) -> void:
+func _cache_city_damage_smoke_anchors(buildings: Array[Transform3D], rooftop_spacing: int) -> void:
 	city_damage_smoke_anchors.clear()
-	for building: Transform3D in buildings:
+	for index: int in buildings.size():
+		var building := buildings[index]
 		var building_height := building.basis.get_scale().y
-		city_damage_smoke_anchors.append(building.origin + Vector3.UP * (building_height * 0.5 + 0.75))
+		var roof_offset := building_height * 0.5 + 0.7
+		var reserves_rooftop := index % rooftop_spacing == 0
+		if not reserves_rooftop and building_height >= 28.0 and index % 2 == 0:
+			roof_offset += clampf(building_height * 0.12, 3.0, 7.0)
+		city_damage_smoke_anchors.append(building.origin + Vector3.UP * roof_offset)
 
 func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 	city_building_footprints.clear()

@@ -5,6 +5,10 @@ var smoke: GPUParticles3D
 var smoke_middle: GPUParticles3D
 var smoke_upper: GPUParticles3D
 var fire: GPUParticles3D
+var city_plume_enabled: bool = false
+var city_plume_elapsed: float = 0.0
+var city_middle_height: float = 70.0
+var city_upper_height: float = 120.0
 
 func _ready() -> void:
 	smoke = $Smoke
@@ -13,8 +17,18 @@ func _ready() -> void:
 	fire = $Fire
 	_configure_plume_layers()
 
+func _process(delta: float) -> void:
+	if not city_plume_enabled:
+		return
+	city_plume_elapsed += delta
+	var middle_progress := fposmod(city_plume_elapsed, 5.5) / 5.5
+	var upper_progress := fposmod(city_plume_elapsed, 8.0) / 8.0
+	smoke_middle.position = Vector3(middle_progress * 8.0, lerpf(0.7, city_middle_height, middle_progress), middle_progress * 3.0)
+	smoke_upper.position = Vector3(upper_progress * 18.0, lerpf(0.8, city_upper_height, upper_progress), upper_progress * 7.0)
+
 func _configure_plume_layers() -> void:
-	var lower_process := smoke.process_material as ParticleProcessMaterial
+	var lower_process := smoke.process_material.duplicate(true) as ParticleProcessMaterial
+	smoke.process_material = lower_process
 	var middle_process := lower_process.duplicate(true) as ParticleProcessMaterial
 	middle_process.direction = Vector3(0.08, 1.0, 0.03).normalized()
 	middle_process.gravity = Vector3(1.0, 0.7, 0.34)
@@ -64,8 +78,27 @@ func set_damage_ratio(damage_ratio: float) -> void:
 	fire.scale = Vector3.ONE * lerpf(0.8, 1.7, intensity)
 	fire.emitting = intensity >= 0.35
 
-func set_city_scale(scale_multiplier: float) -> void:
+func set_city_scale(scale_multiplier: float, building_height: float = 30.0) -> void:
 	set_damage_ratio(1.0)
+	var height_ratio := clampf(building_height / 30.0, 0.75, 2.0)
+	var lower_process := smoke.process_material as ParticleProcessMaterial
+	var middle_process := smoke_middle.process_material as ParticleProcessMaterial
+	var upper_process := smoke_upper.process_material as ParticleProcessMaterial
+	lower_process.initial_velocity_min = 14.0 * height_ratio
+	lower_process.initial_velocity_max = 21.0 * height_ratio
+	middle_process.initial_velocity_min = 21.0 * height_ratio
+	middle_process.initial_velocity_max = 30.0 * height_ratio
+	upper_process.initial_velocity_min = 29.0 * height_ratio
+	upper_process.initial_velocity_max = 40.0 * height_ratio
+	smoke.amount = maxi(smoke.amount, 480)
+	smoke_middle.amount = maxi(smoke_middle.amount, 520)
+	smoke_upper.amount = maxi(smoke_upper.amount, 560)
+	smoke_middle.lifetime = maxf(smoke_middle.lifetime, 17.0)
+	smoke_upper.lifetime = maxf(smoke_upper.lifetime, 24.0)
+	city_middle_height = maxf(70.0, building_height * 1.4)
+	city_upper_height = maxf(120.0, building_height * 2.2)
+	city_plume_elapsed = 0.0
+	city_plume_enabled = true
 	smoke.scale *= scale_multiplier
 	smoke_middle.scale *= scale_multiplier
 	smoke_upper.scale *= scale_multiplier
