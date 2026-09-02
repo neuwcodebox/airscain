@@ -15,6 +15,7 @@ var city_window_band_count: int = 0
 var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
+var city_damage_smoke_anchors: Array[Vector3] = []
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -32,8 +33,16 @@ func build(scenario: ScenarioDefinition) -> void:
 	ocean_mesh.size = Vector2.ONE * scenario.battlefield_size * OCEAN_SIZE_MULTIPLIER
 	ocean.position.y = generator.sea_level
 	var city_blocks := generator.city_block_layout()
+	var building_transforms := generator.building_transforms()
+	_cache_city_damage_smoke_anchors(building_transforms)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
-	_build_city_visuals(generator.building_transforms(), layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
+	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
+
+func _cache_city_damage_smoke_anchors(buildings: Array[Transform3D]) -> void:
+	city_damage_smoke_anchors.clear()
+	for building: Transform3D in buildings:
+		var building_height := building.basis.get_scale().y
+		city_damage_smoke_anchors.append(building.origin + Vector3.UP * (building_height * 0.5 + 0.75))
 
 func set_objective(objective_value: ProtectedObjective) -> void:
 	objective = objective_value

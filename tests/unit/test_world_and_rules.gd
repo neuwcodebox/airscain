@@ -65,6 +65,11 @@ func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	battlefield.build(SCENARIO)
 	assert_eq(battlefield.city_block_surface_count, battlefield.generator.city_block_layout().size())
+	var buildings := battlefield.generator.building_transforms()
+	assert_eq(battlefield.city_damage_smoke_anchors.size(), buildings.size())
+	for index: int in mini(8, buildings.size()):
+		var expected_roof := buildings[index].origin + Vector3.UP * (buildings[index].basis.get_scale().y * 0.5 + 0.75)
+		assert_almost_eq(battlefield.city_damage_smoke_anchors[index], expected_roof, Vector3.ONE * 0.001)
 	assert_lt(battlefield.city_block_surface_count, SCENARIO.battlefield_layout().city_blocks ** 2)
 	assert_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
 	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadTile0_0"))
@@ -199,19 +204,22 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(smoke.preprocess, 0.0)
 	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 	assert_true(middle_smoke.emitting)
-	assert_gte(middle_smoke.position.y - smoke.position.y, 3.5)
+	assert_gte(middle_smoke.position.y - smoke.position.y, 7.0)
 	assert_gt(middle_smoke.position.x, smoke.position.x)
 	assert_gt(middle_smoke.lifetime, smoke.lifetime)
 	assert_eq(middle_smoke.preprocess, 0.0)
 	assert_true(upper_smoke.emitting)
-	assert_gte(upper_smoke.position.y - smoke.position.y, 11.0)
+	assert_gte(upper_smoke.position.y - smoke.position.y, 20.0)
 	assert_gt(upper_smoke.position.x, middle_smoke.position.x)
 	assert_gt(upper_smoke.lifetime, middle_smoke.lifetime)
 	var upper_process := upper_smoke.process_material as ParticleProcessMaterial
 	assert_gt(upper_process.initial_velocity_min, smoke_process.initial_velocity_min)
 	assert_gt(upper_process.gravity.x, smoke_process.gravity.x)
 	assert_lt(upper_process.gravity.y, smoke_process.gravity.y)
-	assert_gt(upper_smoke.position.y + upper_process.initial_velocity_min * 3.0, 45.0)
+	assert_gt(upper_smoke.position.y + upper_process.initial_velocity_min * 3.0, 70.0)
+	assert_gte(smoke.visibility_aabb.size.y, 220.0)
+	assert_gte(middle_smoke.visibility_aabb.size.y, 260.0)
+	assert_gte(upper_smoke.visibility_aabb.size.y, 300.0)
 	assert_eq(upper_smoke.preprocess, 0.0)
 	assert_eq(upper_smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 	assert_true(objective.apply_mission_damage(100))
@@ -222,6 +230,23 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_signal_emit_count(objective, "depleted", 1)
 	objective.restore_integrity(75)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
+
+func test_city_damage_smoke_anchors_to_generated_building_roofs() -> void:
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(SCENARIO)
+	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
+	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
+	objective.configure_damage_smoke_anchors(battlefield.city_damage_smoke_anchors)
+	var definition := ObjectiveDefinition.new()
+	definition.maximum_integrity = 100
+	objective.setup(1, definition)
+	assert_true(objective.apply_mission_damage(100))
+	assert_eq(objective.damage_smoke_effects.size(), 4)
+	for effect: Node3D in objective.damage_smoke_effects:
+		var nearest_distance := INF
+		for anchor: Vector3 in battlefield.city_damage_smoke_anchors:
+			nearest_distance = minf(nearest_distance, effect.global_position.distance_to(anchor))
+		assert_lte(nearest_distance, 0.001)
 
 func test_threat_resolution_can_only_happen_once() -> void:
 	var threat: ThreatUnit = autofree(ThreatUnit.new()) as ThreatUnit
