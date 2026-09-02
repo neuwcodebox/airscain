@@ -367,14 +367,22 @@ func test_neutral_contact_does_not_award_budget_or_hostile_statistics() -> void:
 	assert_eq(session.budget, 100)
 	assert_eq(session.neutralized_count, 0)
 
-func test_pressure_rises_and_spawn_load_is_bounded() -> void:
+func test_raid_pacing_rises_gradually_and_stays_bounded() -> void:
 	var director: ThreatDirector = autofree(ThreatDirector.new()) as ThreatDirector
 	director.scenario = SCENARIO
 	assert_eq(director.pressure_level_at(0.0), 1)
-	assert_eq(director.pressure_level_at(45.0), 2)
-	assert_lt(director.spawn_interval_at(180.0), director.spawn_interval_at(0.0))
+	assert_eq(director.pressure_level_at(89.9), 1)
+	assert_eq(director.pressure_level_at(90.0), 2)
+	assert_eq(director.spawn_interval_at(0.0), 24.0)
+	assert_lt(director.spawn_interval_at(450.0), director.spawn_interval_at(0.0))
+	assert_gte(director.spawn_interval_at(10000.0), 14.0)
 	assert_gt(director.threat_budget_at(240.0), director.threat_budget_at(0.0))
-	assert_lte(director.speed_multiplier_at(10000.0), 2.0)
+	assert_eq(director.speed_multiplier_at(0.0), 1.0)
+	assert_eq(director.speed_multiplier_at(1200.0), 1.6)
+	assert_eq(director.speed_multiplier_at(10000.0), 1.6)
+	assert_eq(SCENARIO.initial_spawn_interval, 12.0)
+	assert_eq(SCENARIO.attack_window_duration, 75.0)
+	assert_eq(SCENARIO.recovery_duration, 45.0)
 	assert_eq(SCENARIO.raid_archetypes[0].id, &"recon_saturation_strike")
 	assert_eq(SCENARIO.raid_archetypes[0].phase_entries.size(), 3)
 	assert_eq(SCENARIO.raid_archetypes[0].phase_delays, [0.0, 4.0, 8.0])

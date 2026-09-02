@@ -96,13 +96,14 @@ func _spawn_group(entry: ThreatSpawnEntry, group_angle: float) -> void:
 		_spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target)
 
 func pressure_level_at(time_seconds: float) -> int:
-	return 1 + int(floor(time_seconds / 45.0))
+	return 1 + int(floor(time_seconds / scenario.pressure_step_duration))
 
 func spawn_interval_at(time_seconds: float) -> float:
 	return raid_interval_at(time_seconds)
 
 func raid_interval_at(time_seconds: float) -> float:
-	return maxf(5.0, scenario.initial_spawn_interval * 2.25 - float(pressure_level_at(time_seconds)) * 0.25)
+	var completed_pressure_steps := float(pressure_level_at(time_seconds) - 1)
+	return maxf(scenario.minimum_raid_interval, scenario.initial_raid_interval - completed_pressure_steps * scenario.raid_interval_pressure_reduction)
 
 func threat_budget_at(time_seconds: float) -> float:
 	return 3.0 + float(pressure_level_at(time_seconds)) + performance_budget_adjustment()
@@ -113,7 +114,7 @@ func performance_budget_adjustment() -> float:
 	return clampf((recent_neutralization_rate() - 0.5) * 4.0, -1.0, 1.0)
 
 func speed_multiplier_at(time_seconds: float) -> float:
-	return minf(2.0, 1.0 + time_seconds / 600.0)
+	return minf(scenario.maximum_speed_multiplier, 1.0 + time_seconds / scenario.speed_growth_duration)
 
 func launch_budgeted_raid() -> void:
 	var budget := threat_budget_at(elapsed)

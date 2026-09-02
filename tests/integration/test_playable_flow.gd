@@ -550,7 +550,7 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 func test_swarm_entry_spawns_a_close_formation_package() -> void:
 	main.registry.clear()
 	main.scenario.threat_entries = [main.scenario.threat_entries[1]]
-	main.director.elapsed = 45.0
+	main.director.elapsed = 120.0
 	main.director.pressure_level = 2
 	main.director.enabled = true
 	main.director.until_spawn = 0.0
