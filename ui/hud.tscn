@@ -195,7 +195,6 @@ text = "선택 위협 투입"
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
-mouse_force_pass_scroll_events = false
 
 [node name="DefenseList" type="VBoxContainer" parent="Catalog/VBox/DefenseScroll"]
 unique_name_in_owner = true
@@ -470,7 +469,6 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/SaveButton" to="." method="_on_save_pressed"]
 [connection signal="pressed" from="TopBar/Margin/LoadButton" to="." method="_on_load_pressed"]
 [connection signal="pressed" from="Catalog/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
-[connection signal="gui_input" from="Catalog/VBox/DefenseScroll" to="." method="_on_defense_scroll_gui_input"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]

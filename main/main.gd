@@ -9,6 +9,7 @@ const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
 const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
 const FALLING_WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
+const TRAINING_APPROACH_DISTANCE_RATIO := 0.58
 
 static var requested_seed: int = -1
 static var requested_mode: GameMode = GameMode.SUSTAINED
@@ -24,7 +25,6 @@ var tactical_ui_refresh_remaining: float = 0.0
 var game_mode: GameMode = GameMode.SUSTAINED
 var training_step: int = 0
 var training_threat_runtime_id: int = 0
-var training_approach_marker: Label3D
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -90,7 +90,7 @@ func _ready() -> void:
 	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:
-		_create_training_approach_marker()
+		tactical_screen_overlay.call("show_training_approach", objective.global_position, _training_approach_position())
 		_set_training_step(TrainingStep.CAMERA)
 	elif game_mode == GameMode.SANDBOX:
 		hud.set_feedback("샌드박스 · 자산은 무제한이며 목록에서 위협을 골라 지도에 투입할 수 있습니다")
@@ -384,8 +384,7 @@ func _refresh_tactical_ui() -> void:
 	hud.set_tactical_alert(hostile_count, engagement_coordinator.reservations.size(), warnings)
 	if game_mode == GameMode.TRAINING and training_step == TrainingStep.ACQUIRE and hostile_count > 0:
 		session.set_simulation_speed(0.0)
-		if training_approach_marker != null:
-			training_approach_marker.visible = false
+		tactical_screen_overlay.call("hide_training_approach")
 		_set_training_step(TrainingStep.SELECT_TRACK)
 	if selected_track != null:
 		_refresh_selected_track_panel()
@@ -519,17 +518,17 @@ func _set_training_step(step: TrainingStep) -> void:
 	training_step = step
 	match step:
 		TrainingStep.CAMERA:
-			hud.set_training_lesson(1, 13, "전장 살펴보기", "WASD로 이동하고 Q/E 또는 우클릭 드래그로 회전하며 마우스 휠로 확대·축소하세요. 섬 동쪽의 '훈련 표적 진입 방향' 표시도 확인하세요.", true)
+			hud.set_training_lesson(1, 13, "전장 살펴보기", "좌측 나침반으로 방위를 확인하세요. WASD로 이동하고 Q/E 또는 우클릭 드래그로 회전하며, 주황색 E 진입 회랑을 찾아보세요.", true)
 		TrainingStep.RADAR:
-			hud.set_training_lesson(2, 13, "탐색 센서", "표적은 섬 동쪽에서 옵니다. 오른쪽 목록의 탐색 레이더를 도시 동쪽 평탄한 지형에 배치하세요.")
+			hud.set_training_lesson(2, 13, "탐색 센서", "표적은 나침반 E 방향의 먼 해상에서 옵니다. 탐색 레이더를 도시와 주황색 진입 회랑 사이의 평탄한 지형에 배치하세요.")
 		TrainingStep.COMMAND:
 			hud.set_training_lesson(3, 13, "지휘통제 연결", "지휘통제소를 레이더와 연결될 거리 안에 배치해 항적 공유 경로를 만드세요.")
 		TrainingStep.WEAPON:
-			hud.set_training_lesson(4, 13, "요격 계층", "미사일 포대를 도시와 동쪽 진입 방향 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다.")
+			hud.set_training_lesson(4, 13, "요격 계층", "미사일 포대를 도시와 주황색 E 진입 회랑 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다.")
 		TrainingStep.START:
 			hud.set_training_lesson(5, 13, "방어 시작", "오른쪽 아래의 방어 시작을 누르세요. 표적 탐지까지 훈련이 자동 재생됩니다.")
 		TrainingStep.ACQUIRE:
-			hud.set_training_lesson(6, 13, "탐지와 항적 · 자동 재생", "동쪽에서 오는 표적을 레이더가 확인할 때까지 관찰하세요. 확인 즉시 자동 일시정지됩니다.")
+			hud.set_training_lesson(6, 13, "탐지와 항적 · 자동 재생", "E 방향 먼 해상에서 접근하는 표적을 레이더가 확인할 때까지 관찰하세요. 확인 즉시 자동 일시정지됩니다.")
 		TrainingStep.SELECT_TRACK:
 			hud.set_training_lesson(7, 13, "항적 선택 · 일시정지", "지도에 나타난 적성 항적 표식을 클릭해 분류·소속·추적 품질을 확인하세요.")
 		TrainingStep.SELECT_ASSET:
@@ -561,25 +560,15 @@ func _spawn_training_threat() -> void:
 	if threat == null:
 		return
 	training_threat_runtime_id = threat.runtime_id
-	var position := objective.global_position + Vector3.RIGHT * 560.0
-	threat.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z) + 80.0, position.z)
+	threat.global_position = _training_approach_position()
 	if threat is AttackUav:
-		(threat as AttackUav).speed_multiplier = 0.45
-	if training_approach_marker != null:
-		training_approach_marker.text = "훈련 표적 진입 중  ←"
+		(threat as AttackUav).speed_multiplier = 0.65
+	tactical_screen_overlay.call("show_training_approach", objective.global_position, threat.global_position, "훈련 표적 접근 중")
 
-func _create_training_approach_marker() -> void:
-	training_approach_marker = Label3D.new()
-	training_approach_marker.name = "TrainingApproachMarker"
-	training_approach_marker.text = "훈련 표적 진입 방향  ←"
-	training_approach_marker.font_size = 42
-	training_approach_marker.outline_size = 10
-	training_approach_marker.modulate = Color(1.0, 0.76, 0.18)
-	training_approach_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	training_approach_marker.no_depth_test = true
-	effects_parent.add_child(training_approach_marker)
-	var position := objective.global_position + Vector3.RIGHT * 560.0
-	training_approach_marker.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z) + 24.0, position.z)
+func _training_approach_position() -> Vector3:
+	var position := objective.global_position + Vector3.RIGHT * scenario.battlefield_size * TRAINING_APPROACH_DISTANCE_RATIO
+	position.y = battlefield.flight_surface_height(position.x, position.z) + 80.0
+	return position
 
 func _training_battery() -> MissileBattery:
 	for defense: DefenseUnit in defenses:

@@ -44,6 +44,10 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_true(interceptor.is_queued_for_deletion())
 	assert_eq(threat.countermeasure_charges_remaining, 0)
 	assert_eq(threat.health, 1.0)
+	var burst := projectile_parent.get_node_or_null("CountermeasureBurst") as Node3D
+	assert_not_null(burst)
+	assert_true((burst.get_node("Flares") as GPUParticles3D).emitting)
+	assert_eq((burst.get_node("Reason") as Label3D).text, "플레어 기만")
 
 func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	var profile := SCENARIO.available_defenses[0].placement_profile
@@ -378,7 +382,9 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	gun.magazine.reserve = 0
 	gun._process(0.0)
 	assert_true(gun.status_marker.visible)
-	assert_eq((gun.status_marker.get_node("Label") as Label3D).text, "탄")
+	var depleted_label := gun.status_marker.get_node("Label") as Label3D
+	assert_eq(depleted_label.text, "탄약 고갈")
+	assert_almost_eq(depleted_label.pixel_size, 0.001, 0.00001)
 	gun.receive_damage(70.0)
 	gun._process(0.0)
 	assert_eq((gun.status_marker.get_node("Label") as Label3D).text, "×")

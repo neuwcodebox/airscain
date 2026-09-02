@@ -78,7 +78,7 @@ func critical_status_text() -> String:
 	if not operational_status.is_empty():
 		return operational_status
 	if uses_ammunition() and magazine.is_depleted():
-		return "탄"
+		return "탄약 고갈"
 	return ""
 
 func complete_resupply() -> void:

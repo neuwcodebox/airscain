@@ -3,6 +3,7 @@ extends Node3D
 
 const MISS_EFFECT_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
 const DETONATION_SCENE := preload("res://effects/explosion/explosion.tscn")
+const COUNTERMEASURE_SCENE := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
 const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 
 var target_track: PlayerTrack
@@ -59,7 +60,9 @@ func gameplay_tick(delta: float) -> void:
 		if countermeasure_target != null and global_position.distance_to(countermeasure_target.get_aim_position()) <= 120.0:
 			countermeasure_attempted = true
 			if countermeasure_target.try_defeat_seeker(infrared_sensitivity, radar_sensitivity, rng.randf()):
-				_expire(Color(1.0, 0.54, 0.16), "대응책 기만")
+				var countermeasure_type := countermeasure_target.effective_countermeasure_type(infrared_sensitivity, radar_sensitivity)
+				_spawn_countermeasure(countermeasure_target.get_aim_position(), countermeasure_type)
+				_expire(Color(1.0, 0.54, 0.16), "%s 기만" % ("플레어" if countermeasure_type == &"flare" else "채프"))
 				return
 	for threat: ThreatUnit in registry.get_active():
 		var physical_position := threat.get_aim_position()
@@ -91,6 +94,15 @@ func _spawn_detonation(color: Color, radius: float) -> void:
 	parent.add_child(detonation)
 	detonation.global_position = global_position
 	detonation.setup(color, radius)
+
+func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName) -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
+	parent.add_child(burst)
+	burst.global_position = position
+	burst.call("setup", countermeasure_type)
 
 func _release_smoke_trail() -> void:
 	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D

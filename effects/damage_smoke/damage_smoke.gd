@@ -14,9 +14,9 @@ func set_damage_ratio(damage_ratio: float) -> void:
 	if fire == null:
 		fire = get_node("Fire") as GPUParticles3D
 	var intensity := clampf(damage_ratio, 0.0, 1.0)
-	smoke.amount = maxi(24, roundi(24.0 + intensity * 84.0))
-	smoke.lifetime = lerpf(2.4, 5.0, intensity)
-	smoke.scale = Vector3.ONE * lerpf(1.15, 2.8, intensity)
+	smoke.amount = maxi(72, roundi(72.0 + intensity * 156.0))
+	smoke.lifetime = lerpf(4.2, 6.5, intensity)
+	smoke.scale = Vector3.ONE * lerpf(0.95, 1.8, intensity)
 	smoke.emitting = intensity > 0.0
 	fire.amount = maxi(8, roundi(8.0 + intensity * 24.0))
 	fire.scale = Vector3.ONE * lerpf(0.8, 1.7, intensity)

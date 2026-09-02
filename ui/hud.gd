@@ -288,12 +288,6 @@ func _catalog_group_for(definition: DefenseDefinition) -> StringName:
 func _on_defense_pressed(definition: DefenseDefinition) -> void:
 	defense_selected.emit(definition)
 
-func _on_defense_scroll_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mouse_button := event as InputEventMouseButton
-		if mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP or mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			accept_event()
-
 func _on_start_pressed() -> void:
 	start_requested.emit()
 

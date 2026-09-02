@@ -56,6 +56,12 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_true(objective.apply_mission_damage(10))
 	assert_eq(objective.current_integrity, 90)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
+	var smoke := objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
+	var smoke_process := smoke.process_material as ParticleProcessMaterial
+	assert_gte(smoke.amount, 72)
+	assert_true(smoke_process.turbulence_enabled)
+	assert_gte(smoke_process.spread, 40.0)
+	assert_not_null(smoke_process.color_ramp)
 	assert_true(objective.apply_mission_damage(100))
 	assert_eq(objective.current_integrity, 0)
 	assert_eq(objective.damage_smoke_effects.size(), 4)

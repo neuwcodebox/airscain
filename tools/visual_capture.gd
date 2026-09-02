@@ -15,6 +15,7 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
 		print("VISUAL_CAPTURE_OK camera_rotation")
@@ -32,12 +33,21 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	if OS.get_cmdline_user_args().has("--capture-city-status-only"):
+		await _capture_city_smoke_and_ammo_status()
+		print("VISUAL_CAPTURE_OK city_damage_smoke ammo_depleted_status")
+		quit(0)
+		return
 	await _capture_missile_battery_variants()
 	if OS.get_cmdline_user_args().has("--capture-batteries-only"):
 		print("VISUAL_CAPTURE_OK missile_battery_variants")
 		quit(0)
 		return
 	await _capture_missile_smoke_trail()
+	if OS.get_cmdline_user_args().has("--capture-smoke-only"):
+		print("VISUAL_CAPTURE_OK catalog_wheel missile_smoke_timed_fade")
+		quit(0)
+		return
 	var city_camera_position := main.camera_rig.global_position
 	var city_camera_zoom := main.camera_rig.zoom_distance
 	main.objective.apply_mission_damage(35)
@@ -167,8 +177,50 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial camera_rotation placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
+	print("VISUAL_CAPTURE_OK initial catalog_wheel camera_rotation placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
+
+func _verify_catalog_wheel_input() -> void:
+	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
+	var target_button: Button
+	for child: Node in main.hud.defense_list.get_children():
+		if child is Button:
+			target_button = child as Button
+			break
+	if target_button == null:
+		push_error("Catalog did not expose a child button for wheel verification")
+		quit(1)
+		return
+	defense_scroll.scroll_vertical = 0
+	Input.warp_mouse(target_button.get_global_rect().get_center())
+	for index: int in 2:
+		await process_frame
+	for index: int in 3:
+		var scroll_down := InputEventMouseButton.new()
+		scroll_down.button_index = MOUSE_BUTTON_WHEEL_DOWN
+		scroll_down.pressed = true
+		scroll_down.position = target_button.get_global_rect().get_center()
+		scroll_down.global_position = scroll_down.position
+		Input.parse_input_event(scroll_down)
+		await process_frame
+	if defense_scroll.scroll_vertical <= 0:
+		push_error("Catalog wheel did not scroll while the pointer was over a child button")
+		quit(1)
+		return
+	defense_scroll.scroll_vertical = int(defense_scroll.get_v_scroll_bar().max_value)
+	var initial_zoom := main.camera_rig.zoom_distance
+	var boundary_scroll := InputEventMouseButton.new()
+	boundary_scroll.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	boundary_scroll.pressed = true
+	boundary_scroll.position = defense_scroll.get_global_rect().get_center()
+	boundary_scroll.global_position = boundary_scroll.position
+	Input.parse_input_event(boundary_scroll)
+	await process_frame
+	if not is_equal_approx(main.camera_rig.zoom_distance, initial_zoom):
+		push_error("Catalog boundary wheel propagated to the battlefield camera")
+		quit(1)
+		return
+	defense_scroll.scroll_vertical = 0
 
 func _capture_camera_rotation() -> void:
 	var initial_yaw := main.camera_rig.yaw_radians
@@ -228,6 +280,42 @@ func _spawn_swarm_near_close_in_gun() -> void:
 		threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
 		main.registry.add(threat)
 		main._on_threat_spawned(threat)
+
+func _capture_city_smoke_and_ammo_status() -> void:
+	var target := main.objective.global_position
+	main.objective.apply_mission_damage(55)
+	main.camera_rig.camera.global_position = target + Vector3(165.0, 105.0, 185.0)
+	main.camera_rig.camera.look_at(target + Vector3.UP * 32.0, Vector3.UP)
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	await _wait_seconds(0.8)
+	if main.objective.damage_smoke_effects.size() < 3:
+		push_error("City damage did not create dense multi-site smoke")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_city_damage_smoke.png")
+	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
+	var gun: CloseInGun
+	for defense: DefenseUnit in main.defenses:
+		if defense is CloseInGun:
+			gun = defense as CloseInGun
+			break
+	if gun == null:
+		push_error("Close-in gun was unavailable for ammunition status capture")
+		quit(1)
+		return
+	gun.magazine.rounds = 0
+	gun.magazine.reserve = 0
+	gun._process(0.0)
+	var label := gun.status_marker.get_node("Label") as Label3D
+	if label.text != "탄약 고갈" or label.pixel_size > 0.0011:
+		push_error("Depleted ammunition status was not concise and screen-sized")
+		quit(1)
+		return
+	main.camera_rig.camera.global_position = gun.global_position + Vector3(42.0, 28.0, 52.0)
+	main.camera_rig.camera.look_at(gun.global_position + Vector3.UP * 11.0, Vector3.UP)
+	await _wait_seconds(0.2)
+	_save_capture("/tmp/airscain_ammo_depleted_status.png")
 
 func _capture_missile_battery_variants() -> void:
 	var definitions: Array[MissileBatteryDefinition] = [
@@ -312,8 +400,7 @@ func _capture_missile_smoke_trail() -> void:
 	main.camera_rig.camera.look_at(midpoint, Vector3.UP)
 	main.hud.visible = false
 	main.altitude_profile.visible = false
-	for index: int in 4:
-		await process_frame
+	await _wait_seconds(0.35)
 	var smoke := interceptor.get_node("SmokeTrail") as GPUParticles3D
 	var smoke_bounds := smoke.capture_aabb()
 	_save_capture("/tmp/airscain_missile_smoke_trail.png")
@@ -323,14 +410,23 @@ func _capture_missile_smoke_trail() -> void:
 		return
 	smoke.call("release_to", main.effects_parent)
 	interceptor.queue_free()
-	for index: int in 120:
-		await process_frame
+	await _wait_seconds(2.0)
 	var aged_smoke_bounds := smoke.capture_aabb()
 	_save_capture("/tmp/airscain_missile_smoke_aged.png")
 	if maxf(aged_smoke_bounds.size.y, aged_smoke_bounds.size.z) < 4.0:
 		push_error("Missile smoke trail did not develop a visible turbulent cross-section")
 		quit(1)
 		return
+	await _wait_seconds(4.0)
+	_save_capture("/tmp/airscain_missile_smoke_fading.png")
+	await _wait_seconds(3.2)
+	_save_capture("/tmp/airscain_missile_smoke_near_end.png")
+	await _wait_seconds(2.2)
+	if not is_instance_valid(smoke) or smoke.release_remaining <= 0.0:
+		push_error("Missile smoke trail did not retain an invisible safety tail before cleanup")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_missile_smoke_transparent_tail.png")
 	var self_destruct := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(self_destruct)
 	var lost_track := PlayerTrack.new()
@@ -348,11 +444,54 @@ func _capture_missile_smoke_trail() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_interceptor_self_destruct.png")
+	await _capture_countermeasure_defeat(midpoint)
 	main.hud.visible = true
 	main.altitude_profile.visible = true
 	main.camera_rig.global_position = previous_camera_position
 	main.camera_rig.zoom_distance = previous_zoom
 	main.camera_rig._update_camera()
+
+func _capture_countermeasure_defeat(center: Vector3) -> void:
+	for effect: Node in main.projectile_parent.get_children():
+		if effect.name == "Explosion" or effect.name == "InterceptorMiss":
+			effect.queue_free()
+	await process_frame
+	var strike_definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var strike := strike_definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(strike)
+	strike.setup(9950, strike_definition)
+	strike.global_position = center + Vector3(48.0, 12.0, 0.0)
+	main.registry.add(strike)
+	var track := PlayerTrack.new()
+	track.track_id = 9950
+	track.state = PlayerTrack.State.CONFIRMED
+	track.estimated_position = strike.global_position
+	track.estimated_velocity = Vector3(96.0, 0.0, 0.0)
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	interceptor.global_position = strike.global_position + Vector3(-100.0, 0.0, 0.0)
+	var long_range := main.scenario.available_defenses[7] as MissileBatteryDefinition
+	interceptor.configure(track, main.registry, long_range.munitions[0], Vector3.RIGHT, 9950)
+	var test_rng := RandomNumberGenerator.new()
+	var successful_seed := 1
+	while successful_seed < 1000:
+		test_rng.seed = successful_seed
+		if test_rng.randf() < strike_definition.chaff_effectiveness * long_range.munitions[0].radar_sensitivity:
+			break
+		successful_seed += 1
+	interceptor.rng.seed = successful_seed
+	interceptor.gameplay_tick(0.01)
+	for index: int in 4:
+		await process_frame
+	var burst := main.projectile_parent.get_node_or_null("CountermeasureBurst") as Node3D
+	var miss := main.projectile_parent.get_node_or_null("InterceptorMiss") as InterceptorMissEffect
+	if burst == null or miss == null or (burst.get_node("Reason") as Label3D).text != "채프 기만" or (miss.get_node("Reason") as Label3D).text != "채프 기만":
+		push_error("Strike aircraft countermeasure defeat did not explain the interceptor airburst")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_countermeasure_defeat.png")
+	main.registry.remove(strike)
+	strike.queue_free()
 
 func _place_asset(definition: DefenseDefinition, direction: float) -> void:
 	for offset: int in range(0, 180, 10):
@@ -367,3 +506,8 @@ func _save_capture(path: String) -> void:
 	var error := image.save_png(path)
 	if error != OK:
 		push_error("Could not save visual capture: %s" % error_string(error))
+
+func _wait_seconds(duration: float) -> void:
+	var deadline := Time.get_ticks_msec() + int(duration * 1000.0)
+	while Time.get_ticks_msec() < deadline:
+		await process_frame

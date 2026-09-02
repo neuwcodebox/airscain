@@ -60,7 +60,7 @@ func _sync_damage_visuals() -> void:
 		var effect := DAMAGE_SMOKE_SCENE.instantiate() as Node3D
 		add_child(effect)
 		effect.position = DAMAGE_SMOKE_OFFSETS[index]
-		effect.call("set_city_scale", 3.5)
+		effect.call("set_city_scale", 2.2)
 		damage_smoke_effects.append(effect)
 	while damage_smoke_effects.size() > desired_count:
 		var effect: Node3D = damage_smoke_effects.pop_back()

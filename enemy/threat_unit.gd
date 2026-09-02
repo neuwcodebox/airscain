@@ -67,6 +67,11 @@ func try_defeat_seeker(infrared_sensitivity: float, radar_sensitivity: float, ro
 	countermeasure_charges_remaining -= 1
 	return true
 
+func effective_countermeasure_type(infrared_sensitivity: float, radar_sensitivity: float) -> StringName:
+	var flare_score := definition.flare_effectiveness * infrared_sensitivity
+	var chaff_score := definition.chaff_effectiveness * radar_sensitivity
+	return &"flare" if flare_score >= chaff_score else &"chaff"
+
 func resolve_once(neutralized: bool) -> bool:
 	if resolved_state:
 		return false

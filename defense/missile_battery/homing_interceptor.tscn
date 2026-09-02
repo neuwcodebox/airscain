@@ -21,8 +21,8 @@ emission_energy_multiplier = 5.0
 transparency = 1
 
 [sub_resource type="Gradient" id="SmokeGradient"]
-offsets = PackedFloat32Array(0, 0.08, 0.48, 0.78, 1)
-colors = PackedColorArray(0.72, 0.74, 0.72, 0, 0.62, 0.64, 0.63, 0.72, 0.5, 0.53, 0.55, 0.56, 0.4, 0.43, 0.46, 0.24, 0.34, 0.37, 0.4, 0)
+offsets = PackedFloat32Array(0, 0.08, 0.45, 0.68, 0.88, 1)
+colors = PackedColorArray(0.72, 0.74, 0.72, 0, 0.62, 0.64, 0.63, 0.72, 0.5, 0.53, 0.55, 0.56, 0.41, 0.44, 0.47, 0.24, 0.36, 0.39, 0.42, 0, 0.34, 0.37, 0.4, 0)
 
 [sub_resource type="GradientTexture1D" id="SmokeGradientTexture"]
 gradient = SubResource("SmokeGradient")
