@@ -2,8 +2,6 @@ class_name TacticalScreenOverlay
 extends Control
 
 const EDGE_MARGIN := 42.0
-const COMPASS_CENTER := Vector2(410.0, 116.0)
-const COMPASS_RADIUS := 38.0
 const TRAINING_RIGHT_INSET := 340.0
 
 var camera: Camera3D
@@ -40,7 +38,6 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	if camera == null:
 		return
-	_draw_compass()
 	if training_approach_visible:
 		_draw_training_approach()
 	if player_knowledge == null:
@@ -64,25 +61,6 @@ func _draw() -> void:
 		if track.track_id == selected_track_id:
 			draw_arc(marker, 18.0, 0.0, TAU, 24, Color(1.0, 0.92, 0.38, 0.95), 2.5, true)
 
-func _draw_compass() -> void:
-	var background := Color(0.025, 0.055, 0.07, 0.82)
-	var line_color := Color(0.52, 0.76, 0.84, 0.72)
-	draw_circle(COMPASS_CENTER, COMPASS_RADIUS, background)
-	draw_arc(COMPASS_CENTER, COMPASS_RADIUS, 0.0, TAU, 48, Color(0.25, 0.72, 0.88, 0.9), 2.0, true)
-	var directions: Array[Vector3] = [Vector3.FORWARD, Vector3.RIGHT, Vector3.BACK, Vector3.LEFT]
-	var labels: Array[String] = ["N", "E", "S", "W"]
-	for index: int in directions.size():
-		var screen_direction := compass_screen_direction(directions[index])
-		draw_line(COMPASS_CENTER + screen_direction * 11.0, COMPASS_CENTER + screen_direction * 18.0, line_color, 2.0, true)
-		_draw_centered_text(labels[index], COMPASS_CENTER + screen_direction * 27.0, Color(1.0, 0.78, 0.24) if index == 0 else Color(0.78, 0.9, 0.94), 14)
-	var north := compass_screen_direction(Vector3.FORWARD)
-	var tangent := Vector2(-north.y, north.x)
-	draw_colored_polygon(PackedVector2Array([
-		COMPASS_CENTER + north * 18.0,
-		COMPASS_CENTER - north * 2.0 + tangent * 5.0,
-		COMPASS_CENTER - north * 2.0 - tangent * 5.0,
-	]), Color(1.0, 0.62, 0.18, 0.95))
-
 func _draw_training_approach() -> void:
 	var marker := training_marker_screen_position()
 	var origin_screen := size * 0.5
@@ -104,13 +82,10 @@ func _draw_training_approach() -> void:
 	var label_size := Vector2(190.0, 30.0)
 	draw_rect(Rect2(label_position - label_size * 0.5, label_size), Color(0.04, 0.055, 0.05, 0.9), true)
 	draw_rect(Rect2(label_position - label_size * 0.5, label_size), Color(1.0, 0.62, 0.12, 0.92), false, 2.0)
-	_draw_centered_text("E · %s" % training_approach_text, label_position, Color(1.0, 0.82, 0.34), 16)
+	_draw_centered_text(training_approach_label_text(), label_position, Color(1.0, 0.82, 0.34), 16)
 
-func compass_screen_direction(world_direction: Vector3) -> Vector2:
-	if camera == null:
-		return Vector2.UP
-	var direction := Vector2(world_direction.dot(camera.global_basis.x), -world_direction.dot(camera.global_basis.y))
-	return direction.normalized() if direction.length_squared() > 0.001 else Vector2.UP
+func training_approach_label_text() -> String:
+	return training_approach_text
 
 func training_marker_screen_position() -> Vector2:
 	if camera == null:

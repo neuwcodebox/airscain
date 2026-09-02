@@ -74,11 +74,12 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	var approach_marker: Vector2 = training.tactical_screen_overlay.call("training_marker_screen_position")
 	assert_lte(approach_marker.x, training.tactical_screen_overlay.size.x - 340.0)
 	assert_gte(approach_marker.y, 100.0)
-	var east_before_rotation: Vector2 = training.tactical_screen_overlay.call("compass_screen_direction", Vector3.RIGHT)
+	assert_eq(training.tactical_screen_overlay.call("training_approach_label_text"), "훈련 표적 진입")
 	training.camera_rig.yaw_radians += PI * 0.5
 	training.camera_rig._update_camera()
-	var east_after_rotation: Vector2 = training.tactical_screen_overlay.call("compass_screen_direction", Vector3.RIGHT)
-	assert_false(east_before_rotation.is_equal_approx(east_after_rotation))
+	var rotated_marker: Vector2 = training.tactical_screen_overlay.call("training_marker_screen_position")
+	assert_lte(rotated_marker.x, training.tactical_screen_overlay.size.x - 340.0)
+	assert_gte(rotated_marker.y, 100.0)
 	training.camera_rig.yaw_radians -= PI * 0.5
 	training.camera_rig._update_camera()
 	assert_true(training.hud.save_button.disabled)
