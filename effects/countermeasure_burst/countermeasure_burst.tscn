@@ -42,22 +42,19 @@ angular_velocity_max = 720.0
 damping_min = 0.65
 damping_max = 1.15
 scale_min = 0.55
-scale_max = 1.15
-color = Color(0.94, 0.98, 1, 0.96)
+scale_max = 1.0
+color = Color(0.82, 0.86, 0.88, 0.78)
 
 [sub_resource type="StandardMaterial3D" id="ChaffMaterial"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.94, 0.97, 1, 0.96)
-metallic = 0.95
-roughness = 0.18
-emission_enabled = true
-emission = Color(0.68, 0.78, 0.84, 1)
-emission_energy_multiplier = 5.0
+transparency = 4
+shading_mode = 1
+albedo_color = Color(0.7, 0.74, 0.76, 0.76)
+metallic = 0.88
+roughness = 0.14
 
 [sub_resource type="BoxMesh" id="ChaffMesh"]
 material = SubResource("ChaffMaterial")
-size = Vector3(0.9, 0.07, 3.4)
+size = Vector3(0.34, 0.025, 2.1)
 
 [sub_resource type="ParticleProcessMaterial" id="ChaffGlintProcess"]
 emission_shape = 1
@@ -68,22 +65,22 @@ initial_velocity_min = 4.0
 initial_velocity_max = 11.0
 damping_min = 0.55
 damping_max = 1.0
-scale_min = 0.65
-scale_max = 1.4
-color = Color(0.82, 0.94, 1, 0.94)
+scale_min = 0.5
+scale_max = 0.9
+color = Color(0.9, 0.96, 1, 0.92)
 
 [sub_resource type="StandardMaterial3D" id="ChaffGlintMaterial"]
 transparency = 1
 shading_mode = 0
 albedo_color = Color(0.82, 0.94, 1, 0.9)
 emission_enabled = true
-emission = Color(0.58, 0.84, 1, 1)
-emission_energy_multiplier = 9.0
+emission = Color(0.72, 0.88, 1, 1)
+emission_energy_multiplier = 16.0
 
 [sub_resource type="SphereMesh" id="ChaffGlintMesh"]
 material = SubResource("ChaffGlintMaterial")
-radius = 0.28
-height = 0.56
+radius = 0.24
+height = 0.48
 radial_segments = 5
 rings = 3
 
@@ -102,8 +99,8 @@ draw_pass_1 = SubResource("FlareMesh")
 
 [node name="Chaff" type="GPUParticles3D" parent="."]
 emitting = false
-amount = 320
-lifetime = 7.2
+amount = 190
+lifetime = 6.8
 one_shot = true
 explosiveness = 0.9
 visibility_aabb = AABB(-55, -45, -55, 110, 90, 110)
@@ -112,8 +109,8 @@ draw_pass_1 = SubResource("ChaffMesh")
 
 [node name="ChaffGlints" type="GPUParticles3D" parent="."]
 emitting = false
-amount = 140
-lifetime = 6.4
+amount = 52
+lifetime = 4.8
 one_shot = true
 explosiveness = 0.92
 visibility_aabb = AABB(-65, -50, -65, 130, 105, 130)

@@ -50,9 +50,19 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_true((burst.get_node("Chaff") as GPUParticles3D).emitting)
 	assert_true((burst.get_node("ChaffGlints") as GPUParticles3D).emitting)
 	assert_null(burst.get_node_or_null("Reason"))
-	assert_gte((burst.get_node("Chaff") as GPUParticles3D).amount, 300)
-	assert_gte((burst.get_node("Chaff") as GPUParticles3D).lifetime, 7.0)
-	assert_gte((burst.get_node("ChaffGlints") as GPUParticles3D).amount, 120)
+	var chaff := burst.get_node("Chaff") as GPUParticles3D
+	var glints := burst.get_node("ChaffGlints") as GPUParticles3D
+	assert_between(chaff.amount, 160, 220)
+	assert_gte(chaff.lifetime, 6.5)
+	assert_between(glints.amount, 32, 64)
+	assert_lt(glints.amount, chaff.amount / 3)
+	var chaff_mesh := chaff.draw_pass_1 as BoxMesh
+	var chaff_material := chaff_mesh.material as StandardMaterial3D
+	assert_lt(chaff_mesh.size.x, 0.5)
+	assert_gt(chaff_mesh.size.z, chaff_mesh.size.x * 5.0)
+	assert_eq(chaff_material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL)
+	assert_true(chaff_material.metallic > 0.8)
+	assert_false(chaff_material.emission_enabled)
 	var diverted_state := interceptor.capture_state()
 	assert_true(bool(diverted_state.countermeasure_decoy_active))
 	assert_eq(SaveDocument.vector3_from_data(diverted_state.countermeasure_decoy_position), interceptor.countermeasure_decoy_position)
