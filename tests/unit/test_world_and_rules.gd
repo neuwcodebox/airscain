@@ -294,6 +294,27 @@ func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	assert_gte((middle.process_material as ParticleProcessMaterial).gravity.y, 12.0)
 	assert_gte((upper.process_material as ParticleProcessMaterial).gravity.y, 21.0)
 
+func test_all_smoke_particles_use_shadow_casting_materials() -> void:
+	var smoke_cases: Array[Dictionary] = [
+		{"scene": preload("res://defense/missile_battery/homing_interceptor.tscn"), "paths": ["SmokeTrail"]},
+		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "paths": ["Body/ExhaustTrail"]},
+		{"scene": preload("res://enemy/strike_aircraft/strike_aircraft.tscn"), "paths": ["Body/LeftExhaustTrail", "Body/RightExhaustTrail"]},
+		{"scene": preload("res://effects/air_strike_munition/air_strike_munition.tscn"), "paths": ["SmokeTrail"]},
+		{"scene": preload("res://effects/damage_smoke/damage_smoke.tscn"), "paths": ["Smoke", "SmokeMiddle", "SmokeUpper"]},
+		{"scene": preload("res://effects/explosion/explosion.tscn"), "paths": ["Smoke"]},
+		{"scene": preload("res://effects/interceptor_miss/interceptor_miss.tscn"), "paths": ["Smoke"]},
+		{"scene": preload("res://effects/falling_wreck/falling_wreck.tscn"), "paths": ["SmokeTrail"]},
+	]
+	for smoke_case: Dictionary in smoke_cases:
+		var effect: Node = add_child_autofree((smoke_case.scene as PackedScene).instantiate())
+		for path: String in smoke_case.paths:
+			var particles := effect.get_node(path) as GPUParticles3D
+			assert_eq(particles.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s must cast shadows" % path)
+			var mesh := particles.draw_pass_1 as Mesh
+			var material := mesh.surface_get_material(0) as StandardMaterial3D
+			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS, "%s must use shadow-capable transparency" % path)
+			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % path)
+
 func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	battlefield.build(SCENARIO)

@@ -71,8 +71,8 @@ turbulence_initial_displacement_min = 0.12
 turbulence_initial_displacement_max = 0.45
 
 [sub_resource type="StandardMaterial3D" id="ExhaustMaterial"]
-transparency = 1
-shading_mode = 0
+transparency = 4
+shading_mode = 1
 albedo_color = Color(0.18, 0.2, 0.2, 0.52)
 roughness = 1.0
 
@@ -129,6 +129,7 @@ amount = 1560
 lifetime = 18.0
 visibility_aabb = AABB(-160, -80, -160, 320, 240, 320)
 local_coords = false
+cast_shadow = 1
 process_material = SubResource("ExhaustProcess")
 draw_pass_1 = SubResource("ExhaustMesh")
 script = ExtResource("2")

@@ -45,6 +45,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK building_swept_impact exact_impact_smoke")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-smoke-shadow-only"):
+		await _capture_smoke_ground_shadow()
+		print("VISUAL_CAPTURE_OK smoke_ground_shadow shadow_capable_transparency")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -621,6 +626,40 @@ func _capture_building_impact_smoke() -> void:
 		return
 	await _wait_simulation_seconds(0.5)
 	_save_capture("/tmp/airscain_building_impact_smoke.png")
+
+func _capture_smoke_ground_shadow() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	(interceptor.get_node("Missile") as MeshInstance3D).visible = false
+	(interceptor.get_node("Trail") as MeshInstance3D).visible = false
+	(interceptor.get_node("FlameLight") as OmniLight3D).visible = false
+	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
+	smoke.emitting = false
+	var center := main.objective.global_position + Vector3(-340.0, 0.0, -80.0)
+	var ground_height := main.battlefield.terrain_height(center.x, center.z)
+	var smoke_height := ground_height + 28.0
+	var from_position := Vector3(center.x - 95.0, smoke_height, center.z)
+	var to_position := Vector3(center.x + 95.0, smoke_height, center.z)
+	interceptor.global_position = from_position
+	for step_index: int in 20:
+		var next_position := from_position.lerp(to_position, float(step_index + 1) / 20.0)
+		smoke.sample_world_segment(interceptor.global_position, next_position)
+		interceptor.global_position = next_position
+		await process_frame
+	smoke.emitting = false
+	main.camera_rig.camera.global_position = center + Vector3(0.0, 115.0, 145.0)
+	main.camera_rig.camera.look_at(Vector3(center.x, ground_height + 12.0, center.z), Vector3.UP)
+	smoke.speed_scale = 0.0
+	for frame_index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_smoke_ground_shadow.png")
+	smoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for frame_index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_smoke_without_shadow.png")
+	smoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 func _apply_city_building_impacts(total_damage: int, impact_count: int) -> void:
 	var rng := RandomNumberGenerator.new()

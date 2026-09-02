@@ -57,8 +57,8 @@ turbulence_influence_min = 0.14
 turbulence_influence_max = 0.26
 
 [sub_resource type="StandardMaterial3D" id="ContrailMaterial"]
-transparency = 1
-shading_mode = 0
+transparency = 4
+shading_mode = 1
 albedo_color = Color(0.72, 0.76, 0.8, 0.48)
 
 [sub_resource type="SphereMesh" id="ContrailMesh"]
@@ -117,6 +117,7 @@ amount = 1040
 lifetime = 14.0
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
 local_coords = false
+cast_shadow = 1
 process_material = SubResource("ContrailProcess")
 draw_pass_1 = SubResource("ContrailMesh")
 script = ExtResource("2")
@@ -129,6 +130,7 @@ amount = 1040
 lifetime = 14.0
 visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
 local_coords = false
+cast_shadow = 1
 process_material = SubResource("ContrailProcess")
 draw_pass_1 = SubResource("ContrailMesh")
 script = ExtResource("2")

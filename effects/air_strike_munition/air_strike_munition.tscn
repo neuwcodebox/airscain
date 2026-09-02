@@ -55,8 +55,8 @@ turbulence_influence_min = 0.15
 turbulence_influence_max = 0.28
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
-transparency = 1
-shading_mode = 0
+transparency = 4
+shading_mode = 1
 albedo_color = Color(0.3, 0.32, 0.34, 0.5)
 
 [sub_resource type="SphereMesh" id="SmokeMesh"]
@@ -91,6 +91,7 @@ amount = 720
 lifetime = 13.0
 visibility_aabb = AABB(-100, -60, -100, 200, 160, 200)
 local_coords = false
+cast_shadow = 1
 process_material = SubResource("SmokeProcess")
 draw_pass_1 = SubResource("SmokeMesh")
 script = ExtResource("2")
