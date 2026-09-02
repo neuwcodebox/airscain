@@ -262,6 +262,22 @@ func test_altitude_profile_shows_public_tracks_and_friendly_projectiles_by_layer
 	assert_true(interceptor.is_in_group("friendly_altitude_projectiles"))
 	interceptor.queue_free()
 
+func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profile() -> void:
+	var headings: Array[String] = []
+	for child: Node in main.hud.defense_list.get_children():
+		if child is Label:
+			headings.append((child as Label).text)
+	assert_eq(headings, ["감시·추적", "지휘·지원", "미사일 방어", "근접·특수 요격"])
+	assert_eq(main.hud.defense_buttons.size(), main.scenario.available_defenses.size())
+	for index: int in main.hud.defense_buttons.size():
+		assert_true(is_instance_valid(main.hud.defense_buttons[index]))
+	var catalog := main.hud.get_node("Catalog") as Control
+	assert_false(catalog.get_global_rect().intersects(main.altitude_profile.get_global_rect()))
+	assert_gte(catalog.position.y, main.altitude_profile.position.y + main.altitude_profile.size.y + 20.0)
+	assert_gte(catalog.size.y, 480.0)
+	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
+	assert_gte(defense_scroll.size.y, 360.0)
+
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]

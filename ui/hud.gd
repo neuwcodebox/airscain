@@ -31,6 +31,13 @@ var selected_asset_connection_count: int = 0
 var overlay_mode_index: int = 0
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
 const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전 영역", "지원 작업", "전자전", "C2 연결"]
+const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special"]
+const CATALOG_GROUP_LABELS := {
+	&"sensor": "감시·추적",
+	&"network": "지휘·지원",
+	&"missile": "미사일 방어",
+	&"special": "근접·특수 요격",
+}
 
 @onready var budget_label: Label = %BudgetLabel
 @onready var integrity_label: Label = %IntegrityLabel
@@ -246,14 +253,37 @@ func _build_defense_catalog() -> void:
 	for child: Node in defense_list.get_children():
 		child.queue_free()
 	defense_buttons.clear()
-	for definition: DefenseDefinition in defense_definitions:
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(0.0, 36.0)
-		button.add_theme_font_size_override("font_size", 15)
-		button.text = "%s  $%d" % [definition.display_name, definition.price]
-		button.pressed.connect(_on_defense_pressed.bind(definition))
-		defense_list.add_child(button)
-		defense_buttons.append(button)
+	defense_buttons.resize(defense_definitions.size())
+	for group_id: StringName in CATALOG_GROUP_ORDER:
+		var group_definitions: Array[DefenseDefinition] = []
+		for definition: DefenseDefinition in defense_definitions:
+			if _catalog_group_for(definition) == group_id:
+				group_definitions.append(definition)
+		if group_definitions.is_empty():
+			continue
+		var heading := Label.new()
+		heading.name = "CatalogGroup%s" % String(group_id).to_pascal_case()
+		heading.text = String(CATALOG_GROUP_LABELS[group_id])
+		heading.add_theme_color_override("font_color", Color(0.48, 0.82, 0.94))
+		heading.add_theme_font_size_override("font_size", 13)
+		defense_list.add_child(heading)
+		for definition: DefenseDefinition in group_definitions:
+			var button := Button.new()
+			button.custom_minimum_size = Vector2(0.0, 32.0)
+			button.add_theme_font_size_override("font_size", 14)
+			button.text = "%s  $%d" % [definition.display_name, definition.price]
+			button.pressed.connect(_on_defense_pressed.bind(definition))
+			defense_list.add_child(button)
+			defense_buttons[defense_definitions.find(definition)] = button
+
+func _catalog_group_for(definition: DefenseDefinition) -> StringName:
+	if definition is SearchRadarDefinition:
+		return &"sensor"
+	if definition is CommandPostDefinition or definition is SupportFacilityDefinition:
+		return &"network"
+	if definition is MissileBatteryDefinition:
+		return &"missile"
+	return &"special"
 
 func _on_defense_pressed(definition: DefenseDefinition) -> void:
 	defense_selected.emit(definition)

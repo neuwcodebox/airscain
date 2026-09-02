@@ -155,17 +155,17 @@ horizontal_alignment = 1
 
 [node name="Catalog" type="PanelContainer" parent="."]
 layout_mode = 1
-anchors_preset = 3
+anchors_preset = 11
 anchor_left = 1.0
-anchor_top = 1.0
+anchor_top = 0.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -255.0
-offset_top = -300.0
+offset_left = -308.0
+offset_top = 380.0
 offset_right = -18.0
 offset_bottom = -18.0
 grow_horizontal = 0
-grow_vertical = 0
+grow_vertical = 2
 mouse_filter = 1
 theme_override_styles/panel = SubResource("CatalogPanel")
 
@@ -190,10 +190,16 @@ visible = false
 layout_mode = 2
 text = "선택 위협 투입"
 
-[node name="DefenseList" type="VBoxContainer" parent="Catalog/VBox"]
+[node name="DefenseScroll" type="ScrollContainer" parent="Catalog/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="DefenseList" type="VBoxContainer" parent="Catalog/VBox/DefenseScroll"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
 
 [node name="StartButton" type="Button" parent="Catalog/VBox"]
 unique_name_in_owner = true
