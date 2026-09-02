@@ -228,6 +228,11 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	enemy_knowledge.record_outcome(neutralized, threat.global_position, threat.definition.id)
 	registry.remove(threat)
 	session.register_threat_resolution(threat, neutralized, reward)
+	if not neutralized and threat is AttackUav:
+		var aircraft := threat as AttackUav
+		if aircraft.mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS and aircraft.mission_runtime.effect_applied:
+			threat.queue_free()
+			return
 	if neutralized and _leaves_falling_wreck(threat):
 		_spawn_falling_wreck(threat)
 	combat_audio.call("play_event", &"explosion", 0.8 if neutralized else 1.0)

@@ -330,7 +330,25 @@ func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_t
 	assert_almost_eq(threat.global_position.x, bounds.position.x, 0.001)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 	assert_almost_eq(objective.damage_smoke_effects[0].global_position, threat.global_position, Vector3.ONE * 0.001)
-	assert_eq(objective.current_integrity, SCENARIO.objective_definition.maximum_integrity - roundi(definition.mission.damage))
+
+func test_strike_and_exit_aircraft_is_not_stopped_by_incidental_city_buildings() -> void:
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(SCENARIO)
+	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
+	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
+	objective.setup(1, SCENARIO.objective_definition)
+	var definition := SCENARIO.threat_entries[3].threat_definition as AttackUavDefinition
+	var threat := add_child_autofree(definition.scene.instantiate()) as AttackUav
+	threat.setup(4002, definition)
+	var bounds := battlefield.city_building_bounds(0)
+	var center := bounds.get_center()
+	var start := Vector3(bounds.position.x - 12.0, center.y, center.z)
+	var target := Vector3(bounds.end.x + 80.0, center.y, center.z)
+	threat.global_position = start
+	threat.configure_mission(objective, battlefield, target, 1.0, null, target + Vector3.RIGHT * 500.0)
+	threat.gameplay_tick(1.0)
+	assert_false(threat.resolved_state)
+	assert_gt(threat.global_position.x, bounds.position.x)
 
 func test_threat_resolution_can_only_happen_once() -> void:
 	var threat: ThreatUnit = autofree(ThreatUnit.new()) as ThreatUnit

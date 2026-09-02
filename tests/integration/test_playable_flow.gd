@@ -739,16 +739,24 @@ func test_strike_aircraft_releases_above_the_city_and_climbs_out_over_the_sea() 
 	threat.global_position = target + Vector3(-90.0, definition.movement.terminal_altitude, 0.0)
 	threat.setup(812, definition)
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, exit_point)
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	var explosion_count := main.effects_parent.find_children("Explosion", "ExplosionEffect").size()
 	threat.gameplay_tick(0.1)
 	assert_true(threat.mission_runtime.effect_applied)
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_gt(threat.global_position.y, main.battlefield.generator.sea_level + 90.0)
 	var minimum_egress_altitude := threat.global_position.y
-	for frame: int in 80:
+	for frame: int in 320:
 		threat.gameplay_tick(0.1)
 		minimum_egress_altitude = minf(minimum_egress_altitude, threat.global_position.y)
+		if threat.resolved_state:
+			break
 	assert_gte(minimum_egress_altitude, main.battlefield.generator.sea_level + definition.movement.terminal_altitude - 0.1)
 	assert_gt(threat.global_position.y, definition.movement.terminal_altitude + 20.0)
+	assert_true(threat.resolved_state)
+	assert_false(main.registry.get_active().has(threat))
+	assert_eq(main.effects_parent.find_children("Explosion", "ExplosionEffect").size(), explosion_count)
 
 func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	var definition := main.scenario.threat_entries[9].threat_definition as AttackUavDefinition

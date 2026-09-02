@@ -44,15 +44,16 @@ func gameplay_tick(delta: float) -> void:
 		var orbit_target := mission_target + Vector3(cos(orbit_angle) * orbit_radius, _definition.movement.cruise_altitude, sin(orbit_angle) * orbit_radius)
 		mover.advance(self, body, orbit_target, speed_multiplier, delta, true)
 	else:
-		mover.advance(self, body, target_point, speed_multiplier, delta, false, terminal_committed)
-	var building_impact := battlefield.building_segment_impact(previous_position, global_position)
-	if not building_impact.is_empty():
-		global_position = building_impact.position
-		_sample_exhaust(previous_position, global_position)
-		objective.apply_building_impact(roundi(_definition.mission.damage), global_position, float(building_impact.building_height))
-		resolve_once(false)
-		return
+		var preserving_egress_altitude := mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS
+		mover.advance(self, body, target_point, speed_multiplier, delta, preserving_egress_altitude, terminal_committed)
 	if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
+		var building_impact := battlefield.building_segment_impact(previous_position, global_position)
+		if not building_impact.is_empty():
+			global_position = building_impact.position
+			_sample_exhaust(previous_position, global_position)
+			objective.apply_building_impact(roundi(_definition.mission.damage), global_position, float(building_impact.building_height))
+			resolve_once(false)
+			return
 		var impact_point := mission_target + Vector3.UP * 2.0
 		var nearest_impact := Geometry3D.get_closest_point_to_segment(impact_point, previous_position, global_position)
 		if nearest_impact.distance_to(impact_point) <= _definition.mission.action_distance:
