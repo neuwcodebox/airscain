@@ -111,9 +111,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if get_viewport().gui_get_hovered_control() != null:
 				return
 			if selected_threat != null:
-				sandbox_threat_placement_requested.emit(selected_threat, candidate_position)
-				feedback_changed.emit("위협을 투입했습니다")
-				cancel()
+				request_selected_sandbox_threat_placement()
 				get_viewport().set_input_as_handled()
 				return
 			var result: Dictionary
@@ -126,6 +124,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			if result.success:
 				cancel()
 			get_viewport().set_input_as_handled()
+
+func request_selected_sandbox_threat_placement() -> bool:
+	if selected_threat == null:
+		return false
+	sandbox_threat_placement_requested.emit(selected_threat, candidate_position)
+	feedback_changed.emit("위협을 투입했습니다 · 계속 좌클릭해 추가 투입")
+	return true
 
 func _validation() -> Dictionary:
 	if relocating_unit == null and not session.unlimited_budget and session.budget < selected.price:
