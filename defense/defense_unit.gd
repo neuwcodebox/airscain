@@ -6,6 +6,7 @@ signal weapon_fired(unit: DefenseUnit, low_resources: bool)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 const STATUS_MARKER_SCENE := preload("res://effects/unit_status_marker/unit_status_marker.tscn")
+const IDENTITY_MARKER_SCENE := preload("res://effects/unit_identity_marker/unit_identity_marker.tscn")
 const PRESENTATION_SCALE := 0.9
 
 enum C2Role { SENSOR = 1, COMMAND = 2, DEFENSE = 4, RELAY = 8 }
@@ -19,6 +20,7 @@ var relocation_manager: RelocationManager
 var enemy_knowledge: EnemyKnowledge
 var damage_smoke: Node
 var status_marker: Node3D
+var identity_marker: Node3D
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	scale = Vector3.ONE * PRESENTATION_SCALE
@@ -26,6 +28,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	definition = definition_value
 	integrity = definition.maximum_integrity
 	active = true
+	_ensure_identity_marker()
 	_ensure_status_marker()
 	_refresh_damage_visual()
 	_refresh_status_marker()
@@ -174,6 +177,14 @@ func _ensure_status_marker() -> void:
 	status_marker = STATUS_MARKER_SCENE.instantiate() as Node3D
 	add_child(status_marker)
 	status_marker.position = Vector3(0.0, 20.0, 0.0)
+
+func _ensure_identity_marker() -> void:
+	if identity_marker != null and is_instance_valid(identity_marker):
+		return
+	identity_marker = IDENTITY_MARKER_SCENE.instantiate() as Node3D
+	add_child(identity_marker)
+	identity_marker.position = Vector3(0.0, 14.0, 0.0)
+	identity_marker.call("set_role", c2_roles())
 
 func _refresh_status_marker() -> void:
 	if definition == null:

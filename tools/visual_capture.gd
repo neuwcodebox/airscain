@@ -43,6 +43,11 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
+	if OS.get_cmdline_user_args().has("--capture-friendly-icons-only"):
+		await _capture_friendly_identity_icons()
+		print("VISUAL_CAPTURE_OK friendly_role_icons persistent_status_markers")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-countermeasure-only"):
 		var countermeasure_center := main.objective.global_position + Vector3(0.0, 90.0, 80.0)
 		main.camera_rig.camera.global_position = countermeasure_center + Vector3(0.0, 65.0, 190.0)
@@ -445,6 +450,29 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	main.camera_rig.camera.look_at(gun.global_position + Vector3.UP * 18.0, Vector3.UP)
 	await _wait_simulation_seconds(3.0)
 	_save_capture("/tmp/airscain_damaged_unit_smoke.png")
+
+func _capture_friendly_identity_icons() -> void:
+	var icons: Dictionary = {}
+	for defense: DefenseUnit in main.defenses:
+		if defense.identity_marker == null or not defense.identity_marker.visible:
+			push_error("Friendly defense did not expose an identity marker")
+			quit(1)
+			return
+		var icon := defense.identity_marker.get_node("Icon") as Label3D
+		icons[icon.text] = true
+	if not icons.has("◎") or not icons.has("◆") or not icons.has("▲") or not icons.has("■"):
+		push_error("Friendly identity markers did not cover every asset role")
+		quit(1)
+		return
+	main.camera_rig.focus_on(main.objective.global_position)
+	main.camera_rig.yaw_radians = deg_to_rad(24.0)
+	main.camera_rig.zoom_distance = 620.0
+	main.camera_rig._update_camera()
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	for index: int in 12:
+		await process_frame
+	_save_capture("/tmp/airscain_friendly_identity_icons.png")
 
 func _capture_missile_battery_variants() -> void:
 	var definitions: Array[MissileBatteryDefinition] = [

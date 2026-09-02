@@ -98,6 +98,22 @@ func test_tactical_units_use_a_smaller_presentation_scale_without_changing_profi
 	assert_eq(defense.definition.placement_profile.footprint_radius, SCENARIO.available_defenses[0].placement_profile.footprint_radius)
 	assert_eq(threat.definition.radar_signature, SCENARIO.threat_entries[0].threat_definition.radar_signature)
 
+func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
+	var role_icons: Dictionary = {}
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		var defense := add_child_autofree(definition.scene.instantiate()) as DefenseUnit
+		defense.setup(1, definition)
+		assert_not_null(defense.identity_marker)
+		assert_true(defense.identity_marker.visible)
+		var icon := defense.identity_marker.get_node("Icon") as Label3D
+		assert_true(icon.fixed_size)
+		assert_true(icon.no_depth_test)
+		role_icons[icon.text] = true
+	assert_true(role_icons.has("◎"))
+	assert_true(role_icons.has("◆"))
+	assert_true(role_icons.has("▲"))
+	assert_true(role_icons.has("■"))
+
 func _average(values: Array[float]) -> float:
 	var total := 0.0
 	for value: float in values:

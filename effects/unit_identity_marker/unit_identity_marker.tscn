@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource path="res://effects/unit_identity_marker/unit_identity_marker.gd" type="Script" id="1"]
+
+[node name="UnitIdentityMarker" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Icon" type="Label3D" parent="."]
+billboard = 1
+no_depth_test = true
+fixed_size = true
+pixel_size = 0.001
+font_size = 24
+outline_size = 7
+modulate = Color(0.46, 0.9, 0.62, 0.96)
+text = "▲"
