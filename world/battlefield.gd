@@ -14,6 +14,7 @@ var city_road_width: float = 11.0
 var city_window_band_count: int = 0
 var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
+var rooftop_pad_visuals: Array[MeshInstance3D] = []
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -97,8 +98,14 @@ func clear_occupancy() -> void:
 	occupied_positions.clear()
 	occupied_radii.clear()
 
+func set_rooftop_pads_visible(visible_value: bool) -> void:
+	for pad: MeshInstance3D in rooftop_pad_visuals:
+		if is_instance_valid(pad):
+			pad.visible = visible_value
+
 func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, city_size: float, block_count: int) -> void:
 	rooftop_pads.clear()
+	rooftop_pad_visuals.clear()
 	city_window_band_count = 0
 	city_amenity_count = 0
 	city_rooftop_detail_count = 0
@@ -302,17 +309,24 @@ func _build_rooftop_pad(index: int, building_transform: Transform3D) -> void:
 	rooftop_pads.append({"position": position, "radius": radius})
 	var pad_visual := MeshInstance3D.new()
 	pad_visual.name = "RooftopPad%d" % index
-	var pad_mesh := CylinderMesh.new()
-	pad_mesh.top_radius = radius
-	pad_mesh.bottom_radius = radius
-	pad_mesh.height = 0.5
+	var pad_mesh := TorusMesh.new()
+	pad_mesh.inner_radius = maxf(1.0, radius - 1.1)
+	pad_mesh.outer_radius = radius
+	pad_mesh.rings = 8
+	pad_mesh.ring_segments = 32
 	pad_visual.mesh = pad_mesh
-	pad_visual.position = position
+	pad_visual.position = position + Vector3.UP * 0.65
 	var pad_material := StandardMaterial3D.new()
-	pad_material.albedo_color = Color(0.12, 0.55, 0.64, 1.0)
+	pad_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	pad_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	pad_material.albedo_color = Color(0.12, 0.78, 0.9, 0.72)
+	pad_material.emission_enabled = true
+	pad_material.emission = Color(0.04, 0.34, 0.42)
 	pad_material.roughness = 0.7
 	pad_visual.material_override = pad_material
+	pad_visual.visible = false
 	city_visuals.add_child(pad_visual)
+	rooftop_pad_visuals.append(pad_visual)
 	var body := StaticBody3D.new()
 	body.name = "RooftopSurface%d" % index
 	body.position = position

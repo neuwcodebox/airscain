@@ -38,6 +38,19 @@ func test_battlefield_builds_paved_blocks_and_road_grid() -> void:
 	assert_gt(battlefield.city_rooftop_detail_count, 20)
 	assert_gt(battlefield.city_amenity_count, 0)
 	assert_not_null(battlefield.city_visuals.get_node_or_null("FacadeWindows"))
+	assert_false(battlefield.rooftop_pad_visuals.is_empty())
+	for pad: MeshInstance3D in battlefield.rooftop_pad_visuals:
+		assert_false(pad.visible)
+	battlefield.set_rooftop_pads_visible(true)
+	for pad: MeshInstance3D in battlefield.rooftop_pad_visuals:
+		assert_true(pad.visible)
+	battlefield.set_rooftop_pads_visible(false)
+
+func test_city_objective_uses_a_civic_landmark() -> void:
+	var city := add_child_autofree(preload("res://world/objective/city/city_objective.tscn").instantiate()) as CityObjective
+	assert_not_null(city.get_node_or_null("CivicHall"))
+	assert_not_null(city.get_node_or_null("CivicTower"))
+	assert_gt((city.get_node("CoreMarker") as MeshInstance3D).position.y, 28.0)
 
 func _average(values: Array[float]) -> float:
 	var total := 0.0

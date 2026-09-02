@@ -23,6 +23,8 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.registry.count(), 4)
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
+	for pad: MeshInstance3D in main.battlefield.rooftop_pad_visuals:
+		assert_false(pad.visible)
 	assert_eq(main.session.budget, main.scenario.starting_budget)
 	assert_eq(main.scenario.available_defenses.size(), 11)
 	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")

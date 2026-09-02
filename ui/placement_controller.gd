@@ -25,6 +25,7 @@ var preview_material := StandardMaterial3D.new()
 func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
 	session = session_value
 	battlefield = battlefield_value
+	battlefield.set_rooftop_pads_visible(false)
 	camera = camera_value
 	defense_parent = defense_parent_value
 	projectile_parent = projectile_parent_value
@@ -37,6 +38,7 @@ func select(definition: DefenseDefinition) -> void:
 	relocating_unit = null
 	selected_threat = null
 	selected = definition
+	battlefield.set_rooftop_pads_visible(definition.placement_profile.rooftop_allowed)
 	_create_preview()
 	feedback_changed.emit("좌클릭 배치 · 우클릭/Esc 취소")
 
@@ -44,6 +46,7 @@ func select_relocation(unit: DefenseUnit) -> void:
 	selected_threat = null
 	relocating_unit = unit
 	selected = unit.definition
+	battlefield.set_rooftop_pads_visible(selected.placement_profile.rooftop_allowed)
 	_create_preview()
 	feedback_changed.emit("새 위치를 좌클릭 · 우클릭/Esc 취소")
 
@@ -51,6 +54,7 @@ func select_sandbox_threat(definition: ThreatDefinition) -> void:
 	selected = null
 	relocating_unit = null
 	selected_threat = definition
+	battlefield.set_rooftop_pads_visible(false)
 	_create_threat_preview()
 	feedback_changed.emit("지도에서 위협 투입 위치를 좌클릭 · 우클릭/Esc 취소")
 
@@ -58,6 +62,8 @@ func cancel() -> void:
 	selected = null
 	selected_threat = null
 	relocating_unit = null
+	if battlefield != null:
+		battlefield.set_rooftop_pads_visible(false)
 	if preview != null:
 		preview.queue_free()
 	preview = null

@@ -15,6 +15,11 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	if OS.get_cmdline_user_args().has("--capture-city-only"):
+		await _capture_city_detail()
+		print("VISUAL_CAPTURE_OK western_city_detail contextual_rooftop_pads")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-marker-only"):
 		await _capture_offscreen_marker_safe_area()
 		print("VISUAL_CAPTURE_OK offscreen_marker_safe_area")
@@ -327,6 +332,36 @@ func _capture_hdr_light_vfx() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_hdr_light_vfx.png")
+
+func _capture_city_detail() -> void:
+	main.camera_rig.focus_on(main.objective.global_position)
+	main.camera_rig.yaw_radians = deg_to_rad(32.0)
+	main.camera_rig.zoom_distance = 285.0
+	main.camera_rig._update_camera()
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	for pad: MeshInstance3D in main.battlefield.rooftop_pad_visuals:
+		if pad.visible:
+			push_error("Rooftop placement pad was visible outside placement mode")
+			quit(1)
+			return
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_western_city_detail.png")
+	var rooftop_definition := main.scenario.available_defenses[1]
+	main.placement.select(rooftop_definition)
+	var visible_pad_count := 0
+	for pad: MeshInstance3D in main.battlefield.rooftop_pad_visuals:
+		if pad.visible:
+			visible_pad_count += 1
+	if visible_pad_count == 0:
+		push_error("Rooftop placement pads did not appear for a compatible asset")
+		quit(1)
+		return
+	for index: int in 3:
+		await process_frame
+	_save_capture("/tmp/airscain_western_city_rooftop_placement.png")
+	main.placement.cancel()
 
 func _capture_offscreen_marker_safe_area() -> void:
 	var viewport_size := root.get_visible_rect().size
