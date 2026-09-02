@@ -23,16 +23,29 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 	noise.frequency = layout.noise_frequency
 	noise.fractal_octaves = 4
 	noise.fractal_gain = 0.48
+	var coast_noise := FastNoiseLite.new()
+	coast_noise.seed = seed_value ^ 0x6389
+	coast_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	coast_noise.frequency = 0.0014
+	coast_noise.fractal_octaves = 3
+	var coast_phase_a := float(posmod(seed_value * 3, 997)) / 997.0 * TAU
+	var coast_phase_b := float(posmod(seed_value * 11, 991)) / 991.0 * TAU
 	for z_index: int in resolution:
 		for x_index: int in resolution:
 			var x := _grid_world(x_index)
 			var z := _grid_world(z_index)
 			var raw := noise.get_noise_2d(x, z) * layout.terrain_height_scale
-			var distance_from_city := maxf(absf(x), absf(z))
-			var flatten := smoothstep(city_size * 0.42, city_size * 0.72, distance_from_city)
+			var distance_from_city := Vector2(x, z).length()
+			var flatten := smoothstep(city_size * 0.27, city_size * 0.62, distance_from_city)
 			var land_height := maxf(raw * flatten + 10.0, sea_level + 6.0)
 			var radial_distance := Vector2(x, z).length() / (size * 0.5)
-			var coast_falloff := smoothstep(layout.coast_start, layout.coast_end, radial_distance)
+			var coast_angle := atan2(z, x)
+			var coast_radius_scale := 1.0 + sin(coast_angle * 3.0 + coast_phase_a) * 0.11 + sin(coast_angle * 5.0 + coast_phase_b) * 0.065 + coast_noise.get_noise_2d(x, z) * 0.075
+			coast_radius_scale = clampf(coast_radius_scale, 0.78, 1.18)
+			var shaped_radial_distance := radial_distance / coast_radius_scale
+			var shaped_falloff := smoothstep(layout.coast_start, layout.coast_end, shaped_radial_distance)
+			var edge_falloff := smoothstep(0.9, 0.985, radial_distance)
+			var coast_falloff := maxf(shaped_falloff, edge_falloff)
 			heights[z_index * resolution + x_index] = lerpf(land_height, sea_level - 35.0, coast_falloff)
 
 func height_at(x: float, z: float) -> float:
@@ -75,23 +88,56 @@ func building_transforms() -> Array[Transform3D]:
 	var result: Array[Transform3D] = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value ^ 0x51A7
-	var blocks := layout.city_blocks
-	var block_step := city_size / float(blocks)
-	var center := float(blocks - 1) * 0.5
-	for bz: int in blocks:
-		for bx: int in blocks:
-			if (absf(float(bx) - center) < 0.75 and absf(float(bz) - center) < 0.75) or rng.randf() < 0.08:
-				continue
-			var block_distance := maxf(absf(float(bx) - center), absf(float(bz) - center)) / maxf(center, 1.0)
-			var center_weight := 1.0 - smoothstep(0.15, 1.0, block_distance)
-			var width := rng.randf_range(18.0, 28.0) + center_weight * rng.randf_range(2.0, 8.0)
-			var depth := rng.randf_range(18.0, 28.0) + center_weight * rng.randf_range(2.0, 8.0)
-			var zone_height_scale := lerpf(0.52, 1.18, center_weight)
+	var block_step := city_size / float(layout.city_blocks)
+	for block: Dictionary in city_block_layout():
+		var grid: Vector2i = block.grid
+		var block_center: Vector3 = block.position
+		var distance: float = block.normalized_distance
+		if grid == Vector2i.ZERO or rng.randf() < lerpf(0.04, 0.16, distance):
+			continue
+		var center_weight := 1.0 - smoothstep(0.12, 1.0, distance)
+		var building_count := 1 if distance < 0.52 else (2 if rng.randf() < 0.78 else 1)
+		for building_index: int in building_count:
+			var split_along_x := (grid.x + grid.y) % 2 == 0
+			var offset := 0.0 if building_count == 1 else (-1.0 if building_index == 0 else 1.0) * block_step * 0.19
+			var x := block_center.x + (offset if split_along_x else rng.randf_range(-2.2, 2.2))
+			var z := block_center.z + (rng.randf_range(-2.2, 2.2) if split_along_x else offset)
+			var width_limit := block_step * (0.30 if building_count == 2 and split_along_x else 0.60)
+			var depth_limit := block_step * (0.30 if building_count == 2 and not split_along_x else 0.60)
+			var width := rng.randf_range(width_limit * 0.78, width_limit)
+			var depth := rng.randf_range(depth_limit * 0.78, depth_limit)
+			var zone_height_scale := lerpf(0.32, 1.18, center_weight)
 			var height := clampf(rng.randf_range(layout.minimum_building_height, layout.maximum_building_height) * zone_height_scale, layout.minimum_building_height, layout.maximum_building_height * 1.08)
-			var x := (float(bx) - center) * block_step + rng.randf_range(-4.0, 4.0)
-			var z := (float(bz) - center) * block_step + rng.randf_range(-4.0, 4.0)
 			var basis := Basis.IDENTITY.scaled(Vector3(width, height, depth))
 			result.append(Transform3D(basis, Vector3(x, height * 0.5 + height_at(x, z), z)))
+	return result
+
+func city_block_layout() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var block_count := layout.city_blocks
+	var block_step := city_size / float(block_count)
+	var center := float(block_count - 1) * 0.5
+	var phase_a := float(posmod(seed_value, 997)) / 997.0 * TAU
+	var phase_b := float(posmod(seed_value * 7, 991)) / 991.0 * TAU
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value ^ 0x2D71
+	for bz: int in block_count:
+		for bx: int in block_count:
+			var grid := Vector2i(bx - int(center), bz - int(center))
+			var grid_position := Vector2(float(grid.x), float(grid.y))
+			var normalized_distance := grid_position.length() / maxf(center, 1.0)
+			var angle := atan2(grid_position.y, grid_position.x)
+			var boundary := 0.83 + sin(angle * 3.0 + phase_a) * 0.12 + sin(angle * 5.0 + phase_b) * 0.07 + rng.randf_range(-0.06, 0.06)
+			var x := float(grid.x) * block_step
+			var z := float(grid.y) * block_step
+			var central_core := normalized_distance <= 0.34
+			var terrain_suitable := height_at(x, z) > sea_level + 3.0 and slope_degrees_at(x, z, block_step * 0.32) <= 11.0
+			if normalized_distance <= boundary and (central_core or terrain_suitable):
+				result.append({
+					"grid": grid,
+					"position": Vector3(x, height_at(x, z), z),
+					"normalized_distance": normalized_distance,
+				})
 	return result
 
 func _grid_world(index: int) -> float:

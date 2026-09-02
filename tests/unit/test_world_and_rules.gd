@@ -12,7 +12,32 @@ func test_world_seed_reproduces_height_and_city_layout() -> void:
 	second.generate(91827, 1200.0, 49, 330.0)
 	assert_almost_eq(first.height_at(412.5, -277.0), second.height_at(412.5, -277.0), 0.0001)
 	assert_eq(first.heights, second.heights)
+	assert_eq(first.city_block_layout(), second.city_block_layout())
 	assert_eq(first.building_transforms(), second.building_transforms())
+
+func test_city_keeps_a_dense_core_and_uses_an_irregular_terrain_suitable_edge() -> void:
+	var generator := WorldGenerator.new()
+	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
+	var blocks := generator.city_block_layout()
+	var row_counts: Dictionary = {}
+	var has_center := false
+	for block: Dictionary in blocks:
+		var grid: Vector2i = block.grid
+		row_counts[grid.y] = int(row_counts.get(grid.y, 0)) + 1
+		if grid == Vector2i.ZERO:
+			has_center = true
+		if float(block.normalized_distance) > 0.34:
+			var position: Vector3 = block.position
+			assert_gt(generator.height_at(position.x, position.z), generator.sea_level + 3.0)
+			assert_lte(generator.slope_degrees_at(position.x, position.z, SCENARIO.city_size / float(SCENARIO.battlefield_layout().city_blocks) * 0.32), 11.0)
+	assert_true(has_center)
+	assert_lt(blocks.size(), SCENARIO.battlefield_layout().city_blocks ** 2)
+	assert_gt(blocks.size(), 45)
+	var distinct_row_widths: Dictionary = {}
+	for count: int in row_counts.values():
+		distinct_row_widths[count] = true
+	assert_gt(distinct_row_widths.size(), 2)
+	assert_gt(generator.building_transforms().size(), blocks.size())
 
 func test_city_skyline_is_taller_near_the_center() -> void:
 	var generator := WorldGenerator.new()
@@ -27,13 +52,15 @@ func test_city_skyline_is_taller_near_the_center() -> void:
 			outer_heights.append(height)
 	assert_gt(_average(inner_heights), _average(outer_heights))
 
-func test_battlefield_builds_paved_blocks_and_road_grid() -> void:
+func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	battlefield.build(SCENARIO)
-	assert_eq(battlefield.city_block_surface_count, SCENARIO.battlefield_layout().city_blocks ** 2)
-	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
-	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneX0"))
-	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneZ0"))
+	assert_eq(battlefield.city_block_surface_count, battlefield.generator.city_block_layout().size())
+	assert_lt(battlefield.city_block_surface_count, SCENARIO.battlefield_layout().city_blocks ** 2)
+	assert_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
+	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadTile0_0"))
+	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneX0_0"))
+	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneZ0_0"))
 	assert_gt(battlefield.city_window_band_count, 300)
 	assert_gt(battlefield.city_rooftop_detail_count, 20)
 	assert_gt(battlefield.city_amenity_count, 0)
@@ -90,6 +117,27 @@ func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
 	var submerged_edge := SCENARIO.battlefield_size * 0.495
 	assert_lt(generator.height_at(submerged_edge, 0.0), generator.sea_level)
 	assert_lt(generator.height_at(0.0, -submerged_edge), generator.sea_level)
+
+func test_seed_shapes_an_irregular_island_coastline() -> void:
+	var first := WorldGenerator.new()
+	var second := WorldGenerator.new()
+	first.generate(73129, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
+	second.generate(91827, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
+	var first_radii: Array[float] = []
+	var second_radii: Array[float] = []
+	for direction_index: int in 24:
+		var angle := TAU * float(direction_index) / 24.0
+		first_radii.append(_coast_radius(first, angle))
+		second_radii.append(_coast_radius(second, angle))
+	assert_gt(first_radii.max() - first_radii.min(), 140.0)
+	assert_gt(second_radii.max() - second_radii.min(), 140.0)
+	assert_ne(first_radii, second_radii)
+
+func _coast_radius(generator: WorldGenerator, angle: float) -> float:
+	for radius: int in range(450, 1181, 10):
+		if generator.height_at(cos(angle) * float(radius), sin(angle) * float(radius)) <= generator.sea_level:
+			return float(radius)
+	return 1180.0
 
 func test_objective_damage_and_depletion_are_bounded() -> void:
 	var objective: ProtectedObjective = add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
