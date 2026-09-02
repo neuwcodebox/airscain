@@ -4,6 +4,7 @@ extends Node3D
 signal feedback_changed(message: String)
 signal asset_selected(unit: DefenseUnit)
 signal world_selected(position: Vector3)
+signal sandbox_threat_placement_requested(definition: ThreatDefinition, position: Vector3)
 
 var session: GameSession
 var battlefield: Battlefield
@@ -13,6 +14,7 @@ var projectile_parent: Node3D
 var registry: ThreatRegistry
 var relocation_manager: RelocationManager
 var selected: DefenseDefinition
+var selected_threat: ThreatDefinition
 var relocating_unit: DefenseUnit
 var candidate_position: Vector3
 var candidate_valid: bool = false
@@ -33,18 +35,28 @@ func configure(session_value: GameSession, battlefield_value: Battlefield, camer
 
 func select(definition: DefenseDefinition) -> void:
 	relocating_unit = null
+	selected_threat = null
 	selected = definition
 	_create_preview()
 	feedback_changed.emit("좌클릭 배치 · 우클릭/Esc 취소")
 
 func select_relocation(unit: DefenseUnit) -> void:
+	selected_threat = null
 	relocating_unit = unit
 	selected = unit.definition
 	_create_preview()
 	feedback_changed.emit("새 위치를 좌클릭 · 우클릭/Esc 취소")
 
+func select_sandbox_threat(definition: ThreatDefinition) -> void:
+	selected = null
+	relocating_unit = null
+	selected_threat = definition
+	_create_threat_preview()
+	feedback_changed.emit("지도에서 위협 투입 위치를 좌클릭 · 우클릭/Esc 취소")
+
 func cancel() -> void:
 	selected = null
+	selected_threat = null
 	relocating_unit = null
 	if preview != null:
 		preview.queue_free()
@@ -52,7 +64,7 @@ func cancel() -> void:
 	feedback_changed.emit("")
 
 func _process(_delta: float) -> void:
-	if selected == null or preview == null:
+	if selected == null and selected_threat == null or preview == null:
 		return
 	var mouse := get_viewport().get_mouse_position()
 	var hit := _terrain_hit(mouse)
@@ -62,15 +74,15 @@ func _process(_delta: float) -> void:
 		feedback_changed.emit("지도 위를 가리켜 주세요")
 		return
 	preview.visible = true
-	candidate_position = battlefield.snap_placement_position(hit.position, selected.placement_profile)
+	candidate_position = hit.position if selected_threat != null else battlefield.snap_placement_position(hit.position, selected.placement_profile)
 	preview.global_position = candidate_position
-	var result := _validation()
+	var result := {"valid": true, "reason": "위협 투입 가능"} if selected_threat != null else _validation()
 	candidate_valid = result.valid
 	preview_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48) if candidate_valid else Color(1.0, 0.18, 0.12, 0.52)
 	feedback_changed.emit(result.reason)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if selected == null:
+	if selected == null and selected_threat == null:
 		if event is InputEventMouseButton:
 			var selection_click := event as InputEventMouseButton
 			if selection_click.pressed and selection_click.button_index == MOUSE_BUTTON_LEFT and get_viewport().gui_get_hovered_control() == null:
@@ -92,6 +104,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mouse_button.button_index == MOUSE_BUTTON_LEFT:
 			if get_viewport().gui_get_hovered_control() != null:
 				return
+			if selected_threat != null:
+				sandbox_threat_placement_requested.emit(selected_threat, candidate_position)
+				feedback_changed.emit("위협을 투입했습니다")
+				cancel()
+				get_viewport().set_input_as_handled()
+				return
 			var result: Dictionary
 			if relocating_unit != null:
 				var moved := relocation_manager.request_relocation(relocating_unit, candidate_position)
@@ -104,7 +122,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 func _validation() -> Dictionary:
-	if relocating_unit == null and session.budget < selected.price:
+	if relocating_unit == null and not session.unlimited_budget and session.budget < selected.price:
 		return {"valid": false, "reason": "예산이 부족합니다"}
 	return battlefield.placement_result(candidate_position, selected.placement_profile)
 
@@ -155,6 +173,22 @@ func _create_preview() -> void:
 	range_disc.position.y = 1.5
 	range_disc.material_override = preview_material
 	preview.add_child(range_disc)
+
+func _create_threat_preview() -> void:
+	if preview != null:
+		preview.queue_free()
+	preview = Node3D.new()
+	preview.name = "ThreatPlacementPreview"
+	add_child(preview)
+	var marker := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 8.0
+	sphere.height = 16.0
+	marker.mesh = sphere
+	preview_material.albedo_color = Color(1.0, 0.2, 0.12, 0.62)
+	marker.material_override = preview_material
+	marker.position.y = 8.0
+	preview.add_child(marker)
 
 func wall_material_setup() -> void:
 	preview_material.cull_mode = BaseMaterial3D.CULL_DISABLED

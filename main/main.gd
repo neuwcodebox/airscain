@@ -1,6 +1,8 @@
 class_name AirscainMain
 extends Node3D
 
+enum GameMode { SUSTAINED, TRAINING, SANDBOX }
+
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
@@ -8,6 +10,7 @@ const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interc
 const FALLING_WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
 
 static var requested_seed: int = -1
+static var requested_mode: GameMode = GameMode.SUSTAINED
 
 var scenario: ScenarioDefinition
 var registry := ThreatRegistry.new()
@@ -17,6 +20,8 @@ var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var save_path: String = SaveStore.DEFAULT_PATH
 var tactical_ui_refresh_remaining: float = 0.0
+var game_mode: GameMode = GameMode.SUSTAINED
+var training_step: int = 0
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -45,6 +50,7 @@ var tactical_ui_refresh_remaining: float = 0.0
 
 func _ready() -> void:
 	scenario = BASE_SCENARIO.duplicate(true) as ScenarioDefinition
+	game_mode = requested_mode
 	if requested_seed >= 0:
 		scenario.world_seed = requested_seed
 	requested_seed = scenario.world_seed
@@ -58,6 +64,11 @@ func _ready() -> void:
 	_spawn_objective()
 	_spawn_ambient_contacts()
 	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus, scenario.support_interval, scenario.support_amount)
+	if game_mode == GameMode.TRAINING:
+		session.budget = 1000
+	elif game_mode == GameMode.SANDBOX:
+		session.unlimited_budget = true
+		session.update_pressure(999)
 	support_manager.configure(session)
 	relocation_manager.configure(battlefield)
 	enemy_knowledge.reset()
@@ -69,10 +80,16 @@ func _ready() -> void:
 	tactical_range_overlay.call("configure", defense_parent, registry, support_manager)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
-	hud.configure(session, objective, scenario.available_defenses)
+	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge)
 	_connect_flow()
-	hud.set_feedback("포대를 배치한 뒤 방어를 시작하세요 · %s · Seed %d" % [scenario.battlefield_layout().display_name, scenario.world_seed])
+	if game_mode == GameMode.TRAINING:
+		training_step = 1
+		hud.set_feedback("훈련 1/5 · 탐색 레이더를 배치하세요")
+	elif game_mode == GameMode.SANDBOX:
+		hud.set_feedback("샌드박스 · 자산은 무제한이며 목록에서 위협을 골라 지도에 투입할 수 있습니다")
+	else:
+		hud.set_feedback("포대를 배치한 뒤 방어를 시작하세요 · %s · Seed %d" % [scenario.battlefield_layout().display_name, scenario.world_seed])
 
 func _process(delta: float) -> void:
 	tactical_ui_refresh_remaining -= delta
@@ -147,14 +164,23 @@ func _connect_flow() -> void:
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
 	hud.focus_requested.connect(_on_focus_requested)
+	hud.mode_requested.connect(_on_mode_requested)
+	hud.sandbox_threat_selected.connect(placement.select_sandbox_threat)
+	placement.sandbox_threat_placement_requested.connect(_on_sandbox_threat_placement_requested)
 	player_knowledge.connect("track_removed", _on_track_removed)
 	player_knowledge.connect("track_created", _on_track_contact_audio)
 	objective.integrity_changed.connect(_on_objective_integrity_audio)
 
 func _on_start_requested() -> void:
 	if session.start_defense():
-		director.enabled = true
-		hud.set_feedback("방어 진행 중 · 포대를 추가 배치할 수 있습니다")
+		director.enabled = game_mode != GameMode.SANDBOX
+		if game_mode == GameMode.TRAINING:
+			training_step = maxi(training_step, 4)
+			hud.set_feedback("훈련 4/5 · 센서가 만든 항적을 지도에서 선택하세요")
+		elif game_mode == GameMode.SANDBOX:
+			hud.set_feedback("샌드박스 교전 진행 중 · 위협을 원하는 위치에 계속 투입할 수 있습니다")
+		else:
+			hud.set_feedback("방어 진행 중 · 포대를 추가 배치할 수 있습니다")
 
 func _on_defense_placed(unit: DefenseUnit) -> void:
 	defenses.append(unit)
@@ -171,6 +197,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	relocation_manager.register_asset(unit)
 	unit.weapon_fired.connect(_on_weapon_fired_audio)
 	unit.damage_received.connect(_on_defense_damage_audio)
+	_advance_training_after_placement(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.configure_enemy_knowledge(enemy_knowledge)
@@ -270,6 +297,9 @@ func _on_world_selected(position: Vector3) -> void:
 	track_display.select_track(selected_track)
 	tactical_screen_overlay.select_track(selected_track)
 	_refresh_selected_track_panel()
+	if game_mode == GameMode.TRAINING and training_step == 4 and selected_track != null:
+		training_step = 5
+		hud.set_feedback("훈련 5/5 · 방어자산을 선택해 사격중지를 켰다가 해제해 보세요")
 
 func _refresh_selected_track_panel() -> void:
 	var details := track_display.selection_details()
@@ -317,6 +347,8 @@ func _on_focus_requested() -> void:
 func _on_hold_fire_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.has_method("set_hold_fire"):
 		selected_asset.call("set_hold_fire", enabled)
+		if game_mode == GameMode.TRAINING and training_step >= 5:
+			hud.set_feedback("훈련 완료 · 배치, 항적, 자동교전과 국소 명령을 자유롭게 연습하세요")
 
 func _on_engage_unknown_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.has_method("set_engage_unknown"):
@@ -351,10 +383,16 @@ func _on_relocation_requested() -> void:
 		hud.set_feedback("현재 재배치할 수 없습니다")
 
 func _on_save_requested() -> void:
+	if game_mode != GameMode.SUSTAINED:
+		hud.set_feedback("저장은 지속 작전에서만 사용할 수 있습니다")
+		return
 	var error := SaveStore.write(capture_save_document(), save_path)
 	hud.set_feedback("저장 완료" if error.is_empty() else "저장 실패 · %s" % error)
 
 func _on_load_requested() -> void:
+	if game_mode != GameMode.SUSTAINED:
+		hud.set_feedback("불러오기는 지속 작전에서만 사용할 수 있습니다")
+		return
 	var result := SaveStore.read(save_path)
 	var error: String = result.error
 	if error.is_empty():
@@ -363,6 +401,47 @@ func _on_load_requested() -> void:
 
 func capture_save_document() -> Dictionary:
 	return SaveDocument.create(SessionSnapshot.capture_payload(self))
+
+func _on_mode_requested(mode: int) -> void:
+	if mode < GameMode.SUSTAINED or mode > GameMode.SANDBOX or mode == game_mode:
+		return
+	requested_mode = mode as GameMode
+	get_tree().reload_current_scene()
+
+func _sandbox_threat_definitions() -> Array[ThreatDefinition]:
+	var result: Array[ThreatDefinition] = []
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		result.append(entry.threat_definition)
+	return result
+
+func _on_sandbox_threat_placement_requested(definition: ThreatDefinition, position: Vector3) -> void:
+	if game_mode != GameMode.SANDBOX:
+		return
+	var entry: ThreatSpawnEntry
+	for candidate: ThreatSpawnEntry in scenario.threat_entries:
+		if candidate.threat_definition == definition:
+			entry = candidate
+			break
+	if entry == null:
+		return
+	var threat := director._spawn_entry(entry, 0.0, 0.0)
+	if threat != null:
+		var altitude := 55.0
+		if definition is AttackUavDefinition:
+			altitude = (definition as AttackUavDefinition).movement.cruise_altitude
+		threat.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z) + altitude, position.z)
+
+func _advance_training_after_placement(unit: DefenseUnit) -> void:
+	if game_mode != GameMode.TRAINING:
+		return
+	if training_step == 1 and unit.definition.id == &"search_radar":
+		training_step = 2
+		hud.set_feedback("훈련 2/5 · 지휘통제소를 배치해 센서 정보를 공유하세요")
+	elif training_step == 2 and unit.definition.id == &"command_post":
+		training_step = 3
+		hud.set_feedback("훈련 3/5 · 미사일 포대를 배치한 뒤 방어를 시작하세요")
+	elif training_step == 3 and unit is MissileBattery:
+		hud.set_feedback("훈련 3/5 · 준비 완료, 방어 시작을 누르세요")
 
 func restore_from_document(document: Dictionary) -> String:
 	var document_error := SaveDocument.validation_error(document)

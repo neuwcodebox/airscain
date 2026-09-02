@@ -53,6 +53,50 @@ func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
 	assert_false(main.hud.defense_buttons[3].disabled)
 	assert_true(main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
 
+func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void:
+	AirscainMain.requested_mode = AirscainMain.GameMode.TRAINING
+	var training := add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	await get_tree().process_frame
+	assert_eq(training.game_mode, AirscainMain.GameMode.TRAINING)
+	assert_eq(training.training_step, 1)
+	assert_string_contains(training.hud.feedback_label.text, "탐색 레이더")
+	assert_true(training.hud.save_button.disabled)
+	var radar_result := _place_for(training, training.scenario.available_defenses[1])
+	assert_true(radar_result.success)
+	assert_eq(training.training_step, 2)
+	var command_result := _place_for(training, training.scenario.available_defenses[2])
+	assert_true(command_result.success)
+	assert_eq(training.training_step, 3)
+	assert_true(_place_for(training, training.scenario.available_defenses[0]).success)
+	training._on_start_requested()
+	assert_eq(training.training_step, 4)
+	assert_true(training.director.enabled)
+	training._on_save_requested()
+	assert_string_contains(training.hud.feedback_label.text, "지속 작전")
+
+func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
+	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
+	var sandbox := add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	await get_tree().process_frame
+	assert_true(sandbox.session.unlimited_budget)
+	assert_eq(sandbox.session.current_pressure, 999)
+	assert_true(sandbox.hud.sandbox_threat_option.visible)
+	assert_true(sandbox.hud.save_button.disabled)
+	var starting_budget := sandbox.session.budget
+	assert_true(_place_for(sandbox, sandbox.scenario.available_defenses[10]).success)
+	assert_eq(sandbox.session.budget, starting_budget)
+	var definition: ThreatDefinition = sandbox.scenario.threat_entries[0].threat_definition
+	var hostile_count := sandbox.registry.hostile_count()
+	sandbox._on_sandbox_threat_placement_requested(definition, Vector3(420.0, 0.0, -180.0))
+	assert_eq(sandbox.registry.hostile_count(), hostile_count + 1)
+	var threat: ThreatUnit = sandbox.registry.get_hostile_active().back()
+	assert_almost_eq(threat.global_position.x, 420.0, 0.001)
+	assert_almost_eq(threat.global_position.z, -180.0, 0.001)
+	sandbox._on_start_requested()
+	assert_false(sandbox.director.enabled)
+
 func test_combat_audio_synthesizes_and_throttles_distinct_events() -> void:
 	var streams: Dictionary = main.combat_audio.get("streams")
 	assert_eq(streams.size(), 6)
@@ -648,6 +692,14 @@ func _find_valid_position_for(profile: PlacementProfile) -> Vector3:
 			if main.battlefield.placement_result(position, profile).valid:
 				return position
 	return Vector3(300.0, 0.0, 300.0)
+
+func _place_for(instance: AirscainMain, definition: DefenseDefinition) -> Dictionary:
+	for z: int in range(-420, 421, 30):
+		for x: int in range(-420, 421, 30):
+			var position := Vector3(float(x), instance.battlefield.terrain_height(float(x), float(z)), float(z))
+			if instance.battlefield.placement_result(position, definition.placement_profile).valid:
+				return instance.session.request_placement(definition, position, instance.battlefield, instance.defense_parent, instance.registry, instance.projectile_parent)
+	return {"success": false, "reason": "테스트 배치 위치 없음"}
 
 func _find_defense(runtime_id: int) -> DefenseUnit:
 	for unit: DefenseUnit in main.defenses:

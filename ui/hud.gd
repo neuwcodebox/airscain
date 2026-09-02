@@ -16,12 +16,15 @@ signal relocation_requested
 signal focus_requested
 signal save_requested
 signal load_requested
+signal mode_requested(mode: int)
+signal sandbox_threat_selected(definition: ThreatDefinition)
 
 var session: GameSession
 var objective: ProtectedObjective
 var pressure_level: int = 1
 var defense_definitions: Array[DefenseDefinition] = []
 var defense_buttons: Array[Button] = []
+var threat_definitions: Array[ThreatDefinition] = []
 var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var selected_asset_connection_count: int = 0
@@ -52,12 +55,19 @@ const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전
 @onready var repair_button: Button = %RepairButton
 @onready var relocation_button: Button = %RelocationButton
 @onready var focus_button: Button = %FocusButton
+@onready var mode_option: OptionButton = %ModeOption
+@onready var sandbox_threat_option: OptionButton = %SandboxThreatOption
+@onready var sandbox_threat_button: Button = %SandboxThreatButton
+@onready var save_button: Button = %SaveButton
+@onready var load_button: Button = %LoadButton
 
-func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition]) -> void:
+func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition], threats: Array[ThreatDefinition] = [], game_mode: int = 0) -> void:
 	session = session_value
 	objective = objective_value
 	defense_definitions = defenses
+	threat_definitions = threats
 	_build_defense_catalog()
+	_build_mode_controls(game_mode)
 	session.budget_changed.connect(_on_state_changed.unbind(1))
 	session.phase_changed.connect(_on_phase_changed)
 	session.statistics_changed.connect(_on_state_changed)
@@ -66,6 +76,19 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
 	set_selected_asset(null, 0)
 	set_selected_track(null, false)
+
+func _build_mode_controls(game_mode: int) -> void:
+	mode_option.clear()
+	for label: String in ["지속 작전", "훈련", "샌드박스"]:
+		mode_option.add_item(label)
+	mode_option.select(game_mode)
+	sandbox_threat_option.clear()
+	for definition: ThreatDefinition in threat_definitions:
+		sandbox_threat_option.add_item(definition.display_name)
+	sandbox_threat_option.visible = game_mode == 2
+	sandbox_threat_button.visible = game_mode == 2
+	save_button.disabled = game_mode != 0
+	load_button.disabled = game_mode != 0
 
 func set_pressure(level: int) -> void:
 	pressure_level = level
@@ -167,14 +190,14 @@ func _affiliation_text(track: PlayerTrack) -> String:
 	return "미확인"
 
 func _on_state_changed() -> void:
-	budget_label.text = "예산  $%d" % session.budget
+	budget_label.text = "예산  무제한" if session.unlimited_budget else "예산  $%d" % session.budget
 	time_label.text = "생존  %02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 	speed_label.text = "일시정지" if is_zero_approx(session.simulation_speed) else "%d×" % int(session.simulation_speed)
 	for index: int in defense_buttons.size():
 		var definition := defense_definitions[index]
 		var locked := definition.unlock_pressure_level > session.current_pressure
-		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or session.budget < definition.price or locked
-		defense_buttons[index].text = "%s  강도 %d 해금" % [definition.display_name, definition.unlock_pressure_level] if locked else "%s  $%d" % [definition.display_name, definition.price]
+		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or not session.unlimited_budget and session.budget < definition.price or locked
+		defense_buttons[index].text = "%s  강도 %d 해금" % [definition.display_name, definition.unlock_pressure_level] if locked else definition.display_name if session.unlimited_budget else "%s  $%d" % [definition.display_name, definition.price]
 	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
@@ -193,8 +216,8 @@ func _build_defense_catalog() -> void:
 	defense_buttons.clear()
 	for definition: DefenseDefinition in defense_definitions:
 		var button := Button.new()
-		button.custom_minimum_size = Vector2(0.0, 44.0)
-		button.add_theme_font_size_override("font_size", 17)
+		button.custom_minimum_size = Vector2(0.0, 36.0)
+		button.add_theme_font_size_override("font_size", 15)
 		button.text = "%s  $%d" % [definition.display_name, definition.price]
 		button.pressed.connect(_on_defense_pressed.bind(definition))
 		defense_list.add_child(button)
@@ -253,6 +276,14 @@ func _on_save_pressed() -> void:
 
 func _on_load_pressed() -> void:
 	load_requested.emit()
+
+func _on_mode_selected(index: int) -> void:
+	mode_requested.emit(index)
+
+func _on_sandbox_threat_pressed() -> void:
+	var index := sandbox_threat_option.selected
+	if index >= 0 and index < threat_definitions.size():
+		sandbox_threat_selected.emit(threat_definitions[index])
 
 func _on_same_seed_pressed() -> void:
 	restart_requested.emit(true)

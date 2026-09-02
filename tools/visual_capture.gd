@@ -133,6 +133,10 @@ func _apply_requested_seed() -> void:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--seed="):
 			AirscainMain.requested_seed = int(argument.trim_prefix("--seed="))
+		elif argument == "--mode=training":
+			AirscainMain.requested_mode = AirscainMain.GameMode.TRAINING
+		elif argument == "--mode=sandbox":
+			AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
 
 func _place_initial_assets() -> void:
 	main.session.budget = 5000

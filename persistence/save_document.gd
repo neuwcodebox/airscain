@@ -3,6 +3,7 @@ extends RefCounted
 
 const FORMAT_ID := "airscain-save"
 const CURRENT_VERSION := 15
+const MIN_SUPPORTED_VERSION := CURRENT_VERSION
 const REQUIRED_SECTIONS: Array[String] = ["scenario", "session", "world", "player_knowledge", "director"]
 
 static func create(payload: Dictionary) -> Dictionary:
@@ -17,7 +18,7 @@ static func validation_error(document: Dictionary) -> String:
 	if document.get("format", "") != FORMAT_ID:
 		return "지원하지 않는 저장 형식입니다"
 	var version: int = int(document.get("version", -1))
-	if version != CURRENT_VERSION:
+	if version < MIN_SUPPORTED_VERSION or version > CURRENT_VERSION:
 		return "지원하지 않는 저장 버전입니다: %d" % version
 	var payload: Variant = document.get("payload")
 	if not payload is Dictionary:

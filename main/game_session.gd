@@ -24,6 +24,7 @@ var next_support_at: float = 90.0
 var support_payment_count: int = 0
 var completed_attack_windows: int = 0
 var total_support_received: int = 0
+var unlimited_budget: bool = false
 
 func reset(starting_budget: int, support_interval_value: float = 90.0, support_amount_value: int = 180) -> void:
 	phase = Phase.PREPARATION
@@ -41,6 +42,7 @@ func reset(starting_budget: int, support_interval_value: float = 90.0, support_a
 	support_payment_count = 0
 	completed_attack_windows = 0
 	total_support_received = 0
+	unlimited_budget = false
 	budget_changed.emit(budget)
 	phase_changed.emit(phase)
 	statistics_changed.emit()
@@ -71,7 +73,7 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 		return {"success": false, "reason": "잘못된 방어 수단입니다"}
 	if definition.unlock_pressure_level > current_pressure:
 		return {"success": false, "reason": "전투 강도 %d에서 해금됩니다" % definition.unlock_pressure_level}
-	if budget < definition.price:
+	if not unlimited_budget and budget < definition.price:
 		return {"success": false, "reason": "예산이 부족합니다"}
 	var validation := battlefield.placement_result(position, definition.placement_profile)
 	if not validation.valid:
@@ -85,7 +87,8 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 	unit.configure_combat(registry, projectile_parent)
 	next_defense_id += 1
 	battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
-	budget -= definition.price
+	if not unlimited_budget:
+		budget -= definition.price
 	defense_count += 1
 	budget_changed.emit(budget)
 	statistics_changed.emit()
@@ -133,8 +136,10 @@ func set_simulation_speed(value: float) -> void:
 		statistics_changed.emit()
 
 func try_spend(amount: int) -> bool:
-	if amount < 0 or budget < amount or phase == Phase.GAME_OVER:
+	if amount < 0 or phase == Phase.GAME_OVER or not unlimited_budget and budget < amount:
 		return false
+	if unlimited_budget:
+		return true
 	budget -= amount
 	budget_changed.emit(budget)
 	statistics_changed.emit()

@@ -12,6 +12,7 @@ func after_each() -> void:
 	_cleanup_save_files()
 
 func test_versioned_save_document_round_trips_plain_data() -> void:
+	assert_eq(SaveDocument.MIN_SUPPORTED_VERSION, SaveDocument.CURRENT_VERSION)
 	var payload := _valid_payload()
 	payload.scenario.world_seed = 73129
 	payload.world.defenses = [{"definition_id": "missile_battery", "position": [1.0, 2.0, 3.0]}]
