@@ -55,6 +55,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK smoke_ground_shadow gradual_shadow_fade")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-explosion-isolation-only"):
+		await _capture_explosion_instance_isolation()
+		print("VISUAL_CAPTURE_OK explosion isolated_shockwave_material")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
 		await _capture_surface_strike_smoke()
 		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
@@ -745,6 +750,38 @@ func _capture_smoke_ground_shadow() -> void:
 	_save_capture("/tmp/airscain_smoke_shadow_near_end.png")
 	if smoke.current_shadow_opacity_ratio >= 0.1:
 		push_error("Smoke shadow opacity did not fade continuously with visible smoke")
+
+func _capture_explosion_instance_isolation() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var center := main.objective.global_position + Vector3(-260.0, 55.0, -110.0)
+	var explosion_scene := preload("res://effects/explosion/explosion.tscn")
+	var first := explosion_scene.instantiate() as ExplosionEffect
+	main.effects_parent.add_child(first)
+	first.global_position = center + Vector3.LEFT * 42.0
+	first.setup(Color(1.0, 0.3, 0.04), 12.0)
+	(first.get_node("Smoke") as GPUParticles3D).emitting = false
+	(first.get_node("Sparks") as GPUParticles3D).emitting = false
+	first._process(1.1)
+	first.set_process(false)
+	var second := explosion_scene.instantiate() as ExplosionEffect
+	main.effects_parent.add_child(second)
+	second.global_position = center + Vector3.RIGHT * 42.0
+	second.setup(Color(1.0, 0.52, 0.08), 12.0)
+	(second.get_node("Smoke") as GPUParticles3D).emitting = false
+	(second.get_node("Sparks") as GPUParticles3D).emitting = false
+	second._process(0.18)
+	second.set_process(false)
+	var first_material := first.get_node("Shockwave").get("material_override") as StandardMaterial3D
+	if first_material.albedo_color.a > 0.001:
+		push_error("A later explosion reactivated the faded shockwave")
+		quit(1)
+		return
+	main.camera_rig.camera.global_position = center + Vector3(0.0, 70.0, 180.0)
+	main.camera_rig.camera.look_at(center, Vector3.UP)
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_explosion_instance_isolation.png")
 
 func _capture_surface_strike_smoke() -> void:
 	main.hud.visible = false

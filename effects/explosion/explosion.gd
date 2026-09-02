@@ -6,6 +6,7 @@ var duration: float = 3.2
 var effect_radius: float = 10.0
 
 func setup(color: Color, radius: float) -> void:
+	elapsed = 0.0
 	effect_radius = radius
 	var sphere := SphereMesh.new()
 	sphere.radius = 1.0
@@ -28,6 +29,9 @@ func setup(color: Color, radius: float) -> void:
 	halo_material.emission = color
 	halo_material.emission_energy_multiplier = 16.0
 	$FlashHalo.material_override = halo_material
+	var shockwave_material := ($Shockwave.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
+	shockwave_material.albedo_color.a = 0.9
+	$Shockwave.material_override = shockwave_material
 	$Flash.scale = Vector3.ONE * radius * 0.18
 	$FlashHalo.scale = Vector3.ONE * radius * 0.42
 	$Shockwave.scale = Vector3.ONE * radius * 0.12

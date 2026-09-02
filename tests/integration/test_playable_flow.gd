@@ -1140,6 +1140,23 @@ func test_interceptor_detonation_remains_visible_when_strike_aircraft_survives_h
 	assert_eq(smoke_process.spread, 180.0)
 	assert_lt(absf(smoke_process.gravity.y), 1.0)
 
+func test_new_explosion_does_not_reactivate_a_faded_shockwave() -> void:
+	var explosion_scene := preload("res://effects/explosion/explosion.tscn")
+	var first := explosion_scene.instantiate() as ExplosionEffect
+	main.effects_parent.add_child(first)
+	first.setup(Color(1.0, 0.3, 0.04), 10.0)
+	first._process(1.1)
+	var first_material := first.get_node("Shockwave").get("material_override") as StandardMaterial3D
+	assert_eq(first_material.albedo_color.a, 0.0)
+	var second := explosion_scene.instantiate() as ExplosionEffect
+	main.effects_parent.add_child(second)
+	second.setup(Color(1.0, 0.5, 0.08), 8.0)
+	second._process(0.1)
+	var second_material := second.get_node("Shockwave").get("material_override") as StandardMaterial3D
+	assert_ne(first_material as Variant, second_material as Variant)
+	assert_eq(first_material.albedo_color.a, 0.0)
+	assert_gt(second_material.albedo_color.a, 0.0)
+
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()
 	main._on_pressure_changed(5)
