@@ -84,7 +84,7 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 	if definition == null or definition.placement_profile == null:
 		return {"success": false, "reason": "잘못된 방어 수단입니다"}
 	if definition.unlock_pressure_level > current_pressure:
-		return {"success": false, "reason": "전투 강도 %d에서 해금됩니다" % definition.unlock_pressure_level}
+		return {"success": false, "reason": "위협 단계 %d에서 해금됩니다" % definition.unlock_pressure_level}
 	if not unlimited_budget and budget < definition.price:
 		return {"success": false, "reason": "예산이 부족합니다"}
 	var validation := battlefield.placement_result(position, definition.placement_profile)
@@ -106,7 +106,7 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 	budget_changed.emit(budget)
 	statistics_changed.emit()
 	defense_placed.emit(unit)
-	return {"success": true, "reason": "배치 완료", "unit": unit}
+	return {"success": true, "reason": "배치했습니다", "unit": unit}
 
 func register_threat_resolution(_threat: ThreatUnit, neutralized: bool, reward: int) -> void:
 	if phase == Phase.GAME_OVER:

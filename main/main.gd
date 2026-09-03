@@ -104,9 +104,9 @@ func _ready() -> void:
 		tactical_screen_overlay.call("show_training_approach", objective.global_position, _training_approach_position())
 		_set_training_step(TrainingStep.CAMERA)
 	elif game_mode == GameMode.SANDBOX:
-		hud.set_feedback("샌드박스 · 자산은 무제한이며 목록에서 위협을 골라 지도에 투입할 수 있습니다")
+		hud.set_feedback("방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요.", false)
 	else:
-		hud.set_feedback("포대를 배치한 뒤 방어를 시작하세요 · %s · Seed %d" % [scenario.battlefield_layout().display_name, scenario.world_seed])
+		hud.set_feedback("방공 자산을 배치한 뒤 방어를 시작하세요.", false)
 
 func _process(delta: float) -> void:
 	tactical_ui_refresh_remaining -= delta
@@ -200,9 +200,9 @@ func _on_start_requested() -> void:
 			_set_training_step(TrainingStep.ACQUIRE)
 			_spawn_training_threat()
 		elif game_mode == GameMode.SANDBOX:
-			hud.set_feedback("샌드박스 교전 진행 중 · 위협을 원하는 위치에 계속 투입할 수 있습니다")
+			hud.set_feedback("위협 투입 메뉴에서 공격을 추가할 수 있습니다.", false)
 		else:
-			hud.set_feedback("방어 진행 중 · 포대를 추가 배치할 수 있습니다")
+			hud.set_feedback("", false)
 
 func _on_defense_placed(unit: DefenseUnit) -> void:
 	defenses.append(unit)
@@ -287,7 +287,7 @@ func _on_recovery_started(_completed_window: int) -> void:
 	session.grant_attack_window_reward(scenario.attack_window_reward)
 
 func _on_support_received(amount: int, reason: String) -> void:
-	hud.set_feedback("%s +$%d · 다음 공격 전 방공망을 정비하세요" % [reason, amount])
+	hud.set_feedback("예산 +$%d (%s)" % [amount, reason])
 
 func _on_track_contact_audio(_track: PlayerTrack) -> void:
 	combat_audio.call("play_event", &"contact", 0.55)

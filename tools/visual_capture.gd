@@ -40,7 +40,7 @@ func run() -> void:
 		await process_frame
 		var restoration_button := main.hud.city_restoration_button
 		main.hud.set_city_menu_expanded(true)
-		if restoration_button.disabled or restoration_button.text != "도시 복구  +10    $200":
+		if restoration_button.disabled or main.hud.city_action_label.text != "피해 복구" or main.hud.city_action_meta_label.text != "+10    $200":
 			push_error("City restoration control is unavailable while the city is damaged")
 			quit(1)
 			return

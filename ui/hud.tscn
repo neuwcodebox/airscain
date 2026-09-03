@@ -80,6 +80,7 @@ theme_override_constants/separation = 18
 
 [node name="BudgetLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
 theme_override_font_sizes/font_size = 20
@@ -112,6 +113,7 @@ text = "위협 투입  ▾"
 
 [node name="TimeLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(138, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "생존  00:00"
@@ -122,7 +124,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.65, 0.28, 1)
 theme_override_font_sizes/font_size = 20
-text = "전투 강도  1"
+text = "위협 단계  1"
 
 [node name="PauseButton" type="Button" parent="TopBar/Margin"]
 unique_name_in_owner = true
@@ -183,7 +185,7 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 16
-text = "▲ 적성 항적 0  ·  교전 0"
+text = "▲ 적성 항적 0    교전 0"
 horizontal_alignment = 1
 
 [node name="PlacementPowerPanel" type="PanelContainer" parent="."]
@@ -224,6 +226,27 @@ theme_override_styles/panel = SubResource("CatalogPanel")
 layout_mode = 2
 theme_override_constants/separation = 8
 
+[node name="Header" type="HBoxContainer" parent="Catalog/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Catalog/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.72, 0.9, 0.98, 1)
+theme_override_font_sizes/font_size = 17
+text = "자산 배치"
+
+[node name="CatalogBudgetLabel" type="Label" parent="Catalog/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
+theme_override_font_sizes/font_size = 14
+text = "예산 $400"
+horizontal_alignment = 2
+
+[node name="Separator" type="HSeparator" parent="Catalog/VBox"]
+layout_mode = 2
+
 [node name="DefenseScroll" type="ScrollContainer" parent="Catalog/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -248,11 +271,72 @@ offset_bottom = 120.0
 mouse_filter = 0
 theme_override_styles/panel = SubResource("CatalogPanel")
 
-[node name="CityRestorationButton" type="Button" parent="CityMenu"]
+[node name="VBox" type="VBoxContainer" parent="CityMenu"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Header" type="HBoxContainer" parent="CityMenu/VBox"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="CityMenu/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.72, 0.9, 0.98, 1)
+theme_override_font_sizes/font_size = 17
+text = "도시 기반시설"
+
+[node name="CityIntegrityLabel" type="Label" parent="CityMenu/VBox/Header"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_colors/font_color = Color(0.3, 0.78, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "100 / 100"
+horizontal_alignment = 2
+
+[node name="Separator" type="HSeparator" parent="CityMenu/VBox"]
+layout_mode = 2
+
+[node name="CityRestorationButton" type="Button" parent="CityMenu/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
 tooltip_text = "예산을 사용해 도시 상태를 즉시 복구합니다"
-text = "도시 복구  +10    $200"
+text = ""
+
+[node name="Margin" type="MarginContainer" parent="CityMenu/VBox/CityRestorationButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 6
+
+[node name="Row" type="HBoxContainer" parent="CityMenu/VBox/CityRestorationButton/Margin"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="CityActionLabel" type="Label" parent="CityMenu/VBox/CityRestorationButton/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.86, 0.92, 0.95, 1)
+theme_override_font_sizes/font_size = 15
+text = "피해 복구"
+
+[node name="CityActionMetaLabel" type="Label" parent="CityMenu/VBox/CityRestorationButton/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
+theme_override_font_sizes/font_size = 14
+text = "+10    $200"
+horizontal_alignment = 2
 
 [node name="ThreatMenu" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -556,7 +640,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/DefenseMenuButton" to="." method="_on_defense_menu_pressed"]
 [connection signal="pressed" from="TopBar/Margin/CityMenuButton" to="." method="_on_city_menu_pressed"]
 [connection signal="pressed" from="TopBar/Margin/ThreatMenuButton" to="." method="_on_threat_menu_pressed"]
-[connection signal="pressed" from="CityMenu/CityRestorationButton" to="." method="_on_city_restoration_pressed"]
+[connection signal="pressed" from="CityMenu/VBox/CityRestorationButton" to="." method="_on_city_restoration_pressed"]
 [connection signal="pressed" from="ThreatMenu/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
 [connection signal="item_selected" from="ThreatMenu/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]

@@ -23,6 +23,8 @@ var objective: ProtectedObjective
 var pressure_level: int = 1
 var defense_definitions: Array[DefenseDefinition] = []
 var defense_buttons: Array[Button] = []
+var defense_name_labels: Array[Label] = []
+var defense_meta_labels: Array[Label] = []
 var threat_definitions: Array[ThreatDefinition] = []
 var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
@@ -32,6 +34,13 @@ var catalog_expanded: bool = false
 var city_menu_expanded: bool = false
 var threat_menu_expanded: bool = false
 var configured_game_mode: int = 0
+var feedback_context: String = ""
+var feedback_remaining: float = 0.0
+var menu_row_normal: StyleBoxFlat
+var menu_row_hover: StyleBoxFlat
+var menu_row_pressed: StyleBoxFlat
+var menu_row_disabled: StyleBoxFlat
+const FEEDBACK_DURATION := 3.5
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
 const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전 영역", "지원 작업", "전자전", "C2 연결"]
 const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special"]
@@ -59,7 +68,11 @@ const CATALOG_GROUP_LABELS := {
 @onready var overlay_button: Button = %OverlayButton
 @onready var defense_list: VBoxContainer = %DefenseList
 @onready var catalog: PanelContainer = %Catalog
+@onready var catalog_budget_label: Label = %CatalogBudgetLabel
 @onready var city_menu: PanelContainer = %CityMenu
+@onready var city_integrity_label: Label = %CityIntegrityLabel
+@onready var city_action_label: Label = %CityActionLabel
+@onready var city_action_meta_label: Label = %CityActionMetaLabel
 @onready var threat_menu: PanelContainer = %ThreatMenu
 @onready var defense_scroll: ScrollContainer = %DefenseScroll
 @onready var start_button: Button = %StartButton
@@ -93,6 +106,8 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	defense_definitions = defenses
 	threat_definitions = threats
 	configured_game_mode = game_mode
+	_ensure_menu_row_styles()
+	_apply_menu_row_style(city_restoration_button)
 	_build_defense_catalog()
 	_build_mode_controls(game_mode)
 	session.budget_changed.connect(_on_state_changed.unbind(1))
@@ -162,15 +177,16 @@ func _on_threat_menu_pressed() -> void:
 func _position_context_menus() -> void:
 	var viewport_size := get_viewport_rect().size
 	var menu_top := ($TopBar as Control).get_global_rect().end.y + 4.0
-	var catalog_width := 300.0
-	var catalog_height := minf(560.0, viewport_size.y - menu_top - 18.0)
+	var catalog_width := 340.0
+	var desired_catalog_height := defense_list.get_combined_minimum_size().y + 62.0
+	var catalog_height := minf(minf(520.0, desired_catalog_height), viewport_size.y - menu_top - 18.0)
 	var catalog_x := clampf(defense_menu_button.get_global_rect().position.x, 18.0, viewport_size.x - catalog_width - 18.0)
 	catalog.position = Vector2(catalog_x, menu_top)
 	catalog.size = Vector2(catalog_width, catalog_height)
-	var city_width := 250.0
+	var city_width := 340.0
 	var city_x := clampf(city_menu_button.get_global_rect().position.x, 18.0, viewport_size.x - city_width - 18.0)
 	city_menu.position = Vector2(city_x, menu_top)
-	city_menu.size = Vector2(city_width, 58.0)
+	city_menu.size = Vector2(city_width, 112.0)
 	var threat_width := 280.0
 	var threat_x := clampf(threat_menu_button.get_global_rect().position.x, 18.0, viewport_size.x - threat_width - 18.0)
 	threat_menu.position = Vector2(threat_x, menu_top)
@@ -203,17 +219,27 @@ func set_training_lesson(step: int, total: int, title: String, body: String, nex
 
 func set_pressure(level: int) -> void:
 	pressure_level = level
-	pressure_label.text = "전투 강도  %d" % level
+	pressure_label.text = "위협 단계  %d" % level
 	_on_state_changed()
 
 func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Array[String]) -> void:
 	var parts: Array[String] = ["▲ 적성 항적 %d" % hostile_count, "교전 %d" % engagement_count]
 	parts.append_array(warnings)
-	alert_label.text = "  ·  ".join(parts)
+	alert_label.text = "    ".join(parts)
 	alert_label.modulate = Color(1.0, 0.52, 0.32) if not warnings.is_empty() else Color(1.0, 0.78, 0.35)
 
-func set_feedback(message: String) -> void:
+func set_feedback(message: String, transient: bool = true) -> void:
+	if transient:
+		feedback_remaining = FEEDBACK_DURATION if not message.is_empty() else 0.0
+		_set_feedback_text(message if not message.is_empty() else feedback_context)
+		return
+	feedback_context = message
+	if feedback_remaining <= 0.0:
+		_set_feedback_text(feedback_context)
+
+func _set_feedback_text(message: String) -> void:
 	feedback_label.text = message
+	feedback_label.visible = not message.is_empty()
 
 func set_placement_power_preview(current_demand: float, added_demand: float, capacity: float, added_capacity: float, screen_position: Vector2, active: bool) -> void:
 	placement_power_panel.visible = active and (added_demand > 0.0 or added_capacity > 0.0)
@@ -234,7 +260,11 @@ func set_final_stats(stats: Dictionary) -> void:
 	final_combat_stats.text = String(stats.get("combat", ""))
 	final_network_stats.text = String(stats.get("network", ""))
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if feedback_remaining > 0.0:
+		feedback_remaining = maxf(0.0, feedback_remaining - delta)
+		if feedback_remaining <= 0.0:
+			_set_feedback_text(feedback_context)
 	if selected_asset != null and is_instance_valid(selected_asset):
 		_refresh_selected_asset_label()
 
@@ -339,14 +369,25 @@ func _affiliation_text(track: PlayerTrack) -> String:
 
 func _on_state_changed() -> void:
 	budget_label.text = "예산  무제한" if session.unlimited_budget else "예산  $%d" % session.budget
+	catalog_budget_label.text = "예산 무제한" if session.unlimited_budget else "예산 $%d" % session.budget
 	_refresh_city_restoration_button()
 	time_label.text = "생존  %02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 	_refresh_speed_buttons()
 	for index: int in defense_buttons.size():
 		var definition := defense_definitions[index]
 		var locked := definition.unlock_pressure_level > session.current_pressure
-		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or not session.unlimited_budget and session.budget < definition.price or locked
-		defense_buttons[index].text = "%s  강도 %d 해금" % [definition.display_name, definition.unlock_pressure_level] if locked else definition.display_name if session.unlimited_budget else "%s  $%d" % [definition.display_name, definition.price]
+		var unaffordable := not session.unlimited_budget and session.budget < definition.price
+		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or unaffordable or locked
+		defense_name_labels[index].add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if defense_buttons[index].disabled else Color(0.86, 0.92, 0.95))
+		if locked:
+			defense_meta_labels[index].text = "%d단계 해금" % definition.unlock_pressure_level
+			defense_meta_labels[index].add_theme_color_override("font_color", Color(0.78, 0.57, 0.32))
+		elif session.unlimited_budget:
+			defense_meta_labels[index].text = "무료"
+			defense_meta_labels[index].add_theme_color_override("font_color", Color(0.45, 0.92, 0.66))
+		else:
+			defense_meta_labels[index].text = "$%d" % definition.price
+			defense_meta_labels[index].add_theme_color_override("font_color", Color(0.65, 0.48, 0.42) if unaffordable else Color(0.45, 0.92, 0.66))
 	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
 
 func _refresh_speed_buttons() -> void:
@@ -358,6 +399,7 @@ func _refresh_speed_buttons() -> void:
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
 	city_menu_button.text = _city_menu_text("▴" if city_menu_expanded else "▾", current, maximum)
+	city_integrity_label.text = "%d / %d" % [current, maximum]
 	_refresh_city_restoration_button()
 
 func _city_menu_text(arrow: String, current: int = -1, maximum: int = -1) -> String:
@@ -370,8 +412,11 @@ func _refresh_city_restoration_button() -> void:
 		return
 	var cost := objective.definition.restoration_cost
 	var amount := objective.definition.restoration_amount
-	city_restoration_button.text = "도시 복구  +%d" % amount if session.unlimited_budget else "도시 복구  +%d    $%d" % [amount, cost]
+	city_action_label.text = "피해 복구"
+	city_action_meta_label.text = "+%d    무료" % amount if session.unlimited_budget else "+%d    $%d" % [amount, cost]
 	city_restoration_button.disabled = session.phase == GameSession.Phase.GAME_OVER or objective.current_integrity >= objective.definition.maximum_integrity or not session.unlimited_budget and session.budget < cost
+	city_action_label.add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if city_restoration_button.disabled else Color(0.86, 0.92, 0.95))
+	city_action_meta_label.add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if city_restoration_button.disabled else Color(0.45, 0.92, 0.66))
 
 func _on_phase_changed(new_phase: GameSession.Phase) -> void:
 	start_button.visible = new_phase == GameSession.Phase.PREPARATION
@@ -385,6 +430,10 @@ func _build_defense_catalog() -> void:
 		child.queue_free()
 	defense_buttons.clear()
 	defense_buttons.resize(defense_definitions.size())
+	defense_name_labels.clear()
+	defense_name_labels.resize(defense_definitions.size())
+	defense_meta_labels.clear()
+	defense_meta_labels.resize(defense_definitions.size())
 	for group_id: StringName in CATALOG_GROUP_ORDER:
 		var group_definitions: Array[DefenseDefinition] = []
 		for definition: DefenseDefinition in defense_definitions:
@@ -396,17 +445,71 @@ func _build_defense_catalog() -> void:
 		heading.name = "CatalogGroup%s" % String(group_id).to_pascal_case()
 		heading.text = String(CATALOG_GROUP_LABELS[group_id])
 		heading.add_theme_color_override("font_color", Color(0.48, 0.82, 0.94))
+		heading.custom_minimum_size = Vector2(0.0, 24.0)
 		heading.add_theme_font_size_override("font_size", 13)
+		heading.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 		defense_list.add_child(heading)
 		for definition: DefenseDefinition in group_definitions:
 			var button := Button.new()
-			button.custom_minimum_size = Vector2(0.0, 32.0)
-			button.add_theme_font_size_override("font_size", 14)
-			button.text = "%s  $%d" % [definition.display_name, definition.price]
+			button.custom_minimum_size = Vector2(0.0, 44.0)
+			button.text = ""
 			button.tooltip_text = definition.purchase_tooltip
+			_apply_menu_row_style(button)
+			var row := _create_menu_row(definition.display_name)
+			button.add_child(row.container)
 			button.pressed.connect(_on_defense_pressed.bind(definition))
 			defense_list.add_child(button)
-			defense_buttons[defense_definitions.find(definition)] = button
+			var definition_index := defense_definitions.find(definition)
+			defense_buttons[definition_index] = button
+			defense_name_labels[definition_index] = row.name_label
+			defense_meta_labels[definition_index] = row.meta_label
+
+func _create_menu_row(name: String) -> Dictionary:
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(row)
+	var name_label := Label.new()
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.text = name
+	row.add_child(name_label)
+	var meta_label := Label.new()
+	meta_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	meta_label.add_theme_font_size_override("font_size", 14)
+	meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(meta_label)
+	return {"container": margin, "name_label": name_label, "meta_label": meta_label}
+
+func _ensure_menu_row_styles() -> void:
+	if menu_row_normal != null:
+		return
+	menu_row_normal = _menu_row_style(Color(0.055, 0.08, 0.105, 0.96), Color(0.12, 0.24, 0.31, 0.85))
+	menu_row_hover = _menu_row_style(Color(0.075, 0.14, 0.18, 0.98), Color(0.22, 0.58, 0.72, 0.95))
+	menu_row_pressed = _menu_row_style(Color(0.06, 0.22, 0.28, 0.98), Color(0.35, 0.78, 0.88, 1.0))
+	menu_row_disabled = _menu_row_style(Color(0.04, 0.055, 0.07, 0.82), Color(0.1, 0.14, 0.17, 0.72))
+
+func _menu_row_style(background: Color, border: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = background
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	return style
+
+func _apply_menu_row_style(button: Button) -> void:
+	button.add_theme_stylebox_override("normal", menu_row_normal)
+	button.add_theme_stylebox_override("hover", menu_row_hover)
+	button.add_theme_stylebox_override("pressed", menu_row_pressed)
+	button.add_theme_stylebox_override("focus", menu_row_hover)
+	button.add_theme_stylebox_override("disabled", menu_row_disabled)
 
 func _catalog_group_for(definition: DefenseDefinition) -> StringName:
 	if definition is SearchRadarDefinition:

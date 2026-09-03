@@ -73,6 +73,22 @@ func test_time_control_buttons_are_the_only_speed_state_indicator() -> void:
 	assert_true(pause_button.button_pressed)
 	assert_false(very_fast_button.button_pressed)
 
+func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
+	assert_eq(main.hud.budget_label.custom_minimum_size.x, 132.0)
+	assert_eq(main.hud.time_label.custom_minimum_size.x, 138.0)
+	assert_eq(main.hud.pressure_label.text, "위협 단계  1")
+	var preparation_hint := "방공 자산을 배치한 뒤 방어를 시작하세요."
+	assert_eq(main.hud.feedback_label.text, preparation_hint)
+	assert_false(main.hud.feedback_label.text.contains("Seed"))
+	assert_false(main.hud.feedback_label.text.contains(main.scenario.battlefield_layout().display_name))
+	main.hud.set_feedback("배치했습니다")
+	main.hud.set_feedback("지도에서 배치 위치를 선택하세요", false)
+	assert_eq(main.hud.feedback_label.text, "배치했습니다")
+	main.hud._process(Hud.FEEDBACK_DURATION + 0.1)
+	assert_eq(main.hud.feedback_label.text, "지도에서 배치 위치를 선택하세요")
+	main.hud.set_feedback("", false)
+	assert_false(main.hud.feedback_label.visible)
+
 func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
 	var button := main.hud.city_restoration_button
 	var cost := main.objective.definition.restoration_cost
@@ -82,7 +98,8 @@ func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
 	main.hud.city_menu_button.pressed.emit()
 	assert_true(main.hud.city_menu.visible)
 	assert_false(main.hud.catalog.visible)
-	assert_eq(button.text, "도시 복구  +%d    $%d" % [amount, cost])
+	assert_eq(main.hud.city_action_label.text, "피해 복구")
+	assert_eq(main.hud.city_action_meta_label.text, "+%d    $%d" % [amount, cost])
 	assert_true(button.disabled)
 	assert_true(main.objective.apply_mission_damage(15))
 	assert_false(button.disabled)
@@ -117,9 +134,9 @@ func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
 	var position := _find_valid_position_for(definition.placement_profile)
 	var locked_result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_false(locked_result.success)
-	assert_string_contains(locked_result.reason, "전투 강도 2")
+	assert_string_contains(locked_result.reason, "위협 단계 2")
 	assert_true(main.hud.defense_buttons[3].disabled)
-	assert_string_contains(main.hud.defense_buttons[3].text, "강도 2 해금")
+	assert_eq(main.hud.defense_meta_labels[3].text, "2단계 해금")
 	main._on_pressure_changed(2)
 	assert_false(main.hud.defense_buttons[3].disabled)
 	assert_true(main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
@@ -424,6 +441,11 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 		assert_false(main.scenario.available_defenses[index].purchase_tooltip.is_empty())
 		assert_true(main.scenario.available_defenses[index].purchase_tooltip.contains("\n"))
 		assert_eq(main.hud.defense_buttons[index].tooltip_text, main.scenario.available_defenses[index].purchase_tooltip)
+		assert_eq(main.hud.defense_buttons[index].text, "")
+		assert_eq(main.hud.defense_name_labels[index].text, main.scenario.available_defenses[index].display_name)
+		assert_eq(main.hud.defense_meta_labels[index].horizontal_alignment, HORIZONTAL_ALIGNMENT_RIGHT)
+	assert_eq(main.hud.defense_meta_labels[0].text, "$%d" % main.scenario.available_defenses[0].price)
+	assert_same(main.hud.defense_buttons[0].get_theme_stylebox("normal"), main.hud.city_restoration_button.get_theme_stylebox("normal"))
 	var support_definition := main.scenario.available_defenses[5]
 	assert_eq(support_definition.display_name, "통합 지원기지")
 	var support_visual := add_child_autofree(support_definition.scene.instantiate()) as SupportFacility
@@ -440,8 +462,12 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_false(catalog.get_global_rect().intersects(main.altitude_profile.get_global_rect()))
 	assert_gte(catalog.position.y, (main.hud.get_node("TopBar") as Control).get_global_rect().end.y)
 	assert_gte(catalog.size.y, 480.0)
+	assert_lte(catalog.size.y, 520.0)
+	assert_eq(catalog.size.x, main.hud.city_menu.size.x)
+	assert_eq(main.hud.catalog_budget_label.text, "예산 $%d" % main.session.budget)
 	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
 	assert_gte(defense_scroll.size.y, 360.0)
+	assert_gt(main.hud.defense_list.get_combined_minimum_size().y, defense_scroll.size.y)
 	assert_eq(catalog.mouse_filter, Control.MOUSE_FILTER_STOP)
 	assert_false(catalog.mouse_force_pass_scroll_events)
 	assert_true(defense_scroll.mouse_force_pass_scroll_events)
@@ -455,6 +481,9 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	main.hud.city_menu_button.pressed.emit()
 	assert_true(main.hud.city_menu.visible)
 	assert_false(catalog.visible)
+	assert_eq(main.hud.city_integrity_label.text, "100 / 100")
+	assert_eq(main.hud.city_action_label.text, "피해 복구")
+	assert_eq(main.hud.city_action_meta_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_RIGHT)
 	main.hud.defense_menu_button.pressed.emit()
 	assert_true(catalog.visible)
 	assert_false(main.hud.city_menu.visible)
