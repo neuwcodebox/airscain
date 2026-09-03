@@ -97,7 +97,7 @@ func _ready() -> void:
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
 	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)
-	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge)
+	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge, hud.training_panel, hud.catalog)
 	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:
@@ -196,6 +196,7 @@ func _on_start_requested() -> void:
 		director.enabled = game_mode == GameMode.SUSTAINED
 		if game_mode == GameMode.TRAINING:
 			session.set_simulation_speed(1.0)
+			hud.set_catalog_expanded(false)
 			_set_training_step(TrainingStep.ACQUIRE)
 			_spawn_training_threat()
 		elif game_mode == GameMode.SANDBOX:
@@ -363,20 +364,21 @@ func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.IN
 	if screen_position.is_finite():
 		var nearest_screen_distance := 34.0
 		for track: PlayerTrack in tracks:
-			if camera_rig.camera.is_position_behind(track.estimated_position):
+			var track_screen_position: Vector2 = tactical_screen_overlay.call("track_marker_screen_position", track)
+			if not track_screen_position.is_finite():
 				continue
-			var track_screen_position := camera_rig.camera.unproject_position(track.estimated_position + Vector3.UP * 12.0)
 			var screen_distance := track_screen_position.distance_to(screen_position)
 			if screen_distance < nearest_screen_distance:
 				nearest_screen_distance = screen_distance
 				selected_track = track
-	for track: PlayerTrack in tracks:
-		if selected_track != null:
-			break
-		var flat_distance := Vector2(track.estimated_position.x - position.x, track.estimated_position.z - position.z).length()
-		if flat_distance < nearest_distance:
-			nearest_distance = flat_distance
-			selected_track = track
+	if position.is_finite():
+		for track: PlayerTrack in tracks:
+			if selected_track != null:
+				break
+			var flat_distance := Vector2(track.estimated_position.x - position.x, track.estimated_position.z - position.z).length()
+			if flat_distance < nearest_distance:
+				nearest_distance = flat_distance
+				selected_track = track
 	if selected_track == null:
 		selected_asset = null
 		c2_overlay.select_asset(null)
@@ -393,9 +395,12 @@ func _refresh_selected_track_panel() -> void:
 
 func _refresh_tactical_ui() -> void:
 	var hostile_count := 0
+	var selectable_hostile_count := 0
 	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
 		if track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3:
 			hostile_count += 1
+			if track.state != PlayerTrack.State.TENTATIVE:
+				selectable_hostile_count += 1
 	var warnings: Array[String] = []
 	var depleted_count := 0
 	var disabled_count := 0
@@ -413,7 +418,7 @@ func _refresh_tactical_ui() -> void:
 	if objective != null and objective.current_integrity <= objective.definition.maximum_integrity * 0.3:
 		warnings.append("도시 기능 위험")
 	hud.set_tactical_alert(hostile_count, engagement_coordinator.reservations.size(), warnings)
-	if game_mode == GameMode.TRAINING and training_step == TrainingStep.ACQUIRE and hostile_count > 0:
+	if game_mode == GameMode.TRAINING and training_step == TrainingStep.ACQUIRE and selectable_hostile_count > 0:
 		session.set_simulation_speed(0.0)
 		tactical_screen_overlay.call("hide_training_approach")
 		_set_training_step(TrainingStep.SELECT_TRACK)
@@ -569,6 +574,7 @@ func _set_training_step(step: TrainingStep) -> void:
 		TrainingStep.ENGAGE:
 			hud.set_training_lesson(10, 13, "자동교전 관찰 · 자동 재생", "포대가 선회·조준하고 표적을 요격하는 과정을 관찰하세요. 교전 종료 후 자동 일시정지됩니다.")
 		TrainingStep.SUPPORT:
+			hud.set_catalog_expanded(true)
 			hud.set_training_lesson(11, 13, "군수지원 · 일시정지", "군수지원시설을 배치하세요. 배치 후 포대의 예비탄을 훈련용으로 소진시킵니다.")
 		TrainingStep.RESUPPLY:
 			hud.set_training_lesson(12, 13, "재보급 작업 · 일시정지", "미사일 포대를 다시 선택하세요. 활성화된 재보급 요청을 눌러 지원 대기열에 작업을 넣으세요.")

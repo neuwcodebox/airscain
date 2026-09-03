@@ -10,10 +10,14 @@ var training_approach_visible: bool = false
 var training_approach_origin: Vector3
 var training_approach_position: Vector3
 var training_approach_text: String = "훈련 표적 진입"
+var training_left_panel: Control
+var training_right_panel: Control
 
-func configure(camera_value: Camera3D, knowledge: Node) -> void:
+func configure(camera_value: Camera3D, knowledge: Node, left_panel: Control = null, right_panel: Control = null) -> void:
 	camera = camera_value
 	player_knowledge = knowledge
+	training_left_panel = left_panel
+	training_right_panel = right_panel
 	queue_redraw()
 
 func select_track(track: PlayerTrack) -> void:
@@ -43,9 +47,9 @@ func _draw() -> void:
 		return
 	var viewport_size := size
 	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
-		if track.state == PlayerTrack.State.TENTATIVE or _is_on_screen(track.estimated_position, viewport_size):
+		if track.state == PlayerTrack.State.TENTATIVE or _is_on_screen(track.estimated_position + Vector3.UP * 12.0, viewport_size):
 			continue
-		var marker := tactical_marker_position(camera.unproject_position(track.estimated_position), viewport_size, camera.is_position_behind(track.estimated_position))
+		var marker := track_marker_screen_position(track)
 		var direction := (marker - viewport_size * 0.5).normalized()
 		var tangent := Vector2(-direction.y, direction.x)
 		var scale := 1.35 if track.track_id == selected_track_id else 1.0
@@ -77,10 +81,10 @@ func _draw_training_approach() -> void:
 	])
 	draw_colored_polygon(arrow, Color(1.0, 0.58, 0.08, 0.98))
 	draw_polyline(PackedVector2Array([arrow[0], arrow[1], arrow[2], arrow[0]]), Color(0.08, 0.06, 0.02, 0.95), 2.0, true)
-	var label_position := marker + inward * 116.0
-	var label_size := Vector2(190.0, 30.0)
-	draw_rect(Rect2(label_position - label_size * 0.5, label_size), Color(0.04, 0.055, 0.05, 0.9), true)
-	draw_rect(Rect2(label_position - label_size * 0.5, label_size), Color(1.0, 0.62, 0.12, 0.92), false, 2.0)
+	var label_rect := training_approach_label_rect()
+	var label_position := label_rect.get_center()
+	draw_rect(label_rect, Color(0.04, 0.055, 0.05, 0.9), true)
+	draw_rect(label_rect, Color(1.0, 0.62, 0.12, 0.92), false, 2.0)
 	_draw_centered_text(training_approach_label_text(), label_position, Color(1.0, 0.82, 0.34), 16)
 
 func training_approach_label_text() -> String:
@@ -90,12 +94,39 @@ func training_marker_screen_position() -> Vector2:
 	if camera == null:
 		return size * 0.5
 	var projected := camera.unproject_position(training_approach_position)
-	if camera.is_position_behind(training_approach_position):
-		projected = size - projected
-	return Vector2(
-		clampf(projected.x, EDGE_MARGIN, maxf(EDGE_MARGIN, size.x - EDGE_MARGIN)),
-		clampf(projected.y, 100.0, maxf(100.0, size.y - 70.0))
-	)
+	var margins := _training_safe_margins()
+	return marker_position_in_safe_area(projected, size, camera.is_position_behind(training_approach_position), margins.x, margins.y, margins.z, margins.w)
+
+func training_approach_label_rect() -> Rect2:
+	var marker := training_marker_screen_position()
+	var origin_screen := size * 0.5
+	if camera != null and not camera.is_position_behind(training_approach_origin):
+		origin_screen = camera.unproject_position(training_approach_origin)
+	var inward := (origin_screen - marker).normalized()
+	if inward.length_squared() < 0.001:
+		inward = Vector2.LEFT
+	return Rect2(marker + inward * 116.0 - Vector2(95.0, 15.0), Vector2(190.0, 30.0))
+
+func track_marker_screen_position(track: PlayerTrack) -> Vector2:
+	if camera == null or track == null:
+		return Vector2.INF
+	var marker_world_position := track.estimated_position + Vector3.UP * 12.0
+	var projected := camera.unproject_position(marker_world_position)
+	var behind := camera.is_position_behind(marker_world_position)
+	if not behind and Rect2(Vector2.ZERO, size).grow(-EDGE_MARGIN).has_point(projected):
+		return projected
+	if track.state == PlayerTrack.State.TENTATIVE:
+		return Vector2.INF
+	return tactical_marker_position(projected, size, behind)
+
+func _training_safe_margins() -> Vector4:
+	var left := EDGE_MARGIN
+	var right := EDGE_MARGIN
+	if training_left_panel != null and training_left_panel.is_visible_in_tree():
+		left = maxf(left, training_left_panel.get_global_rect().end.x + 16.0)
+	if training_right_panel != null and training_right_panel.is_visible_in_tree():
+		right = maxf(right, size.x - training_right_panel.get_global_rect().position.x + 16.0)
+	return Vector4(left, 100.0, right, 70.0)
 
 func _draw_centered_text(text: String, position: Vector2, color: Color, font_size: int) -> void:
 	var font := ThemeDB.fallback_font
