@@ -530,9 +530,23 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "선택 위치로 초점 이동"
 
+[node name="GameOverBlocker" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 90
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.015, 0.025, 0.035, 0.58)
+
 [node name="GameOverPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
+z_index = 100
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -622,15 +636,28 @@ theme_override_font_sizes/font_size = 17
 text = "방공망 통계"
 vertical_alignment = 1
 
-[node name="SameSeedButton" type="Button" parent="GameOverPanel/VBox"]
+[node name="Actions" type="HBoxContainer" parent="GameOverPanel/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 42)
-text = "같은 전장 다시 시작"
+theme_override_constants/separation = 12
 
-[node name="NewSeedButton" type="Button" parent="GameOverPanel/VBox"]
+[node name="SameSeedButton" type="Button" parent="GameOverPanel/VBox/Actions"]
 layout_mode = 2
+size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 42)
-text = "새 전장 시작"
+text = "같은 전장 재시작"
+
+[node name="NewSeedButton" type="Button" parent="GameOverPanel/VBox/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 42)
+text = "새 전장 재시작"
+
+[node name="GameOverMainMenuButton" type="Button" parent="GameOverPanel/VBox/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 42)
+text = "메인 메뉴"
 
 [connection signal="pressed" from="TopBar/Margin/PauseButton" to="." method="_on_pause_pressed"]
 [connection signal="pressed" from="TopBar/Margin/NormalButton" to="." method="_on_normal_pressed"]
@@ -653,5 +680,6 @@ text = "새 전장 시작"
 [connection signal="pressed" from="SelectedAssetPanel/VBox/RelocationButton" to="." method="_on_relocation_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/FocusButton" to="." method="_on_focus_pressed"]
 [connection signal="pressed" from="StartButton" to="." method="_on_start_pressed"]
-[connection signal="pressed" from="GameOverPanel/VBox/SameSeedButton" to="." method="_on_same_seed_pressed"]
-[connection signal="pressed" from="GameOverPanel/VBox/NewSeedButton" to="." method="_on_new_seed_pressed"]
+[connection signal="pressed" from="GameOverPanel/VBox/Actions/SameSeedButton" to="." method="_on_same_seed_pressed"]
+[connection signal="pressed" from="GameOverPanel/VBox/Actions/NewSeedButton" to="." method="_on_new_seed_pressed"]
+[connection signal="pressed" from="GameOverPanel/VBox/Actions/GameOverMainMenuButton" to="." method="_on_game_over_main_menu_pressed"]

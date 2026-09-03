@@ -25,6 +25,27 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK defense_assets_menu city_status_menu")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-game-over-only"):
+		main.hud.set_catalog_expanded(true)
+		main.objective.apply_mission_damage(main.objective.current_integrity)
+		for index: int in 5:
+			await process_frame
+		if not main.hud.game_over_blocker.visible or not main.hud.game_over_panel.visible:
+			push_error("Game-over modal did not cover the gameplay HUD")
+			quit(1)
+			return
+		if main.hud.catalog.visible or not main.hud.defense_menu_button.disabled or not main.hud.pause_button.disabled:
+			push_error("Game-over modal left tactical controls active")
+			quit(1)
+			return
+		if not main.hud.game_over_main_menu_button.visible:
+			push_error("Game-over modal did not expose the main-menu action")
+			quit(1)
+			return
+		_save_capture("/tmp/airscain_game_over_modal.png")
+		print("VISUAL_CAPTURE_OK modal_input_block restart_and_main_menu_actions")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-popup-input-priority-only"):
 		var popup_input_ok := await _capture_popup_input_priority()
 		if not popup_input_ok:

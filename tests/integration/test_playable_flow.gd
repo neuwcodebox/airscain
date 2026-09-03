@@ -795,6 +795,7 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	main.session.defense_count = 1
 	assert_true(main.session.start_defense())
 	main.session.set_simulation_speed(0.0)
+	main.hud.set_city_menu_expanded(true)
 	for index: int in 10:
 		var threat: ThreatUnit = main.director.spawn_one()
 		var target: Vector3 = main.objective.global_position
@@ -806,6 +807,16 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	assert_eq(main.session.phase, GameSession.Phase.GAME_OVER)
 	assert_false(main.director.enabled)
 	assert_eq(main.registry.hostile_count(), 0)
+	assert_true(main.hud.game_over_blocker.visible)
+	assert_true(main.hud.game_over_panel.visible)
+	assert_true(main.hud.game_over_main_menu_button.visible)
+	assert_false(main.hud.catalog.visible)
+	assert_false(main.hud.city_menu.visible)
+	assert_false(main.hud.threat_menu.visible)
+	assert_true(main.hud.defense_menu_button.disabled)
+	assert_true(main.hud.city_menu_button.disabled)
+	assert_true(main.hud.pause_button.disabled)
+	assert_true(main.hud.overlay_button.disabled)
 	assert_string_contains(main.hud.final_stats.text, "방어 구간")
 	assert_string_contains(main.hud.final_stats.text, "도시 피해")
 	assert_string_contains(main.hud.final_combat_stats.text, "무력화")

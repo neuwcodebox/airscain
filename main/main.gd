@@ -5,6 +5,7 @@ enum GameMode { SUSTAINED, TRAINING, SANDBOX }
 enum TrainingStep { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, OVERLAY, COMPLETE }
 
 signal restart_game_requested(mode: GameMode, world_seed: int)
+signal main_menu_requested
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
@@ -167,6 +168,7 @@ func _connect_flow() -> void:
 	hud.start_requested.connect(_on_start_requested)
 	hud.speed_requested.connect(session.set_simulation_speed)
 	hud.restart_requested.connect(_on_restart_requested)
+	hud.main_menu_requested.connect(_on_main_menu_requested)
 	placement.feedback_changed.connect(hud.set_feedback)
 	placement.asset_selected.connect(_on_asset_selected)
 	placement.world_selected.connect(_on_world_selected)
@@ -339,6 +341,9 @@ func _on_restart_requested(same_seed: bool) -> void:
 		get_tree().reload_current_scene()
 		return
 	restart_game_requested.emit(game_mode, next_seed)
+
+func _on_main_menu_requested() -> void:
+	main_menu_requested.emit()
 
 func _on_asset_selected(unit: DefenseUnit) -> void:
 	selected_asset = unit

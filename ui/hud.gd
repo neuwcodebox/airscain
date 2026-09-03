@@ -5,6 +5,7 @@ signal defense_selected(definition: DefenseDefinition)
 signal start_requested
 signal speed_requested(speed: float)
 signal restart_requested(same_seed: bool)
+signal main_menu_requested
 signal overlay_requested(mode: StringName)
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
@@ -78,7 +79,9 @@ const CATALOG_GROUP_LABELS := {
 @onready var defense_scroll: ScrollContainer = %DefenseScroll
 @onready var start_button: Button = %StartButton
 @onready var feedback_label: Label = %FeedbackLabel
+@onready var game_over_blocker: ColorRect = %GameOverBlocker
 @onready var game_over_panel: PanelContainer = %GameOverPanel
+@onready var game_over_main_menu_button: Button = %GameOverMainMenuButton
 @onready var final_stats: Label = %FinalStats
 @onready var final_combat_stats: Label = %FinalCombatStats
 @onready var final_network_stats: Label = %FinalNetworkStats
@@ -433,10 +436,26 @@ func _refresh_city_restoration_button() -> void:
 
 func _on_phase_changed(new_phase: GameSession.Phase) -> void:
 	start_button.visible = new_phase == GameSession.Phase.PREPARATION
-	game_over_panel.visible = new_phase == GameSession.Phase.GAME_OVER
-	if new_phase == GameSession.Phase.GAME_OVER:
+	var game_over := new_phase == GameSession.Phase.GAME_OVER
+	game_over_blocker.visible = game_over
+	game_over_panel.visible = game_over
+	_set_gameplay_controls_disabled(game_over)
+	if game_over:
+		set_catalog_expanded(false)
+		set_city_menu_expanded(false)
+		set_threat_menu_expanded(false)
 		final_stats.text = "생존 시간  %02d:%02d\n무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.neutralized_count, session.defense_count, session.highest_pressure]
 	_on_state_changed()
+
+func _set_gameplay_controls_disabled(disabled: bool) -> void:
+	defense_menu_button.disabled = disabled
+	city_menu_button.disabled = disabled
+	threat_menu_button.disabled = disabled
+	pause_button.disabled = disabled
+	normal_button.disabled = disabled
+	fast_button.disabled = disabled
+	very_fast_button.disabled = disabled
+	overlay_button.disabled = disabled
 
 func _build_defense_catalog() -> void:
 	for child: Node in defense_list.get_children():
@@ -605,3 +624,6 @@ func _on_same_seed_pressed() -> void:
 
 func _on_new_seed_pressed() -> void:
 	restart_requested.emit(false)
+
+func _on_game_over_main_menu_pressed() -> void:
+	main_menu_requested.emit()

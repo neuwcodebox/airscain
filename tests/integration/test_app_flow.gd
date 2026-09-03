@@ -59,6 +59,31 @@ func test_game_over_restart_replaces_gameplay_without_showing_main_menu() -> voi
 	assert_ne(app.gameplay.scenario.world_seed, first_seed)
 	assert_false(app.main_menu.visible)
 
+func test_game_over_blocks_escape_menu_and_returns_home_from_result_panel() -> void:
+	var app: AirscainApp = add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	await get_tree().process_frame
+	app.start_game(AirscainMain.GameMode.SUSTAINED)
+	await get_tree().process_frame
+	var gameplay := app.gameplay
+	gameplay.hud.set_catalog_expanded(true)
+	gameplay.session.end_game()
+	assert_false(gameplay.hud.catalog.visible)
+	assert_true(gameplay.hud.game_over_blocker.visible)
+	assert_true(gameplay.hud.game_over_panel.visible)
+	assert_true(gameplay.hud.defense_menu_button.disabled)
+	assert_true(gameplay.hud.pause_button.disabled)
+	var cancel_event := InputEventAction.new()
+	cancel_event.action = &"ui_cancel"
+	cancel_event.pressed = true
+	app._unhandled_input(cancel_event)
+	assert_false(app.pause_menu.visible)
+	app.set_pause_menu(true)
+	assert_false(app.pause_menu.visible)
+	gameplay.hud.game_over_main_menu_button.pressed.emit()
+	assert_null(app.gameplay)
+	assert_true(app.main_menu.visible)
+	assert_false(app.pause_menu.visible)
+
 func test_save_and_load_controls_belong_to_main_and_pause_menus() -> void:
 	var test_save_path := "user://app_menu_save_test_%d.json" % get_instance_id()
 	_cleanup_save_path(test_save_path)

@@ -21,7 +21,7 @@ func _ready() -> void:
 	_refresh_main_load_button()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if gameplay != null and event.is_action_pressed("ui_cancel"):
+	if gameplay != null and gameplay.session.phase != GameSession.Phase.GAME_OVER and event.is_action_pressed("ui_cancel"):
 		set_pause_menu(not pause_menu.visible)
 		get_viewport().set_input_as_handled()
 
@@ -45,11 +45,15 @@ func _create_gameplay(mode: AirscainMain.GameMode, world_seed: int) -> void:
 	add_child(gameplay)
 	gameplay.save_path = save_path
 	gameplay.restart_game_requested.connect(restart_game)
+	gameplay.main_menu_requested.connect(return_to_main_menu)
 	main_menu.visible = false
 	pause_menu.visible = false
 
 func set_pause_menu(open: bool) -> void:
 	if gameplay == null:
+		return
+	if open and gameplay.session.phase == GameSession.Phase.GAME_OVER:
+		pause_menu.visible = false
 		return
 	pause_menu.visible = open
 	if open:
