@@ -272,7 +272,6 @@ func _refresh_speed_buttons() -> void:
 	for index: int in buttons.size():
 		var selected := is_equal_approx(session.simulation_speed, speeds[index])
 		buttons[index].set_pressed_no_signal(selected)
-		buttons[index].self_modulate = Color("78dcff") if selected else Color.WHITE
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
 	integrity_label.text = "도시  %d / %d" % [current, maximum]

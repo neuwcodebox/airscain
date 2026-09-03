@@ -57,6 +57,10 @@ func test_time_control_buttons_are_the_only_speed_state_indicator() -> void:
 	assert_null(main.hud.get_node_or_null("%SpeedLabel"))
 	assert_true(normal_button.button_pressed)
 	assert_false(pause_button.button_pressed)
+	var selected_style := normal_button.get_theme_stylebox("pressed") as StyleBoxFlat
+	assert_not_null(selected_style)
+	assert_gt(selected_style.bg_color.b, 0.65)
+	assert_gt(selected_style.bg_color.a, 0.9)
 	fast_button.pressed.emit()
 	assert_eq(main.session.simulation_speed, 2.0)
 	assert_true(fast_button.button_pressed)
