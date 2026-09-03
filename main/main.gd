@@ -655,7 +655,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 			var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
 			var interceptor := HOMING_INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 			projectile_parent.add_child(interceptor)
-			interceptor.restore_state(state, target_track, registry, restored_tracks)
+			interceptor.restore_state(state, target_track, registry, restored_tracks, battlefield)
 			interceptor.target_changed.connect(owner._on_interceptor_target_changed)
 			owner.interceptors.append(interceptor)
 		else:

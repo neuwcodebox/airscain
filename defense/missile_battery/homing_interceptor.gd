@@ -12,6 +12,7 @@ const REACQUISITION_GRACE_DURATION := 2.5
 
 var target_track: PlayerTrack
 var registry: ThreatRegistry
+var battlefield: Battlefield
 var owner_defense_id: int
 var speed: float = 200.0
 var turn_rate: float = deg_to_rad(240.0)
@@ -36,9 +37,10 @@ var other_target_match: float = 1.0
 var small_target_match: float = 0.22
 var rng := RandomNumberGenerator.new()
 
-func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0, track_candidates: Array[PlayerTrack] = []) -> void:
+func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null) -> void:
 	target_track = track_value
 	registry = registry_value
+	battlefield = battlefield_value
 	owner_defense_id = owner_id
 	speed = definition.interceptor_speed
 	turn_rate = deg_to_rad(definition.interceptor_turn_rate_degrees)
@@ -83,6 +85,8 @@ func gameplay_tick(delta: float) -> void:
 	var direction := desired if angle <= effective_turn_rate * delta else current.slerp(desired, (effective_turn_rate * delta) / angle)
 	velocity = direction.normalized() * speed
 	global_position += velocity * delta
+	if _resolve_terrain_impact(previous):
+		return
 	look_at(global_position + velocity, Vector3.UP)
 	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
 	if smoke != null:
@@ -109,12 +113,27 @@ func gameplay_tick(delta: float) -> void:
 func _coast_without_target(delta: float) -> void:
 	var previous := global_position
 	global_position += velocity * delta
+	if _resolve_terrain_impact(previous):
+		return
 	if velocity.length_squared() > 0.001:
 		look_at(global_position + velocity, Vector3.UP)
 	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
 	if smoke != null:
 		smoke.call("sample_world_segment", previous, global_position)
 	_resolve_proximity_intercept(previous)
+
+func _resolve_terrain_impact(previous: Vector3) -> bool:
+	if battlefield == null:
+		return false
+	var impact := battlefield.terrain_segment_impact(previous, global_position)
+	if impact.is_empty():
+		return false
+	global_position = impact.position
+	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	if smoke != null:
+		smoke.call("sample_world_segment", previous, global_position)
+	_expire(Color(0.62, 0.68, 0.7), "지형 충돌")
+	return true
 
 func _resolve_proximity_intercept(previous: Vector3) -> bool:
 	if registry == null:
@@ -300,9 +319,10 @@ func capture_state() -> Dictionary:
 		"rng_state": str(rng.state),
 	}
 
-func restore_state(state: Dictionary, track: PlayerTrack, registry_value: ThreatRegistry, track_candidates: Array[PlayerTrack] = []) -> void:
+func restore_state(state: Dictionary, track: PlayerTrack, registry_value: ThreatRegistry, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null) -> void:
 	target_track = track
 	registry = registry_value
+	battlefield = battlefield_value
 	owner_defense_id = int(state.owner_defense_id)
 	global_position = SaveDocument.vector3_from_data(state.position)
 	velocity = SaveDocument.vector3_from_data(state.velocity)

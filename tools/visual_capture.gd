@@ -60,6 +60,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK explosion isolated_shockwave_material")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-terrain-impact-only"):
+		await _capture_friendly_missile_terrain_impact()
+		print("VISUAL_CAPTURE_OK friendly_missile first_terrain_impact")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
 		await _capture_surface_strike_smoke()
 		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
@@ -782,6 +787,38 @@ func _capture_explosion_instance_isolation() -> void:
 	for index: int in 4:
 		await process_frame
 	_save_capture("/tmp/airscain_explosion_instance_isolation.png")
+
+func _capture_friendly_missile_terrain_impact() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var x := -330.0
+	var z := 160.0
+	var ground_height := main.battlefield.terrain_height(x, z)
+	var track := PlayerTrack.new()
+	track.track_id = 8801
+	track.state = PlayerTrack.State.CONFIRMED
+	track.estimated_position = Vector3(x, ground_height - 120.0, z)
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 1.0
+	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
+	main.projectile_parent.add_child(interceptor)
+	interceptor.global_position = Vector3(x, ground_height + 18.0, z)
+	var munition := (main.scenario.available_defenses[0] as MissileBatteryDefinition).munitions[0]
+	interceptor.configure(track, main.registry, munition, Vector3.DOWN, 8802, 0, [track], main.battlefield)
+	interceptor.gameplay_tick(0.12)
+	var explosion := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
+	if not interceptor.is_queued_for_deletion() or explosion == null or absf(explosion.global_position.y - ground_height) > 0.1:
+		push_error("Friendly missile did not stop at the terrain surface")
+		quit(1)
+		return
+	explosion._process(0.12)
+	explosion.set_process(false)
+	var center := Vector3(x, ground_height + 5.0, z)
+	main.camera_rig.camera.global_position = center + Vector3(65.0, 48.0, 105.0)
+	main.camera_rig.camera.look_at(center, Vector3.UP)
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_friendly_missile_terrain_impact.png")
 
 func _capture_surface_strike_smoke() -> void:
 	main.hud.visible = false

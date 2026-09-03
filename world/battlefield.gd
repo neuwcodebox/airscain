@@ -83,6 +83,36 @@ func building_segment_impact(from_position: Vector3, to_position: Vector3) -> Di
 		}
 	return result
 
+func terrain_segment_impact(from_position: Vector3, to_position: Vector3) -> Dictionary:
+	if generator.resolution < 2:
+		return {}
+	var horizontal_distance := Vector2(to_position.x - from_position.x, to_position.z - from_position.z).length()
+	var terrain_step := generator.size / float(generator.resolution - 1)
+	var sample_count := maxi(1, ceili(horizontal_distance / maxf(1.0, terrain_step * 0.5)))
+	var previous_ratio := 0.0
+	if from_position.y <= terrain_height(from_position.x, from_position.z):
+		return {"position": Vector3(from_position.x, terrain_height(from_position.x, from_position.z), from_position.z)}
+	for sample_index: int in range(1, sample_count + 1):
+		var ratio := float(sample_index) / float(sample_count)
+		var position := from_position.lerp(to_position, ratio)
+		var clearance := position.y - terrain_height(position.x, position.z)
+		if clearance > 0.0:
+			previous_ratio = ratio
+			continue
+		var above_ratio := previous_ratio
+		var below_ratio := ratio
+		for refinement_index: int in 10:
+			var midpoint_ratio := (above_ratio + below_ratio) * 0.5
+			var midpoint := from_position.lerp(to_position, midpoint_ratio)
+			if midpoint.y > terrain_height(midpoint.x, midpoint.z):
+				above_ratio = midpoint_ratio
+			else:
+				below_ratio = midpoint_ratio
+		var impact := from_position.lerp(to_position, below_ratio)
+		impact.y = terrain_height(impact.x, impact.z)
+		return {"position": impact}
+	return {}
+
 func city_building_bounds(index: int) -> AABB:
 	var building := city_buildings[index]
 	var size := building.basis.get_scale()

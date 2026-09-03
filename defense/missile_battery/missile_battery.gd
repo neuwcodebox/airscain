@@ -198,7 +198,7 @@ func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition,
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = launch_point.global_position + launch_point.global_basis.x * lateral_offset
 	var initial_direction := launcher_forward()
-	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks())
+	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks(), battlefield)
 	interceptor.target_changed.connect(_on_interceptor_target_changed)
 	interceptors.append(interceptor)
 

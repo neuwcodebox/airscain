@@ -222,6 +222,30 @@ func test_interceptor_self_destructs_after_passing_an_empty_guidance_point() -> 
 	assert_lt(interceptor.global_position.x, 40.0)
 	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "유도 이탈")
 
+func test_friendly_interceptor_resolves_at_the_first_terrain_crossing() -> void:
+	var x := -260.0
+	var z := 170.0
+	var ground_height := battlefield.terrain_height(x, z)
+	var from_position := Vector3(x, ground_height + 12.0, z)
+	var to_position := Vector3(x, ground_height - 18.0, z)
+	var impact := battlefield.terrain_segment_impact(from_position, to_position)
+	assert_false(impact.is_empty())
+	assert_almost_eq((impact.position as Vector3).y, ground_height, 0.01)
+	var registry := ThreatRegistry.new()
+	var track := _confirmed_track(Vector3(x, ground_height - 100.0, z))
+	track.track_id = 301
+	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
+	var interceptor := HomingInterceptor.new()
+	projectile_parent.add_child(interceptor)
+	interceptor.global_position = from_position
+	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.DOWN, 21, 0, [], battlefield)
+	interceptor.gameplay_tick(0.1)
+	assert_true(interceptor.is_queued_for_deletion())
+	assert_almost_eq(interceptor.global_position.y, ground_height, 0.05)
+	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "지형 충돌")
+	assert_not_null(projectile_parent.get_node_or_null("Explosion"))
+
 func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	var profile := SCENARIO.available_defenses[0].placement_profile
 	assert_false(battlefield.placement_result(Vector3.ZERO, profile).valid)
