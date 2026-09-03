@@ -5,6 +5,9 @@ extends DefenseDefinition
 @export var concurrent_tasks: int = 2
 @export var power_capacity: float = 20.0
 
+func placement_power_capacity() -> float:
+	return power_capacity
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

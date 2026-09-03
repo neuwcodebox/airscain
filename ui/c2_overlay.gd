@@ -116,8 +116,8 @@ func _rebuild_range() -> void:
 	var ring := TorusMesh.new()
 	ring.inner_radius = radius - 2.5
 	ring.outer_radius = radius
-	ring.rings = 8
-	ring.ring_segments = 96
+	ring.rings = 96
+	ring.ring_segments = 8
 	range_ring.mesh = ring
 	range_ring.global_position = center + Vector3.UP * 2.0
 	range_ring.visible = true

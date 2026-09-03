@@ -665,11 +665,28 @@ func _capture_placement_dependencies() -> void:
 		push_error("Placement preview did not show a ready C2 path")
 		quit(1)
 		return
-	if not main.hud.placement_power_label.visible or not main.hud.placement_power_label.text.contains("배치 후  12 / 20"):
+	if not main.hud.placement_power_panel.visible or not main.hud.placement_power_label.text.contains("배치 후  12 / 20"):
 		push_error("Placement preview did not show the energy power impact")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_placement_dependencies.png")
+	_place_asset(definition, 1.0)
+	var support_definition := main.scenario.available_defenses[5]
+	var support_candidate := candidate + Vector3(90.0, 0.0, 80.0)
+	support_candidate.y = main.battlefield.terrain_height(support_candidate.x, support_candidate.z)
+	main.placement.select(support_definition)
+	main.placement.process_mode = Node.PROCESS_MODE_DISABLED
+	main.placement.candidate_position = support_candidate
+	main.placement.preview.global_position = support_candidate
+	main.placement.preview.visible = true
+	main._on_placement_preview_changed(support_definition, support_candidate, true)
+	for index: int in 5:
+		await process_frame
+	if main.placement.power_dependency_link_count < 1 or not main.hud.placement_power_label.text.contains("배치 후  12 / 40"):
+		push_error("Support base preview did not show its energy weapon relation and added capacity")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_support_placement_dependencies.png")
 
 func _capture_offscreen_marker_full_edge() -> void:
 	var viewport_size := root.get_visible_rect().size

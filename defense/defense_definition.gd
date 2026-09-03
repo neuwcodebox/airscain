@@ -32,3 +32,6 @@ func placement_c2_range() -> float:
 
 func placement_power_demand() -> float:
 	return 0.0
+
+func placement_power_capacity() -> float:
+	return 0.0

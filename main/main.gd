@@ -353,8 +353,11 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 
 func _on_placement_preview_changed(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
 	c2_overlay.preview_placement(definition, position, active)
+	placement.show_power_dependency_preview(definition, position, active)
 	var added_demand := definition.placement_power_demand() if definition != null else 0.0
-	hud.set_placement_power_preview(power_manager.total_demand(), added_demand, power_manager.generation_capacity(), active)
+	var added_capacity := definition.placement_power_capacity() if definition != null else 0.0
+	var screen_position := camera_rig.camera.unproject_position(position) if active and definition != null else Vector2.ZERO
+	hud.set_placement_power_preview(power_manager.total_demand(), added_demand, power_manager.generation_capacity(), added_capacity, screen_position, active)
 
 func _on_overlay_requested(mode: StringName) -> void:
 	c2_overlay.set_all_links(mode == &"c2")

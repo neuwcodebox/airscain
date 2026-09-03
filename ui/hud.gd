@@ -48,6 +48,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var threat_menu_button: Button = %ThreatMenuButton
 @onready var city_restoration_button: Button = %CityRestorationButton
 @onready var time_label: Label = %TimeLabel
+@onready var placement_power_panel: PanelContainer = %PlacementPowerPanel
 @onready var placement_power_label: Label = %PlacementPowerLabel
 @onready var pressure_label: Label = %PressureLabel
 @onready var pause_button: Button = %PauseButton
@@ -214,14 +215,19 @@ func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Arr
 func set_feedback(message: String) -> void:
 	feedback_label.text = message
 
-func set_placement_power_preview(current_demand: float, added_demand: float, capacity: float, active: bool) -> void:
-	placement_power_label.visible = active and added_demand > 0.0
-	if not placement_power_label.visible:
+func set_placement_power_preview(current_demand: float, added_demand: float, capacity: float, added_capacity: float, screen_position: Vector2, active: bool) -> void:
+	placement_power_panel.visible = active and (added_demand > 0.0 or added_capacity > 0.0)
+	if not placement_power_panel.visible:
 		return
 	var expected_demand := current_demand + added_demand
-	placement_power_label.text = "전력 수요  %d / %d\n배치 후  %d / %d" % [roundi(current_demand), roundi(capacity), roundi(expected_demand), roundi(capacity)]
-	var color := Color(1.0, 0.48, 0.3) if expected_demand > capacity else Color(0.45, 0.92, 0.82)
+	var expected_capacity := capacity + added_capacity
+	placement_power_label.text = "전력 수요  %d / %d\n배치 후  %d / %d" % [roundi(current_demand), roundi(capacity), roundi(expected_demand), roundi(expected_capacity)]
+	var color := Color(1.0, 0.48, 0.3) if expected_demand > expected_capacity else Color(0.45, 0.92, 0.82)
 	placement_power_label.add_theme_color_override("font_color", color)
+	var viewport_size := get_viewport_rect().size
+	var panel_size := placement_power_panel.size
+	var preferred := screen_position + Vector2(22.0, -panel_size.y * 0.5)
+	placement_power_panel.position = Vector2(clampf(preferred.x, 12.0, viewport_size.x - panel_size.x - 12.0), clampf(preferred.y, 66.0, viewport_size.y - panel_size.y - 12.0))
 
 func set_final_stats(stats: Dictionary) -> void:
 	final_stats.text = String(stats.get("summary", ""))
