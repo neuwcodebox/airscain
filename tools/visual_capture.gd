@@ -1151,7 +1151,8 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	await _wait_simulation_seconds(2.4)
 	var city_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
 	var city_process := city_smoke.process_material as ParticleProcessMaterial
-	if not city_smoke.emitting or city_smoke.amount < 1500 or city_smoke.lifetime < 18.0 or city_process.initial_velocity_min < 9.0 or city_process.gravity.y >= 0.0 or city_process.gravity.x <= 0.0 or city_process.turbulence_enabled:
+	var city_growth := city_process.scale_curve as CurveTexture
+	if not city_smoke.emitting or city_smoke.amount < 1500 or city_smoke.lifetime < 18.0 or city_process.initial_velocity_min < 9.0 or city_process.gravity.y >= 0.0 or city_process.gravity.x <= 0.0 or city_process.turbulence_enabled or city_growth == null or city_growth.curve.sample(0.0) >= city_growth.curve.sample(1.0):
 		push_error("City smoke did not maintain a stable rising plume")
 		quit(1)
 		return
@@ -1192,7 +1193,10 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	_save_capture("/tmp/airscain_ammo_depleted_status.png")
 	gun.receive_damage(gun.definition.maximum_integrity * 0.5)
 	gun._process(0.0)
-	if gun.damage_smoke == null or label.text != "손상":
+	var unit_smoke: GPUParticles3D = gun.damage_smoke.get_node("Smoke") as GPUParticles3D if gun.damage_smoke != null else null
+	var unit_process: ParticleProcessMaterial = unit_smoke.process_material as ParticleProcessMaterial if unit_smoke != null else null
+	var unit_growth: CurveTexture = unit_process.scale_curve as CurveTexture if unit_process != null else null
+	if gun.damage_smoke == null or label.text != "손상" or unit_growth == null or unit_growth.curve.sample(0.0) >= unit_growth.curve.sample(1.0):
 		push_error("Damaged unit did not expose smoke and a damage status marker")
 		quit(1)
 		return

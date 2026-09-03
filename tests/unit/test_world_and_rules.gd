@@ -232,6 +232,11 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_lt(smoke_process.gravity.y, 0.0)
 	assert_gt(smoke_process.gravity.x, 0.0)
 	assert_not_null(smoke_process.color_ramp)
+	var growth_texture := smoke_process.scale_curve as CurveTexture
+	assert_not_null(growth_texture)
+	assert_lt(growth_texture.curve.sample(0.0), growth_texture.curve.sample(0.5))
+	assert_lt(growth_texture.curve.sample(0.5), growth_texture.curve.sample(1.0))
+	assert_lte(growth_texture.curve.sample(1.0), 1.3)
 	assert_true(smoke.draw_pass_1 is QuadMesh)
 	var smoke_material := (smoke.draw_pass_1 as QuadMesh).material as StandardMaterial3D
 	assert_eq(smoke_material.billboard_mode, BaseMaterial3D.BILLBOARD_ENABLED)
