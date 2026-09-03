@@ -510,8 +510,11 @@ func test_placement_preview_shows_c2_readiness_and_energy_power_impact() -> void
 	var laser_result := _place_for(main, laser_definition)
 	assert_true(laser_result.success)
 	var support_definition := main.scenario.available_defenses[5]
+	main.placement.select(support_definition)
+	assert_eq((main.placement.range_disc.mesh as TorusMesh).outer_radius, (support_definition as SupportFacilityDefinition).service_range)
 	main.placement.placement_preview_changed.emit(support_definition, candidate, true)
 	assert_eq(main.placement.power_dependency_link_count, 1)
+	assert_gte(main.placement.support_dependency_link_count, 1)
 	assert_string_contains(main.hud.placement_power_label.text, "전력 수요  12 / 20")
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 40")
 	main.placement.select(laser_definition)
@@ -593,7 +596,9 @@ func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> vo
 	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
 	main.hud._on_c2_overlay_pressed()
 	assert_eq(main.tactical_range_overlay.get("mode"), &"support")
-	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
+	var support_overlay_mesh := (main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh
+	assert_not_null(support_overlay_mesh)
+	assert_gte(support_overlay_mesh.get_aabb().size.x, (support_definition as SupportFacilityDefinition).service_range * 2.0 - 1.0)
 	var jammer_definition := main.scenario.threat_entries[7].threat_definition
 	var jammer := jammer_definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(jammer)

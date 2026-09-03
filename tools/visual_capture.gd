@@ -32,7 +32,7 @@ func run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--capture-placement-dependencies-only"):
 		await _capture_placement_dependencies()
-		print("VISUAL_CAPTURE_OK placement_c2_links energy_power_impact")
+		print("VISUAL_CAPTURE_OK placement_c2_links support_service_range energy_power_impact")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-city-restoration-only"):
@@ -682,8 +682,8 @@ func _capture_placement_dependencies() -> void:
 	main._on_placement_preview_changed(support_definition, support_candidate, true)
 	for index: int in 5:
 		await process_frame
-	if main.placement.power_dependency_link_count < 1 or not main.hud.placement_power_label.text.contains("배치 후  12 / 40"):
-		push_error("Support base preview did not show its energy weapon relation and added capacity")
+	if main.placement.power_dependency_link_count < 1 or main.placement.support_dependency_link_count < 1 or not main.hud.placement_power_label.text.contains("배치 후  12 / 40"):
+		push_error("Support base preview did not show service and power relations")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_support_placement_dependencies.png")

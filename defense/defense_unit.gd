@@ -125,7 +125,7 @@ func repair_work() -> float:
 	return definition.repair_work * (1.0 - operational_ratio())
 
 func can_request_repair() -> bool:
-	return support_manager != null and integrity > 0.0 and integrity < definition.maximum_integrity and support_manager.task_status(self).is_empty()
+	return support_manager != null and integrity > 0.0 and integrity < definition.maximum_integrity and support_manager.task_status(self).is_empty() and support_manager.can_service(self)
 
 func request_repair() -> bool:
 	return support_manager != null and support_manager.request_repair(self)

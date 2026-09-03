@@ -23,12 +23,12 @@ func register_asset(unit: DefenseUnit) -> void:
 		facilities.append(unit as SupportFacility)
 
 func request_resupply(unit: ArmedDefenseUnit) -> bool:
-	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or not unit.ammunition_needs_resupply() or task_status(unit) != "":
+	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or not unit.ammunition_needs_resupply() or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false
 	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
 
 func request_repair(unit: DefenseUnit) -> bool:
-	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "":
+	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false
 	return _request_task(unit, REPAIR, unit.repair_cost(), unit.repair_work())
 
@@ -39,45 +39,87 @@ func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float) -> b
 	return true
 
 func gameplay_tick(delta: float) -> void:
-	var capacity := total_capacity()
-	var task_count := mini(total_slots(), tasks.size())
-	if capacity <= 0.0 or task_count <= 0:
-		return
-	var work_per_task := capacity / float(task_count)
-	for index: int in range(task_count - 1, -1, -1):
-		var task := tasks[index]
-		task.remaining_work = float(task.remaining_work) - work_per_task * delta
-		tasks[index] = task
-		if float(task.remaining_work) <= 0.0:
-			var target_id := int(task.target_defense_id)
-			if consumers.has(target_id) and is_instance_valid(consumers[target_id]):
-				var target := consumers[target_id]
-				if String(task.kind) == RESUPPLY and target is ArmedDefenseUnit:
-					(target as ArmedDefenseUnit).complete_resupply()
-				elif String(task.kind) == REPAIR and target.integrity > 0.0:
-					target.complete_repair()
-			tasks.remove_at(index)
-
-func total_capacity() -> float:
-	var result := 0.0
+	var assignments: Dictionary = {}
+	for index: int in tasks.size():
+		var target := _task_target(index)
+		var facility := service_facility_for(target)
+		if facility == null:
+			continue
+		if not assignments.has(facility.runtime_id):
+			assignments[facility.runtime_id] = []
+		(assignments[facility.runtime_id] as Array).append(index)
+	var completed_indices: Array[int] = []
 	for facility: SupportFacility in facilities:
-		if is_instance_valid(facility):
-			result += facility.support_capacity()
-	return result
+		if not is_instance_valid(facility) or not assignments.has(facility.runtime_id):
+			continue
+		var assigned_indices: Array = assignments[facility.runtime_id]
+		var active_count := mini(facility.support_slots(), assigned_indices.size())
+		if active_count <= 0:
+			continue
+		var work_per_task := facility.support_capacity() / float(active_count)
+		for assignment_index: int in active_count:
+			var task_index := int(assigned_indices[assignment_index])
+			var task: Dictionary = tasks[task_index]
+			task.remaining_work = float(task.remaining_work) - work_per_task * delta
+			tasks[task_index] = task
+			if float(task.remaining_work) <= 0.0:
+				completed_indices.append(task_index)
+	completed_indices.sort()
+	completed_indices.reverse()
+	for task_index: int in completed_indices:
+		_complete_task(task_index)
 
-func total_slots() -> int:
-	var result := 0
+func service_facility_for(unit: DefenseUnit) -> SupportFacility:
+	if unit == null or not is_instance_valid(unit):
+		return null
+	var nearest: SupportFacility
+	var nearest_distance := INF
 	for facility: SupportFacility in facilities:
-		if is_instance_valid(facility):
-			result += facility.support_slots()
-	return result
+		if not is_instance_valid(facility) or not facility.supports_position(unit.global_position):
+			continue
+		var offset := Vector2(unit.global_position.x - facility.global_position.x, unit.global_position.z - facility.global_position.z)
+		var distance := offset.length_squared()
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = facility
+	return nearest
+
+func can_service(unit: DefenseUnit) -> bool:
+	return service_facility_for(unit) != null
+
+func _task_target(index: int) -> DefenseUnit:
+	var target_id := int(tasks[index].target_defense_id)
+	if not consumers.has(target_id) or not is_instance_valid(consumers[target_id]):
+		return null
+	return consumers[target_id]
+
+func _complete_task(index: int) -> void:
+	var task: Dictionary = tasks[index]
+	var target := _task_target(index)
+	if target != null:
+		if String(task.kind) == RESUPPLY and target is ArmedDefenseUnit:
+			(target as ArmedDefenseUnit).complete_resupply()
+		elif String(task.kind) == REPAIR and target.integrity > 0.0:
+			target.complete_repair()
+	tasks.remove_at(index)
 
 func task_status(unit: DefenseUnit) -> String:
 	for index: int in tasks.size():
 		if int(tasks[index].target_defense_id) == unit.runtime_id:
 			var label := "재보급" if String(tasks[index].kind) == RESUPPLY else "수리"
-			return "%s 진행" % label if index < total_slots() and total_capacity() > 0.0 else "%s 대기" % label
+			return "%s 진행" % label if _task_is_active(index) else "%s 대기" % label
 	return ""
+
+func _task_is_active(task_index: int) -> bool:
+	var target := _task_target(task_index)
+	var facility := service_facility_for(target)
+	if facility == null:
+		return false
+	var earlier_assignments := 0
+	for index: int in task_index:
+		if service_facility_for(_task_target(index)) == facility:
+			earlier_assignments += 1
+	return earlier_assignments < facility.support_slots()
 
 func capture_state() -> Dictionary:
 	return {"tasks": tasks.duplicate(true)}

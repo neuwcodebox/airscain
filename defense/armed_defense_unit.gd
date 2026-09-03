@@ -59,7 +59,7 @@ func resupply_cost() -> int:
 	return 0
 
 func can_request_resupply() -> bool:
-	return uses_ammunition() and support_manager != null and ammunition_needs_resupply() and support_manager.task_status(self).is_empty()
+	return uses_ammunition() and support_manager != null and ammunition_needs_resupply() and support_manager.task_status(self).is_empty() and support_manager.can_service(self)
 
 func request_resupply() -> bool:
 	return support_manager != null and support_manager.request_resupply(self)

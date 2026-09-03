@@ -22,6 +22,9 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	var placement_result: Dictionary = main.session.request_placement(battery_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var battery := placement_result.unit as MissileBattery
 	var battery_runtime_id := battery.runtime_id
+	var support := _place_defense(main.scenario.available_defenses[5]) as SupportFacility
+	var support_price := support.definition.price
+	assert_true(support.supports_position(battery.global_position))
 	battery.doctrine.hold_fire = true
 	battery.cooldown = 1.25
 	battery.receive_damage(20.0)
@@ -56,19 +59,19 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(main.session.completed_attack_windows, 1)
 	assert_eq(main.session.total_support_received, 120)
 	assert_eq(main.session.starting_budget, main.scenario.starting_budget)
-	assert_eq(main.session.defense_spending, battery_definition.price)
+	assert_eq(main.session.defense_spending, battery_definition.price + support_price)
 	assert_eq(main.objective.current_integrity, 90)
 	assert_eq(main.objective.damage_smoke_effects.size(), 1)
 	assert_almost_eq(main.objective.damage_smoke_effects[0].global_position, building_impact, Vector3.ONE * 0.001)
-	assert_eq(main.defenses.size(), 1)
-	var restored_battery := main.defenses[0] as MissileBattery
+	assert_eq(main.defenses.size(), 2)
+	var restored_battery := _find_defense(battery_runtime_id) as MissileBattery
 	assert_eq(restored_battery.runtime_id, battery_runtime_id)
 	assert_eq(restored_battery.global_position, placement_position)
 	assert_true(restored_battery.doctrine.hold_fire)
 	assert_eq(restored_battery.cooldown, 1.25)
 	assert_eq(restored_battery.integrity, 80.0)
 	assert_eq(restored_battery.magazine.reserve, 0)
-	assert_eq(main.support_manager.task_status(restored_battery), "재보급 대기")
+	assert_eq(main.support_manager.task_status(restored_battery), "재보급 진행")
 	assert_eq(main.registry.count(), saved_contact_count)
 	var restored_threat := _find_contact(threat_runtime_id)
 	assert_not_null(restored_threat)

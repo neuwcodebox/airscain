@@ -622,9 +622,9 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	var support_session: GameSession = autofree(GameSession.new()) as GameSession
 	support_session.reset(100)
 	manager.configure(support_session)
-	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
+	var facility: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
 	facility.setup(1, SCENARIO.available_defenses[5])
-	var gun: CloseInGun = autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
+	var gun: CloseInGun = add_child_autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
 	gun.setup(2, SCENARIO.available_defenses[4])
 	gun.configure_support(manager)
 	manager.register_asset(facility)
@@ -650,14 +650,53 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	assert_eq(gun.magazine.rounds, gun.magazine.capacity)
 	assert_eq(manager.task_status(gun), "")
 
+func test_support_tasks_require_a_nearby_operational_facility() -> void:
+	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
+	var support_session: GameSession = autofree(GameSession.new()) as GameSession
+	support_session.reset(100)
+	manager.configure(support_session)
+	var facility: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, SCENARIO.available_defenses[5])
+	var gun: CloseInGun = add_child_autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
+	gun.setup(2, SCENARIO.available_defenses[4])
+	gun.configure_support(manager)
+	manager.register_asset(facility)
+	manager.register_asset(gun)
+	gun.magazine.rounds = 0
+	gun.magazine.reserve = 0
+	gun.global_position = Vector3(facility.service_range() + 1.0, 0.0, 0.0)
+	assert_false(gun.can_request_resupply())
+	assert_false(gun.request_resupply())
+	assert_eq(support_session.budget, 100)
+	gun.global_position = Vector3(facility.service_range(), 0.0, 0.0)
+	assert_true(gun.can_request_resupply())
+	assert_true(gun.request_resupply())
+	assert_eq(manager.service_facility_for(gun), facility)
+	gun.global_position += Vector3.RIGHT
+	assert_eq(manager.task_status(gun), "재보급 대기")
+	manager.gameplay_tick(20.0)
+	assert_eq(gun.magazine.reserve, 0)
+	gun.global_position -= Vector3.RIGHT
+	manager.gameplay_tick(3.0)
+	assert_eq(gun.magazine.reserve, gun.magazine.reserve_capacity)
+	assert_true(gun.receive_damage(20.0))
+	gun.global_position += Vector3.RIGHT
+	assert_false(gun.can_request_repair())
+	assert_false(gun.request_repair())
+	assert_eq(support_session.budget, 98)
+	gun.global_position -= Vector3.RIGHT
+	assert_true(gun.can_request_repair())
+	assert_true(gun.request_repair())
+	assert_eq(support_session.budget, 88)
+
 func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
 	var support_session: GameSession = autofree(GameSession.new()) as GameSession
 	support_session.reset(100)
 	manager.configure(support_session)
-	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
+	var facility: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
 	facility.setup(1, SCENARIO.available_defenses[5])
-	var gun: CloseInGun = autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
+	var gun: CloseInGun = add_child_autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
 	gun.setup(2, SCENARIO.available_defenses[4])
 	gun.configure_support(manager)
 	manager.register_asset(facility)

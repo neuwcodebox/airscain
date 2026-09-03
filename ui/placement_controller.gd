@@ -3,6 +3,7 @@ extends Node3D
 
 const DEPENDENCY_REFRESH_INTERVAL := 0.2
 const POWER_LINK_COLOR := Color(1.0, 0.72, 0.24, 0.9)
+const SUPPORT_LINK_COLOR := Color(0.36, 1.0, 0.54, 0.9)
 const POWER_LINK_HEIGHT := 9.0
 const POWER_DASH_LENGTH := 14.0
 const POWER_DASH_GAP := 9.0
@@ -35,6 +36,9 @@ var dependency_preview_active: bool = false
 var power_dependency_link_count: int = 0
 var power_dependency_lines := MeshInstance3D.new()
 var power_dependency_material := StandardMaterial3D.new()
+var support_dependency_link_count: int = 0
+var support_dependency_lines := MeshInstance3D.new()
+var support_dependency_material := StandardMaterial3D.new()
 
 func _ready() -> void:
 	power_dependency_lines.name = "PowerDependencyLines"
@@ -43,6 +47,12 @@ func _ready() -> void:
 	power_dependency_material.no_depth_test = true
 	power_dependency_lines.material_override = power_dependency_material
 	add_child(power_dependency_lines)
+	support_dependency_lines.name = "SupportDependencyLines"
+	support_dependency_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	support_dependency_material.vertex_color_use_as_albedo = true
+	support_dependency_material.no_depth_test = true
+	support_dependency_lines.material_override = support_dependency_material
+	add_child(support_dependency_lines)
 
 func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
 	session = session_value
@@ -222,8 +232,9 @@ func _create_preview() -> void:
 	preview.add_child(base)
 	range_disc = MeshInstance3D.new()
 	var disc := TorusMesh.new()
-	disc.inner_radius = selected.preview_range - 2.5
-	disc.outer_radius = selected.preview_range
+	var displayed_range := (selected as SupportFacilityDefinition).service_range if selected is SupportFacilityDefinition else selected.preview_range
+	disc.inner_radius = displayed_range - 2.5
+	disc.outer_radius = displayed_range
 	disc.rings = 96
 	disc.ring_segments = 8
 	wall_material_setup()
@@ -260,35 +271,58 @@ func _publish_dependency_preview(definition: DefenseDefinition, position: Vector
 	dependency_preview_active = active
 	placement_preview_changed.emit(definition, position, active)
 
-func show_power_dependency_preview(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
+func show_dependency_preview(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
 	power_dependency_link_count = 0
+	support_dependency_link_count = 0
 	if not active or definition == null or defense_parent == null:
 		power_dependency_lines.mesh = null
+		support_dependency_lines.mesh = null
 		return
-	var targets: Array[DefenseUnit] = []
+	var power_targets: Array[DefenseUnit] = []
 	if definition is SupportFacilityDefinition:
 		for child: Node in defense_parent.get_children():
 			var consumer := child as DefenseUnit
 			if consumer != null and consumer.active and consumer.power_demand() > 0.0 and position.distance_to(consumer.global_position) > 0.01:
-				targets.append(consumer)
+				power_targets.append(consumer)
 	elif definition.placement_power_demand() > 0.0:
 		for child: Node in defense_parent.get_children():
 			var facility := child as SupportFacility
 			if facility != null and facility.active and position.distance_to(facility.global_position) > 0.01:
-				targets.append(facility)
+				power_targets.append(facility)
+	_draw_dependency_lines(power_dependency_lines, power_targets, position, POWER_LINK_COLOR, true)
+	power_dependency_link_count = power_targets.size()
+	var support_targets: Array[DefenseUnit] = []
+	if definition is SupportFacilityDefinition:
+		var service_range := (definition as SupportFacilityDefinition).service_range
+		for child: Node in defense_parent.get_children():
+			var unit := child as DefenseUnit
+			if unit == null or position.distance_to(unit.global_position) <= 0.01:
+				continue
+			var offset := Vector2(unit.global_position.x - position.x, unit.global_position.z - position.z)
+			if offset.length() <= service_range:
+				support_targets.append(unit)
+	_draw_dependency_lines(support_dependency_lines, support_targets, position, SUPPORT_LINK_COLOR, false)
+	support_dependency_link_count = support_targets.size()
+
+func _draw_dependency_lines(line_mesh: MeshInstance3D, targets: Array[DefenseUnit], position: Vector3, color: Color, dashed: bool) -> void:
 	if targets.is_empty():
-		power_dependency_lines.mesh = null
+		line_mesh.mesh = null
 		return
 	var mesh := ImmediateMesh.new()
 	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
 	var start := position + Vector3.UP * POWER_LINK_HEIGHT
 	for target: DefenseUnit in targets:
-		_add_power_dashed_segment(mesh, start, target.global_position + Vector3.UP * POWER_LINK_HEIGHT)
-		power_dependency_link_count += 1
+		var finish := target.global_position + Vector3.UP * POWER_LINK_HEIGHT
+		if dashed:
+			_add_dashed_segment(mesh, start, finish, color)
+		else:
+			mesh.surface_set_color(color)
+			mesh.surface_add_vertex(start)
+			mesh.surface_add_vertex(finish)
 	mesh.surface_end()
-	power_dependency_lines.mesh = mesh
+	line_mesh.mesh = mesh
 
-func _add_power_dashed_segment(mesh: ImmediateMesh, start: Vector3, finish: Vector3) -> void:
+func _add_dashed_segment(mesh: ImmediateMesh, start: Vector3, finish: Vector3, color: Color) -> void:
 	var distance := start.distance_to(finish)
 	if distance <= 0.01:
 		return
@@ -296,7 +330,7 @@ func _add_power_dashed_segment(mesh: ImmediateMesh, start: Vector3, finish: Vect
 	var cursor := 0.0
 	while cursor < distance:
 		var dash_end := minf(cursor + POWER_DASH_LENGTH, distance)
-		mesh.surface_set_color(POWER_LINK_COLOR)
+		mesh.surface_set_color(color)
 		mesh.surface_add_vertex(start + direction * cursor)
 		mesh.surface_add_vertex(start + direction * dash_end)
 		cursor += POWER_DASH_LENGTH + POWER_DASH_GAP
