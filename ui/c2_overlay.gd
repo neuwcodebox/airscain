@@ -1,17 +1,18 @@
 class_name C2Overlay
 extends Node3D
 
-const ACTIVE_COLOR := Color(0.12, 0.82, 1.0, 0.82)
-const READY_COLOR := Color(0.18, 0.92, 0.86, 0.92)
+const C2_COLOR := Color(0.12, 0.82, 1.0, 0.82)
+const SUPPORT_COLOR := Color(0.36, 1.0, 0.54, 0.9)
 const INCOMPLETE_COLOR := Color(1.0, 0.58, 0.18, 0.92)
 const LINK_HEIGHT := 9.0
-const DASH_LENGTH := 18.0
-const DASH_GAP := 10.0
 
 var c2_network: Node
+var support_manager: SupportManager
 var selected_asset: DefenseUnit
 var show_all_links: bool = false
 var visible_link_count: int = 0
+var visible_c2_link_count: int = 0
+var visible_support_link_count: int = 0
 var placement_definition: DefenseDefinition
 var placement_position: Vector3
 var placement_active: bool = false
@@ -38,8 +39,9 @@ func _ready() -> void:
 	add_child(range_ring)
 	visible = false
 
-func configure(network: Node) -> void:
+func configure(network: Node, support: SupportManager) -> void:
 	c2_network = network
+	support_manager = support
 
 func select_asset(unit: DefenseUnit) -> void:
 	selected_asset = unit
@@ -57,41 +59,46 @@ func set_all_links(enabled: bool) -> void:
 func preview_placement(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
 	placement_definition = definition
 	placement_position = position
-	placement_active = active and definition != null and definition.placement_c2_range() > 0.0
+	placement_active = active and definition != null
 	visible = placement_active or show_all_links or selected_asset != null
 	_rebuild()
 
 func _rebuild() -> void:
 	visible_link_count = 0
+	visible_c2_link_count = 0
+	visible_support_link_count = 0
+	placement_ready = true
 	var line_mesh := ImmediateMesh.new()
 	var surface_started := false
-	if c2_network != null and placement_active:
-		var preview_result: Dictionary = c2_network.call("placement_preview", placement_definition, placement_position)
-		placement_ready = bool(preview_result.ready)
-		var preview_links: Array = preview_result.links
-		if not preview_links.is_empty():
-			line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-			surface_started = true
+	if placement_active:
+		if c2_network != null and placement_definition.placement_c2_range() > 0.0:
+			var preview_result: Dictionary = c2_network.call("placement_preview", placement_definition, placement_position)
+			placement_ready = bool(preview_result.ready)
+			var preview_links: Array = preview_result.links
 			for endpoint: DefenseUnit in preview_links:
-				var start := placement_position + Vector3.UP * LINK_HEIGHT
-				var finish := endpoint.global_position + Vector3.UP * LINK_HEIGHT
-				if placement_ready:
-					_add_segment(line_mesh, start, finish, READY_COLOR)
-				else:
-					_add_dashed_segment(line_mesh, start, finish, INCOMPLETE_COLOR)
+				surface_started = _ensure_surface(line_mesh, surface_started)
+				_add_relation(line_mesh, placement_position, endpoint.global_position, C2_COLOR)
+				visible_c2_link_count += 1
 				visible_link_count += 1
 	elif c2_network != null:
 		var active_links: Array = c2_network.call("active_links")
 		for link: Array in active_links:
 			var first := link[0] as DefenseUnit
 			var second := link[1] as DefenseUnit
-			if not show_all_links and selected_asset != first and selected_asset != second:
+			var touches_selection := selected_asset == first or selected_asset == second
+			if not show_all_links and not touches_selection:
 				continue
-			if not surface_started:
-				line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-				surface_started = true
-			_add_segment(line_mesh, first.global_position + Vector3.UP * LINK_HEIGHT, second.global_position + Vector3.UP * LINK_HEIGHT, ACTIVE_COLOR)
+			surface_started = _ensure_surface(line_mesh, surface_started)
+			_add_relation(line_mesh, first.global_position, second.global_position, C2_COLOR)
 			visible_link_count += 1
+			if touches_selection or selected_asset == null:
+				visible_c2_link_count += 1
+	var support_relations := _support_relations()
+	for relation: Array in support_relations:
+		surface_started = _ensure_surface(line_mesh, surface_started)
+		_add_relation(line_mesh, relation[0], relation[1], SUPPORT_COLOR)
+		visible_support_link_count += 1
+		visible_link_count += 1
 	if surface_started:
 		line_mesh.surface_end()
 		links.mesh = line_mesh
@@ -104,12 +111,17 @@ func _rebuild_range() -> void:
 	var radius := 0.0
 	if placement_active:
 		center = placement_position
-		radius = placement_definition.placement_c2_range()
-		range_material.albedo_color = READY_COLOR if placement_ready else INCOMPLETE_COLOR
+		if placement_definition is not SupportFacilityDefinition:
+			radius = placement_definition.placement_c2_range()
+			range_material.albedo_color = C2_COLOR if placement_ready else INCOMPLETE_COLOR
 	elif selected_asset != null:
 		center = selected_asset.global_position
-		radius = selected_asset.c2_link_range()
-		range_material.albedo_color = Color(0.16, 0.78, 0.95, 0.48)
+		if selected_asset is SupportFacility:
+			radius = (selected_asset as SupportFacility).service_range()
+			range_material.albedo_color = SUPPORT_COLOR
+		else:
+			radius = selected_asset.c2_link_range()
+			range_material.albedo_color = C2_COLOR
 	if radius <= 0.0:
 		range_ring.visible = false
 		return
@@ -127,13 +139,33 @@ func _add_segment(mesh: ImmediateMesh, start: Vector3, finish: Vector3, color: C
 	mesh.surface_add_vertex(start)
 	mesh.surface_add_vertex(finish)
 
-func _add_dashed_segment(mesh: ImmediateMesh, start: Vector3, finish: Vector3, color: Color) -> void:
-	var distance := start.distance_to(finish)
-	if distance <= 0.0:
-		return
-	var direction := start.direction_to(finish)
-	var cursor := 0.0
-	while cursor < distance:
-		var dash_end := minf(cursor + DASH_LENGTH, distance)
-		_add_segment(mesh, start + direction * cursor, start + direction * dash_end, color)
-		cursor += DASH_LENGTH + DASH_GAP
+func _ensure_surface(mesh: ImmediateMesh, started: bool) -> bool:
+	if not started:
+		mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	return true
+
+func _add_relation(mesh: ImmediateMesh, start: Vector3, finish: Vector3, color: Color) -> void:
+	_add_segment(mesh, start + Vector3.UP * LINK_HEIGHT, finish + Vector3.UP * LINK_HEIGHT, color)
+
+func _support_relations() -> Array[Array]:
+	var result: Array[Array] = []
+	if support_manager == null:
+		return result
+	if placement_active:
+		if placement_definition is SupportFacilityDefinition:
+			var service_range := (placement_definition as SupportFacilityDefinition).service_range
+			for unit: DefenseUnit in support_manager.serviceable_units_from(placement_position, service_range):
+				result.append([placement_position, unit.global_position])
+		else:
+			var provider := support_manager.service_facility_for_position(placement_position)
+			if provider != null:
+				result.append([placement_position, provider.global_position])
+	elif selected_asset is SupportFacility:
+		var facility := selected_asset as SupportFacility
+		for unit: DefenseUnit in support_manager.serviceable_units_from(facility.global_position, facility.service_range(), facility):
+			result.append([facility.global_position, unit.global_position])
+	elif selected_asset != null:
+		var provider := support_manager.service_facility_for(selected_asset)
+		if provider != null and provider != selected_asset:
+			result.append([selected_asset.global_position, provider.global_position])
+	return result

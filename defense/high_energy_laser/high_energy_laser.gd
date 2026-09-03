@@ -78,8 +78,7 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 func resource_status_text() -> String:
 	var thermal_status := "과열" if energy_state.overheated else "열 %d%%" % roundi(energy_state.heat / energy_state.heat_capacity * 100.0)
 	var status := "%s\n충전 %d%% · %s" % [operational_status_text(), roundi(energy_state.energy / energy_state.capacity * 100.0), thermal_status]
-	if power_manager == null or power_manager.generation_capacity() <= 0.0:
-		status += " · 전력 없음"
+	status += "\n%s" % (power_manager.consumer_status(power_demand()) if power_manager != null else "전력 공급 없음")
 	if support_manager != null and not support_manager.task_status(self).is_empty():
 		status += " · %s" % support_manager.task_status(self)
 	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():

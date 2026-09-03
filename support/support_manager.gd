@@ -72,17 +72,30 @@ func gameplay_tick(delta: float) -> void:
 func service_facility_for(unit: DefenseUnit) -> SupportFacility:
 	if unit == null or not is_instance_valid(unit):
 		return null
+	return service_facility_for_position(unit.global_position)
+
+func service_facility_for_position(position: Vector3) -> SupportFacility:
 	var nearest: SupportFacility
 	var nearest_distance := INF
 	for facility: SupportFacility in facilities:
-		if not is_instance_valid(facility) or not facility.supports_position(unit.global_position):
+		if not is_instance_valid(facility) or not facility.supports_position(position):
 			continue
-		var offset := Vector2(unit.global_position.x - facility.global_position.x, unit.global_position.z - facility.global_position.z)
+		var offset := Vector2(position.x - facility.global_position.x, position.z - facility.global_position.z)
 		var distance := offset.length_squared()
 		if distance < nearest_distance:
 			nearest_distance = distance
 			nearest = facility
 	return nearest
+
+func serviceable_units_from(position: Vector3, service_range: float, excluded: DefenseUnit = null) -> Array[DefenseUnit]:
+	var result: Array[DefenseUnit] = []
+	for unit: DefenseUnit in consumers.values():
+		if not is_instance_valid(unit) or unit == excluded or unit.integrity <= 0.0:
+			continue
+		var offset := Vector2(unit.global_position.x - position.x, unit.global_position.z - position.z)
+		if offset.length() > 0.01 and offset.length() <= service_range:
+			result.append(unit)
+	return result
 
 func can_service(unit: DefenseUnit) -> bool:
 	return service_facility_for(unit) != null

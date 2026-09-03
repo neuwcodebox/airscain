@@ -91,7 +91,7 @@ func _ready() -> void:
 	c2_network.call("reset")
 	c2_network.call("configure", registry)
 	track_display.configure(player_knowledge, defense_parent, engagement_coordinator)
-	c2_overlay.configure(c2_network)
+	c2_overlay.configure(c2_network, support_manager)
 	tactical_range_overlay.call("configure", defense_parent, registry, support_manager)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
@@ -346,14 +346,13 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 	track_display.select_track(null)
 	tactical_screen_overlay.select_track(null)
 	c2_overlay.select_asset(unit)
-	hud.set_selected_asset(unit, int(c2_overlay.get("visible_link_count")))
+	hud.set_selected_asset(unit, c2_overlay.visible_c2_link_count, c2_overlay.visible_support_link_count)
 	hud.set_selected_track(null, false)
 	if game_mode == GameMode.TRAINING and training_step == TrainingStep.SELECT_ASSET and unit is MissileBattery:
 		_set_training_step(TrainingStep.DOCTRINE)
 
 func _on_placement_preview_changed(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
 	c2_overlay.preview_placement(definition, position, active)
-	placement.show_dependency_preview(definition, position, active)
 	var added_demand := definition.placement_power_demand() if definition != null else 0.0
 	var added_capacity := definition.placement_power_capacity() if definition != null else 0.0
 	var screen_position := camera_rig.camera.unproject_position(position) if active and definition != null else Vector2.ZERO

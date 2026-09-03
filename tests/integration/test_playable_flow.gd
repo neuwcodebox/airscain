@@ -510,7 +510,7 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	main.hud._input(cancel_event)
 	assert_false(main.hud.city_menu.visible)
 
-func test_placement_preview_shows_c2_readiness_and_energy_power_impact() -> void:
+func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main.session.unlimited_budget = true
 	main._on_pressure_changed(3)
 	var sensor_result := _place_for(main, main.scenario.available_defenses[1])
@@ -535,17 +535,34 @@ func test_placement_preview_shows_c2_readiness_and_energy_power_impact() -> void
 	assert_true(support_result.success)
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 20")
-	assert_eq(main.placement.power_dependency_link_count, 1)
+	assert_eq(main.c2_overlay.visible_support_link_count, 1)
+	var preview_c2_count := main.c2_overlay.visible_c2_link_count
 	var laser_result := _place_for(main, laser_definition)
 	assert_true(laser_result.success)
+	var laser := laser_result.unit as DefenseUnit
+	laser.global_position = candidate
+	main._on_asset_selected(laser)
+	assert_eq(main.c2_overlay.visible_c2_link_count, preview_c2_count)
+	assert_eq(main.c2_overlay.visible_support_link_count, 1)
+	assert_string_contains(main.hud.selected_asset_label.text, "지역 지원  연결됨")
+	assert_string_contains(main.hud.selected_asset_label.text, "전력 수요 12 / 총 공급 20")
 	var support_definition := main.scenario.available_defenses[5]
 	main.placement.select(support_definition)
 	assert_eq((main.placement.range_disc.mesh as TorusMesh).outer_radius, (support_definition as SupportFacilityDefinition).service_range)
 	main.placement.placement_preview_changed.emit(support_definition, candidate, true)
-	assert_eq(main.placement.power_dependency_link_count, 1)
-	assert_gte(main.placement.support_dependency_link_count, 1)
+	assert_eq(main.c2_overlay.visible_c2_link_count, 0)
+	assert_gte(main.c2_overlay.visible_support_link_count, 1)
 	assert_string_contains(main.hud.placement_power_label.text, "전력 수요  12 / 20")
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 40")
+	var support := support_result.unit as SupportFacility
+	main.placement.cancel()
+	main._on_asset_selected(support)
+	var selected_support_count := main.c2_overlay.visible_support_link_count
+	assert_string_contains(main.hud.selected_asset_label.text, "지원 가능 자산  %d" % selected_support_count)
+	assert_true(main.c2_overlay.range_ring.visible)
+	assert_eq((main.c2_overlay.range_ring.mesh as TorusMesh).rings, 96)
+	main.c2_overlay.preview_placement(support_definition, support.global_position, true)
+	assert_eq(main.c2_overlay.visible_support_link_count, selected_support_count)
 	main.placement.select(laser_definition)
 	assert_eq((main.placement.range_disc.mesh as TorusMesh).rings, 96)
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)

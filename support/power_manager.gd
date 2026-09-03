@@ -39,3 +39,10 @@ func total_demand() -> float:
 		if is_instance_valid(consumer) and consumer.active:
 			result += consumer.power_demand()
 	return result
+
+func consumer_status(demand: float) -> String:
+	var capacity := generation_capacity()
+	var status := "전력 수요 %d / 총 공급 %d" % [roundi(demand), roundi(capacity)]
+	if total_demand() > capacity:
+		status += "  공급 부족"
+	return status

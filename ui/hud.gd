@@ -29,6 +29,7 @@ var threat_definitions: Array[ThreatDefinition] = []
 var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var selected_asset_connection_count: int = 0
+var selected_asset_support_connection_count: int = 0
 var overlay_mode_index: int = 0
 var catalog_expanded: bool = false
 var city_menu_expanded: bool = false
@@ -270,11 +271,12 @@ func _process(delta: float) -> void:
 
 func refresh_selected_asset() -> void:
 	if selected_asset != null and is_instance_valid(selected_asset):
-		set_selected_asset(selected_asset, selected_asset_connection_count)
+		set_selected_asset(selected_asset, selected_asset_connection_count, selected_asset_support_connection_count)
 
-func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
+func set_selected_asset(unit: DefenseUnit, connection_count: int, support_connection_count: int = 0) -> void:
 	selected_asset = unit
 	selected_asset_connection_count = connection_count
+	selected_asset_support_connection_count = support_connection_count
 	selected_asset_panel.visible = unit != null or selected_track != null
 	focus_button.visible = unit != null or selected_track != null
 	if unit != null:
@@ -305,7 +307,12 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int) -> void:
 
 func _refresh_selected_asset_label() -> void:
 	var resource_status := selected_asset.resource_status_text()
-	selected_asset_label.text = "%s\nC2 직접 연결  %d" % [selected_asset.definition.display_name, selected_asset_connection_count]
+	selected_asset_label.text = selected_asset.definition.display_name
+	if selected_asset is SupportFacility:
+		selected_asset_label.text += "\n지원 가능 자산  %d" % selected_asset_support_connection_count
+	else:
+		selected_asset_label.text += "\nC2 직접 연결  %d" % selected_asset_connection_count
+		selected_asset_label.text += "\n지역 지원  %s" % ("연결됨" if selected_asset_support_connection_count > 0 else "범위 밖")
 	if not resource_status.is_empty():
 		selected_asset_label.text += "\n%s" % resource_status
 	if selected_asset is ArmedDefenseUnit:

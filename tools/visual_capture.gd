@@ -32,7 +32,7 @@ func run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--capture-placement-dependencies-only"):
 		await _capture_placement_dependencies()
-		print("VISUAL_CAPTURE_OK placement_c2_links support_service_range energy_power_impact")
+		print("VISUAL_CAPTURE_OK consistent_c2_links support_service_relations global_power_status")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-city-restoration-only"):
@@ -682,11 +682,22 @@ func _capture_placement_dependencies() -> void:
 	main._on_placement_preview_changed(support_definition, support_candidate, true)
 	for index: int in 5:
 		await process_frame
-	if main.placement.power_dependency_link_count < 1 or main.placement.support_dependency_link_count < 1 or not main.hud.placement_power_label.text.contains("배치 후  12 / 40"):
-		push_error("Support base preview did not show service and power relations")
+	if main.c2_overlay.visible_c2_link_count != 0 or main.c2_overlay.visible_support_link_count < 1 or not main.hud.placement_power_label.text.contains("배치 후  12 / 40"):
+		push_error("Support base preview did not show its service relations and global power impact")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_support_placement_dependencies.png")
+	main.placement.cancel()
+	for unit: DefenseUnit in main.defenses:
+		if unit is SupportFacility:
+			main._on_asset_selected(unit)
+			break
+	await process_frame
+	if main.c2_overlay.visible_support_link_count < 1:
+		push_error("Selected support base did not preserve its service relations")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_support_selected_relations.png")
 
 func _capture_offscreen_marker_full_edge() -> void:
 	var viewport_size: Vector2 = root.get_visible_rect().size

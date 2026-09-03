@@ -76,7 +76,13 @@ func _fire_pulse(track: PlayerTrack) -> int:
 	return affected
 
 func resource_status_text() -> String:
-	return "%s\nHPM 충전 %d%%" % [operational_status_text(), roundi(energy_state.energy / energy_state.capacity * 100.0)]
+	var status := "%s\nHPM 충전 %d%%" % [operational_status_text(), roundi(energy_state.energy / energy_state.capacity * 100.0)]
+	status += "\n%s" % (power_manager.consumer_status(power_demand()) if power_manager != null else "전력 공급 없음")
+	if support_manager != null and not support_manager.task_status(self).is_empty():
+		status += "\n%s" % support_manager.task_status(self)
+	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
+		status += "\n%s" % relocation_manager.task_status(self)
+	return status
 
 func capture_content_state() -> Dictionary:
 	return {"cooldown": cooldown, "energy": energy_state.capture_state(), "doctrine": capture_doctrine_state()}
