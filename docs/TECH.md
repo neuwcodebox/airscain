@@ -548,6 +548,8 @@ thermal_dose -= cooling_rate × interrupted_time
 
 HPM은 범위와 방향 안의 전자표적에 상태효과를 누적한다.
 
+표적별 `electronic_vulnerability`가 결합 강도를 정의한다. 조류는 전자표적보다 낮은 값 `0.15`를 사용해 단일 펄스로 즉시 사라지지 않으며, 누적 피해로 무력화될 때는 폭발·연기 없이 현재 속도의 일부를 유지한 작은 낙하체로 전환한다.
+
 ```text
 effect =
     emitted_power

@@ -235,6 +235,9 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 			return
 	if neutralized and _leaves_falling_wreck(threat):
 		_spawn_falling_wreck(threat)
+	if _resolves_without_explosion(threat):
+		threat.queue_free()
+		return
 	combat_audio.call("play_event", &"explosion", 0.8 if neutralized else 1.0)
 	_spawn_explosion(threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
 	if game_mode == GameMode.TRAINING and threat.runtime_id == training_threat_runtime_id and training_step == TrainingStep.ENGAGE:
@@ -243,17 +246,28 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	threat.queue_free()
 
 func _leaves_falling_wreck(threat: ThreatUnit) -> bool:
-	return threat.definition.signature_class in [&"uav", &"small_uav", &"aircraft", &"air_contact"]
+	return threat.definition.signature_class in [&"uav", &"small_uav", &"aircraft", &"air_contact", &"bird"]
+
+func _resolves_without_explosion(threat: ThreatUnit) -> bool:
+	return threat.definition.signature_class == &"bird"
 
 func _spawn_falling_wreck(threat: ThreatUnit) -> void:
 	var effect := FALLING_WRECK_SCENE.instantiate() as Node3D
 	effects_parent.add_child(effect)
 	effect.global_position = threat.global_position
 	var color := Color(0.45, 0.16, 0.1)
+	var wreck_scale := 1.0
+	var smoke_enabled := true
+	var flash_enabled := true
 	if threat.definition is AttackUavDefinition:
 		color = (threat.definition as AttackUavDefinition).visual_color
+	elif threat.definition.signature_class == &"bird":
+		color = Color(0.23, 0.27, 0.29)
+		wreck_scale = 0.42
+		smoke_enabled = false
+		flash_enabled = false
 	var ground_height := battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
-	effect.call("setup", color, threat.presentation_velocity(), ground_height)
+	effect.call("setup", color, threat.presentation_velocity(), ground_height, wreck_scale, smoke_enabled, flash_enabled)
 
 func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 	if not _objective.definition.required_for_survival:

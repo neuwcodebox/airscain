@@ -1184,6 +1184,39 @@ func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> vo
 	assert_lt(threats[1].health, 100.0)
 	assert_eq(threats[2].health, 100.0)
 
+func test_hpm_weakly_heats_bird_and_bird_falls_without_exploding_when_neutralized() -> void:
+	main.registry.clear()
+	main._on_pressure_changed(5)
+	var hpm_definition := main.scenario.available_defenses[9] as HighPowerMicrowaveDefinition
+	var hpm_result: Dictionary = main.session.request_placement(hpm_definition, _find_valid_position_for(hpm_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(hpm_result.success)
+	var hpm := hpm_result.unit as HighPowerMicrowave
+	var bird_definition := main.scenario.ambient_contacts[0]
+	var bird := bird_definition.scene.instantiate() as BirdContact
+	main.threat_parent.add_child(bird)
+	bird.setup(570, bird_definition)
+	bird.global_position = hpm.global_position + Vector3(100.0, 55.0, 0.0)
+	bird.configure_patrol(main.battlefield, Vector3(14.0, 0.0, 3.0))
+	main.registry.add(bird)
+	main._on_threat_spawned(bird)
+	var track := PlayerTrack.new()
+	track.track_id = 570
+	track.estimated_position = bird.global_position
+	var health_before := bird.health
+	assert_eq(hpm._fire_pulse(track), 1)
+	assert_eq(bird.health, health_before - hpm_definition.electronic_damage * bird_definition.electronic_vulnerability)
+	assert_gt(bird.health, 0.0, "한 번의 HPM 펄스가 조류를 전자장비처럼 즉시 무력화하면 안 됩니다")
+	var explosion_count_before := main.effects_parent.get_children().filter(func(node: Node) -> bool: return node is ExplosionEffect).size()
+	while not bird.resolved_state:
+		bird.receive_electronic_damage(hpm_definition.electronic_damage)
+	var explosion_count_after := main.effects_parent.get_children().filter(func(node: Node) -> bool: return node is ExplosionEffect).size()
+	var falling_bird := main.effects_parent.get_node_or_null("FallingWreck") as FallingWreckEffect
+	assert_not_null(falling_bird)
+	assert_eq(explosion_count_after, explosion_count_before)
+	assert_false((falling_bird.get_node("SmokeTrail") as GPUParticles3D).emitting)
+	assert_false(falling_bird.get_node("ImpactFlash").visible)
+	assert_eq(falling_bird.get_node("Wreck").scale, Vector3.ONE * 0.42)
+
 func test_interceptor_drone_returns_and_recharges_for_reuse() -> void:
 	main.registry.clear()
 	main._on_pressure_changed(5)

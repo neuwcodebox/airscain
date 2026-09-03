@@ -32,6 +32,9 @@ func gameplay_tick(delta: float) -> void:
 func get_urgency() -> float:
 	return 0.0
 
+func presentation_velocity() -> Vector3:
+	return patrol_velocity
+
 func capture_content_state() -> Dictionary:
 	return {"patrol_velocity": SaveDocument.vector3_to_data(patrol_velocity)}
 

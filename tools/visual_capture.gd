@@ -65,6 +65,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK friendly_missile first_terrain_impact")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-hpm-bird-only"):
+		await _capture_hpm_bird_fall()
+		print("VISUAL_CAPTURE_OK hpm weak_biological_coupling bird_fall_without_explosion")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
 		await _capture_surface_strike_smoke()
 		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
@@ -819,6 +824,52 @@ func _capture_friendly_missile_terrain_impact() -> void:
 	for index: int in 4:
 		await process_frame
 	_save_capture("/tmp/airscain_friendly_missile_terrain_impact.png")
+
+func _capture_hpm_bird_fall() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	for existing_threat: ThreatUnit in main.registry.get_active():
+		existing_threat.queue_free()
+	main.registry.clear()
+	await process_frame
+	main._on_pressure_changed(5)
+	var hpm_definition := main.scenario.available_defenses[9] as HighPowerMicrowaveDefinition
+	_place_asset(hpm_definition, -1.0)
+	var hpm: HighPowerMicrowave
+	for defense: DefenseUnit in main.defenses:
+		if defense.definition.id == hpm_definition.id:
+			hpm = defense as HighPowerMicrowave
+			break
+	if hpm == null:
+		push_error("Could not place HPM for bird fall capture")
+		quit(1)
+		return
+	var bird_definition := main.scenario.ambient_contacts[0]
+	var bird := bird_definition.scene.instantiate() as BirdContact
+	main.threat_parent.add_child(bird)
+	var target_position := hpm.global_position + Vector3(105.0, 70.0, 0.0)
+	bird.global_position = target_position
+	bird.setup(9820, bird_definition)
+	bird.configure_patrol(main.battlefield, Vector3(14.0, 0.0, 3.0))
+	main.registry.add(bird)
+	main._on_threat_spawned(bird)
+	var track := PlayerTrack.new()
+	track.track_id = bird.runtime_id
+	track.estimated_position = bird.global_position
+	while not bird.resolved_state:
+		hpm._fire_pulse(track)
+	var falling_bird := main.effects_parent.get_node_or_null("FallingWreck") as FallingWreckEffect
+	if falling_bird == null or (falling_bird.get_node("SmokeTrail") as GPUParticles3D).emitting or main.effects_parent.get_node_or_null("Explosion") != null:
+		push_error("HPM-neutralized bird did not enter a clean falling state")
+		quit(1)
+		return
+	falling_bird._process(0.42)
+	falling_bird.set_process(false)
+	main.camera_rig.camera.global_position = target_position + Vector3(95.0, 55.0, 135.0)
+	main.camera_rig.camera.look_at(target_position + Vector3.DOWN * 8.0, Vector3.UP)
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_hpm_bird_fall.png")
 
 func _capture_surface_strike_smoke() -> void:
 	main.hud.visible = false

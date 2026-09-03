@@ -12,3 +12,4 @@ neutralization_reward = 0
 signature_class = &"bird"
 radar_signature = 0.22
 affiliation = 2
+electronic_vulnerability = 0.15
