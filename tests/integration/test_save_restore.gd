@@ -198,23 +198,19 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	assert_true(restored_threat.resolved_state)
 	assert_eq(main.session.neutralized_count, 1)
 
-func test_hud_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes() -> void:
+func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes() -> void:
 	var saved_seed := 48127
 	main.scenario.world_seed = saved_seed
 	main.battlefield.build(main.scenario)
 	main.session.budget = 317
 	var expected_height := main.battlefield.terrain_height(417.0, -263.0)
 	var expected_building_count := main.battlefield.city_visuals.get_child_count()
-	var save_button := main.hud.get_node("%SaveButton") as Button
-	save_button.pressed.emit()
+	assert_eq(main.save_operation(), "")
 	assert_true(FileAccess.file_exists(save_path))
-	assert_eq(main.hud.feedback_label.text, "저장 완료")
 	main.scenario.world_seed = 99241
 	main.battlefield.build(main.scenario)
 	main.session.budget = 9999
-	var load_button := main.hud.get_node("%LoadButton") as Button
-	load_button.pressed.emit()
-	assert_eq(main.hud.feedback_label.text, "불러오기 완료")
+	assert_eq(main.load_operation(), "")
 	assert_eq(main.scenario.world_seed, saved_seed)
 	assert_eq(main.session.budget, 317)
 	assert_almost_eq(main.battlefield.terrain_height(417.0, -263.0), expected_height, 0.0001)

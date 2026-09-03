@@ -144,7 +144,8 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_gte(rotated_marker.y, 100.0)
 	training.camera_rig.yaw_radians -= PI * 0.5
 	training.camera_rig._update_camera()
-	assert_true(training.hud.save_button.disabled)
+	assert_null(training.hud.get_node_or_null("%SaveButton"))
+	assert_null(training.hud.get_node_or_null("%LoadButton"))
 	training._on_training_next_requested()
 	assert_eq(training.training_step, AirscainMain.TrainingStep.RADAR)
 	var radar_result := _place_for(training, training.scenario.available_defenses[1])
@@ -212,8 +213,7 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(training.training_step, AirscainMain.TrainingStep.COMPLETE)
 	assert_string_contains(training.hud.training_title.text, "훈련 완료")
 	assert_eq(training.session.simulation_speed, 1.0)
-	training._on_save_requested()
-	assert_string_contains(training.hud.feedback_label.text, "지속 작전")
+	assert_eq(training.save_operation(), "저장은 지속 작전에서만 사용할 수 있습니다")
 
 func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
@@ -223,7 +223,8 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_true(sandbox.session.unlimited_budget)
 	assert_eq(sandbox.session.current_pressure, 999)
 	assert_true(sandbox.hud.sandbox_threat_option.visible)
-	assert_true(sandbox.hud.save_button.disabled)
+	assert_null(sandbox.hud.get_node_or_null("%SaveButton"))
+	assert_null(sandbox.hud.get_node_or_null("%LoadButton"))
 	var starting_budget := sandbox.session.budget
 	var defense_definition := sandbox.scenario.available_defenses[10]
 	var defense_positions: Array[Vector3] = []
@@ -411,7 +412,8 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_true(defense_scroll.mouse_force_pass_scroll_events)
 	main.hud.set_catalog_expanded(false)
 	assert_false(defense_scroll.visible)
-	assert_false(main.hud.start_button.visible)
+	assert_true(main.hud.start_button.visible)
+	assert_same(main.hud.start_button.get_parent(), main.hud)
 	assert_eq(catalog.anchor_top, 1.0)
 	assert_eq(catalog.offset_top, -66.0)
 	main.hud.set_catalog_expanded(true)

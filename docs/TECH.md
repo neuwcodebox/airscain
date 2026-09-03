@@ -715,7 +715,7 @@ Director는 예산 안에서 정찰, 기만, 제압, 포화와 타격 역할을 
 
 ## 20. UI와 표현 계층
 
-제품 진입점은 gameplay scene과 분리된 App Shell이다. App Shell이 메인 메뉴에서 모드를 확정해 gameplay scene을 생성하고, `Esc` 메뉴에서 세션을 일시정지하거나 gameplay scene을 폐기해 메인 메뉴로 복귀한다. 게임 오버 재시작은 gameplay scene이 요청한 모드와 같은 seed 또는 새 seed를 App Shell에 넘겨 기존 gameplay 인스턴스만 교체한다. HUD는 현재 모드의 전술 조작만 제공하며 실행 중 모드 전환을 소유하지 않는다.
+제품 진입점은 gameplay scene과 분리된 App Shell이다. App Shell이 메인 메뉴에서 모드를 확정해 gameplay scene을 생성하고, `Esc` 메뉴에서 세션을 일시정지하거나 gameplay scene을 폐기해 메인 메뉴로 복귀한다. 지속 작전 저장은 `Esc` 메뉴, 불러오기는 메인 메뉴와 `Esc` 메뉴에서 App Shell이 제공하며 전술 HUD에는 persistence 제어를 두지 않는다. 메인 메뉴 불러오기는 문서를 먼저 검증하고 저장 seed의 지속 작전 gameplay를 만든 뒤 snapshot을 복원한다. `Esc` 저장 시에는 일시정지 직전 속도를 문서에 보존하고, `Esc` 불러오기 뒤에는 복원된 속도를 기억한 채 메뉴가 닫힐 때까지 다시 일시정지한다. 게임 오버 재시작은 gameplay scene이 요청한 모드와 같은 seed 또는 새 seed를 App Shell에 넘겨 기존 gameplay 인스턴스만 교체한다. HUD는 현재 모드의 전술 조작만 제공하며 실행 중 모드 전환을 소유하지 않는다. 준비 단계의 `StartButton`은 자산 카탈로그 바깥 HUD 하단 중앙에 있어 카탈로그 접힘과 관계없이 유지된다.
 
 HUD 시간 제어의 네 `Button`은 toggle 상태를 현재 `GameSession.simulation_speed`에서 역으로 갱신한다. `statistics_changed`마다 0·1·2·4 중 일치하는 버튼 하나만 눌림 상태가 되고 전용 청록색 `StyleBoxFlat` 배경을 사용하며, 별도 `SpeedLabel`은 두지 않는다. 훈련 자동 정지·재생이나 저장 복원으로 속도가 바뀌어도 같은 갱신 경로를 사용한다.
 

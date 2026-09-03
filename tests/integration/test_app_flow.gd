@@ -58,3 +58,42 @@ func test_game_over_restart_replaces_gameplay_without_showing_main_menu() -> voi
 	assert_not_same(app.gameplay, same_seed_gameplay)
 	assert_ne(app.gameplay.scenario.world_seed, first_seed)
 	assert_false(app.main_menu.visible)
+
+func test_save_and_load_controls_belong_to_main_and_pause_menus() -> void:
+	var test_save_path := "user://app_menu_save_test_%d.json" % get_instance_id()
+	_cleanup_save_path(test_save_path)
+	var app := APP_SCENE.instantiate() as AirscainApp
+	app.save_path = test_save_path
+	add_child_autofree(app)
+	await get_tree().process_frame
+	assert_true(app.main_load_button.disabled)
+	app.start_game(AirscainMain.GameMode.SUSTAINED)
+	await get_tree().process_frame
+	assert_null(app.gameplay.hud.get_node_or_null("%SaveButton"))
+	assert_null(app.gameplay.hud.get_node_or_null("%LoadButton"))
+	app.gameplay.session.budget = 317
+	app.set_pause_menu(true)
+	assert_false(app.pause_save_button.disabled)
+	assert_true(app.pause_load_button.disabled)
+	app.pause_save_button.pressed.emit()
+	assert_eq(app.pause_feedback_label.text, "저장 완료")
+	assert_false(app.pause_load_button.disabled)
+	app.gameplay.session.budget = 999
+	app.pause_load_button.pressed.emit()
+	assert_eq(app.pause_feedback_label.text, "불러오기 완료")
+	assert_eq(app.gameplay.session.budget, 317)
+	assert_eq(app.gameplay.session.simulation_speed, 0.0)
+	app.return_to_main_menu()
+	assert_false(app.main_load_button.disabled)
+	app.main_load_button.pressed.emit()
+	await get_tree().process_frame
+	assert_not_null(app.gameplay)
+	assert_eq(app.gameplay.session.budget, 317)
+	assert_false(app.main_menu.visible)
+	_cleanup_save_path(test_save_path)
+
+func _cleanup_save_path(path: String) -> void:
+	for suffix: String in ["", ".tmp", ".bak"]:
+		var candidate := path + suffix
+		if FileAccess.file_exists(candidate):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(candidate))

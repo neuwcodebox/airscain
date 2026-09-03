@@ -179,8 +179,6 @@ func _connect_flow() -> void:
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.city_restoration_requested.connect(_on_city_restoration_requested)
 	hud.relocation_requested.connect(_on_relocation_requested)
-	hud.save_requested.connect(_on_save_requested)
-	hud.load_requested.connect(_on_load_requested)
 	hud.focus_requested.connect(_on_focus_requested)
 	hud.training_next_requested.connect(_on_training_next_requested)
 	hud.sandbox_threat_selected.connect(placement.select_sandbox_threat)
@@ -494,22 +492,19 @@ func _on_relocation_requested() -> void:
 	else:
 		hud.set_feedback("현재 재배치할 수 없습니다")
 
-func _on_save_requested() -> void:
+func save_operation() -> String:
 	if game_mode != GameMode.SUSTAINED:
-		hud.set_feedback("저장은 지속 작전에서만 사용할 수 있습니다")
-		return
-	var error := SaveStore.write(capture_save_document(), save_path)
-	hud.set_feedback("저장 완료" if error.is_empty() else "저장 실패 · %s" % error)
+		return "저장은 지속 작전에서만 사용할 수 있습니다"
+	return SaveStore.write(capture_save_document(), save_path)
 
-func _on_load_requested() -> void:
+func load_operation() -> String:
 	if game_mode != GameMode.SUSTAINED:
-		hud.set_feedback("불러오기는 지속 작전에서만 사용할 수 있습니다")
-		return
+		return "불러오기는 지속 작전에서만 사용할 수 있습니다"
 	var result := SaveStore.read(save_path)
 	var error: String = result.error
 	if error.is_empty():
 		error = restore_from_document(result.document)
-	hud.set_feedback("불러오기 완료" if error.is_empty() else "불러오기 실패 · %s" % error)
+	return error
 
 func capture_save_document() -> Dictionary:
 	return SaveDocument.create(SessionSnapshot.capture_payload(self))

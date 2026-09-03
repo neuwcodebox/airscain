@@ -47,9 +47,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -260.0
-offset_top = -275.0
+offset_top = -310.0
 offset_right = 260.0
-offset_bottom = 275.0
+offset_bottom = 310.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("MenuPanel")
@@ -82,6 +82,13 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "지속 작전"
 
+[node name="MainLoadButton" type="Button" parent="MainMenu/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "불러오기"
+
 [node name="TrainingButton" type="Button" parent="MainMenu/Panel/VBox"]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
@@ -93,6 +100,14 @@ custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "샌드박스"
+
+[node name="MenuFeedbackLabel" type="Label" parent="MainMenu/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.76, 0.4, 1)
+text = ""
+horizontal_alignment = 1
 
 [node name="QuitButton" type="Button" parent="MainMenu/Panel/VBox"]
 custom_minimum_size = Vector2(0, 48)
@@ -126,9 +141,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -220.0
-offset_top = -205.0
+offset_top = -250.0
 offset_right = 220.0
-offset_bottom = 205.0
+offset_bottom = 250.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("MenuPanel")
@@ -154,6 +169,20 @@ custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 text = "저장"
 
+[node name="PauseLoadButton" type="Button" parent="PauseMenu/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+text = "불러오기"
+
+[node name="PauseFeedbackLabel" type="Label" parent="PauseMenu/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 26)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.76, 0.4, 1)
+text = ""
+horizontal_alignment = 1
+
 [node name="MainMenuButton" type="Button" parent="PauseMenu/Panel/VBox"]
 custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
@@ -165,10 +194,12 @@ layout_mode = 2
 text = "게임 종료"
 
 [connection signal="pressed" from="MainMenu/Panel/VBox/SustainedButton" to="." method="_on_sustained_pressed"]
+[connection signal="pressed" from="MainMenu/Panel/VBox/MainLoadButton" to="." method="_on_main_load_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/TrainingButton" to="." method="_on_training_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/SandboxButton" to="." method="_on_sandbox_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/QuitButton" to="." method="_on_quit_pressed"]
 [connection signal="pressed" from="PauseMenu/Panel/VBox/ResumeButton" to="." method="_on_resume_pressed"]
 [connection signal="pressed" from="PauseMenu/Panel/VBox/PauseSaveButton" to="." method="_on_pause_save_pressed"]
+[connection signal="pressed" from="PauseMenu/Panel/VBox/PauseLoadButton" to="." method="_on_pause_load_pressed"]
 [connection signal="pressed" from="PauseMenu/Panel/VBox/MainMenuButton" to="." method="_on_main_menu_pressed"]
 [connection signal="pressed" from="PauseMenu/Panel/VBox/PauseQuitButton" to="." method="_on_quit_pressed"]

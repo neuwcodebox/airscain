@@ -14,8 +14,6 @@ signal resupply_requested
 signal repair_requested
 signal relocation_requested
 signal focus_requested
-signal save_requested
-signal load_requested
 signal city_restoration_requested
 signal sandbox_threat_selected(definition: ThreatDefinition)
 signal training_next_requested
@@ -77,8 +75,6 @@ const CATALOG_GROUP_LABELS := {
 @onready var focus_button: Button = %FocusButton
 @onready var sandbox_threat_option: OptionButton = %SandboxThreatOption
 @onready var sandbox_threat_button: Button = %SandboxThreatButton
-@onready var save_button: Button = %SaveButton
-@onready var load_button: Button = %LoadButton
 @onready var training_panel: PanelContainer = %TrainingPanel
 @onready var training_title: Label = %TrainingTitle
 @onready var training_body: Label = %TrainingBody
@@ -108,15 +104,12 @@ func _build_mode_controls(game_mode: int) -> void:
 		sandbox_threat_option.add_item(definition.display_name)
 	sandbox_threat_option.visible = game_mode == 2
 	sandbox_threat_button.visible = game_mode == 2
-	save_button.disabled = game_mode != 0
-	load_button.disabled = game_mode != 0
 	training_panel.visible = game_mode == 1
 
 func set_catalog_expanded(expanded: bool) -> void:
 	catalog_expanded = expanded
 	catalog_toggle.text = "방공망 자산  ▾" if expanded else "방공망 자산  ▴"
 	defense_scroll.visible = expanded
-	start_button.visible = expanded and session.phase == GameSession.Phase.PREPARATION
 	sandbox_threat_option.visible = expanded and configured_game_mode == 2
 	sandbox_threat_button.visible = expanded and configured_game_mode == 2
 	if expanded:
@@ -289,7 +282,7 @@ func _refresh_city_restoration_button() -> void:
 	city_restoration_button.disabled = session.phase == GameSession.Phase.GAME_OVER or objective.current_integrity >= objective.definition.maximum_integrity or not session.unlimited_budget and session.budget < cost
 
 func _on_phase_changed(new_phase: GameSession.Phase) -> void:
-	start_button.visible = catalog_expanded and new_phase == GameSession.Phase.PREPARATION
+	start_button.visible = new_phase == GameSession.Phase.PREPARATION
 	game_over_panel.visible = new_phase == GameSession.Phase.GAME_OVER
 	if new_phase == GameSession.Phase.GAME_OVER:
 		final_stats.text = "생존 시간  %02d:%02d\n무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.neutralized_count, session.defense_count, session.highest_pressure]
@@ -378,12 +371,6 @@ func _on_relocation_pressed() -> void:
 
 func _on_focus_pressed() -> void:
 	focus_requested.emit()
-
-func _on_save_pressed() -> void:
-	save_requested.emit()
-
-func _on_load_pressed() -> void:
-	load_requested.emit()
 
 func _on_city_restoration_pressed() -> void:
 	city_restoration_requested.emit()

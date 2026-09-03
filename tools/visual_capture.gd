@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MAIN_SCENE := preload("res://main/main.tscn")
+const APP_SCENE := preload("res://main/app.tscn")
 
 var main: AirscainMain
 
@@ -9,6 +10,10 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	if OS.get_cmdline_user_args().has("--capture-operation-menus-only"):
+		await _capture_operation_menus()
+		quit(0)
+		return
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
@@ -34,6 +39,7 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK city_restoration immediate_budget_exchange")
 		quit(0)
 		return
+
 	if OS.get_cmdline_user_args().has("--capture-training-guidance-only"):
 		var training_guidance_ok := await _capture_training_guidance()
 		if not training_guidance_ok:
@@ -319,6 +325,52 @@ func run() -> void:
 	_save_capture("/tmp/airscain_game_over.png")
 	print("VISUAL_CAPTURE_OK initial catalog_wheel camera_rotation placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
 	quit(0)
+
+func _capture_operation_menus() -> void:
+	var capture_save_path := "/tmp/airscain_operation_menu_save.json"
+	_remove_capture_save(capture_save_path)
+	var app := APP_SCENE.instantiate() as AirscainApp
+	app.save_path = capture_save_path
+	root.add_child(app)
+	for index: int in 10:
+		await process_frame
+	app.start_game(AirscainMain.GameMode.SUSTAINED)
+	for index: int in 20:
+		await process_frame
+	if app.gameplay.hud.get_node_or_null("%SaveButton") != null or app.gameplay.hud.get_node_or_null("%LoadButton") != null or app.gameplay.hud.start_button.get_parent() != app.gameplay.hud:
+		push_error("Gameplay controls still contain persistence actions or a catalog-owned start action")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_preparation_start_control.png")
+	app.set_pause_menu(true)
+	app.pause_save_button.pressed.emit()
+	await process_frame
+	if app.pause_save_button.disabled or app.pause_load_button.disabled:
+		push_error("Pause menu did not expose sustained-operation save and load actions")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_pause_operation_menu.png")
+	app.return_to_main_menu()
+	await process_frame
+	if app.main_load_button.disabled:
+		push_error("Main menu did not expose the saved operation")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_main_load_menu.png")
+	app.main_load_button.pressed.emit()
+	await process_frame
+	if app.gameplay == null or app.main_menu.visible:
+		push_error("Main-menu load did not enter the saved operation")
+		quit(1)
+		return
+	_remove_capture_save(capture_save_path)
+	print("VISUAL_CAPTURE_OK independent_start_control main_load pause_save_load")
+
+func _remove_capture_save(path: String) -> void:
+	for suffix: String in ["", ".tmp", ".bak"]:
+		var candidate := path + suffix
+		if FileAccess.file_exists(candidate):
+			DirAccess.remove_absolute(candidate)
 
 func _verify_catalog_wheel_input() -> void:
 	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
