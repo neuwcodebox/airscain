@@ -22,6 +22,9 @@ void fragment() {
 	if (!IN_SHADOW_PASS) {
 		discard;
 	}
+	if (billboard_enabled && distance(UV, vec2(0.5)) > 0.5) {
+		discard;
+	}
 	if (opacity_ratio <= 0.001 || COLOR.a <= 0.02) {
 		discard;
 	}

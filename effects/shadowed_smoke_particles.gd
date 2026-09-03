@@ -74,7 +74,9 @@ func _create_shadow_particles() -> void:
 func _sync_shadow_state() -> void:
 	if shadow_particles == null:
 		return
+	shadow_particles.amount = amount
 	shadow_particles.amount_ratio = amount_ratio
+	shadow_particles.lifetime = lifetime
 	shadow_particles.speed_scale = speed_scale
 	if shadow_particles.emitting != emitting:
 		shadow_particles.emitting = emitting

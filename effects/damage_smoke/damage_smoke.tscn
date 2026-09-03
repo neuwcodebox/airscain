@@ -5,7 +5,7 @@
 
 [sub_resource type="Gradient" id="SmokeGradient"]
 offsets = PackedFloat32Array(0, 0.03, 0.55, 0.82, 1)
-colors = PackedColorArray(0.62, 0.63, 0.64, 0, 0.6, 0.61, 0.62, 0.82, 0.7, 0.71, 0.72, 0.65, 0.8, 0.81, 0.82, 0.3, 0.86, 0.87, 0.88, 0)
+colors = PackedColorArray(0.54, 0.55, 0.56, 0, 0.5, 0.51, 0.52, 0.9, 0.61, 0.62, 0.63, 0.78, 0.72, 0.73, 0.74, 0.42, 0.82, 0.83, 0.84, 0)
 
 [sub_resource type="GradientTexture1D" id="SmokeGradientTexture"]
 gradient = SubResource("SmokeGradient")
@@ -13,15 +13,15 @@ gradient = SubResource("SmokeGradient")
 [sub_resource type="ParticleProcessMaterial" id="SmokeProcess"]
 emission_shape = 3
 emission_box_extents = Vector3(1.4, 0.5, 1.4)
-direction = Vector3(0.05, 1, 0.02)
-spread = 9.0
-gravity = Vector3(0.72, 0.42, 0.2)
-initial_velocity_min = 7.5
-initial_velocity_max = 11.5
-damping_min = 0.06
-damping_max = 0.16
-scale_min = 0.8
-scale_max = 2.2
+direction = Vector3(0.03, 1, 0.01)
+spread = 8.0
+gravity = Vector3(0.68, -0.38, 0.22)
+initial_velocity_min = 9.0
+initial_velocity_max = 13.0
+damping_min = 0.02
+damping_max = 0.08
+scale_min = 0.72
+scale_max = 1.9
 color_ramp = SubResource("SmokeGradientTexture")
 
 [sub_resource type="Gradient" id="SmokeCardGradient"]
@@ -81,8 +81,8 @@ script = ExtResource("1")
 position = Vector3(0, 0.6, 0)
 local_coords = false
 emitting = false
-amount = 600
-lifetime = 12.0
+amount = 900
+lifetime = 18.0
 randomness = 0.28
 fixed_fps = 30
 visibility_aabb = AABB(-70, -10, -70, 180, 220, 180)

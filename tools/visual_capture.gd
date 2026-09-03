@@ -961,14 +961,14 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	await _wait_simulation_seconds(2.4)
 	var city_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
 	var city_process := city_smoke.process_material as ParticleProcessMaterial
-	if not city_smoke.emitting or city_smoke.lifetime < 15.0 or city_process.initial_velocity_min < 7.0 or city_process.gravity.y <= 0.0 or city_process.turbulence_enabled:
+	if not city_smoke.emitting or city_smoke.amount < 900 or city_smoke.lifetime < 18.0 or city_process.initial_velocity_min < 9.0 or city_process.gravity.y >= 0.0 or city_process.gravity.x <= 0.0 or city_process.turbulence_enabled:
 		push_error("City smoke did not maintain a stable rising plume")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_city_damage_smoke_rising.png")
 	await _wait_simulation_seconds(2.8)
 	_save_capture("/tmp/airscain_city_damage_smoke_plume.png")
-	if city_smoke.amount < 500 or city_smoke.capture_aabb().size.y < 15.0:
+	if city_smoke.amount < 900 or city_smoke.capture_aabb().size.y < 24.0:
 		push_error("City smoke plume lacks sustained rising particle density")
 		quit(1)
 		return

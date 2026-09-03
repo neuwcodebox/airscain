@@ -228,8 +228,8 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(smoke.lifetime, DamageSmokeEffect.CITY_LIFETIME)
 	assert_false(smoke_process.turbulence_enabled)
 	assert_lte(smoke_process.spread, 14.0)
-	assert_gte(smoke_process.initial_velocity_min, 7.0)
-	assert_gt(smoke_process.gravity.y, 0.0)
+	assert_gte(smoke_process.initial_velocity_min, 9.0)
+	assert_lt(smoke_process.gravity.y, 0.0)
 	assert_gt(smoke_process.gravity.x, 0.0)
 	assert_not_null(smoke_process.color_ramp)
 	assert_true(smoke.draw_pass_1 is QuadMesh)
@@ -241,6 +241,8 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
 	assert_eq(smoke_shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	assert_eq(smoke_shadow.amount, smoke.amount)
+	assert_eq(smoke_shadow.lifetime, smoke.lifetime)
 	assert_gte(smoke.visibility_aabb.size.y, 220.0)
 	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeMiddle"))
 	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeUpper"))
@@ -311,6 +313,8 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 			assert_eq(shadow_material.shader.resource_path, "res://effects/smoke_shadow.gdshader")
 			assert_false(shadow_material.shader.code.contains("ALPHA_HASH_SCALE"), "%s shadow must remain a solid surface instead of a pixel hash" % path)
 			assert_true(shadow_material.shader.code.contains("VERTEX *= sqrt"), "%s shadow fade must contract the solid particle silhouette" % path)
+			if mesh is QuadMesh:
+				assert_true(shadow_material.shader.code.contains("distance(UV"), "%s billboard shadow must mask the square card corners" % path)
 
 func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
