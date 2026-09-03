@@ -38,5 +38,7 @@ godot --path . --scene res://path/to/scene.tscn
 - During iteration, use the cheapest relevant validation for the change.
 - Run broader validation only when the scope of the change warrants it.
 - Do not run a full headless import routinely after scene or resource changes.
+- After adding, moving, replacing, or changing import settings for an external asset, run `godot --headless --audio-driver Dummy --editor --path . --quit` before committing. Commit the source asset and stable `.import` or `.uid` sidecars, but never `.godot/` cache contents.
+- Keep repository text files LF through `.gitattributes`; do not commit platform-only line-ending rewrites.
 - Verify visual changes in an actual game window.
 - Do not consider a task complete with parse errors, unhandled runtime errors, disabled tests, or placeholders replacing required behavior.
