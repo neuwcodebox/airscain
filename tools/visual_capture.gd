@@ -70,6 +70,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK hpm weak_biological_coupling bird_fall_without_explosion")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-missile-rack-only"):
+		await _capture_missile_rack_salvo()
+		print("VISUAL_CAPTURE_OK six_cell_rack rapid_launch reload_status")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
 		await _capture_surface_strike_smoke()
 		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
@@ -870,6 +875,44 @@ func _capture_hpm_bird_fall() -> void:
 	for index: int in 5:
 		await process_frame
 	_save_capture("/tmp/airscain_hpm_bird_fall.png")
+
+func _capture_missile_rack_salvo() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var definition := main.scenario.available_defenses[0] as MissileBatteryDefinition
+	var battery := definition.scene.instantiate() as MissileBattery
+	main.effects_parent.add_child(battery)
+	battery.global_position = Vector3(-330.0, main.battlefield.terrain_height(-330.0, -140.0), -140.0)
+	battery.setup(9830, definition)
+	battery.configure_combat(main.registry, main.projectile_parent)
+	var target_position := battery.launch_point.global_position + battery.launcher_forward() * 420.0 + Vector3.UP * 55.0
+	var track := PlayerTrack.new()
+	track.track_id = 9831
+	track.state = PlayerTrack.State.CONFIRMED
+	track.classification = &"cruise_missile"
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 1.0
+	track.estimated_position = target_position
+	var munition := definition.munitions[0]
+	for launch_index: int in munition.magazine_capacity:
+		battery._launch_salvo(track, munition, 1)
+		for frame_index: int in 4:
+			for interceptor: HomingInterceptor in battery.interceptors:
+				if is_instance_valid(interceptor) and not interceptor.is_queued_for_deletion():
+					interceptor.gameplay_tick(0.05)
+			await process_frame
+	battery._process(0.0)
+	var marker_text := (battery.status_marker.get_node("Label") as Label3D).text
+	if battery.magazines[munition.id].rounds != 0 or not battery.magazines[munition.id].is_reloading() or not marker_text.contains("재장전") or battery._launcher_caps().any(func(cap: Node3D) -> bool: return cap.visible):
+		push_error("Missile rack did not empty its visible cells and expose reload status")
+		quit(1)
+		return
+	var camera_target := battery.global_position + Vector3(0.0, 13.0, -34.0)
+	main.camera_rig.camera.global_position = battery.global_position + Vector3(62.0, 38.0, 92.0)
+	main.camera_rig.camera.look_at(camera_target, Vector3.UP)
+	for frame_index: int in 8:
+		await process_frame
+	_save_capture("/tmp/airscain_missile_rack_salvo.png")
 
 func _capture_surface_strike_smoke() -> void:
 	main.hud.visible = false

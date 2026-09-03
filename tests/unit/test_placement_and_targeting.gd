@@ -367,6 +367,8 @@ func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	var coordinator := EngagementCoordinator.new()
 	battery.configure_engagements(coordinator)
 	assert_true(coordinator.try_reserve(near_battery.track_id, 9, 1.0))
+	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_battery)
+	assert_true(coordinator.try_reserve(near_battery.track_id, 10, 1.0, 2))
 	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
 	coordinator.free()
 
@@ -381,6 +383,43 @@ func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	assert_same(battery.select_track(tracks, Vector3.ZERO), available)
 	available.state = PlayerTrack.State.LOST
 	assert_null(battery.select_track(tracks, Vector3.ZERO))
+
+func test_two_batteries_can_engage_the_same_cruise_track_without_global_single_shot_lockout() -> void:
+	var first := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	var second := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	first.setup(31, SCENARIO.available_defenses[0])
+	second.setup(32, SCENARIO.available_defenses[0])
+	var coordinator := EngagementCoordinator.new()
+	first.configure_engagements(coordinator)
+	second.configure_engagements(coordinator)
+	var cruise := _confirmed_track(Vector3(180.0, 45.0, 0.0))
+	cruise.classification = &"cruise_missile"
+	var munition := first.munition_for_track(cruise)
+	assert_true(coordinator.try_reserve(cruise.track_id, first.runtime_id, munition.interceptor_lifetime, first.engagement_limit_for(munition)))
+	assert_same(second.select_track([cruise], Vector3.ZERO), cruise)
+	assert_true(coordinator.try_reserve(cruise.track_id, second.runtime_id, munition.interceptor_lifetime, second.engagement_limit_for(munition)))
+	assert_null(first.select_track([cruise], Vector3.ZERO))
+	coordinator.free()
+
+func test_missile_rack_empties_visible_cells_then_shows_reload_and_ammunition() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	var definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	battery.setup(33, definition)
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	battery.configure_combat(ThreatRegistry.new(), projectiles)
+	var track := _confirmed_track(Vector3(220.0, 60.0, 0.0))
+	var munition := definition.munitions[0]
+	assert_eq(battery._launcher_caps().size(), munition.magazine_capacity)
+	for expected_rounds: int in range(munition.magazine_capacity - 1, -1, -1):
+		battery._launch_salvo(track, munition, 1)
+		assert_eq(battery.magazines[munition.id].rounds, expected_rounds)
+		assert_eq(battery._launcher_caps().filter(func(cap: Node3D) -> bool: return cap.visible).size(), expected_rounds)
+	battery._process(0.0)
+	var marker_text := (battery.status_marker.get_node("Label") as Label3D).text
+	assert_string_contains(marker_text, "재장전")
+	assert_string_contains(marker_text, "탄 0+18")
+	assert_string_contains(battery.resource_status_text(), "재장전 9.0초")
+	assert_lte(definition.fire_interval, 0.3)
 
 func test_missile_battery_launches_within_a_broad_sector_without_exact_alignment() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery

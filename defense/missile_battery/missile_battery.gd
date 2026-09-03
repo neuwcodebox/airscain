@@ -29,6 +29,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 		munition_magazine.setup(munition.magazine_capacity, munition.reserve_ammunition, munition.reload_duration)
 		magazines[munition.id] = munition_magazine
 	magazine = magazines[_definition.munitions[0].id]
+	_refresh_launcher_cells()
 
 func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: Node3D) -> void:
 	registry = registry_value
@@ -50,6 +51,7 @@ func gameplay_tick(delta: float) -> void:
 			interceptor.gameplay_tick(delta)
 	for munition_magazine: WeaponMagazine in magazines.values():
 		munition_magazine.gameplay_tick(delta)
+	_refresh_launcher_cells()
 	cooldown = maxf(0.0, cooldown - delta)
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	if track == null:
@@ -57,7 +59,7 @@ func gameplay_tick(delta: float) -> void:
 	var is_aimed := _aim_turret(track.estimated_position, delta)
 	var munition := munition_for_track(track)
 	var volley_size := mini(munition.salvo_size, magazines[munition.id].rounds) if munition != null else 0
-	if is_aimed and munition != null and volley_size > 0 and cooldown <= 0.0 and _active_interceptor_count() + volley_size <= _definition.engagement_channels and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, munition.interceptor_lifetime, munition.salvo_size):
+	if is_aimed and munition != null and volley_size > 0 and cooldown <= 0.0 and _active_interceptor_count() + volley_size <= _definition.engagement_channels and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, munition.interceptor_lifetime, engagement_limit_for(munition)):
 		_launch_salvo(track, munition, volley_size)
 		cooldown = _definition.fire_interval
 
@@ -85,7 +87,7 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		if not doctrine.allows(track):
 			continue
 		var munition := munition_for_track(track)
-		if munition == null or not is_track_available_for_engagement(track, munition.salvo_size):
+		if munition == null or not is_track_available_for_engagement(track, engagement_limit_for(munition)):
 			continue
 		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range * operational_efficiency():
@@ -101,6 +103,9 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 			selected_urgency = urgency
 			selected_distance = distance
 	return selected
+
+func engagement_limit_for(munition: MissileMunitionDefinition) -> int:
+	return maxi(_definition.maximum_interceptors_per_track, munition.salvo_size)
 
 func weapon_match(track: PlayerTrack) -> float:
 	var munition := munition_for_track(track)
@@ -181,8 +186,20 @@ func resource_status_text() -> String:
 	var lines: Array[String] = [operational_status_text(), "교전 고도 %d–%dm" % [roundi(_definition.minimum_engagement_altitude), roundi(_definition.maximum_engagement_altitude)], "탄종 %s" % munition_mode_text()]
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		var munition_magazine: WeaponMagazine = magazines[munition.id]
-		lines.append("탄약 %s %d + %d" % [munition.display_name, munition_magazine.rounds, munition_magazine.reserve])
+		var reload_text := " · 재장전 %.1f초" % munition_magazine.reload_remaining if munition_magazine.is_reloading() else ""
+		lines.append("탄약 %s %d + %d%s" % [munition.display_name, munition_magazine.rounds, munition_magazine.reserve, reload_text])
 	return _with_support_status("\n".join(lines))
+
+func critical_status_text() -> String:
+	if not active:
+		return "×"
+	var ready_rounds := _ready_round_count()
+	var reserve_rounds := _reserve_round_count()
+	var prefix := "손상 · " if operational_ratio() < 0.75 else ""
+	var reload_remaining := _maximum_reload_remaining()
+	if reload_remaining > 0.0:
+		return "%s재장전 %.0f초 · 탄 %d+%d" % [prefix, ceilf(reload_remaining), ready_rounds, reserve_rounds]
+	return "%s탄 %d+%d" % [prefix, ready_rounds, reserve_rounds]
 
 func _launch(track: PlayerTrack, munition: MissileMunitionDefinition = null) -> void:
 	if enemy_knowledge != null:
@@ -215,14 +232,57 @@ func _show_muzzle_flash() -> void:
 
 func _launch_salvo(track: PlayerTrack, munition: MissileMunitionDefinition, volley_size: int) -> void:
 	for launch_index: int in volley_size:
+		var cell_index := maxi(0, _launcher_caps().size() - mini(_ready_round_count(), _launcher_caps().size()))
 		if not magazines[munition.id].consume():
 			break
 		if enemy_knowledge != null:
 			enemy_knowledge.record_engagement(self, &"missile")
 		weapon_fired.emit(self, combat_resource_low())
-		var lateral_offset := (float(launch_index) - float(volley_size - 1) * 0.5) * 1.4
+		var lateral_offset := _cell_lateral_offset(cell_index) if not _launcher_caps().is_empty() else (float(launch_index) - float(volley_size - 1) * 0.5) * 1.4
 		_spawn_interceptor(track, munition, launch_index, lateral_offset)
+		_refresh_launcher_cells()
 	_show_muzzle_flash()
+
+func _launcher_caps() -> Array[Node3D]:
+	var result: Array[Node3D] = []
+	var caps_parent := find_child("MuzzleCaps", true, false)
+	if caps_parent == null:
+		return result
+	for child: Node in caps_parent.get_children():
+		if child is Node3D:
+			result.append(child as Node3D)
+	return result
+
+func _cell_lateral_offset(cell_index: int) -> float:
+	var caps := _launcher_caps()
+	if caps.is_empty():
+		return 0.0
+	var cap := caps[cell_index % caps.size()]
+	return launch_point.global_basis.x.dot(cap.global_position - launch_point.global_position)
+
+func _refresh_launcher_cells() -> void:
+	var caps := _launcher_caps()
+	var visible_cells := mini(_ready_round_count(), caps.size())
+	for index: int in caps.size():
+		caps[index].visible = index < visible_cells
+
+func _ready_round_count() -> int:
+	var result := 0
+	for munition_magazine: WeaponMagazine in magazines.values():
+		result += munition_magazine.rounds
+	return result
+
+func _reserve_round_count() -> int:
+	var result := 0
+	for munition_magazine: WeaponMagazine in magazines.values():
+		result += munition_magazine.reserve
+	return result
+
+func _maximum_reload_remaining() -> float:
+	var result := 0.0
+	for munition_magazine: WeaponMagazine in magazines.values():
+		result = maxf(result, munition_magazine.reload_remaining)
+	return result
 
 func capture_content_state() -> Dictionary:
 	var magazine_states: Dictionary = {}
@@ -241,4 +301,5 @@ func restore_content_state(state: Dictionary) -> void:
 	var magazine_states: Dictionary = state.get("munition_magazines", {})
 	for munition_id: StringName in magazines:
 		magazines[munition_id].restore_state(magazine_states.get(String(munition_id), {}))
+	_refresh_launcher_cells()
 	restore_doctrine_state(state.get("doctrine", {}))
