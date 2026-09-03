@@ -43,6 +43,8 @@ var menu_row_hover: StyleBoxFlat
 var menu_row_pressed: StyleBoxFlat
 var menu_row_disabled: StyleBoxFlat
 const FEEDBACK_DURATION := 3.5
+const MENU_COLLAPSED_SYMBOL := "▼"
+const MENU_EXPANDED_SYMBOL := "▲"
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
 const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전 영역", "지원 작업", "전자전", "C2 연결"]
 const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special"]
@@ -141,7 +143,7 @@ func set_catalog_expanded(expanded: bool) -> void:
 		set_city_menu_expanded(false)
 	if expanded and threat_menu_expanded:
 		set_threat_menu_expanded(false)
-	defense_menu_button.text = "방공 자산  ▴" if expanded else "방공 자산  ▾"
+	defense_menu_button.text = "방공 자산  %s" % (MENU_EXPANDED_SYMBOL if expanded else MENU_COLLAPSED_SYMBOL)
 	catalog.visible = expanded
 	defense_scroll.visible = expanded
 	if expanded:
@@ -157,7 +159,7 @@ func set_city_menu_expanded(expanded: bool) -> void:
 		set_catalog_expanded(false)
 	if expanded and threat_menu_expanded:
 		set_threat_menu_expanded(false)
-	city_menu_button.text = _city_menu_text("▴" if expanded else "▾")
+	city_menu_button.text = _city_menu_text(MENU_EXPANDED_SYMBOL if expanded else MENU_COLLAPSED_SYMBOL)
 	city_menu.visible = expanded
 	if expanded:
 		_raise_context_menu(city_menu)
@@ -172,7 +174,7 @@ func set_threat_menu_expanded(expanded: bool) -> void:
 		set_catalog_expanded(false)
 	if threat_menu_expanded and city_menu_expanded:
 		set_city_menu_expanded(false)
-	threat_menu_button.text = "위협 투입  ▴" if threat_menu_expanded else "위협 투입  ▾"
+	threat_menu_button.text = "위협 투입  %s" % (MENU_EXPANDED_SYMBOL if threat_menu_expanded else MENU_COLLAPSED_SYMBOL)
 	threat_menu.visible = threat_menu_expanded
 	if threat_menu_expanded:
 		_raise_context_menu(threat_menu)
@@ -414,7 +416,7 @@ func _refresh_speed_buttons() -> void:
 		buttons[index].set_pressed_no_signal(selected)
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
-	city_menu_button.text = _city_menu_text("▴" if city_menu_expanded else "▾", current, maximum)
+	city_menu_button.text = _city_menu_text(MENU_EXPANDED_SYMBOL if city_menu_expanded else MENU_COLLAPSED_SYMBOL, current, maximum)
 	city_integrity_label.text = "%d / %d" % [current, maximum]
 	_refresh_city_restoration_button()
 

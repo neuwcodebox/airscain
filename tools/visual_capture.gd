@@ -646,7 +646,7 @@ func _capture_asset_catalog_and_support_base() -> void:
 	_save_capture("/tmp/airscain_integrated_support_base.png")
 
 func _capture_topbar_menus() -> void:
-	if main.hud.defense_menu_button.text != "방공 자산  ▾" or main.hud.city_menu_button.text != "도시 상태  100 / 100  ▾":
+	if main.hud.defense_menu_button.text != "방공 자산  ▼" or main.hud.city_menu_button.text != "도시 상태  100 / 100  ▼":
 		push_error("Top bar menu labels do not expose defense assets and city status")
 		quit(1)
 		return

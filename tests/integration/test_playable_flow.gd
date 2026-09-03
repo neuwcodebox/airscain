@@ -94,7 +94,7 @@ func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
 	var cost := main.objective.definition.restoration_cost
 	var amount := main.objective.definition.restoration_amount
 	var initial_budget := main.session.budget
-	assert_eq(main.hud.city_menu_button.text, "도시 상태  100 / 100  ▾")
+	assert_eq(main.hud.city_menu_button.text, "도시 상태  100 / 100  ▼")
 	main.hud.city_menu_button.pressed.emit()
 	assert_true(main.hud.city_menu.visible)
 	assert_false(main.hud.catalog.visible)
@@ -458,13 +458,13 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_not_null(support_visual.get_node_or_null("TransformerLeft"))
 	assert_not_null(support_visual.get_node_or_null("TransformerRight"))
 	var catalog := main.hud.get_node("Catalog") as Control
-	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▾")
+	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▼")
 	assert_false(catalog.visible)
 	main.hud.defense_menu_button.pressed.emit()
 	await get_tree().process_frame
 	assert_true(catalog.visible)
 	assert_gt(catalog.get_index(), main.hud.selected_asset_panel.get_index())
-	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▴")
+	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▲")
 	assert_false(catalog.get_global_rect().intersects(main.altitude_profile.get_global_rect()))
 	assert_gte(catalog.position.y, (main.hud.get_node("TopBar") as Control).get_global_rect().end.y)
 	assert_gte(catalog.size.y, 480.0)

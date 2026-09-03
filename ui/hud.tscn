@@ -92,7 +92,7 @@ layout_mode = 2
 flat = true
 theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
 theme_override_font_sizes/font_size = 20
-text = "방공 자산  ▾"
+text = "방공 자산  ▼"
 
 [node name="CityMenuButton" type="Button" parent="TopBar/Margin"]
 unique_name_in_owner = true
@@ -100,7 +100,7 @@ layout_mode = 2
 flat = true
 theme_override_colors/font_color = Color(0.3, 0.78, 1, 1)
 theme_override_font_sizes/font_size = 20
-text = "도시 상태  100 / 100  ▾"
+text = "도시 상태  100 / 100  ▼"
 
 [node name="ThreatMenuButton" type="Button" parent="TopBar/Margin"]
 unique_name_in_owner = true
@@ -109,7 +109,7 @@ layout_mode = 2
 flat = true
 theme_override_colors/font_color = Color(1, 0.62, 0.3, 1)
 theme_override_font_sizes/font_size = 20
-text = "위협 투입  ▾"
+text = "위협 투입  ▼"
 
 [node name="TimeLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true

@@ -8,6 +8,8 @@ func test_project_uses_bundled_bold_nanum_square_with_symbol_fallback() -> void:
 	var bundled_font := AirscainApp.apply_global_font()
 	assert_not_null(bundled_font)
 	assert_true(bundled_font.allow_system_fallback)
+	assert_true(bundled_font.has_char("▼".unicode_at(0)))
+	assert_true(bundled_font.has_char("▲".unicode_at(0)))
 	var label := add_child_autofree(Label.new()) as Label
 	assert_eq(label.get_theme_font("font").resource_path, GLOBAL_FONT_PATH)
 	assert_eq(ThemeDB.fallback_font.resource_path, GLOBAL_FONT_PATH)
