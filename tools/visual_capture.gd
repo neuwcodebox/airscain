@@ -755,7 +755,7 @@ func _capture_building_impact_smoke() -> void:
 	var smoke := smoke_effect.get_node("Smoke") as GPUParticles3D
 	var smoke_process := smoke.process_material as ParticleProcessMaterial
 	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
-	if smoke.amount < 1500 or smoke_process.gravity.y >= 0.0 or smoke_process.gravity.x <= 0.0 or not smoke_shadow.draw_pass_1 is SphereMesh:
+	if smoke.amount < 1500 or smoke_process.spread > 7.0 or smoke_process.initial_velocity_min < 7.5 or smoke_process.initial_velocity_max > 10.5 or smoke_process.gravity.y >= 0.0 or smoke_process.gravity.x <= 0.0 or not smoke_shadow.draw_pass_1 is SphereMesh:
 		push_error("Building smoke did not keep dense decelerating motion and round shadow geometry")
 		quit(1)
 		return
@@ -1198,7 +1198,7 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	var city_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
 	var city_process := city_smoke.process_material as ParticleProcessMaterial
 	var city_growth := city_process.scale_curve as CurveTexture
-	if not city_smoke.emitting or city_smoke.amount < 1500 or city_smoke.lifetime < 18.0 or city_process.initial_velocity_min < 9.0 or city_process.gravity.y >= 0.0 or city_process.gravity.x <= 0.0 or city_process.turbulence_enabled or city_growth == null or city_growth.curve.sample(0.0) >= city_growth.curve.sample(1.0):
+	if not city_smoke.emitting or city_smoke.amount < 1500 or city_smoke.lifetime < 18.0 or city_process.spread > 7.0 or city_process.initial_velocity_min < 7.5 or city_process.initial_velocity_max > 10.5 or city_process.gravity.y >= 0.0 or city_process.gravity.x <= 0.0 or city_process.turbulence_enabled or city_growth == null or city_growth.curve.sample(0.0) >= city_growth.curve.sample(1.0):
 		push_error("City smoke did not maintain a stable rising plume")
 		quit(1)
 		return
