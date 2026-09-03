@@ -1,15 +1,13 @@
 extends GutTest
 
 const SCENARIO := preload("res://main/first_scenario.tres")
-const GLOBAL_FONT_PATH := "res://ui/fonts/pretendard_medium.tres"
-const GLOBAL_FONT_SOURCE_PATH := "res://ui/fonts/PretendardVariable.ttf"
+const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
-func test_project_uses_bundled_pretendard_as_its_global_font() -> void:
+func test_project_uses_bundled_bold_nanum_square_with_symbol_fallback() -> void:
 	assert_eq(ProjectSettings.get_setting("gui/theme/custom_font"), GLOBAL_FONT_PATH)
-	var bundled_font := load(GLOBAL_FONT_PATH) as FontVariation
+	var bundled_font := load(GLOBAL_FONT_PATH) as FontFile
 	assert_not_null(bundled_font)
-	assert_eq(bundled_font.base_font.resource_path, GLOBAL_FONT_SOURCE_PATH)
-	assert_eq(float(bundled_font.variation_opentype.get("wght", 0.0)), 500.0)
+	assert_true(bundled_font.allow_system_fallback)
 	var label := add_child_autofree(Label.new()) as Label
 	assert_eq(label.get_theme_font("font").resource_path, GLOBAL_FONT_PATH)
 	assert_eq(ThemeDB.fallback_font.resource_path, GLOBAL_FONT_PATH)

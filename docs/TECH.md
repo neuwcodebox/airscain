@@ -727,7 +727,7 @@ Director는 예산 안에서 정찰, 기만, 제압, 포화와 타격 역할을 
 
 ## 20. UI와 표현 계층
 
-`project.godot`의 `gui/theme/custom_font`는 Pretendard Variable 원본에 `wght=500`을 지정한 `res://ui/fonts/pretendard_medium.tres`를 가리킨다. Control의 기본 theme font와 `ThemeDB.fallback_font`를 사용하는 CanvasItem 직접 그리기 및 기본 Label3D가 모두 이 저장소 자산을 공유하며 시스템 폰트에 의존하지 않는다.
+`project.godot`의 `gui/theme/custom_font`는 `res://ui/fonts/NanumSquareB.ttf`를 가리킨다. Control의 기본 theme font와 `ThemeDB.fallback_font`를 사용하는 CanvasItem 직접 그리기 및 기본 Label3D가 이 저장소 자산을 공유한다. NanumSquareB에 없는 펼치기 삼각형 등 기호는 깨진 글리프 대신 표시되도록 FontFile의 시스템 fallback을 허용한다.
 
 제품 진입점은 gameplay scene과 분리된 App Shell이다. App Shell이 메인 메뉴에서 모드를 확정해 gameplay scene을 생성하고, `Esc` 메뉴에서 세션을 일시정지하거나 gameplay scene을 폐기해 메인 메뉴로 복귀한다. 지속 작전 저장은 `Esc` 메뉴, 불러오기는 메인 메뉴와 `Esc` 메뉴에서 App Shell이 제공하며 전술 HUD에는 persistence 제어를 두지 않는다. 메인 메뉴 불러오기는 문서를 먼저 검증하고 저장 seed의 지속 작전 gameplay를 만든 뒤 snapshot을 복원한다. `Esc` 저장 시에는 일시정지 직전 속도를 문서에 보존하고, `Esc` 불러오기 뒤에는 복원된 속도를 기억한 채 메뉴가 닫힐 때까지 다시 일시정지한다. 게임 오버에서는 전면 입력 차단 Control이 다른 HUD와 월드 입력을 막고 App Shell도 `Esc`를 무시한다. 결과 화면의 재시작은 gameplay scene이 요청한 모드와 같은 seed 또는 새 seed를 App Shell에 넘겨 기존 gameplay 인스턴스만 교체하고, 메인 메뉴 요청은 gameplay를 폐기해 App Shell 초기 화면을 복원한다. HUD는 현재 모드의 전술 조작만 제공하며 실행 중 모드 전환을 소유하지 않는다. 준비 단계의 `StartButton`은 자산 카탈로그 바깥 HUD 하단 중앙에 있어 카탈로그 접힘과 관계없이 유지된다.
 
