@@ -9,5 +9,6 @@ id = &"city"
 display_name = "도시"
 scene = ExtResource("2")
 maximum_integrity = 100
+restoration_cost = 200
+restoration_amount = 10
 required_for_survival = true
-

@@ -177,6 +177,7 @@ func _connect_flow() -> void:
 	hud.munition_mode_requested.connect(_on_munition_mode_requested)
 	hud.resupply_requested.connect(_on_resupply_requested)
 	hud.repair_requested.connect(_on_repair_requested)
+	hud.city_restoration_requested.connect(_on_city_restoration_requested)
 	hud.relocation_requested.connect(_on_relocation_requested)
 	hud.save_requested.connect(_on_save_requested)
 	hud.load_requested.connect(_on_load_requested)
@@ -474,6 +475,18 @@ func _on_repair_requested() -> void:
 		hud.set_feedback("수리 작업을 요청했습니다")
 	else:
 		hud.set_feedback("현재 수리를 요청할 수 없습니다")
+
+func _on_city_restoration_requested() -> void:
+	var definition := objective.definition
+	if objective.current_integrity >= definition.maximum_integrity:
+		hud.set_feedback("도시 기능이 이미 최대입니다")
+		return
+	if not session.try_spend(definition.restoration_cost):
+		hud.set_feedback("도시 복구 예산이 부족합니다")
+		return
+	var restored := mini(definition.restoration_amount, definition.maximum_integrity - objective.current_integrity)
+	objective.restore_integrity(objective.current_integrity + restored)
+	hud.set_feedback("도시 기능을 %d 복구했습니다" % restored)
 
 func _on_relocation_requested() -> void:
 	if selected_asset != null and selected_asset.can_request_relocation():

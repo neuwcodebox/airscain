@@ -16,6 +16,7 @@ signal relocation_requested
 signal focus_requested
 signal save_requested
 signal load_requested
+signal city_restoration_requested
 signal sandbox_threat_selected(definition: ThreatDefinition)
 signal training_next_requested
 
@@ -43,6 +44,7 @@ const CATALOG_GROUP_LABELS := {
 
 @onready var budget_label: Label = %BudgetLabel
 @onready var integrity_label: Label = %IntegrityLabel
+@onready var city_restoration_button: Button = %CityRestorationButton
 @onready var time_label: Label = %TimeLabel
 @onready var pressure_label: Label = %PressureLabel
 @onready var pause_button: Button = %PauseButton
@@ -257,6 +259,7 @@ func _affiliation_text(track: PlayerTrack) -> String:
 
 func _on_state_changed() -> void:
 	budget_label.text = "예산  무제한" if session.unlimited_budget else "예산  $%d" % session.budget
+	_refresh_city_restoration_button()
 	time_label.text = "생존  %02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 	_refresh_speed_buttons()
 	for index: int in defense_buttons.size():
@@ -275,6 +278,15 @@ func _refresh_speed_buttons() -> void:
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
 	integrity_label.text = "도시  %d / %d" % [current, maximum]
+	_refresh_city_restoration_button()
+
+func _refresh_city_restoration_button() -> void:
+	if session == null or objective == null or objective.definition == null:
+		return
+	var cost := objective.definition.restoration_cost
+	var amount := objective.definition.restoration_amount
+	city_restoration_button.text = "복구 +%d" % amount if session.unlimited_budget else "복구 +%d · $%d" % [amount, cost]
+	city_restoration_button.disabled = session.phase == GameSession.Phase.GAME_OVER or objective.current_integrity >= objective.definition.maximum_integrity or not session.unlimited_budget and session.budget < cost
 
 func _on_phase_changed(new_phase: GameSession.Phase) -> void:
 	start_button.visible = catalog_expanded and new_phase == GameSession.Phase.PREPARATION
@@ -372,6 +384,9 @@ func _on_save_pressed() -> void:
 
 func _on_load_pressed() -> void:
 	load_requested.emit()
+
+func _on_city_restoration_pressed() -> void:
+	city_restoration_requested.emit()
 
 func _on_sandbox_threat_pressed() -> void:
 	var index := sandbox_threat_option.selected

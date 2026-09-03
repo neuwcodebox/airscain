@@ -109,6 +109,8 @@ C#, GDExtension, 별도 ECS, 멀티스레드 gameplay, 커스텀 렌더 파이�
 
 한 판의 단계, 예산, 해금, 통계, 게임오버, 저장과 공격 강도를 소유한다.
 
+`ObjectiveDefinition`은 도시 기능의 최대치와 함께 1회 복구 비용·회복량을 정의한다. HUD는 도시 기능 표시 옆의 단일 버튼에서 현재 값을 보여주고, 최대 상태·예산 부족·게임오버일 때 비활성화한다. 요청은 `AirscainMain`이 `GameSession.try_spend()`와 `ProtectedObjective.restore_integrity()`를 순서대로 호출해 처리하므로 준비·전투 단계 모두에서 같은 즉시 교환 규칙을 사용한다.
+
 ### 실제 세계 시뮬레이션
 
 물리적 객체의 실제 위치, 운동, 소속, 임무, 피해, 탄약과 가동상태를 소유한다.

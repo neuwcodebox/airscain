@@ -73,6 +73,38 @@ func test_time_control_buttons_are_the_only_speed_state_indicator() -> void:
 	assert_true(pause_button.button_pressed)
 	assert_false(very_fast_button.button_pressed)
 
+func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
+	var button := main.hud.city_restoration_button
+	var cost := main.objective.definition.restoration_cost
+	var amount := main.objective.definition.restoration_amount
+	var initial_budget := main.session.budget
+	assert_eq(button.text, "복구 +%d · $%d" % [amount, cost])
+	assert_true(button.disabled)
+	assert_true(main.objective.apply_mission_damage(15))
+	assert_false(button.disabled)
+	button.pressed.emit()
+	assert_eq(main.objective.current_integrity, 85 + amount)
+	assert_eq(main.session.budget, initial_budget - cost)
+	assert_eq(main.hud.feedback_label.text, "도시 기능을 %d 복구했습니다" % amount)
+	main.session.phase = GameSession.Phase.RUNNING
+	main.session.phase_changed.emit(main.session.phase)
+	assert_true(main.objective.apply_mission_damage(10))
+	assert_false(button.disabled)
+	button.pressed.emit()
+	assert_eq(main.objective.current_integrity, 95)
+	assert_eq(main.session.budget, initial_budget - cost * 2)
+	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
+	assert_true(button.disabled)
+	main.objective.restore_integrity(80)
+	main.session.budget = cost - 1
+	main.session.budget_changed.emit(main.session.budget)
+	assert_true(button.disabled)
+	main.session.budget = cost
+	main.session.budget_changed.emit(main.session.budget)
+	assert_false(button.disabled)
+	main.session.end_game()
+	assert_true(button.disabled)
+
 func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
 	var definition := main.scenario.available_defenses[3]
 	var position := _find_valid_position_for(definition.placement_profile)

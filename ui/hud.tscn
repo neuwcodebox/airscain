@@ -92,6 +92,12 @@ theme_override_colors/font_color = Color(0.3, 0.78, 1, 1)
 theme_override_font_sizes/font_size = 20
 text = "도시  100 / 100"
 
+[node name="CityRestorationButton" type="Button" parent="TopBar/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "예산을 사용해 도시 기능을 즉시 복구합니다"
+text = "복구 +10 · $200"
+
 [node name="TimeLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -499,6 +505,7 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/OverlayButton" to="." method="_on_c2_overlay_pressed"]
 [connection signal="pressed" from="TopBar/Margin/SaveButton" to="." method="_on_save_pressed"]
 [connection signal="pressed" from="TopBar/Margin/LoadButton" to="." method="_on_load_pressed"]
+[connection signal="pressed" from="TopBar/Margin/CityRestorationButton" to="." method="_on_city_restoration_pressed"]
 [connection signal="pressed" from="Catalog/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
 [connection signal="item_selected" from="Catalog/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="Catalog/VBox/CatalogToggle" to="." method="_on_catalog_toggle_pressed"]

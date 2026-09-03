@@ -15,6 +15,25 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	if OS.get_cmdline_user_args().has("--capture-city-restoration-only"):
+		main.objective.apply_mission_damage(20)
+		await process_frame
+		var restoration_button := main.hud.city_restoration_button
+		if restoration_button.disabled or restoration_button.text != "복구 +10 · $200":
+			push_error("City restoration control is unavailable while the city is damaged")
+			quit(1)
+			return
+		var budget_before := main.session.budget
+		restoration_button.pressed.emit()
+		await process_frame
+		if main.objective.current_integrity != 90 or main.session.budget != budget_before - 200:
+			push_error("City restoration did not exchange budget for integrity")
+			quit(1)
+			return
+		_save_capture("/tmp/airscain_city_restoration.png")
+		print("VISUAL_CAPTURE_OK city_restoration immediate_budget_exchange")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-training-guidance-only"):
 		var training_guidance_ok := await _capture_training_guidance()
 		if not training_guidance_ok:
