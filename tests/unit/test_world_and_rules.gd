@@ -4,8 +4,8 @@ const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
 func test_project_uses_bundled_bold_nanum_square_with_symbol_fallback() -> void:
-	assert_eq(ProjectSettings.get_setting("gui/theme/custom_font"), GLOBAL_FONT_PATH)
-	var bundled_font := load(GLOBAL_FONT_PATH) as FontFile
+	assert_eq(ProjectSettings.get_setting("gui/theme/custom_font", ""), "")
+	var bundled_font := AirscainApp.apply_global_font()
 	assert_not_null(bundled_font)
 	assert_true(bundled_font.allow_system_fallback)
 	var label := add_child_autofree(Label.new()) as Label

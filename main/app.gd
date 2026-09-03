@@ -2,6 +2,7 @@ class_name AirscainApp
 extends Node
 
 const GAMEPLAY_SCENE := preload("res://main/main.tscn")
+const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
 var gameplay: AirscainMain
 var previous_simulation_speed: float = 1.0
@@ -14,6 +15,18 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var pause_load_button: Button = %PauseLoadButton
 @onready var menu_feedback_label: Label = %MenuFeedbackLabel
 @onready var pause_feedback_label: Label = %PauseFeedbackLabel
+
+func _enter_tree() -> void:
+	apply_global_font()
+
+static func apply_global_font() -> FontFile:
+	var font := load(GLOBAL_FONT_PATH) as FontFile
+	if font == null:
+		push_error("Failed to load global UI font: %s" % GLOBAL_FONT_PATH)
+		return null
+	ThemeDB.get_default_theme().default_font = font
+	ThemeDB.fallback_font = font
+	return font
 
 func _ready() -> void:
 	main_menu.visible = true
