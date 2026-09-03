@@ -25,6 +25,14 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK defense_assets_menu city_status_menu")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-popup-input-priority-only"):
+		var popup_input_ok := await _capture_popup_input_priority()
+		if not popup_input_ok:
+			quit(1)
+			return
+		print("VISUAL_CAPTURE_OK popup_visual_and_pointer_order")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-asset-catalog-only"):
 		await _capture_asset_catalog_and_support_base()
 		print("VISUAL_CAPTURE_OK multiline_purchase_tooltip integrated_support_base")
@@ -636,6 +644,66 @@ func _capture_topbar_menus() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_city_status_menu.png")
+
+func _capture_popup_input_priority() -> bool:
+	main.session.unlimited_budget = true
+	main._on_pressure_changed(5)
+	_place_asset(main.scenario.available_defenses[0], -1.0)
+	if main.defenses.is_empty():
+		push_error("Could not place an asset for popup overlap verification")
+		return false
+	main._on_asset_selected(main.defenses[0])
+	main.hud.set_catalog_expanded(true)
+	for index: int in 2:
+		await process_frame
+	var catalog := main.hud.catalog
+	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
+	var catalog_rect := catalog.get_global_rect()
+	var selected_rect := main.hud.selected_asset_panel.get_global_rect()
+	var scroll_rect := defense_scroll.get_global_rect()
+	var overlap_start := Vector2(maxf(catalog_rect.position.x, maxf(selected_rect.position.x, scroll_rect.position.x)), maxf(catalog_rect.position.y, maxf(selected_rect.position.y, scroll_rect.position.y)))
+	var overlap_end := Vector2(minf(catalog_rect.end.x, minf(selected_rect.end.x, scroll_rect.end.x)), minf(catalog_rect.end.y, minf(selected_rect.end.y, scroll_rect.end.y)))
+	var overlap := Rect2(overlap_start, overlap_end - overlap_start)
+	var target_button: Button
+	var click_position := Vector2.ZERO
+	for scroll_position: int in [0, int(defense_scroll.get_v_scroll_bar().max_value * 0.5), int(defense_scroll.get_v_scroll_bar().max_value)]:
+		defense_scroll.scroll_vertical = scroll_position
+		await process_frame
+		for button: Button in main.hud.defense_buttons:
+			var button_rect := button.get_global_rect()
+			if button.disabled or not button_rect.intersects(overlap):
+				continue
+			var clickable_overlap := button_rect.intersection(overlap)
+			if clickable_overlap.size.x >= 12.0 and clickable_overlap.size.y >= 12.0:
+				target_button = button
+				click_position = clickable_overlap.get_center()
+				break
+		if target_button != null:
+			break
+	if target_button == null:
+		push_error("No enabled catalog row overlapped the selected asset panel")
+		return false
+	var target_index := main.hud.defense_buttons.find(target_button)
+	Input.warp_mouse(click_position)
+	for index: int in 2:
+		await process_frame
+	var hovered := main.get_viewport().gui_get_hovered_control()
+	if hovered == null or not catalog.is_ancestor_of(hovered):
+		push_error("The visually front catalog did not own the overlapping pointer position")
+		return false
+	_save_capture("/tmp/airscain_popup_input_priority.png")
+	for pressed: bool in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = pressed
+		click.position = click_position
+		click.global_position = click_position
+		Input.parse_input_event(click)
+		await process_frame
+	if main.placement.selected != main.scenario.available_defenses[target_index] or main.hud.catalog.visible:
+		push_error("The overlapping catalog row did not receive the click")
+		return false
+	return true
 
 func _capture_placement_dependencies() -> void:
 	main.session.unlimited_budget = true

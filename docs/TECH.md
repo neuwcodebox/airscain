@@ -731,6 +731,8 @@ Director는 예산 안에서 정찰, 기만, 제압, 포화와 타격 역할을 
 
 HUD 시간 제어의 네 `Button`은 toggle 상태를 현재 `GameSession.simulation_speed`에서 역으로 갱신한다. `statistics_changed`마다 0·1·2·4 중 일치하는 버튼 하나만 눌림 상태가 되고 전용 청록색 `StyleBoxFlat` 배경을 사용하며, 별도 `SpeedLabel`은 두지 않는다. 훈련 자동 정지·재생이나 저장 복원으로 속도가 바뀌어도 같은 갱신 경로를 사용한다.
 
+상단 context menu는 열릴 때 `move_to_front()`로 HUD 루트의 마지막 형제가 된다. Godot의 Control 입력 순서는 `z_index`만이 아니라 형제 순서의 영향을 받으므로, 이 동작으로 메뉴의 시각적 전면 순서와 포인터 hit-test 순서를 일치시킨다. 방공 자산, 도시 상태와 위협 투입 메뉴는 같은 경로를 사용한다.
+
 샌드박스 배치는 `PlacementController.selected` 또는 `selected_threat`를 지속 선택 상태로 유지한다. 성공한 좌클릭은 현재 후보 위치에 자산이나 위협을 생성한 뒤 preview와 선택을 정리하지 않으며, 우클릭·Esc·다른 배치 도구 선택만 명시적으로 취소한다. 위협 `OptionButton.item_selected`는 버튼 재확인 없이 `selected_threat`와 preview를 즉시 새 definition으로 교체한다.
 
 제품 전술 UI는 플레이어 지식과 공개된 아군 상태만 소비한다.

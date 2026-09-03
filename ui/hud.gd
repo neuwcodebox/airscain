@@ -142,6 +142,7 @@ func set_catalog_expanded(expanded: bool) -> void:
 	catalog.visible = expanded
 	defense_scroll.visible = expanded
 	if expanded:
+		_raise_context_menu(catalog)
 		_position_context_menus()
 
 func _on_defense_menu_pressed() -> void:
@@ -156,6 +157,7 @@ func set_city_menu_expanded(expanded: bool) -> void:
 	city_menu_button.text = _city_menu_text("▴" if expanded else "▾")
 	city_menu.visible = expanded
 	if expanded:
+		_raise_context_menu(city_menu)
 		_position_context_menus()
 
 func _on_city_menu_pressed() -> void:
@@ -170,6 +172,7 @@ func set_threat_menu_expanded(expanded: bool) -> void:
 	threat_menu_button.text = "위협 투입  ▴" if threat_menu_expanded else "위협 투입  ▾"
 	threat_menu.visible = threat_menu_expanded
 	if threat_menu_expanded:
+		_raise_context_menu(threat_menu)
 		_position_context_menus()
 
 func _on_threat_menu_pressed() -> void:
@@ -192,6 +195,9 @@ func _position_context_menus() -> void:
 	var threat_x := clampf(threat_menu_button.get_global_rect().position.x, 18.0, viewport_size.x - threat_width - 18.0)
 	threat_menu.position = Vector2(threat_x, menu_top)
 	threat_menu.size = Vector2(threat_width, 96.0)
+
+func _raise_context_menu(menu: Control) -> void:
+	menu.move_to_front()
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and (catalog_expanded or city_menu_expanded or threat_menu_expanded):

@@ -458,6 +458,7 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	main.hud.defense_menu_button.pressed.emit()
 	await get_tree().process_frame
 	assert_true(catalog.visible)
+	assert_gt(catalog.get_index(), main.hud.selected_asset_panel.get_index())
 	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▴")
 	assert_false(catalog.get_global_rect().intersects(main.altitude_profile.get_global_rect()))
 	assert_gte(catalog.position.y, (main.hud.get_node("TopBar") as Control).get_global_rect().end.y)
@@ -480,6 +481,7 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_true(defense_scroll.visible)
 	main.hud.city_menu_button.pressed.emit()
 	assert_true(main.hud.city_menu.visible)
+	assert_gt(main.hud.city_menu.get_index(), main.hud.selected_asset_panel.get_index())
 	assert_false(catalog.visible)
 	assert_eq(main.hud.city_integrity_label.text, "100 / 100")
 	assert_eq(main.hud.city_action_label.text, "피해 복구")
