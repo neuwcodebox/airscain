@@ -74,8 +74,8 @@ func test_time_control_buttons_are_the_only_speed_state_indicator() -> void:
 	assert_false(very_fast_button.button_pressed)
 
 func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
-	assert_eq(main.hud.budget_label.custom_minimum_size.x, 132.0)
-	assert_eq(main.hud.time_label.custom_minimum_size.x, 138.0)
+	assert_eq(main.hud.budget_label.custom_minimum_size.x, 120.0)
+	assert_eq(main.hud.time_label.custom_minimum_size.x, 126.0)
 	assert_eq(main.hud.pressure_label.text, "위협 단계  1")
 	var preparation_hint := "방공 자산을 배치한 뒤 방어를 시작하세요."
 	assert_eq(main.hud.feedback_label.text, preparation_hint)

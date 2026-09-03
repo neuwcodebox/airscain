@@ -80,7 +80,7 @@ theme_override_constants/separation = 18
 
 [node name="BudgetLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 0)
+custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
 theme_override_font_sizes/font_size = 20
@@ -113,7 +113,7 @@ text = "위협 투입  ▾"
 
 [node name="TimeLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(138, 0)
+custom_minimum_size = Vector2(126, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "생존  00:00"
