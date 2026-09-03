@@ -80,6 +80,14 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK speed_state_on_buttons no_duplicate_label")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-sandbox-input-only"):
+		var sandbox_input_ok := await _capture_sandbox_continuous_input()
+		if not sandbox_input_ok:
+			quit(1)
+			return
+		print("VISUAL_CAPTURE_OK sandbox_actual_clicks continuous_defense continuous_threat switched_threat")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
 		await _capture_surface_strike_smoke()
 		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
@@ -938,6 +946,100 @@ func _capture_time_control_buttons() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_time_controls_paused.png")
+
+func _capture_sandbox_continuous_input() -> bool:
+	if main.game_mode != AirscainMain.GameMode.SANDBOX:
+		push_error("Sandbox input capture requires --mode=sandbox")
+		return false
+	main.hud.set_catalog_expanded(true)
+	var defense_definition := main.scenario.available_defenses[0]
+	var defense_button := main.hud.defense_buttons[0]
+	var positions := _visible_valid_placement_positions(defense_definition.placement_profile, 6)
+	if positions.size() < 6:
+		push_error("Could not find enough visible sandbox placement positions")
+		return false
+	var defense_count_before := main.defenses.size()
+	await _click_control(defense_button)
+	if main.placement.selected != defense_definition:
+		push_error("Visible sandbox defense button did not activate placement")
+		return false
+	await _click_world_position(positions[0])
+	if main.defenses.size() != defense_count_before + 1 or main.placement.selected != defense_definition:
+		push_error("Sandbox defense mode ended after the first actual click")
+		return false
+	await _click_world_position(positions[1])
+	if main.defenses.size() != defense_count_before + 2 or main.placement.selected != defense_definition:
+		push_error("Sandbox defense mode did not place continuously")
+		return false
+	var hostile_count_before := main.registry.hostile_count()
+	await _click_control(main.hud.sandbox_threat_button)
+	var initial_definition := main.hud.threat_definitions[main.hud.sandbox_threat_option.selected]
+	await _click_world_position(positions[2])
+	await _click_world_position(positions[3])
+	if main.registry.hostile_count() != hostile_count_before + 2 or main.placement.selected_threat != initial_definition:
+		push_error("Sandbox threat mode did not place continuously")
+		return false
+	var replacement_index := 1
+	var replacement_definition := main.hud.threat_definitions[replacement_index]
+	main.hud.sandbox_threat_option.select(replacement_index)
+	main.hud.sandbox_threat_option.item_selected.emit(replacement_index)
+	await process_frame
+	await _click_world_position(positions[4])
+	var last_threat: ThreatUnit = main.registry.get_hostile_active().back()
+	if last_threat.definition != replacement_definition or main.placement.selected_threat != replacement_definition:
+		push_error("Sandbox threat dropdown change did not reach the active placement mode")
+		return false
+	Input.warp_mouse(main.camera_rig.camera.unproject_position(positions[5]))
+	for frame_index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_sandbox_continuous_input.png")
+	return true
+
+func _visible_valid_placement_positions(profile: PlacementProfile, count: int) -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	for z: int in range(-520, 521, 30):
+		for x: int in range(-520, 521, 30):
+			var position := Vector3(float(x), main.battlefield.terrain_height(float(x), float(z)), float(z))
+			if not main.battlefield.placement_result(position, profile).valid or main.camera_rig.camera.is_position_behind(position):
+				continue
+			var screen_position := main.camera_rig.camera.unproject_position(position)
+			if screen_position.x < 70.0 or screen_position.x > 1180.0 or screen_position.y < 110.0 or screen_position.y > 820.0:
+				continue
+			var separated := true
+			for existing: Vector3 in result:
+				if existing.distance_to(position) < 70.0:
+					separated = false
+					break
+			if not separated:
+				continue
+			result.append(position)
+			if result.size() >= count:
+				return result
+	return result
+
+func _click_control(control: Control) -> void:
+	var screen_position := control.get_global_rect().get_center()
+	Input.warp_mouse(screen_position)
+	for frame_index: int in 3:
+		await process_frame
+	await _send_left_click(screen_position)
+
+func _click_world_position(world_position: Vector3) -> void:
+	var screen_position := main.camera_rig.camera.unproject_position(world_position)
+	Input.warp_mouse(screen_position)
+	for frame_index: int in 4:
+		await process_frame
+	await _send_left_click(screen_position)
+
+func _send_left_click(screen_position: Vector2) -> void:
+	for pressed: bool in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		event.position = screen_position
+		event.global_position = screen_position
+		Input.parse_input_event(event)
+		await process_frame
 
 func _capture_surface_strike_smoke() -> void:
 	main.hud.visible = false
