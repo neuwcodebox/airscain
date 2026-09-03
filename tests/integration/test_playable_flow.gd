@@ -78,11 +78,16 @@ func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
 	var cost := main.objective.definition.restoration_cost
 	var amount := main.objective.definition.restoration_amount
 	var initial_budget := main.session.budget
-	assert_eq(button.text, "복구 +%d · $%d" % [amount, cost])
+	assert_eq(main.hud.city_menu_button.text, "도시 상태  100 / 100  ▾")
+	main.hud.city_menu_button.pressed.emit()
+	assert_true(main.hud.city_menu.visible)
+	assert_false(main.hud.catalog.visible)
+	assert_eq(button.text, "도시 복구  +%d    $%d" % [amount, cost])
 	assert_true(button.disabled)
 	assert_true(main.objective.apply_mission_damage(15))
 	assert_false(button.disabled)
 	button.pressed.emit()
+	assert_false(main.hud.city_menu.visible)
 	assert_eq(main.objective.current_integrity, 85 + amount)
 	assert_eq(main.session.budget, initial_budget - cost)
 	assert_eq(main.hud.feedback_label.text, "도시 기능을 %d 복구했습니다" % amount)
@@ -90,6 +95,8 @@ func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
 	main.session.phase_changed.emit(main.session.phase)
 	assert_true(main.objective.apply_mission_damage(10))
 	assert_false(button.disabled)
+	main.hud.city_menu_button.pressed.emit()
+	assert_true(main.hud.city_menu.visible)
 	button.pressed.emit()
 	assert_eq(main.objective.current_integrity, 95)
 	assert_eq(main.session.budget, initial_budget - cost * 2)
@@ -222,6 +229,10 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	await get_tree().process_frame
 	assert_true(sandbox.session.unlimited_budget)
 	assert_eq(sandbox.session.current_pressure, 999)
+	assert_false(sandbox.hud.catalog.visible)
+	assert_true(sandbox.hud.threat_menu_button.visible)
+	sandbox.hud.threat_menu_button.pressed.emit()
+	assert_true(sandbox.hud.threat_menu.visible)
 	assert_true(sandbox.hud.sandbox_threat_option.visible)
 	assert_null(sandbox.hud.get_node_or_null("%SaveButton"))
 	assert_null(sandbox.hud.get_node_or_null("%LoadButton"))
@@ -411,8 +422,14 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_not_null(support_visual.get_node_or_null("TransformerLeft"))
 	assert_not_null(support_visual.get_node_or_null("TransformerRight"))
 	var catalog := main.hud.get_node("Catalog") as Control
+	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▾")
+	assert_false(catalog.visible)
+	main.hud.defense_menu_button.pressed.emit()
+	await get_tree().process_frame
+	assert_true(catalog.visible)
+	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▴")
 	assert_false(catalog.get_global_rect().intersects(main.altitude_profile.get_global_rect()))
-	assert_gte(catalog.position.y, main.altitude_profile.position.y + main.altitude_profile.size.y + 20.0)
+	assert_gte(catalog.position.y, (main.hud.get_node("TopBar") as Control).get_global_rect().end.y)
 	assert_gte(catalog.size.y, 480.0)
 	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
 	assert_gte(defense_scroll.size.y, 360.0)
@@ -421,12 +438,17 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_true(defense_scroll.mouse_force_pass_scroll_events)
 	main.hud.set_catalog_expanded(false)
 	assert_false(defense_scroll.visible)
+	assert_false(catalog.visible)
 	assert_true(main.hud.start_button.visible)
 	assert_same(main.hud.start_button.get_parent(), main.hud)
-	assert_eq(catalog.anchor_top, 1.0)
-	assert_eq(catalog.offset_top, -66.0)
 	main.hud.set_catalog_expanded(true)
 	assert_true(defense_scroll.visible)
+	main.hud.city_menu_button.pressed.emit()
+	assert_true(main.hud.city_menu.visible)
+	assert_false(catalog.visible)
+	main.hud.defense_menu_button.pressed.emit()
+	assert_true(catalog.visible)
+	assert_false(main.hud.city_menu.visible)
 	defense_scroll.scroll_vertical = int(defense_scroll.get_v_scroll_bar().max_value)
 	var initial_zoom := main.camera_rig.zoom_distance
 	var wheel_at_bottom := InputEventMouseButton.new()
@@ -437,6 +459,18 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_true(main.camera_rig.wheel_input_exclusions.has(catalog))
 	main.camera_rig._unhandled_input(wheel_at_bottom)
 	assert_eq(main.camera_rig.zoom_distance, initial_zoom)
+	var outside_click := InputEventMouseButton.new()
+	outside_click.button_index = MOUSE_BUTTON_LEFT
+	outside_click.pressed = true
+	outside_click.position = Vector2(800.0, 850.0)
+	main.hud._input(outside_click)
+	assert_false(catalog.visible)
+	main.hud.city_menu_button.pressed.emit()
+	var cancel_event := InputEventAction.new()
+	cancel_event.action = &"ui_cancel"
+	cancel_event.pressed = true
+	main.hud._input(cancel_event)
+	assert_false(main.hud.city_menu.visible)
 
 func test_placement_preview_shows_c2_readiness_and_energy_power_impact() -> void:
 	main.session.unlimited_budget = true

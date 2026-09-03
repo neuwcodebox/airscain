@@ -20,6 +20,11 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	if OS.get_cmdline_user_args().has("--capture-topbar-menus-only"):
+		await _capture_topbar_menus()
+		print("VISUAL_CAPTURE_OK defense_assets_menu city_status_menu")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-asset-catalog-only"):
 		await _capture_asset_catalog_and_support_base()
 		print("VISUAL_CAPTURE_OK multiline_purchase_tooltip integrated_support_base")
@@ -34,7 +39,8 @@ func run() -> void:
 		main.objective.apply_mission_damage(20)
 		await process_frame
 		var restoration_button := main.hud.city_restoration_button
-		if restoration_button.disabled or restoration_button.text != "복구 +10 · $200":
+		main.hud.set_city_menu_expanded(true)
+		if restoration_button.disabled or restoration_button.text != "도시 복구  +10    $200":
 			push_error("City restoration control is unavailable while the city is damaged")
 			quit(1)
 			return
@@ -45,6 +51,7 @@ func run() -> void:
 			push_error("City restoration did not exchange budget for integrity")
 			quit(1)
 			return
+		main.hud.set_city_menu_expanded(true)
 		_save_capture("/tmp/airscain_city_restoration.png")
 		print("VISUAL_CAPTURE_OK city_restoration immediate_budget_exchange")
 		quit(0)
@@ -580,6 +587,7 @@ func _capture_city_detail() -> void:
 	main.placement.cancel()
 
 func _capture_asset_catalog_and_support_base() -> void:
+	main.hud.set_catalog_expanded(true)
 	var support_button := main.hud.defense_buttons[5]
 	main.hud.defense_scroll.ensure_control_visible(support_button)
 	await process_frame
@@ -607,6 +615,27 @@ func _capture_asset_catalog_and_support_base() -> void:
 	main.camera_rig.camera.look_at(support.global_position + Vector3.UP * 4.0, Vector3.UP)
 	await _wait_seconds(0.5)
 	_save_capture("/tmp/airscain_integrated_support_base.png")
+
+func _capture_topbar_menus() -> void:
+	if main.hud.defense_menu_button.text != "방공 자산  ▾" or main.hud.city_menu_button.text != "도시 상태  100 / 100  ▾":
+		push_error("Top bar menu labels do not expose defense assets and city status")
+		quit(1)
+		return
+	main.hud.defense_menu_button.pressed.emit()
+	await process_frame
+	if not main.hud.catalog.visible or main.hud.city_menu.visible:
+		push_error("Defense assets menu did not open by itself")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_defense_assets_menu.png")
+	main.objective.apply_mission_damage(20)
+	main.hud.city_menu_button.pressed.emit()
+	await process_frame
+	if main.hud.catalog.visible or not main.hud.city_menu.visible:
+		push_error("City status menu did not replace the defense assets menu")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_city_status_menu.png")
 
 func _capture_placement_dependencies() -> void:
 	main.session.unlimited_budget = true
@@ -1124,7 +1153,7 @@ func _capture_training_guidance() -> bool:
 		push_error("Training guidance capture requires --mode=training")
 		return false
 	var approach_label_rect: Rect2 = main.tactical_screen_overlay.call("training_approach_label_rect")
-	if approach_label_rect.intersects(main.hud.catalog.get_global_rect()) or approach_label_rect.intersects(main.hud.training_panel.get_global_rect()):
+	if (main.hud.catalog.visible and approach_label_rect.intersects(main.hud.catalog.get_global_rect())) or approach_label_rect.intersects(main.hud.training_panel.get_global_rect()):
 		push_error("Training approach label overlaps a purchase UI panel")
 		return false
 	_save_capture("/tmp/airscain_training_entry_clear.png")
@@ -1162,6 +1191,7 @@ func _capture_sandbox_continuous_input() -> bool:
 		push_error("Sandbox input capture requires --mode=sandbox")
 		return false
 	main.hud.set_catalog_expanded(true)
+	await process_frame
 	var defense_definition := main.scenario.available_defenses[0]
 	var defense_button := main.hud.defense_buttons[0]
 	var positions := _visible_valid_placement_positions(defense_definition.placement_profile, 6)
@@ -1182,6 +1212,8 @@ func _capture_sandbox_continuous_input() -> bool:
 		push_error("Sandbox defense mode did not place continuously")
 		return false
 	var hostile_count_before := main.registry.hostile_count()
+	main.hud.set_threat_menu_expanded(true)
+	await process_frame
 	await _click_control(main.hud.sandbox_threat_button)
 	var initial_definition := main.hud.threat_definitions[main.hud.sandbox_threat_option.selected]
 	await _click_world_position(positions[2])

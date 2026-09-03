@@ -85,18 +85,30 @@ theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
 theme_override_font_sizes/font_size = 20
 text = "예산  $400"
 
-[node name="IntegrityLabel" type="Label" parent="TopBar/Margin"]
+[node name="DefenseMenuButton" type="Button" parent="TopBar/Margin"]
 unique_name_in_owner = true
 layout_mode = 2
+flat = true
+theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
+theme_override_font_sizes/font_size = 20
+text = "방공 자산  ▾"
+
+[node name="CityMenuButton" type="Button" parent="TopBar/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+flat = true
 theme_override_colors/font_color = Color(0.3, 0.78, 1, 1)
 theme_override_font_sizes/font_size = 20
-text = "도시  100 / 100"
+text = "도시 상태  100 / 100  ▾"
 
-[node name="CityRestorationButton" type="Button" parent="TopBar/Margin"]
+[node name="ThreatMenuButton" type="Button" parent="TopBar/Margin"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
-tooltip_text = "예산을 사용해 도시 기능을 즉시 복구합니다"
-text = "복구 +10 · $200"
+flat = true
+theme_override_colors/font_color = Color(1, 0.62, 0.3, 1)
+theme_override_font_sizes/font_size = 20
+text = "위협 투입  ▾"
 
 [node name="TimeLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
@@ -186,18 +198,13 @@ horizontal_alignment = 1
 
 [node name="Catalog" type="PanelContainer" parent="."]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
-anchors_preset = 11
-anchor_left = 1.0
-anchor_top = 0.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -308.0
-offset_top = 380.0
-offset_right = -18.0
-offset_bottom = -18.0
-grow_horizontal = 0
-grow_vertical = 2
+z_index = 20
+offset_left = 125.0
+offset_top = 62.0
+offset_right = 425.0
+offset_bottom = 622.0
 mouse_filter = 0
 mouse_force_pass_scroll_events = false
 theme_override_styles/panel = SubResource("CatalogPanel")
@@ -205,25 +212,6 @@ theme_override_styles/panel = SubResource("CatalogPanel")
 [node name="VBox" type="VBoxContainer" parent="Catalog"]
 layout_mode = 2
 theme_override_constants/separation = 8
-
-[node name="CatalogToggle" type="Button" parent="Catalog/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
-theme_override_font_sizes/font_size = 16
-text = "방공망 자산  ▾"
-alignment = 0
-
-[node name="SandboxThreatOption" type="OptionButton" parent="Catalog/VBox"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-
-[node name="SandboxThreatButton" type="Button" parent="Catalog/VBox"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-text = "선택 위협 투입"
 
 [node name="DefenseScroll" type="ScrollContainer" parent="Catalog/VBox"]
 unique_name_in_owner = true
@@ -236,6 +224,49 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
+
+[node name="CityMenu" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+z_index = 20
+offset_left = 265.0
+offset_top = 62.0
+offset_right = 515.0
+offset_bottom = 120.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("CatalogPanel")
+
+[node name="CityRestorationButton" type="Button" parent="CityMenu"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "예산을 사용해 도시 상태를 즉시 복구합니다"
+text = "도시 복구  +10    $200"
+
+[node name="ThreatMenu" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+z_index = 20
+offset_left = 430.0
+offset_top = 62.0
+offset_right = 710.0
+offset_bottom = 150.0
+mouse_filter = 0
+theme_override_styles/panel = SubResource("CatalogPanel")
+
+[node name="VBox" type="VBoxContainer" parent="ThreatMenu"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SandboxThreatOption" type="OptionButton" parent="ThreatMenu/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SandboxThreatButton" type="Button" parent="ThreatMenu/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "선택 위협 투입"
 
 [node name="StartButton" type="Button" parent="."]
 unique_name_in_owner = true
@@ -511,10 +542,12 @@ text = "새 전장 시작"
 [connection signal="pressed" from="TopBar/Margin/FastButton" to="." method="_on_fast_pressed"]
 [connection signal="pressed" from="TopBar/Margin/VeryFastButton" to="." method="_on_very_fast_pressed"]
 [connection signal="pressed" from="TopBar/Margin/OverlayButton" to="." method="_on_c2_overlay_pressed"]
-[connection signal="pressed" from="TopBar/Margin/CityRestorationButton" to="." method="_on_city_restoration_pressed"]
-[connection signal="pressed" from="Catalog/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
-[connection signal="item_selected" from="Catalog/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
-[connection signal="pressed" from="Catalog/VBox/CatalogToggle" to="." method="_on_catalog_toggle_pressed"]
+[connection signal="pressed" from="TopBar/Margin/DefenseMenuButton" to="." method="_on_defense_menu_pressed"]
+[connection signal="pressed" from="TopBar/Margin/CityMenuButton" to="." method="_on_city_menu_pressed"]
+[connection signal="pressed" from="TopBar/Margin/ThreatMenuButton" to="." method="_on_threat_menu_pressed"]
+[connection signal="pressed" from="CityMenu/CityRestorationButton" to="." method="_on_city_restoration_pressed"]
+[connection signal="pressed" from="ThreatMenu/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
+[connection signal="item_selected" from="ThreatMenu/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]

@@ -28,7 +28,9 @@ var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var selected_asset_connection_count: int = 0
 var overlay_mode_index: int = 0
-var catalog_expanded: bool = true
+var catalog_expanded: bool = false
+var city_menu_expanded: bool = false
+var threat_menu_expanded: bool = false
 var configured_game_mode: int = 0
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
 const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전 영역", "지원 작업", "전자전", "C2 연결"]
@@ -41,7 +43,9 @@ const CATALOG_GROUP_LABELS := {
 }
 
 @onready var budget_label: Label = %BudgetLabel
-@onready var integrity_label: Label = %IntegrityLabel
+@onready var defense_menu_button: Button = %DefenseMenuButton
+@onready var city_menu_button: Button = %CityMenuButton
+@onready var threat_menu_button: Button = %ThreatMenuButton
 @onready var city_restoration_button: Button = %CityRestorationButton
 @onready var time_label: Label = %TimeLabel
 @onready var placement_power_label: Label = %PlacementPowerLabel
@@ -54,7 +58,8 @@ const CATALOG_GROUP_LABELS := {
 @onready var overlay_button: Button = %OverlayButton
 @onready var defense_list: VBoxContainer = %DefenseList
 @onready var catalog: PanelContainer = %Catalog
-@onready var catalog_toggle: Button = %CatalogToggle
+@onready var city_menu: PanelContainer = %CityMenu
+@onready var threat_menu: PanelContainer = %ThreatMenu
 @onready var defense_scroll: ScrollContainer = %DefenseScroll
 @onready var start_button: Button = %StartButton
 @onready var feedback_label: Label = %FeedbackLabel
@@ -97,31 +102,97 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
 	set_selected_asset(null, 0)
 	set_selected_track(null, false)
-	set_catalog_expanded(true)
+	set_catalog_expanded(false)
+	set_city_menu_expanded(false)
+	set_threat_menu_expanded(false)
+	get_viewport().size_changed.connect(_position_context_menus)
+	call_deferred("_position_context_menus")
 
 func _build_mode_controls(game_mode: int) -> void:
 	sandbox_threat_option.clear()
 	for definition: ThreatDefinition in threat_definitions:
 		sandbox_threat_option.add_item(definition.display_name)
-	sandbox_threat_option.visible = game_mode == 2
-	sandbox_threat_button.visible = game_mode == 2
+	threat_menu_button.visible = game_mode == 2
 	training_panel.visible = game_mode == 1
 
 func set_catalog_expanded(expanded: bool) -> void:
 	catalog_expanded = expanded
-	catalog_toggle.text = "방공망 자산  ▾" if expanded else "방공망 자산  ▴"
+	if expanded and city_menu_expanded:
+		set_city_menu_expanded(false)
+	if expanded and threat_menu_expanded:
+		set_threat_menu_expanded(false)
+	defense_menu_button.text = "방공 자산  ▴" if expanded else "방공 자산  ▾"
+	catalog.visible = expanded
 	defense_scroll.visible = expanded
-	sandbox_threat_option.visible = expanded and configured_game_mode == 2
-	sandbox_threat_button.visible = expanded and configured_game_mode == 2
 	if expanded:
-		catalog.anchor_top = 0.0
-		catalog.offset_top = 380.0
-	else:
-		catalog.anchor_top = 1.0
-		catalog.offset_top = -66.0
+		_position_context_menus()
 
-func _on_catalog_toggle_pressed() -> void:
+func _on_defense_menu_pressed() -> void:
 	set_catalog_expanded(not catalog_expanded)
+
+func set_city_menu_expanded(expanded: bool) -> void:
+	city_menu_expanded = expanded
+	if expanded and catalog_expanded:
+		set_catalog_expanded(false)
+	if expanded and threat_menu_expanded:
+		set_threat_menu_expanded(false)
+	city_menu_button.text = _city_menu_text("▴" if expanded else "▾")
+	city_menu.visible = expanded
+	if expanded:
+		_position_context_menus()
+
+func _on_city_menu_pressed() -> void:
+	set_city_menu_expanded(not city_menu_expanded)
+
+func set_threat_menu_expanded(expanded: bool) -> void:
+	threat_menu_expanded = expanded and configured_game_mode == 2
+	if threat_menu_expanded and catalog_expanded:
+		set_catalog_expanded(false)
+	if threat_menu_expanded and city_menu_expanded:
+		set_city_menu_expanded(false)
+	threat_menu_button.text = "위협 투입  ▴" if threat_menu_expanded else "위협 투입  ▾"
+	threat_menu.visible = threat_menu_expanded
+	if threat_menu_expanded:
+		_position_context_menus()
+
+func _on_threat_menu_pressed() -> void:
+	set_threat_menu_expanded(not threat_menu_expanded)
+
+func _position_context_menus() -> void:
+	var viewport_size := get_viewport_rect().size
+	var menu_top := ($TopBar as Control).get_global_rect().end.y + 4.0
+	var catalog_width := 300.0
+	var catalog_height := minf(560.0, viewport_size.y - menu_top - 18.0)
+	var catalog_x := clampf(defense_menu_button.get_global_rect().position.x, 18.0, viewport_size.x - catalog_width - 18.0)
+	catalog.position = Vector2(catalog_x, menu_top)
+	catalog.size = Vector2(catalog_width, catalog_height)
+	var city_width := 250.0
+	var city_x := clampf(city_menu_button.get_global_rect().position.x, 18.0, viewport_size.x - city_width - 18.0)
+	city_menu.position = Vector2(city_x, menu_top)
+	city_menu.size = Vector2(city_width, 58.0)
+	var threat_width := 280.0
+	var threat_x := clampf(threat_menu_button.get_global_rect().position.x, 18.0, viewport_size.x - threat_width - 18.0)
+	threat_menu.position = Vector2(threat_x, menu_top)
+	threat_menu.size = Vector2(threat_width, 96.0)
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and (catalog_expanded or city_menu_expanded or threat_menu_expanded):
+		set_catalog_expanded(false)
+		set_city_menu_expanded(false)
+		set_threat_menu_expanded(false)
+		get_viewport().set_input_as_handled()
+		return
+	if not event is InputEventMouseButton:
+		return
+	var mouse_button := event as InputEventMouseButton
+	if not mouse_button.pressed or mouse_button.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if catalog_expanded and not catalog.get_global_rect().has_point(mouse_button.position) and not defense_menu_button.get_global_rect().has_point(mouse_button.position):
+		set_catalog_expanded(false)
+	if city_menu_expanded and not city_menu.get_global_rect().has_point(mouse_button.position) and not city_menu_button.get_global_rect().has_point(mouse_button.position):
+		set_city_menu_expanded(false)
+	if threat_menu_expanded and not threat_menu.get_global_rect().has_point(mouse_button.position) and not threat_menu_button.get_global_rect().has_point(mouse_button.position):
+		set_threat_menu_expanded(false)
 
 func set_training_lesson(step: int, total: int, title: String, body: String, next_visible: bool = false) -> void:
 	training_panel.visible = true
@@ -280,15 +351,20 @@ func _refresh_speed_buttons() -> void:
 		buttons[index].set_pressed_no_signal(selected)
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
-	integrity_label.text = "도시  %d / %d" % [current, maximum]
+	city_menu_button.text = _city_menu_text("▴" if city_menu_expanded else "▾", current, maximum)
 	_refresh_city_restoration_button()
+
+func _city_menu_text(arrow: String, current: int = -1, maximum: int = -1) -> String:
+	var displayed_current := objective.current_integrity if current < 0 and objective != null else current
+	var displayed_maximum := objective.definition.maximum_integrity if maximum < 0 and objective != null else maximum
+	return "도시 상태  %d / %d  %s" % [displayed_current, displayed_maximum, arrow]
 
 func _refresh_city_restoration_button() -> void:
 	if session == null or objective == null or objective.definition == null:
 		return
 	var cost := objective.definition.restoration_cost
 	var amount := objective.definition.restoration_amount
-	city_restoration_button.text = "복구 +%d" % amount if session.unlimited_budget else "복구 +%d · $%d" % [amount, cost]
+	city_restoration_button.text = "도시 복구  +%d" % amount if session.unlimited_budget else "도시 복구  +%d    $%d" % [amount, cost]
 	city_restoration_button.disabled = session.phase == GameSession.Phase.GAME_OVER or objective.current_integrity >= objective.definition.maximum_integrity or not session.unlimited_budget and session.budget < cost
 
 func _on_phase_changed(new_phase: GameSession.Phase) -> void:
@@ -336,6 +412,7 @@ func _catalog_group_for(definition: DefenseDefinition) -> StringName:
 	return &"special"
 
 func _on_defense_pressed(definition: DefenseDefinition) -> void:
+	set_catalog_expanded(false)
 	defense_selected.emit(definition)
 
 func _on_start_pressed() -> void:
@@ -384,15 +461,18 @@ func _on_focus_pressed() -> void:
 	focus_requested.emit()
 
 func _on_city_restoration_pressed() -> void:
+	set_city_menu_expanded(false)
 	city_restoration_requested.emit()
 
 func _on_sandbox_threat_pressed() -> void:
 	var index := sandbox_threat_option.selected
 	if index >= 0 and index < threat_definitions.size():
+		set_threat_menu_expanded(false)
 		sandbox_threat_selected.emit(threat_definitions[index])
 
 func _on_sandbox_threat_option_selected(index: int) -> void:
 	if index >= 0 and index < threat_definitions.size():
+		set_threat_menu_expanded(false)
 		sandbox_threat_selected.emit(threat_definitions[index])
 
 func _on_training_next_pressed() -> void:

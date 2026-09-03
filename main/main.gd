@@ -570,11 +570,11 @@ func _set_training_step(step: TrainingStep) -> void:
 		TrainingStep.CAMERA:
 			hud.set_training_lesson(1, 13, "전장 살펴보기", "WASD로 이동하고 Q/E 또는 우클릭 드래그로 회전하며, 주황색 훈련 표적 진입 표시를 찾아보세요.", true)
 		TrainingStep.RADAR:
-			hud.set_training_lesson(2, 13, "탐색 센서", "표적은 주황색 진입 표시 너머 먼 해상에서 옵니다. 탐색 레이더를 도시와 진입 표시 사이의 평탄한 지형에 배치하세요.")
+			hud.set_training_lesson(2, 13, "탐색 센서", "상단의 방공 자산을 열어 탐색 레이더를 고르세요. 표적은 주황색 진입 표시 너머 먼 해상에서 오므로 도시와 진입 표시 사이의 평탄한 지형에 배치하세요.")
 		TrainingStep.COMMAND:
-			hud.set_training_lesson(3, 13, "지휘통제 연결", "지휘통제소를 레이더와 연결될 거리 안에 배치해 항적 공유 경로를 만드세요.")
+			hud.set_training_lesson(3, 13, "지휘통제 연결", "방공 자산을 다시 열어 지휘통제소를 고르고, 레이더와 연결될 거리 안에 배치해 항적 공유 경로를 만드세요.")
 		TrainingStep.WEAPON:
-			hud.set_training_lesson(4, 13, "요격 계층", "미사일 포대를 도시와 주황색 진입 표시 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다.")
+			hud.set_training_lesson(4, 13, "요격 계층", "방공 자산에서 미사일 포대를 골라 도시와 주황색 진입 표시 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다.")
 		TrainingStep.START:
 			hud.set_training_lesson(5, 13, "방어 시작", "오른쪽 아래의 방어 시작을 누르세요. 표적 탐지까지 훈련이 자동 재생됩니다.")
 		TrainingStep.ACQUIRE:
@@ -589,7 +589,7 @@ func _set_training_step(step: TrainingStep) -> void:
 			hud.set_training_lesson(10, 13, "자동교전 관찰 · 자동 재생", "포대가 선회·조준하고 표적을 요격하는 과정을 관찰하세요. 교전 종료 후 자동 일시정지됩니다.")
 		TrainingStep.SUPPORT:
 			hud.set_catalog_expanded(true)
-			hud.set_training_lesson(11, 13, "통합 지원", "통합 지원기지를 배치하세요. 배치 후 포대의 예비탄을 훈련용으로 소진시킵니다.")
+			hud.set_training_lesson(11, 13, "통합 지원", "열린 방공 자산에서 통합 지원기지를 골라 배치하세요. 배치 후 포대의 예비탄을 훈련용으로 소진시킵니다.")
 		TrainingStep.RESUPPLY:
 			hud.set_training_lesson(12, 13, "재보급 작업 · 일시정지", "미사일 포대를 다시 선택하세요. 활성화된 재보급 요청을 눌러 지원 대기열에 작업을 넣으세요.")
 		TrainingStep.OVERLAY:
