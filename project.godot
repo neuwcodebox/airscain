@@ -9,6 +9,9 @@ window/size/window_width_override=1600
 window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 
+[gui]
+theme/custom_font="res://ui/fonts/pretendard_medium.tres"
+
 [rendering]
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
