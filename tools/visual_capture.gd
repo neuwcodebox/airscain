@@ -70,7 +70,7 @@ func run() -> void:
 		if not training_guidance_ok:
 			quit(1)
 			return
-		print("VISUAL_CAPTURE_OK training_entry_clear confirmed_distant_track_actual_click")
+		print("VISUAL_CAPTURE_OK training_entry_stable confirmed_distant_track_actual_click")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-city-only"):
@@ -1255,11 +1255,21 @@ func _capture_training_guidance() -> bool:
 	if main.game_mode != AirscainMain.GameMode.TRAINING:
 		push_error("Training guidance capture requires --mode=training")
 		return false
+	main.hud.set_catalog_expanded(false)
+	await process_frame
+	var marker_without_catalog: Vector2 = main.tactical_screen_overlay.call("training_marker_screen_position")
 	var approach_label_rect: Rect2 = main.tactical_screen_overlay.call("training_approach_label_rect")
-	if (main.hud.catalog.visible and approach_label_rect.intersects(main.hud.catalog.get_global_rect())) or approach_label_rect.intersects(main.hud.training_panel.get_global_rect()):
-		push_error("Training approach label overlaps a purchase UI panel")
+	if approach_label_rect.intersects(main.hud.training_panel.get_global_rect()):
+		push_error("Training approach label overlaps the training panel")
 		return false
 	_save_capture("/tmp/airscain_training_entry_clear.png")
+	main.hud.set_catalog_expanded(true)
+	await process_frame
+	var marker_with_catalog: Vector2 = main.tactical_screen_overlay.call("training_marker_screen_position")
+	if not marker_with_catalog.is_equal_approx(marker_without_catalog):
+		push_error("Training approach marker moved when the asset menu opened")
+		return false
+	_save_capture("/tmp/airscain_training_entry_catalog_open.png")
 	main.hud.set_catalog_expanded(false)
 	main._set_training_step(AirscainMain.TrainingStep.ACQUIRE)
 	var track_position := main.objective.global_position + Vector3.RIGHT * main.scenario.battlefield_size * 1.5

@@ -97,7 +97,7 @@ func _ready() -> void:
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
 	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)
-	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge, hud.training_panel, hud.catalog)
+	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge, hud.training_panel)
 	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:

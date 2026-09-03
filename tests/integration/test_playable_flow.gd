@@ -158,8 +158,13 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_lte(approach_marker.x, training.tactical_screen_overlay.size.x - TacticalScreenOverlay.EDGE_MARGIN)
 	assert_gte(approach_marker.y, 100.0)
 	var approach_label_rect: Rect2 = training.tactical_screen_overlay.call("training_approach_label_rect")
-	assert_false(approach_label_rect.intersects(training.hud.catalog.get_global_rect()))
 	assert_false(approach_label_rect.intersects(training.hud.training_panel.get_global_rect()))
+	training.hud.set_catalog_expanded(true)
+	await get_tree().process_frame
+	var marker_with_catalog: Vector2 = training.tactical_screen_overlay.call("training_marker_screen_position")
+	assert_almost_eq(marker_with_catalog.x, approach_marker.x, 0.001)
+	assert_almost_eq(marker_with_catalog.y, approach_marker.y, 0.001)
+	training.hud.set_catalog_expanded(false)
 	assert_eq(training.tactical_screen_overlay.call("training_approach_label_text"), "훈련 표적 진입")
 	training.camera_rig.yaw_radians += PI * 0.5
 	training.camera_rig._update_camera()

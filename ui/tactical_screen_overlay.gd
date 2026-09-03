@@ -11,13 +11,11 @@ var training_approach_origin: Vector3
 var training_approach_position: Vector3
 var training_approach_text: String = "훈련 표적 진입"
 var training_left_panel: Control
-var training_right_panel: Control
 
-func configure(camera_value: Camera3D, knowledge: Node, left_panel: Control = null, right_panel: Control = null) -> void:
+func configure(camera_value: Camera3D, knowledge: Node, left_panel: Control = null) -> void:
 	camera = camera_value
 	player_knowledge = knowledge
 	training_left_panel = left_panel
-	training_right_panel = right_panel
 	queue_redraw()
 
 func select_track(track: PlayerTrack) -> void:
@@ -121,12 +119,9 @@ func track_marker_screen_position(track: PlayerTrack) -> Vector2:
 
 func _training_safe_margins() -> Vector4:
 	var left := EDGE_MARGIN
-	var right := EDGE_MARGIN
 	if training_left_panel != null and training_left_panel.is_visible_in_tree():
 		left = maxf(left, training_left_panel.get_global_rect().end.x + 16.0)
-	if training_right_panel != null and training_right_panel.is_visible_in_tree():
-		right = maxf(right, size.x - training_right_panel.get_global_rect().position.x + 16.0)
-	return Vector4(left, 100.0, right, 70.0)
+	return Vector4(left, 100.0, EDGE_MARGIN, 70.0)
 
 func _draw_centered_text(text: String, position: Vector2, color: Color, font_size: int) -> void:
 	var font := ThemeDB.fallback_font
