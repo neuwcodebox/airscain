@@ -2,7 +2,7 @@ class_name DamageSmokeEffect
 extends Node3D
 
 const REFERENCE_SOURCE_HEIGHT := 30.0
-const CITY_PARTICLE_COUNT := 900
+const CITY_PARTICLE_COUNT := 1500
 const CITY_LIFETIME := 18.0
 
 var smoke: GPUParticles3D

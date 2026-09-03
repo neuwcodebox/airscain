@@ -40,11 +40,22 @@ func _create_shadow_particles() -> void:
 	if source_material is not StandardMaterial3D:
 		return
 
-	var shadow_mesh := source_mesh.duplicate() as Mesh
 	var standard_material := source_material as StandardMaterial3D
+	var uses_billboard := standard_material.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED
+	var shadow_mesh: Mesh
+	if uses_billboard and source_mesh is QuadMesh:
+		var source_quad := source_mesh as QuadMesh
+		var sphere := SphereMesh.new()
+		sphere.radius = maxf(source_quad.size.x, source_quad.size.y) * 0.42
+		sphere.height = sphere.radius * 2.0
+		sphere.radial_segments = 8
+		sphere.rings = 4
+		shadow_mesh = sphere
+	else:
+		shadow_mesh = source_mesh.duplicate() as Mesh
 	shadow_material = ShaderMaterial.new()
 	shadow_material.shader = SHADOW_SHADER
-	shadow_material.set_shader_parameter("billboard_enabled", standard_material.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED)
+	shadow_material.set_shader_parameter("billboard_enabled", false if shadow_mesh is SphereMesh else uses_billboard)
 	shadow_mesh.surface_set_material(0, shadow_material)
 
 	shadow_particles = GPUParticles3D.new()

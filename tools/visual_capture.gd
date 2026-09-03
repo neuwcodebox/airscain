@@ -733,6 +733,17 @@ func _capture_building_impact_smoke() -> void:
 		return
 	await _wait_simulation_seconds(0.5)
 	_save_capture("/tmp/airscain_building_impact_smoke.png")
+	await _wait_simulation_seconds(2.7)
+	var smoke := smoke_effect.get_node("Smoke") as GPUParticles3D
+	var smoke_process := smoke.process_material as ParticleProcessMaterial
+	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
+	if smoke.amount < 1500 or smoke_process.gravity.y >= 0.0 or smoke_process.gravity.x <= 0.0 or not smoke_shadow.draw_pass_1 is SphereMesh:
+		push_error("Building smoke did not keep dense decelerating motion and round shadow geometry")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_building_smoke_dense.png")
+	await _wait_simulation_seconds(2.8)
+	_save_capture("/tmp/airscain_building_smoke_crosswind.png")
 
 func _capture_smoke_ground_shadow() -> void:
 	main.hud.visible = false
@@ -1115,7 +1126,7 @@ func _capture_city_smoke_and_ammo_status() -> void:
 		push_error("City smoke spawn blocked the main thread for %dms" % smoke_spawn_msec)
 		quit(1)
 		return
-	main.camera_rig.camera.global_position = target + Vector3(165.0, 105.0, 185.0)
+	main.camera_rig.camera.global_position = target + Vector3(125.0, 82.0, 145.0)
 	main.camera_rig.camera.look_at(target + Vector3.UP * 32.0, Vector3.UP)
 	main.hud.visible = false
 	main.altitude_profile.visible = false
@@ -1131,14 +1142,14 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	await _wait_simulation_seconds(2.4)
 	var city_smoke := main.objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
 	var city_process := city_smoke.process_material as ParticleProcessMaterial
-	if not city_smoke.emitting or city_smoke.amount < 900 or city_smoke.lifetime < 18.0 or city_process.initial_velocity_min < 9.0 or city_process.gravity.y >= 0.0 or city_process.gravity.x <= 0.0 or city_process.turbulence_enabled:
+	if not city_smoke.emitting or city_smoke.amount < 1500 or city_smoke.lifetime < 18.0 or city_process.initial_velocity_min < 9.0 or city_process.gravity.y >= 0.0 or city_process.gravity.x <= 0.0 or city_process.turbulence_enabled:
 		push_error("City smoke did not maintain a stable rising plume")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_city_damage_smoke_rising.png")
 	await _wait_simulation_seconds(2.8)
 	_save_capture("/tmp/airscain_city_damage_smoke_plume.png")
-	if city_smoke.amount < 900 or city_smoke.capture_aabb().size.y < 24.0:
+	if city_smoke.amount < 1500 or city_smoke.capture_aabb().size.y < 24.0:
 		push_error("City smoke plume lacks sustained rising particle density")
 		quit(1)
 		return
