@@ -72,7 +72,7 @@ func run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--capture-missile-rack-only"):
 		await _capture_missile_rack_salvo()
-		print("VISUAL_CAPTURE_OK six_cell_rack rapid_launch reload_status")
+		print("VISUAL_CAPTURE_OK six_cell_rack rapid_launch uncluttered_world_marker")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-time-controls-only"):
@@ -86,6 +86,16 @@ func run() -> void:
 			quit(1)
 			return
 		print("VISUAL_CAPTURE_OK sandbox_actual_clicks continuous_defense continuous_threat switched_threat")
+		quit(0)
+		return
+	if OS.get_cmdline_user_args().has("--capture-resolved-target-only"):
+		main.hud.visible = false
+		main.altitude_profile.visible = false
+		var resolved_target_center := main.objective.global_position + Vector3(0.0, 100.0, 80.0)
+		main.camera_rig.camera.global_position = resolved_target_center + Vector3(60.0, 50.0, 190.0)
+		main.camera_rig.camera.look_at(resolved_target_center, Vector3.UP)
+		await _capture_resolved_target_interceptor(resolved_target_center)
+		print("VISUAL_CAPTURE_OK destroyed_target coast_without_detonation")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
@@ -926,9 +936,8 @@ func _capture_missile_rack_salvo() -> void:
 					interceptor.gameplay_tick(0.05)
 			await process_frame
 	battery._process(0.0)
-	var marker_text := (battery.status_marker.get_node("Label") as Label3D).text
-	if battery.magazines[munition.id].rounds != 0 or not battery.magazines[munition.id].is_reloading() or not marker_text.contains("재장전") or battery._launcher_caps().any(func(cap: Node3D) -> bool: return cap.visible):
-		push_error("Missile rack did not empty its visible cells and expose reload status")
+	if battery.magazines[munition.id].rounds != 0 or not battery.magazines[munition.id].is_reloading() or battery.status_marker.visible or battery._launcher_caps().any(func(cap: Node3D) -> bool: return cap.visible):
+		push_error("Missile rack did not empty its cells or retained a cluttering ammunition label")
 		quit(1)
 		return
 	var camera_target := battery.global_position + Vector3(0.0, 13.0, -34.0)
@@ -1431,6 +1440,7 @@ func _capture_resolved_target_interceptor(center: Vector3) -> void:
 		if effect.name == "Explosion" or effect.name == "InterceptorMiss" or effect.name == "CountermeasureBurst":
 			effect.queue_free()
 	await process_frame
+	main.registry.clear()
 	var threat_definition := main.scenario.threat_entries[0].threat_definition
 	var threat := threat_definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(threat)
@@ -1455,14 +1465,15 @@ func _capture_resolved_target_interceptor(center: Vector3) -> void:
 	var position_at_resolution := interceptor.global_position
 	threat.receive_damage(10000.0)
 	interceptor.gameplay_tick(0.05)
-	if not interceptor.is_queued_for_deletion() or not interceptor.global_position.is_equal_approx(position_at_resolution):
-		push_error("Interceptor advanced after its correlated target was destroyed")
+	if interceptor.is_queued_for_deletion() or interceptor.global_position.is_equal_approx(position_at_resolution) or not interceptor.target_destroyed_coast:
+		push_error("Interceptor did not coast after its correlated target was destroyed")
 		quit(1)
 		return
-	await _wait_simulation_seconds(0.12)
-	var miss := main.projectile_parent.get_node_or_null("InterceptorMiss") as InterceptorMissEffect
-	if miss == null or (miss.get_node("Reason") as Label3D).text != "표적 격추":
-		push_error("Resolved target interceptor did not explain its immediate self-destruct")
+	for tick: int in 30:
+		interceptor.gameplay_tick(0.05)
+		await process_frame
+	if interceptor.is_queued_for_deletion() or main.projectile_parent.get_node_or_null("InterceptorMiss") != null or main.projectile_parent.get_node_or_null("Explosion") != null:
+		push_error("Destroyed-target interceptor detonated instead of passing the former aim point")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_target_resolved_interceptor.png")

@@ -28,6 +28,7 @@ var countermeasure_decoy_active: bool = false
 var countermeasure_decoy_position: Vector3
 var reacquisition_remaining: float = -1.0
 var reacquisition_reason: String = "표적 소실"
+var target_destroyed_coast: bool = false
 var closest_guidance_distance: float = INF
 var boost_guidance_ramp_active: bool = false
 var alternative_tracks: Array[PlayerTrack] = []
@@ -62,8 +63,15 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 func gameplay_tick(delta: float) -> void:
 	age += delta
 	if age >= maximum_lifetime:
-		_expire(Color(0.72, 0.78, 0.82), "요격 실패")
+		if target_destroyed_coast:
+			_retire_without_detonation()
+		else:
+			_expire(Color(0.72, 0.78, 0.82), "요격 실패")
 		return
+	if target_destroyed_coast:
+		if not _try_retarget():
+			_coast_without_target(delta)
+			return
 	if reacquisition_remaining >= 0.0 or target_track == null or target_track.state == PlayerTrack.State.LOST:
 		if _try_retarget():
 			pass
@@ -161,6 +169,10 @@ func _expire(color: Color, reason: String) -> void:
 	_release_smoke_trail()
 	queue_free()
 
+func _retire_without_detonation() -> void:
+	_release_smoke_trail()
+	queue_free()
+
 func _spawn_detonation(color: Color, radius: float) -> void:
 	var parent := get_parent()
 	if parent == null:
@@ -216,7 +228,12 @@ func _on_threat_removed(threat: ThreatUnit) -> void:
 		return
 	if _try_retarget():
 		return
-	_begin_reacquisition("표적 격추" if threat.health <= 0.0 else "표적 소실")
+	if threat.health <= 0.0:
+		target_destroyed_coast = true
+		reacquisition_remaining = -1.0
+		reacquisition_reason = "표적 파괴 확인"
+		return
+	_begin_reacquisition("표적 소실")
 
 func _removed_threat_matches_target(threat: ThreatUnit) -> bool:
 	var removed_position := threat.get_aim_position()
@@ -276,6 +293,7 @@ func _try_retarget() -> bool:
 		return false
 	var previous_track_id := target_track.track_id if target_track != null else -1
 	target_track = selected
+	target_destroyed_coast = false
 	reacquisition_remaining = -1.0
 	reacquisition_reason = "표적 소실"
 	countermeasure_attempted = false
@@ -310,6 +328,7 @@ func capture_state() -> Dictionary:
 		"countermeasure_decoy_position": SaveDocument.vector3_to_data(countermeasure_decoy_position),
 		"reacquisition_remaining": reacquisition_remaining,
 		"reacquisition_reason": reacquisition_reason,
+		"target_destroyed_coast": target_destroyed_coast,
 		"closest_guidance_distance": closest_guidance_distance if closest_guidance_distance < INF else -1.0,
 		"boost_guidance_ramp_active": boost_guidance_ramp_active,
 		"preferred_classes": preferred_classes.map(func(classification: StringName) -> String: return String(classification)),
@@ -346,6 +365,7 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	countermeasure_decoy_position = SaveDocument.vector3_from_data(state.get("countermeasure_decoy_position", [0.0, 0.0, 0.0]))
 	reacquisition_remaining = float(state.get("reacquisition_remaining", 0.0 if bool(state.get("target_resolved", false)) else -1.0))
 	reacquisition_reason = String(state.get("reacquisition_reason", state.get("target_resolution_reason", "표적 소실")))
+	target_destroyed_coast = bool(state.get("target_destroyed_coast", false))
 	var saved_guidance_distance := float(state.get("closest_guidance_distance", -1.0))
 	closest_guidance_distance = INF if saved_guidance_distance < 0.0 else saved_guidance_distance
 	boost_guidance_ramp_active = bool(state.get("boost_guidance_ramp_active", false))

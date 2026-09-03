@@ -190,17 +190,6 @@ func resource_status_text() -> String:
 		lines.append("탄약 %s %d + %d%s" % [munition.display_name, munition_magazine.rounds, munition_magazine.reserve, reload_text])
 	return _with_support_status("\n".join(lines))
 
-func critical_status_text() -> String:
-	if not active:
-		return "×"
-	var ready_rounds := _ready_round_count()
-	var reserve_rounds := _reserve_round_count()
-	var prefix := "손상 · " if operational_ratio() < 0.75 else ""
-	var reload_remaining := _maximum_reload_remaining()
-	if reload_remaining > 0.0:
-		return "%s재장전 %.0f초 · 탄 %d+%d" % [prefix, ceilf(reload_remaining), ready_rounds, reserve_rounds]
-	return "%s탄 %d+%d" % [prefix, ready_rounds, reserve_rounds]
-
 func _launch(track: PlayerTrack, munition: MissileMunitionDefinition = null) -> void:
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"missile")
@@ -270,18 +259,6 @@ func _ready_round_count() -> int:
 	var result := 0
 	for munition_magazine: WeaponMagazine in magazines.values():
 		result += munition_magazine.rounds
-	return result
-
-func _reserve_round_count() -> int:
-	var result := 0
-	for munition_magazine: WeaponMagazine in magazines.values():
-		result += munition_magazine.reserve
-	return result
-
-func _maximum_reload_remaining() -> float:
-	var result := 0.0
-	for munition_magazine: WeaponMagazine in magazines.values():
-		result = maxf(result, munition_magazine.reload_remaining)
 	return result
 
 func capture_content_state() -> Dictionary:

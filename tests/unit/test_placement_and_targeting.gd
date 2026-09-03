@@ -88,7 +88,7 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_gt(interceptor.global_position.distance_to(threat.global_position), interceptor.proximity_radius)
 	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "유도 이탈")
 
-func test_interceptor_coasts_during_reacquisition_grace_before_self_destructing() -> void:
+func test_interceptor_coasts_past_a_destroyed_target_and_retires_without_detonating() -> void:
 	var registry := ThreatRegistry.new()
 	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
 	var threat_definition := ThreatDefinition.new()
@@ -114,14 +114,18 @@ func test_interceptor_coasts_during_reacquisition_grace_before_self_destructing(
 	interceptor.gameplay_tick(0.1)
 	assert_false(interceptor.is_queued_for_deletion())
 	assert_gt(interceptor.global_position.x, position_before_resolution.x)
-	assert_almost_eq(interceptor.reacquisition_remaining, HomingInterceptor.REACQUISITION_GRACE_DURATION - 0.1, 0.001)
+	assert_true(interceptor.target_destroyed_coast)
+	assert_eq(interceptor.reacquisition_remaining, -1.0)
 	var waiting_state := interceptor.capture_state()
-	assert_almost_eq(float(waiting_state.reacquisition_remaining), interceptor.reacquisition_remaining, 0.001)
-	interceptor.gameplay_tick(HomingInterceptor.REACQUISITION_GRACE_DURATION - 0.11)
+	assert_true(bool(waiting_state.target_destroyed_coast))
+	interceptor.gameplay_tick(0.8)
 	assert_false(interceptor.is_queued_for_deletion())
-	interceptor.gameplay_tick(0.02)
+	assert_null(projectile_parent.get_node_or_null("Explosion"))
+	assert_null(projectile_parent.get_node_or_null("InterceptorMiss"))
+	interceptor.gameplay_tick(interceptor.maximum_lifetime)
 	assert_true(interceptor.is_queued_for_deletion())
-	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "표적 격추")
+	assert_null(projectile_parent.get_node_or_null("Explosion"))
+	assert_null(projectile_parent.get_node_or_null("InterceptorMiss"))
 
 func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructing() -> void:
 	var registry := ThreatRegistry.new()
@@ -157,12 +161,14 @@ func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructin
 	interceptor.configure(original_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 4, 0, candidates)
 	registry.remove(original)
 	assert_same(interceptor.target_track, original_track)
-	assert_eq(interceptor.reacquisition_remaining, HomingInterceptor.REACQUISITION_GRACE_DURATION)
+	assert_true(interceptor.target_destroyed_coast)
+	assert_eq(interceptor.reacquisition_remaining, -1.0)
 	interceptor.gameplay_tick(0.35)
 	assert_false(interceptor.is_queued_for_deletion())
 	alternate_track.state = PlayerTrack.State.CONFIRMED
 	interceptor.gameplay_tick(0.05)
 	assert_same(interceptor.target_track, alternate_track)
+	assert_false(interceptor.target_destroyed_coast)
 	assert_eq(interceptor.reacquisition_remaining, -1.0)
 	interceptor.gameplay_tick(0.1)
 	assert_false(interceptor.is_queued_for_deletion())
@@ -415,9 +421,7 @@ func test_missile_rack_empties_visible_cells_then_shows_reload_and_ammunition() 
 		assert_eq(battery.magazines[munition.id].rounds, expected_rounds)
 		assert_eq(battery._launcher_caps().filter(func(cap: Node3D) -> bool: return cap.visible).size(), expected_rounds)
 	battery._process(0.0)
-	var marker_text := (battery.status_marker.get_node("Label") as Label3D).text
-	assert_string_contains(marker_text, "재장전")
-	assert_string_contains(marker_text, "탄 0+18")
+	assert_false(battery.status_marker.visible)
 	assert_string_contains(battery.resource_status_text(), "재장전 9.0초")
 	assert_lte(definition.fire_interval, 0.3)
 
