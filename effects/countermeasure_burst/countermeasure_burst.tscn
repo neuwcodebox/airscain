@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource path="res://effects/countermeasure_burst/countermeasure_burst.gd" type="Script" id="1"]
 
@@ -31,16 +31,18 @@ rings = 3
 
 [sub_resource type="ParticleProcessMaterial" id="ChaffProcess"]
 emission_shape = 1
-emission_sphere_radius = 6.0
+emission_sphere_radius = 20.0
 direction = Vector3(0, 1, 0)
 spread = 180.0
-gravity = Vector3(0.15, -0.45, 0.08)
-initial_velocity_min = 5.0
-initial_velocity_max = 14.0
-angular_velocity_min = -720.0
-angular_velocity_max = 720.0
-damping_min = 0.65
-damping_max = 1.15
+gravity = Vector3(0.01, -0.04, 0.005)
+initial_velocity_min = 0.05
+initial_velocity_max = 0.3
+angular_velocity_min = -240.0
+angular_velocity_max = 240.0
+damping_min = 0.05
+damping_max = 0.12
+angle_min = -180.0
+angle_max = 180.0
 scale_min = 0.55
 scale_max = 1.0
 color = Color(0.82, 0.86, 0.88, 0.78)
@@ -58,24 +60,39 @@ size = Vector3(0.34, 0.025, 2.1)
 
 [sub_resource type="ParticleProcessMaterial" id="ChaffGlintProcess"]
 emission_shape = 1
-emission_sphere_radius = 7.0
+emission_sphere_radius = 20.0
 spread = 180.0
-gravity = Vector3(0.12, -0.35, 0.06)
-initial_velocity_min = 4.0
-initial_velocity_max = 11.0
-damping_min = 0.55
-damping_max = 1.0
+gravity = Vector3(0, -0.02, 0)
+initial_velocity_min = 0.0
+initial_velocity_max = 0.12
+damping_min = 0.04
+damping_max = 0.1
 scale_min = 0.5
 scale_max = 0.9
 color = Color(0.9, 0.96, 1, 0.92)
 
-[sub_resource type="StandardMaterial3D" id="ChaffGlintMaterial"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.82, 0.94, 1, 0.9)
-emission_enabled = true
-emission = Color(0.72, 0.88, 1, 1)
-emission_energy_multiplier = 16.0
+[sub_resource type="Shader" id="ChaffGlintShader"]
+code = "shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never;
+
+varying float shimmer_phase;
+
+void vertex() {
+	shimmer_phase = dot(MODEL_MATRIX[3].xyz, vec3(0.173, 0.317, 0.491));
+}
+
+void fragment() {
+	float wave_a = sin(TIME * 11.0 + shimmer_phase);
+	float wave_b = sin(TIME * 17.0 + shimmer_phase * 1.7);
+	float flash = smoothstep(1.15, 1.8, wave_a + wave_b);
+	vec3 glint_color = vec3(0.72, 0.88, 1.0);
+	ALBEDO = glint_color;
+	EMISSION = glint_color * 12.0;
+	ALPHA = flash * COLOR.a;
+}"
+
+[sub_resource type="ShaderMaterial" id="ChaffGlintMaterial"]
+shader = SubResource("ChaffGlintShader")
 
 [sub_resource type="SphereMesh" id="ChaffGlintMesh"]
 material = SubResource("ChaffGlintMaterial")
@@ -102,7 +119,7 @@ emitting = false
 amount = 190
 lifetime = 6.8
 one_shot = true
-explosiveness = 0.9
+explosiveness = 1.0
 visibility_aabb = AABB(-55, -45, -55, 110, 90, 110)
 process_material = SubResource("ChaffProcess")
 draw_pass_1 = SubResource("ChaffMesh")
@@ -112,7 +129,7 @@ emitting = false
 amount = 52
 lifetime = 4.8
 one_shot = true
-explosiveness = 0.92
+explosiveness = 1.0
 visibility_aabb = AABB(-65, -50, -65, 130, 105, 130)
 process_material = SubResource("ChaffGlintProcess")
 draw_pass_1 = SubResource("ChaffGlintMesh")

@@ -58,11 +58,25 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_lt(glints.amount, chaff.amount / 3)
 	var chaff_mesh := chaff.draw_pass_1 as BoxMesh
 	var chaff_material := chaff_mesh.material as StandardMaterial3D
+	var chaff_process := chaff.process_material as ParticleProcessMaterial
+	var glint_process := glints.process_material as ParticleProcessMaterial
 	assert_lt(chaff_mesh.size.x, 0.5)
 	assert_gt(chaff_mesh.size.z, chaff_mesh.size.x * 5.0)
 	assert_eq(chaff_material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL)
 	assert_true(chaff_material.metallic > 0.8)
 	assert_false(chaff_material.emission_enabled)
+	assert_gte(chaff_process.emission_sphere_radius, 18.0)
+	assert_lte(chaff_process.initial_velocity_max, 0.5)
+	assert_lte(chaff_process.gravity.length(), 0.1)
+	assert_eq(chaff_process.angle_min, -180.0)
+	assert_eq(chaff_process.angle_max, 180.0)
+	assert_lt(chaff_process.angular_velocity_min, 0.0)
+	assert_gt(chaff_process.angular_velocity_max, 0.0)
+	assert_eq(chaff.explosiveness, 1.0)
+	assert_eq(glint_process.emission_sphere_radius, chaff_process.emission_sphere_radius)
+	assert_lte(glint_process.initial_velocity_max, 0.2)
+	var glint_material := (glints.draw_pass_1 as SphereMesh).material as ShaderMaterial
+	assert_true(glint_material.shader.code.contains("TIME * 11.0"))
 	var diverted_state := interceptor.capture_state()
 	assert_true(bool(diverted_state.countermeasure_decoy_active))
 	assert_eq(SaveDocument.vector3_from_data(diverted_state.countermeasure_decoy_position), interceptor.countermeasure_decoy_position)

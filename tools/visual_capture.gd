@@ -105,12 +105,12 @@ func run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("--capture-countermeasure-only"):
 		var countermeasure_center := main.objective.global_position + Vector3(0.0, 90.0, 80.0)
-		main.camera_rig.camera.global_position = countermeasure_center + Vector3(0.0, 65.0, 190.0)
+		main.camera_rig.camera.global_position = countermeasure_center + Vector3(0.0, 36.0, 105.0)
 		main.camera_rig.camera.look_at(countermeasure_center, Vector3.UP)
 		main.hud.visible = false
 		main.altitude_profile.visible = false
 		await _capture_countermeasure_defeat(countermeasure_center, false)
-		print("VISUAL_CAPTURE_OK chaff_cloud delayed_diversion")
+		print("VISUAL_CAPTURE_OK chaff_initial_volume noise_shimmer delayed_diversion")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-light-only"):
@@ -1219,7 +1219,16 @@ func _capture_countermeasure_defeat(center: Vector3, capture_resolved_after: boo
 		push_error("Chaff did not create a label-free cloud and delayed interceptor diversion")
 		quit(1)
 		return
+	var chaff := burst.get_node("Chaff") as GPUParticles3D
+	var initial_chaff_bounds := chaff.capture_aabb()
 	_save_capture("/tmp/airscain_chaff_cloud.png")
+	await _wait_seconds(2.0)
+	var settled_chaff_bounds := chaff.capture_aabb()
+	if settled_chaff_bounds.size.length() > initial_chaff_bounds.size.length() + 8.0:
+		push_error("Chaff cloud expanded after its initial volume was established")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_chaff_shimmer.png")
 	for tick: int in 40:
 		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
 			break
