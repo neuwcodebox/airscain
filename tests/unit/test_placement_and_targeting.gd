@@ -660,7 +660,10 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	assert_gte((facility.damage_smoke.get_node("Smoke") as GPUParticles3D).amount, 40)
 	assert_true((facility.damage_smoke.get_node("Fire") as GPUParticles3D).emitting)
 	facility._process(0.0)
-	assert_eq((facility.status_marker.get_node("Label") as Label3D).text, "손상")
+	var damage_label := facility.status_marker.get_node("Label") as Label3D
+	assert_eq(damage_label.text, "손상")
+	assert_true(damage_label.no_depth_test)
+	assert_gte(damage_label.render_priority, 100)
 	assert_eq(facility.operational_status_text(), "상태 성능저하 · 내구도 50%")
 	assert_almost_eq(facility.support_capacity(), 2.0, 0.0001)
 	assert_true(gun.receive_damage(50.0))

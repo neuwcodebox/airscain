@@ -143,6 +143,7 @@ func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
 		var icon := defense.identity_marker.get_node("Icon") as Label3D
 		assert_true(icon.fixed_size)
 		assert_true(icon.no_depth_test)
+		assert_gte(icon.render_priority, 100)
 		assert_eq(icon.font_size, 12)
 		assert_gt(defense.identity_marker.position.y, defense.status_marker.position.y)
 		role_icons[icon.text] = true

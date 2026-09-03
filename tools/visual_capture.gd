@@ -1242,13 +1242,20 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	var unit_smoke: GPUParticles3D = gun.damage_smoke.get_node("Smoke") as GPUParticles3D if gun.damage_smoke != null else null
 	var unit_process: ParticleProcessMaterial = unit_smoke.process_material as ParticleProcessMaterial if unit_smoke != null else null
 	var unit_growth: CurveTexture = unit_process.scale_curve as CurveTexture if unit_process != null else null
-	if gun.damage_smoke == null or label.text != "손상" or unit_growth == null or unit_growth.curve.sample(0.0) >= unit_growth.curve.sample(1.0):
+	var identity_icon := gun.identity_marker.get_node("Icon") as Label3D
+	if gun.damage_smoke == null or label.text != "손상" or not label.no_depth_test or label.render_priority < 100 or not identity_icon.no_depth_test or identity_icon.render_priority < 100 or unit_growth == null or unit_growth.curve.sample(0.0) >= unit_growth.curve.sample(1.0):
 		push_error("Damaged unit did not expose smoke and a damage status marker")
 		quit(1)
 		return
 	main.camera_rig.camera.global_position = gun.global_position + Vector3(48.0, 34.0, 62.0)
 	main.camera_rig.camera.look_at(gun.global_position + Vector3.UP * 18.0, Vector3.UP)
 	await _wait_simulation_seconds(3.0)
+	var status_screen_position := main.camera_rig.camera.unproject_position(gun.status_marker.global_position)
+	var identity_screen_position := main.camera_rig.camera.unproject_position(gun.identity_marker.global_position)
+	if status_screen_position.distance_to(identity_screen_position) < 14.0:
+		push_error("Damage status and role icon overlap at the tactical camera distance")
+		quit(1)
+		return
 	_save_capture("/tmp/airscain_damaged_unit_smoke.png")
 
 func _capture_friendly_identity_icons() -> void:

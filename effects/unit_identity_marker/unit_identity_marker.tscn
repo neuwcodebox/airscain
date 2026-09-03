@@ -8,6 +8,7 @@ script = ExtResource("1")
 [node name="Icon" type="Label3D" parent="."]
 billboard = 1
 no_depth_test = true
+render_priority = 100
 fixed_size = true
 pixel_size = 0.001
 font_size = 12
