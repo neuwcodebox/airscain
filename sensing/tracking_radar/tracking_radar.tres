@@ -15,6 +15,7 @@ rooftop_allowed = true
 script = ExtResource("1")
 id = &"tracking_radar"
 display_name = "고고도 추적 레이더"
+purchase_tooltip = "고고도 항공기와 탄도 표적을 정밀 추적합니다.\nC2 연결 시 탐지 항적을 방어 자산과 공유합니다."
 scene = ExtResource("2")
 price = 160
 unlock_pressure_level = 2

@@ -13,6 +13,7 @@ maximum_slope_degrees = 12.0
 script = ExtResource("1")
 id = &"interceptor_drone_defense"
 display_name = "요격드론 기지"
+purchase_tooltip = "재사용 요격드론을 출격시켜 이동 위협을 추적합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."
 scene = ExtResource("2")
 price = 210
 unlock_pressure_level = 5

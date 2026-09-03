@@ -13,6 +13,7 @@ maximum_slope_degrees = 12.0
 script = ExtResource("1")
 id = &"high_power_microwave"
 display_name = "고출력 마이크로파"
+purchase_tooltip = "범위 안의 전자 장비와 무인기를 동시에 무력화합니다.\n통합 지원기지의 전력 용량을 사용합니다."
 scene = ExtResource("2")
 price = 230
 unlock_pressure_level = 5

@@ -10,5 +10,5 @@ func validation_error() -> String:
 	if not base_error.is_empty():
 		return base_error
 	if work_capacity <= 0.0 or concurrent_tasks < 1 or power_capacity < 0.0:
-		return "군수지원시설 처리량이 올바르지 않습니다"
+		return "통합 지원기지 처리량이 올바르지 않습니다"
 	return ""

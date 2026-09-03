@@ -15,6 +15,7 @@ rooftop_allowed = true
 script = ExtResource("1")
 id = &"close_in_gun"
 display_name = "근접방어기관포"
+purchase_tooltip = "접근한 소형 무인기와 순항 위협을 탄막으로 방어합니다.\n탄약 소진 후 통합 지원기지에서 재보급할 수 있습니다."
 scene = ExtResource("2")
 price = 110
 placement_profile = SubResource("PlacementProfile")

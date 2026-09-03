@@ -33,6 +33,7 @@ resupply_work = 6.0
 script = ExtResource("1")
 id = &"short_range_missile"
 display_name = "단거리 미사일 포대"
+purchase_tooltip = "저고도 위협을 빠르게 근접 요격합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."
 scene = ExtResource("2")
 price = 150
 unlock_pressure_level = 2

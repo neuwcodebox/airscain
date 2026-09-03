@@ -56,6 +56,7 @@ resupply_work = 18.0
 script = ExtResource("1")
 id = &"long_range_missile"
 display_name = "장거리 미사일 포대"
+purchase_tooltip = "고고도 항공기와 탄도 표적을 장거리에서 요격합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."
 scene = ExtResource("2")
 price = 340
 unlock_pressure_level = 4

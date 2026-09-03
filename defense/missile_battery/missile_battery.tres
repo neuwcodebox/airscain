@@ -31,6 +31,7 @@ resupply_work = 8.0
 script = ExtResource("1")
 id = &"missile_battery"
 display_name = "미사일 포대"
+purchase_tooltip = "중고도 항공 위협을 다수의 요격탄으로 방어합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."
 scene = ExtResource("2")
 price = 200
 placement_profile = SubResource("PlacementProfile")

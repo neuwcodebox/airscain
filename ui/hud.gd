@@ -311,6 +311,7 @@ func _build_defense_catalog() -> void:
 			button.custom_minimum_size = Vector2(0.0, 32.0)
 			button.add_theme_font_size_override("font_size", 14)
 			button.text = "%s  $%d" % [definition.display_name, definition.price]
+			button.tooltip_text = definition.purchase_tooltip
 			button.pressed.connect(_on_defense_pressed.bind(definition))
 			defense_list.add_child(button)
 			defense_buttons[defense_definitions.find(definition)] = button

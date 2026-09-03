@@ -401,6 +401,15 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_eq(main.hud.defense_buttons.size(), main.scenario.available_defenses.size())
 	for index: int in main.hud.defense_buttons.size():
 		assert_true(is_instance_valid(main.hud.defense_buttons[index]))
+		assert_false(main.scenario.available_defenses[index].purchase_tooltip.is_empty())
+		assert_true(main.scenario.available_defenses[index].purchase_tooltip.contains("\n"))
+		assert_eq(main.hud.defense_buttons[index].tooltip_text, main.scenario.available_defenses[index].purchase_tooltip)
+	var support_definition := main.scenario.available_defenses[5]
+	assert_eq(support_definition.display_name, "통합 지원기지")
+	var support_visual := add_child_autofree(support_definition.scene.instantiate()) as SupportFacility
+	assert_not_null(support_visual.get_node_or_null("Generator"))
+	assert_not_null(support_visual.get_node_or_null("TransformerLeft"))
+	assert_not_null(support_visual.get_node_or_null("TransformerRight"))
 	var catalog := main.hud.get_node("Catalog") as Control
 	assert_false(catalog.get_global_rect().intersects(main.altitude_profile.get_global_rect()))
 	assert_gte(catalog.position.y, main.altitude_profile.position.y + main.altitude_profile.size.y + 20.0)

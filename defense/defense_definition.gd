@@ -3,6 +3,7 @@ extends Resource
 
 @export var id: StringName
 @export var display_name: String
+@export_multiline var purchase_tooltip: String
 @export var scene: PackedScene
 @export var price: int = 200
 @export var unlock_pressure_level: int = 1

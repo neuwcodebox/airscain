@@ -13,7 +13,8 @@ boundary_margin = 15.0
 [resource]
 script = ExtResource("1")
 id = &"support_facility"
-display_name = "군수지원시설"
+display_name = "통합 지원기지"
+purchase_tooltip = "방공망 자산의 재보급과 수리를 처리합니다.\n에너지 무기에 전력을 공급합니다."
 scene = ExtResource("2")
 price = 140
 placement_profile = SubResource("PlacementProfile")

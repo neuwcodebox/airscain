@@ -20,6 +20,11 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	if OS.get_cmdline_user_args().has("--capture-asset-catalog-only"):
+		await _capture_asset_catalog_and_support_base()
+		print("VISUAL_CAPTURE_OK multiline_purchase_tooltip integrated_support_base")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-city-restoration-only"):
 		main.objective.apply_mission_damage(20)
 		await process_frame
@@ -568,6 +573,35 @@ func _capture_city_detail() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_western_city_rooftop_placement.png")
 	main.placement.cancel()
+
+func _capture_asset_catalog_and_support_base() -> void:
+	var support_button := main.hud.defense_buttons[5]
+	main.hud.defense_scroll.ensure_control_visible(support_button)
+	await process_frame
+	Input.warp_mouse(support_button.get_global_rect().get_center())
+	await _wait_seconds(1.0)
+	if support_button.tooltip_text.count("\n") != 1 or not support_button.tooltip_text.contains("전력을 공급"):
+		push_error("Support base purchase tooltip is not a two-line role summary")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_asset_purchase_tooltip.png")
+	main.session.budget = 5000
+	_place_asset(main.scenario.available_defenses[5], -1.0)
+	var support: SupportFacility
+	for unit: DefenseUnit in main.defenses:
+		if unit is SupportFacility:
+			support = unit as SupportFacility
+			break
+	if support == null or support.get_node_or_null("Generator") == null or support.get_node_or_null("TransformerLeft") == null:
+		push_error("Integrated support base visual is missing logistics or power equipment")
+		quit(1)
+		return
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	main.camera_rig.camera.global_position = support.global_position + Vector3(42.0, 30.0, 48.0)
+	main.camera_rig.camera.look_at(support.global_position + Vector3.UP * 4.0, Vector3.UP)
+	await _wait_seconds(0.5)
+	_save_capture("/tmp/airscain_integrated_support_base.png")
 
 func _capture_offscreen_marker_full_edge() -> void:
 	var viewport_size := root.get_visible_rect().size
