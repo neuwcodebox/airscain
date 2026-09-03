@@ -95,29 +95,28 @@ theme_override_font_sizes/font_size = 20
 text = "전투 강도  1"
 
 [node name="PauseButton" type="Button" parent="TopBar/Margin"]
+unique_name_in_owner = true
 layout_mode = 2
+toggle_mode = true
 text = "Ⅱ"
 
 [node name="NormalButton" type="Button" parent="TopBar/Margin"]
+unique_name_in_owner = true
 layout_mode = 2
+toggle_mode = true
 text = "1×"
 
 [node name="FastButton" type="Button" parent="TopBar/Margin"]
+unique_name_in_owner = true
 layout_mode = 2
+toggle_mode = true
 text = "2×"
 
 [node name="VeryFastButton" type="Button" parent="TopBar/Margin"]
-layout_mode = 2
-text = "4×"
-
-[node name="SpeedLabel" type="Label" parent="TopBar/Margin"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(78, 0)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "1×"
-horizontal_alignment = 1
-vertical_alignment = 1
+toggle_mode = true
+text = "4×"
 
 [node name="OverlayButton" type="Button" parent="TopBar/Margin"]
 unique_name_in_owner = true

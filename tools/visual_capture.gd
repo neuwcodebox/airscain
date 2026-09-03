@@ -75,6 +75,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK six_cell_rack rapid_launch reload_status")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-time-controls-only"):
+		await _capture_time_control_buttons()
+		print("VISUAL_CAPTURE_OK speed_state_on_buttons no_duplicate_label")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
 		await _capture_surface_strike_smoke()
 		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
@@ -913,6 +918,26 @@ func _capture_missile_rack_salvo() -> void:
 	for frame_index: int in 8:
 		await process_frame
 	_save_capture("/tmp/airscain_missile_rack_salvo.png")
+
+func _capture_time_control_buttons() -> void:
+	var fast_button := main.hud.get_node("%FastButton") as Button
+	fast_button.pressed.emit()
+	for frame_index: int in 4:
+		await process_frame
+	if main.session.simulation_speed != 2.0 or not fast_button.button_pressed or main.hud.get_node_or_null("%SpeedLabel") != null:
+		push_error("Speed controls retained a duplicate label or did not highlight the current button")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_time_controls_2x.png")
+	var pause_button := main.hud.get_node("%PauseButton") as Button
+	pause_button.pressed.emit()
+	for frame_index: int in 4:
+		await process_frame
+	if not is_zero_approx(main.session.simulation_speed) or not pause_button.button_pressed or fast_button.button_pressed:
+		push_error("Pause button did not become the sole selected time state")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_time_controls_paused.png")
 
 func _capture_surface_strike_smoke() -> void:
 	main.hud.visible = false

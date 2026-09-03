@@ -49,6 +49,26 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.threat_entries[11].threat_definition.id, &"strike_aircraft")
 	assert_false(main.session.start_defense())
 
+func test_time_control_buttons_are_the_only_speed_state_indicator() -> void:
+	var pause_button := main.hud.get_node("%PauseButton") as Button
+	var normal_button := main.hud.get_node("%NormalButton") as Button
+	var fast_button := main.hud.get_node("%FastButton") as Button
+	var very_fast_button := main.hud.get_node("%VeryFastButton") as Button
+	assert_null(main.hud.get_node_or_null("%SpeedLabel"))
+	assert_true(normal_button.button_pressed)
+	assert_false(pause_button.button_pressed)
+	fast_button.pressed.emit()
+	assert_eq(main.session.simulation_speed, 2.0)
+	assert_true(fast_button.button_pressed)
+	assert_false(normal_button.button_pressed)
+	very_fast_button.pressed.emit()
+	assert_eq(main.session.simulation_speed, 4.0)
+	assert_true(very_fast_button.button_pressed)
+	pause_button.pressed.emit()
+	assert_eq(main.session.simulation_speed, 0.0)
+	assert_true(pause_button.button_pressed)
+	assert_false(very_fast_button.button_pressed)
+
 func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
 	var definition := main.scenario.available_defenses[3]
 	var position := _find_valid_position_for(definition.placement_profile)

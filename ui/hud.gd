@@ -45,7 +45,10 @@ const CATALOG_GROUP_LABELS := {
 @onready var integrity_label: Label = %IntegrityLabel
 @onready var time_label: Label = %TimeLabel
 @onready var pressure_label: Label = %PressureLabel
-@onready var speed_label: Label = %SpeedLabel
+@onready var pause_button: Button = %PauseButton
+@onready var normal_button: Button = %NormalButton
+@onready var fast_button: Button = %FastButton
+@onready var very_fast_button: Button = %VeryFastButton
 @onready var alert_label: Label = %AlertLabel
 @onready var overlay_button: Button = %OverlayButton
 @onready var defense_list: VBoxContainer = %DefenseList
@@ -255,13 +258,21 @@ func _affiliation_text(track: PlayerTrack) -> String:
 func _on_state_changed() -> void:
 	budget_label.text = "예산  무제한" if session.unlimited_budget else "예산  $%d" % session.budget
 	time_label.text = "생존  %02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
-	speed_label.text = "일시정지" if is_zero_approx(session.simulation_speed) else "%d×" % int(session.simulation_speed)
+	_refresh_speed_buttons()
 	for index: int in defense_buttons.size():
 		var definition := defense_definitions[index]
 		var locked := definition.unlock_pressure_level > session.current_pressure
 		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or not session.unlimited_budget and session.budget < definition.price or locked
 		defense_buttons[index].text = "%s  강도 %d 해금" % [definition.display_name, definition.unlock_pressure_level] if locked else definition.display_name if session.unlimited_budget else "%s  $%d" % [definition.display_name, definition.price]
 	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
+
+func _refresh_speed_buttons() -> void:
+	var buttons: Array[Button] = [pause_button, normal_button, fast_button, very_fast_button]
+	var speeds: Array[float] = [0.0, 1.0, 2.0, 4.0]
+	for index: int in buttons.size():
+		var selected := is_equal_approx(session.simulation_speed, speeds[index])
+		buttons[index].set_pressed_no_signal(selected)
+		buttons[index].self_modulate = Color("78dcff") if selected else Color.WHITE
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
 	integrity_label.text = "도시  %d / %d" % [current, maximum]
