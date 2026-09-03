@@ -689,21 +689,28 @@ func _capture_placement_dependencies() -> void:
 	_save_capture("/tmp/airscain_support_placement_dependencies.png")
 
 func _capture_offscreen_marker_full_edge() -> void:
-	var viewport_size := root.get_visible_rect().size
+	var viewport_size: Vector2 = root.get_visible_rect().size
 	main.hud.set_catalog_expanded(false)
 	var track := PlayerTrack.new()
 	track.track_id = 9991
 	track.state = PlayerTrack.State.CONFIRMED
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	track.affiliation_confidence = 1.0
-	track.estimated_position = main.camera_rig.camera.project_position(Vector2(viewport_size.x + 500.0, viewport_size.y * 0.5), 500.0)
+	var altitude_profile_rect := main.altitude_profile.get_global_rect()
+	var target_screen_position := Vector2(viewport_size.x + 500.0, altitude_profile_rect.get_center().y)
+	track.estimated_position = main.camera_rig.camera.project_position(target_screen_position, 500.0) - Vector3.UP * 12.0
 	main.player_knowledge.tracks.append(track)
+	main.tactical_screen_overlay.select_track(track)
 	for index: int in 3:
 		await process_frame
-	var projected := main.camera_rig.camera.unproject_position(track.estimated_position)
-	var marker := TacticalScreenOverlay.tactical_marker_position(projected, viewport_size, false)
+	var marker: Vector2 = main.tactical_screen_overlay.track_marker_screen_position(track)
 	if marker.x > viewport_size.x - TacticalScreenOverlay.EDGE_MARGIN + 0.01 or marker.x < viewport_size.x - TacticalScreenOverlay.EDGE_MARGIN - 0.01:
 		push_error("Offscreen marker did not use the full viewport edge")
+		quit(1)
+		return
+	var selected_marker_bounds := Rect2(marker - Vector2(20.0, 20.0), Vector2(40.0, 40.0))
+	if selected_marker_bounds.intersects(altitude_profile_rect):
+		push_error("Offscreen marker overlaps the altitude profile")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_offscreen_marker_full_edge.png")

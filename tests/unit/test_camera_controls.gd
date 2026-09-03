@@ -102,4 +102,4 @@ func test_tactical_marker_uses_the_full_viewport_edge() -> void:
 	var position: Vector2 = TACTICAL_SCREEN_OVERLAY.tactical_marker_position(Vector2(2200.0, 500.0), viewport_size, false)
 	assert_lte(position.x, viewport_size.x - TACTICAL_SCREEN_OVERLAY.EDGE_MARGIN)
 	assert_between(position.y, TACTICAL_SCREEN_OVERLAY.EDGE_MARGIN, viewport_size.y - TACTICAL_SCREEN_OVERLAY.EDGE_MARGIN)
-	assert_almost_eq(position.x, 1558.0, 0.01)
+	assert_almost_eq(position.x, 1580.0, 0.01)

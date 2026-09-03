@@ -1,7 +1,7 @@
 class_name TacticalScreenOverlay
 extends Control
 
-const EDGE_MARGIN := 42.0
+const EDGE_MARGIN := 20.0
 
 var camera: Camera3D
 var player_knowledge: Node

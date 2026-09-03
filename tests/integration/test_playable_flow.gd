@@ -403,6 +403,15 @@ func test_altitude_profile_shows_public_tracks_and_friendly_projectiles_by_layer
 	assert_true(interceptor.is_in_group("friendly_altitude_projectiles"))
 	interceptor.queue_free()
 
+func test_right_edge_track_marker_has_a_gutter_beside_altitude_profile() -> void:
+	var viewport_size: Vector2 = main.tactical_screen_overlay.size
+	var marker := TacticalScreenOverlay.tactical_marker_position(Vector2(viewport_size.x + 500.0, main.altitude_profile.get_global_rect().get_center().y), viewport_size, false)
+	var selected_marker_bounds := Rect2(marker - Vector2(20.0, 20.0), Vector2(40.0, 40.0))
+	var profile_rect := main.altitude_profile.get_global_rect()
+	assert_almost_eq(viewport_size.x - marker.x, TacticalScreenOverlay.EDGE_MARGIN, 0.01)
+	assert_almost_eq(viewport_size.x - profile_rect.end.x, 44.0, 0.01)
+	assert_false(selected_marker_bounds.intersects(profile_rect))
+
 func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profile() -> void:
 	var headings: Array[String] = []
 	for child: Node in main.hud.defense_list.get_children():
