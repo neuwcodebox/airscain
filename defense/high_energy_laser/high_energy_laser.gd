@@ -34,6 +34,9 @@ func configure_power(manager: PowerManager) -> void:
 func c2_link_range() -> float:
 	return _definition.c2_range * operational_efficiency()
 
+func power_demand() -> float:
+	return _definition.power_demand if _definition != null else 0.0
+
 func gameplay_tick(delta: float) -> void:
 	if not active:
 		return

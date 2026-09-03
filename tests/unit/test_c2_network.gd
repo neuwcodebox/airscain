@@ -75,6 +75,40 @@ func test_jamming_reduces_effective_link_range_and_breaks_path() -> void:
 	network.gameplay_tick(2.0)
 	assert_false(network.has_command_path(defense, 1))
 
+func test_placement_preview_reports_complete_sensor_command_defense_component() -> void:
+	var network := autofree(C2Network.new()) as C2Network
+	var sensor := _endpoint(1, DefenseUnit.C2Role.SENSOR, Vector3.ZERO)
+	var command := _endpoint(2, DefenseUnit.C2Role.COMMAND, Vector3(100.0, 0.0, 0.0))
+	network.register_asset(sensor)
+	network.register_asset(command)
+	var definition := MissileBatteryDefinition.new()
+	definition.c2_range = 500.0
+	var result := network.placement_preview(definition, Vector3(200.0, 0.0, 0.0))
+	assert_true(result.ready)
+	assert_eq((result.links as Array).size(), 2)
+
+func test_placement_preview_marks_incomplete_and_disconnected_components() -> void:
+	var network := autofree(C2Network.new()) as C2Network
+	var sensor := _endpoint(1, DefenseUnit.C2Role.SENSOR, Vector3.ZERO)
+	network.register_asset(sensor)
+	var definition := MissileBatteryDefinition.new()
+	definition.c2_range = 500.0
+	var incomplete := network.placement_preview(definition, Vector3(100.0, 0.0, 0.0))
+	assert_false(incomplete.ready)
+	assert_eq((incomplete.links as Array).size(), 1)
+	var disconnected := network.placement_preview(definition, Vector3(900.0, 0.0, 0.0))
+	assert_false(disconnected.ready)
+	assert_true((disconnected.links as Array).is_empty())
+
+func test_placement_preview_ignores_an_asset_at_the_exact_candidate_position() -> void:
+	var network := autofree(C2Network.new()) as C2Network
+	var existing := _endpoint(1, DefenseUnit.C2Role.DEFENSE, Vector3.ZERO)
+	network.register_asset(existing)
+	var definition := MissileBatteryDefinition.new()
+	var result := network.placement_preview(definition, Vector3.ZERO)
+	assert_false(result.ready)
+	assert_true((result.links as Array).is_empty())
+
 func _endpoint(id_value: int, roles: int, position: Vector3) -> EndpointDouble:
 	var endpoint := add_child_autofree(EndpointDouble.new()) as EndpointDouble
 	endpoint.runtime_id = id_value

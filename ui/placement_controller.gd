@@ -1,10 +1,13 @@
 class_name PlacementController
 extends Node3D
 
+const DEPENDENCY_REFRESH_INTERVAL := 0.2
+
 signal feedback_changed(message: String)
 signal asset_selected(unit: DefenseUnit)
 signal world_selected(position: Vector3, screen_position: Vector2)
 signal sandbox_threat_placement_requested(definition: ThreatDefinition, position: Vector3)
+signal placement_preview_changed(definition: DefenseDefinition, position: Vector3, active: bool)
 
 var session: GameSession
 var battlefield: Battlefield
@@ -21,6 +24,10 @@ var candidate_valid: bool = false
 var preview: Node3D
 var range_disc: MeshInstance3D
 var preview_material := StandardMaterial3D.new()
+var dependency_refresh_remaining: float = 0.0
+var last_dependency_definition: DefenseDefinition
+var last_dependency_position: Vector3
+var dependency_preview_active: bool = false
 
 func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
 	session = session_value
@@ -40,6 +47,7 @@ func select(definition: DefenseDefinition) -> void:
 	selected = definition
 	battlefield.set_rooftop_pads_visible(definition.placement_profile.rooftop_allowed)
 	_create_preview()
+	_publish_dependency_preview(definition, Vector3.ZERO, false, true)
 	feedback_changed.emit("좌클릭 배치 · 우클릭/Esc 취소")
 
 func select_relocation(unit: DefenseUnit) -> void:
@@ -48,6 +56,7 @@ func select_relocation(unit: DefenseUnit) -> void:
 	selected = unit.definition
 	battlefield.set_rooftop_pads_visible(selected.placement_profile.rooftop_allowed)
 	_create_preview()
+	_publish_dependency_preview(null, Vector3.ZERO, false, true)
 	feedback_changed.emit("새 위치를 좌클릭 · 우클릭/Esc 취소")
 
 func select_sandbox_threat(definition: ThreatDefinition) -> void:
@@ -56,6 +65,7 @@ func select_sandbox_threat(definition: ThreatDefinition) -> void:
 	selected_threat = definition
 	battlefield.set_rooftop_pads_visible(false)
 	_create_threat_preview()
+	_publish_dependency_preview(null, Vector3.ZERO, false, true)
 	feedback_changed.emit("지도에서 위협 투입 위치를 좌클릭 · 우클릭/Esc 취소")
 
 func cancel() -> void:
@@ -67,9 +77,10 @@ func cancel() -> void:
 	if preview != null:
 		preview.queue_free()
 	preview = null
+	_publish_dependency_preview(null, Vector3.ZERO, false, true)
 	feedback_changed.emit("")
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if selected == null and selected_threat == null or preview == null:
 		return
 	var mouse := get_viewport().get_mouse_position()
@@ -77,6 +88,7 @@ func _process(_delta: float) -> void:
 	if hit.is_empty():
 		preview.visible = false
 		candidate_valid = false
+		_publish_dependency_preview(null, Vector3.ZERO, false)
 		feedback_changed.emit("지도 위를 가리켜 주세요")
 		return
 	preview.visible = true
@@ -84,6 +96,12 @@ func _process(_delta: float) -> void:
 	preview.global_position = candidate_position
 	var result := {"valid": true, "reason": "위협 투입 가능"} if selected_threat != null else _validation()
 	candidate_valid = result.valid
+	if selected != null and selected_threat == null and relocating_unit == null:
+		dependency_refresh_remaining -= delta
+		var refresh_due := dependency_refresh_remaining <= 0.0
+		_publish_dependency_preview(selected, candidate_position, true, refresh_due)
+		if refresh_due:
+			dependency_refresh_remaining = DEPENDENCY_REFRESH_INTERVAL
 	preview_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48) if candidate_valid else Color(1.0, 0.18, 0.12, 0.52)
 	feedback_changed.emit(result.reason)
 
@@ -133,6 +151,7 @@ func request_selected_defense_placement() -> bool:
 	if not result.success:
 		return false
 	if session.unlimited_budget and relocating_unit == null:
+		_publish_dependency_preview(selected, candidate_position, true, true)
 		feedback_changed.emit("배치 완료 · 계속 좌클릭해 추가 배치")
 	else:
 		cancel()
@@ -217,3 +236,11 @@ func _create_threat_preview() -> void:
 func wall_material_setup() -> void:
 	preview_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	preview_material.no_depth_test = false
+
+func _publish_dependency_preview(definition: DefenseDefinition, position: Vector3, active: bool, force: bool = false) -> void:
+	if not force and definition == last_dependency_definition and active == dependency_preview_active and (not active or position.is_equal_approx(last_dependency_position)):
+		return
+	last_dependency_definition = definition
+	last_dependency_position = position
+	dependency_preview_active = active
+	placement_preview_changed.emit(definition, position, active)

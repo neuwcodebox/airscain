@@ -69,6 +69,9 @@ func c2_roles() -> int:
 func c2_link_range() -> float:
 	return 0.0
 
+func power_demand() -> float:
+	return 0.0
+
 func local_sensor_ids() -> Array[int]:
 	return []
 

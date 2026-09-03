@@ -1,6 +1,8 @@
 class_name C2Network
 extends Node
 
+const MINIMUM_LINK_DISTANCE := 0.01
+
 var endpoints: Array[DefenseUnit] = []
 var threat_registry: ThreatRegistry
 var _topology_signature: int = 0
@@ -79,6 +81,50 @@ func active_links() -> Array[Array]:
 			if _are_linked(endpoints[first_index], endpoints[second_index]):
 				result.append([endpoints[first_index], endpoints[second_index]])
 	return result
+
+func placement_preview(definition: DefenseDefinition, position: Vector3) -> Dictionary:
+	var direct_links: Array[DefenseUnit] = []
+	var candidate_range := definition.placement_c2_range()
+	var candidate_roles := definition.placement_c2_roles()
+	if candidate_range <= 0.0 or candidate_roles == 0:
+		return {"links": direct_links, "ready": true}
+	for endpoint: DefenseUnit in endpoints:
+		if _candidate_is_linked(position, candidate_range, endpoint):
+			direct_links.append(endpoint)
+	var component_roles := candidate_roles
+	var visited: Dictionary[int, bool] = {}
+	var queue: Array[DefenseUnit] = direct_links.duplicate()
+	for endpoint: DefenseUnit in queue:
+		visited[endpoint.get_instance_id()] = true
+	while not queue.is_empty():
+		var current := queue.pop_front() as DefenseUnit
+		component_roles |= current.c2_roles()
+		for neighbor: DefenseUnit in endpoints:
+			var neighbor_id := neighbor.get_instance_id()
+			if visited.has(neighbor_id) or not _are_linked(current, neighbor):
+				continue
+			visited[neighbor_id] = true
+			queue.append(neighbor)
+	var required_roles := 0
+	if (candidate_roles & DefenseUnit.C2Role.SENSOR) != 0:
+		required_roles |= DefenseUnit.C2Role.COMMAND
+	if (candidate_roles & DefenseUnit.C2Role.COMMAND) != 0:
+		required_roles |= DefenseUnit.C2Role.SENSOR
+	if (candidate_roles & DefenseUnit.C2Role.DEFENSE) != 0:
+		required_roles |= DefenseUnit.C2Role.SENSOR | DefenseUnit.C2Role.COMMAND
+	var ready := not direct_links.is_empty() and (component_roles & required_roles) == required_roles
+	return {"links": direct_links, "ready": ready}
+
+func _candidate_is_linked(position: Vector3, candidate_range: float, endpoint: DefenseUnit) -> bool:
+	if not _is_operational_endpoint(endpoint):
+		return false
+	var maximum_distance := minf(candidate_range, endpoint.c2_link_range())
+	if threat_registry != null:
+		var midpoint := position.lerp(endpoint.global_position, 0.5)
+		var interference := maxf(threat_registry.jamming_at(position), maxf(threat_registry.jamming_at(midpoint), threat_registry.jamming_at(endpoint.global_position)))
+		maximum_distance *= 1.0 - interference * 0.9
+	var distance := position.distance_to(endpoint.global_position)
+	return maximum_distance > 0.0 and distance > MINIMUM_LINK_DISTANCE and distance <= maximum_distance
 
 func _are_linked(first: DefenseUnit, second: DefenseUnit) -> bool:
 	if not _is_operational_endpoint(first) or not _is_operational_endpoint(second):

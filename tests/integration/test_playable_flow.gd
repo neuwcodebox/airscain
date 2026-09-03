@@ -438,6 +438,33 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	main.camera_rig._unhandled_input(wheel_at_bottom)
 	assert_eq(main.camera_rig.zoom_distance, initial_zoom)
 
+func test_placement_preview_shows_c2_readiness_and_energy_power_impact() -> void:
+	main.session.unlimited_budget = true
+	main._on_pressure_changed(3)
+	var sensor_result := _place_for(main, main.scenario.available_defenses[1])
+	var command_result := _place_for(main, main.scenario.available_defenses[2])
+	assert_true(sensor_result.success)
+	assert_true(command_result.success)
+	var candidate := (command_result.unit as DefenseUnit).global_position + Vector3(40.0, 0.0, 40.0)
+	candidate.y = main.battlefield.terrain_height(candidate.x, candidate.z)
+	main.placement.placement_preview_changed.emit(main.scenario.available_defenses[0], candidate, true)
+	assert_true(main.c2_overlay.placement_active)
+	assert_true(main.c2_overlay.placement_ready)
+	assert_gte(main.c2_overlay.visible_link_count, 1)
+	assert_false(main.hud.placement_power_label.visible)
+	var laser_definition := main.scenario.available_defenses[6]
+	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
+	assert_true(main.hud.placement_power_label.visible)
+	assert_string_contains(main.hud.placement_power_label.text, "전력 수요  0 / 0")
+	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 0")
+	var support_result := _place_for(main, main.scenario.available_defenses[5])
+	assert_true(support_result.success)
+	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
+	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 20")
+	main.placement.cancel()
+	assert_false(main.c2_overlay.placement_active)
+	assert_false(main.hud.placement_power_label.visible)
+
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]

@@ -23,3 +23,12 @@ func validation_error() -> String:
 	if mobile and relocation_duration <= 0.0:
 		return "이동형 자산의 재배치 시간이 올바르지 않습니다"
 	return placement_profile.validation_error()
+
+func placement_c2_roles() -> int:
+	return 0
+
+func placement_c2_range() -> float:
+	return 0.0
+
+func placement_power_demand() -> float:
+	return 0.0

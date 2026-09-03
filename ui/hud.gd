@@ -44,6 +44,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var integrity_label: Label = %IntegrityLabel
 @onready var city_restoration_button: Button = %CityRestorationButton
 @onready var time_label: Label = %TimeLabel
+@onready var placement_power_label: Label = %PlacementPowerLabel
 @onready var pressure_label: Label = %PressureLabel
 @onready var pause_button: Button = %PauseButton
 @onready var normal_button: Button = %NormalButton
@@ -141,6 +142,15 @@ func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Arr
 
 func set_feedback(message: String) -> void:
 	feedback_label.text = message
+
+func set_placement_power_preview(current_demand: float, added_demand: float, capacity: float, active: bool) -> void:
+	placement_power_label.visible = active and added_demand > 0.0
+	if not placement_power_label.visible:
+		return
+	var expected_demand := current_demand + added_demand
+	placement_power_label.text = "전력 수요  %d / %d\n배치 후  %d / %d" % [roundi(current_demand), roundi(capacity), roundi(expected_demand), roundi(capacity)]
+	var color := Color(1.0, 0.48, 0.3) if expected_demand > capacity else Color(0.45, 0.92, 0.82)
+	placement_power_label.add_theme_color_override("font_color", color)
 
 func set_final_stats(stats: Dictionary) -> void:
 	final_stats.text = String(stats.get("summary", ""))

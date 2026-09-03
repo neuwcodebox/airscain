@@ -605,6 +605,13 @@ func test_power_manager_allocates_finite_generation_capacity() -> void:
 	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
 	facility.setup(1, SCENARIO.available_defenses[5])
 	manager.register_asset(facility)
+	var laser: HighEnergyLaser = autofree((SCENARIO.available_defenses[6] as HighEnergyLaserDefinition).scene.instantiate()) as HighEnergyLaser
+	laser.setup(2, SCENARIO.available_defenses[6])
+	manager.register_asset(laser)
+	var microwave: HighPowerMicrowave = autofree((SCENARIO.available_defenses[9] as HighPowerMicrowaveDefinition).scene.instantiate()) as HighPowerMicrowave
+	microwave.setup(3, SCENARIO.available_defenses[9])
+	manager.register_asset(microwave)
+	assert_eq(manager.total_demand(), 30.0)
 	manager.begin_tick()
 	assert_eq(manager.request_power(12.0), 12.0)
 	assert_eq(manager.request_power(12.0), 8.0)

@@ -170,6 +170,7 @@ func _connect_flow() -> void:
 	placement.feedback_changed.connect(hud.set_feedback)
 	placement.asset_selected.connect(_on_asset_selected)
 	placement.world_selected.connect(_on_world_selected)
+	placement.placement_preview_changed.connect(_on_placement_preview_changed)
 	hud.overlay_requested.connect(_on_overlay_requested)
 	hud.hold_fire_requested.connect(_on_hold_fire_requested)
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
@@ -349,6 +350,11 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 	hud.set_selected_track(null, false)
 	if game_mode == GameMode.TRAINING and training_step == TrainingStep.SELECT_ASSET and unit is MissileBattery:
 		_set_training_step(TrainingStep.DOCTRINE)
+
+func _on_placement_preview_changed(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
+	c2_overlay.preview_placement(definition, position, active)
+	var added_demand := definition.placement_power_demand() if definition != null else 0.0
+	hud.set_placement_power_preview(power_manager.total_demand(), added_demand, power_manager.generation_capacity(), active)
 
 func _on_overlay_requested(mode: StringName) -> void:
 	c2_overlay.set_all_links(mode == &"c2")

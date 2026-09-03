@@ -25,6 +25,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK multiline_purchase_tooltip integrated_support_base")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-placement-dependencies-only"):
+		await _capture_placement_dependencies()
+		print("VISUAL_CAPTURE_OK placement_c2_links energy_power_impact")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-city-restoration-only"):
 		main.objective.apply_mission_damage(20)
 		await process_frame
@@ -602,6 +607,40 @@ func _capture_asset_catalog_and_support_base() -> void:
 	main.camera_rig.camera.look_at(support.global_position + Vector3.UP * 4.0, Vector3.UP)
 	await _wait_seconds(0.5)
 	_save_capture("/tmp/airscain_integrated_support_base.png")
+
+func _capture_placement_dependencies() -> void:
+	main.session.unlimited_budget = true
+	main._on_pressure_changed(3)
+	_place_asset(main.scenario.available_defenses[1], -1.0)
+	_place_asset(main.scenario.available_defenses[2], 1.0)
+	_place_asset(main.scenario.available_defenses[5], -1.0)
+	var definition := main.scenario.available_defenses[6]
+	var candidate := Vector3(0.0, main.battlefield.terrain_height(0.0, 0.0), 0.0)
+	for z: int in range(-180, 181, 20):
+		for x: int in range(-180, 181, 20):
+			var tested := Vector3(float(x), main.battlefield.terrain_height(float(x), float(z)), float(z))
+			if main.battlefield.placement_result(tested, definition.placement_profile).valid:
+				candidate = tested
+				break
+		if main.battlefield.placement_result(candidate, definition.placement_profile).valid:
+			break
+	main.placement.select(definition)
+	main.placement.process_mode = Node.PROCESS_MODE_DISABLED
+	main.placement.candidate_position = candidate
+	main.placement.preview.global_position = candidate
+	main.placement.preview.visible = true
+	main._on_placement_preview_changed(definition, candidate, true)
+	for index: int in 5:
+		await process_frame
+	if not main.c2_overlay.placement_ready or main.c2_overlay.visible_link_count < 1:
+		push_error("Placement preview did not show a ready C2 path")
+		quit(1)
+		return
+	if not main.hud.placement_power_label.visible or not main.hud.placement_power_label.text.contains("배치 후  12 / 20"):
+		push_error("Placement preview did not show the energy power impact")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_placement_dependencies.png")
 
 func _capture_offscreen_marker_full_edge() -> void:
 	var viewport_size := root.get_visible_rect().size

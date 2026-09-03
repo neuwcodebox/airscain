@@ -11,6 +11,15 @@ extends DefenseDefinition
 @export var power_demand: float = 18.0
 @export var c2_range: float = 520.0
 
+func placement_c2_roles() -> int:
+	return DefenseUnit.C2Role.DEFENSE
+
+func placement_c2_range() -> float:
+	return c2_range
+
+func placement_power_demand() -> float:
+	return power_demand
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():
