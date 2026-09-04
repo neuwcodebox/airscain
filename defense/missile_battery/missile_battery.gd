@@ -193,6 +193,22 @@ func resource_status_text() -> String:
 		lines.append("탄약 %s %d + %d%s" % [munition.display_name, munition_magazine.rounds, munition_magazine.reserve, reload_text])
 	return _with_support_status("\n".join(lines))
 
+func selection_status_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = [
+		{"label": "교전 고도", "value": "%d–%dm" % [roundi(_definition.minimum_engagement_altitude), roundi(_definition.maximum_engagement_altitude)]},
+		{"label": "탄종", "value": munition_mode_text()},
+	]
+	for munition: MissileMunitionDefinition in _definition.munitions:
+		var munition_magazine: WeaponMagazine = magazines[munition.id]
+		var ammunition := "%d + %d" % [munition_magazine.rounds, munition_magazine.reserve]
+		if munition_magazine.is_depleted():
+			ammunition = "고갈"
+		rows.append({"label": munition.display_name, "value": ammunition, "warning": munition_magazine.is_depleted()})
+		if munition_magazine.is_reloading():
+			rows.append({"label": "재장전", "value": "%.1f초" % munition_magazine.reload_remaining})
+	rows.append_array(_selection_task_rows())
+	return rows
+
 func _launch(track: PlayerTrack, munition: MissileMunitionDefinition = null) -> void:
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"missile")

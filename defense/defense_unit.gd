@@ -154,6 +154,17 @@ func resource_status_text() -> String:
 		status += " · %s" % relocation_manager.task_status(self)
 	return status
 
+func selection_status_rows() -> Array[Dictionary]:
+	return _selection_task_rows()
+
+func _selection_task_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if support_manager != null and not support_manager.task_status(self).is_empty():
+		rows.append({"label": "지원 작업", "value": support_manager.task_status(self)})
+	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
+		rows.append({"label": "재배치", "value": relocation_manager.task_status(self)})
+	return rows
+
 func combat_resource_low() -> bool:
 	return false
 

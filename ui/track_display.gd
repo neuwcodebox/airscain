@@ -8,6 +8,7 @@ var engagement_coordinator: EngagementCoordinator
 var selected_track: PlayerTrack
 var selected_engagement_source: DefenseUnit
 var selection_lines := MeshInstance3D.new()
+var engagement_distance_label := Label3D.new()
 var line_material := StandardMaterial3D.new()
 var rebuild_remaining: float = 0.0
 
@@ -18,6 +19,17 @@ func _ready() -> void:
 	line_material.no_depth_test = true
 	selection_lines.material_override = line_material
 	add_child(selection_lines)
+	engagement_distance_label.name = "EngagementDistance"
+	engagement_distance_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	engagement_distance_label.no_depth_test = true
+	engagement_distance_label.fixed_size = true
+	engagement_distance_label.pixel_size = 0.001
+	engagement_distance_label.font_size = 14
+	engagement_distance_label.outline_size = 6
+	engagement_distance_label.outline_modulate = Color(0.015, 0.025, 0.035, 0.96)
+	engagement_distance_label.render_priority = 110
+	engagement_distance_label.visible = false
+	add_child(engagement_distance_label)
 
 func configure(player_knowledge_value: Node, defense_parent_value: Node3D, coordinator: EngagementCoordinator) -> void:
 	player_knowledge = player_knowledge_value
@@ -60,6 +72,7 @@ func reset() -> void:
 	selected_track = null
 	selected_engagement_source = null
 	selection_lines.mesh = null
+	engagement_distance_label.visible = false
 	for marker: TrackMarker in markers.values():
 		if is_instance_valid(marker):
 			marker.free()
@@ -93,6 +106,7 @@ func _on_track_removed(track_id: int) -> void:
 		select_track(null)
 
 func _rebuild_selection_lines() -> void:
+	engagement_distance_label.visible = false
 	if selected_track == null or selected_track.state == PlayerTrack.State.LOST:
 		selection_lines.mesh = null
 		return
@@ -113,7 +127,15 @@ func _rebuild_selection_lines() -> void:
 		for owner: DefenseUnit in _related_assets(engagement_coordinator.engagement_owner_ids(selected_track.track_id)):
 			vertex_count += _add_dashed_segment(mesh, owner.global_position + Vector3.UP * 9.0, selected_track.estimated_position + Vector3.UP * 12.0, Color(1.0, 0.34, 0.18, 0.82), 10)
 	if selected_engagement_source != null and is_instance_valid(selected_engagement_source):
-		vertex_count += _add_dashed_segment(mesh, selected_engagement_source.global_position + Vector3.UP * 9.0, selected_track.estimated_position + Vector3.UP * 12.0, Color(0.28, 0.9, 1.0, 0.88), 8)
+		var source_position := selected_engagement_source.global_position + Vector3.UP * 9.0
+		var target_position := selected_track.estimated_position + Vector3.UP * 12.0
+		vertex_count += _add_dashed_segment(mesh, source_position, target_position, Color(0.28, 0.9, 1.0, 0.88), 8)
+		var distance := selected_engagement_source.global_position.distance_to(selected_track.estimated_position)
+		var effective_range := selected_engagement_source.definition.tactical_range() * selected_engagement_source.operational_efficiency()
+		engagement_distance_label.text = "%dm / %dm" % [roundi(distance), roundi(effective_range)]
+		engagement_distance_label.modulate = Color(0.45, 0.92, 0.82) if distance <= effective_range else Color(1.0, 0.62, 0.3)
+		engagement_distance_label.global_position = source_position.lerp(target_position, 0.5) + Vector3.UP * 6.0
+		engagement_distance_label.visible = true
 	if vertex_count > 0:
 		mesh.surface_end()
 		selection_lines.mesh = mesh

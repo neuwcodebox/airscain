@@ -98,7 +98,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var asset_integrity_value: Label = %AssetIntegrityValue
 @onready var asset_network_value: Label = %AssetNetworkValue
 @onready var asset_support_value: Label = %AssetSupportValue
-@onready var asset_resource_label: Label = %AssetResourceLabel
+@onready var asset_resource_metrics: GridContainer = %AssetResourceMetrics
 @onready var track_section: VBoxContainer = %TrackSection
 @onready var selected_track_label: Label = %SelectedTrackLabel
 @onready var relation_legend: HBoxContainer = %RelationLegend
@@ -112,8 +112,9 @@ const CATALOG_GROUP_LABELS := {
 @onready var track_engagement_value: Label = %TrackEngagementValue
 @onready var engagement_section: VBoxContainer = %EngagementSection
 @onready var engagement_source_label: Label = %EngagementSourceLabel
+@onready var engagement_source_metrics: GridContainer = %EngagementSourceMetrics
 @onready var engagement_target_label: Label = %EngagementTargetLabel
-@onready var engagement_readiness_label: Label = %EngagementReadinessLabel
+@onready var engagement_target_metrics: GridContainer = %EngagementTargetMetrics
 @onready var doctrine_section: VBoxContainer = %DoctrineSection
 @onready var action_section: VBoxContainer = %ActionSection
 @onready var hold_fire_button: CheckButton = %HoldFireButton
@@ -332,8 +333,9 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	else:
 		asset_network_value.text = "직접 연결 %d" % selected_asset_connection_count
 		asset_support_value.text = "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
-	asset_resource_label.text = _asset_resource_detail(selected_asset)
-	asset_resource_label.visible = not asset_resource_label.text.is_empty()
+	var status_rows := selected_asset.selection_status_rows()
+	_set_metric_rows(asset_resource_metrics, status_rows)
+	asset_resource_metrics.visible = not status_rows.is_empty()
 	if selected_asset.uses_ammunition():
 		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost()
 	if selected_asset.supports_munition_selection():
@@ -394,8 +396,9 @@ func _refresh_selected_asset_label_fields_only() -> void:
 	else:
 		asset_network_value.text = "직접 연결 %d" % selected_asset_connection_count
 		asset_support_value.text = "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
-	asset_resource_label.text = _asset_resource_detail(selected_asset)
-	asset_resource_label.visible = not asset_resource_label.text.is_empty()
+	var status_rows := selected_asset.selection_status_rows()
+	_set_metric_rows(asset_resource_metrics, status_rows)
+	asset_resource_metrics.visible = not status_rows.is_empty()
 
 func _refresh_track_details() -> void:
 	selection_kind_label.text = "항적 정보"
@@ -417,39 +420,43 @@ func _refresh_engagement_review() -> void:
 	selected_asset_label.text = "자산과 항적"
 	selection_state_label.text = "선택됨"
 	_set_state_color(true)
-	var resource_detail := _asset_resource_detail(selected_asset)
-	engagement_source_label.text = "%s\n내구도 %d%%    C2 직접 연결 %d" % [selected_asset.definition.display_name, roundi(selected_asset.operational_ratio() * 100.0), selected_asset_connection_count]
-	if not resource_detail.is_empty():
-		engagement_source_label.text += "\n%s" % resource_detail
-	engagement_target_label.text = "%s %s    %s\n추적 품질 %d%%    고도 %dm    속도 %dm/s" % [_affiliation_text(selected_track), _classification_text(selected_track.classification), _track_state_text(selected_track.state), roundi(selected_track.track_quality * 100.0), roundi(selected_track.estimated_position.y), roundi(selected_track.estimated_velocity.length())]
-	var distance := selected_asset.global_position.distance_to(selected_track.estimated_position)
-	var maximum_range := selected_asset.definition.tactical_range() * selected_asset.operational_efficiency()
-	if not selected_asset.active:
-		engagement_readiness_label.text = "자산 기능 정지"
-		_set_engagement_readiness_color(false)
-	elif selected_asset.engagement_hold_fire():
-		engagement_readiness_label.text = "사격중지 상태"
-		_set_engagement_readiness_color(false)
-	elif selected_asset.combat_resource_depleted():
-		engagement_readiness_label.text = "교전 자원 고갈"
-		_set_engagement_readiness_color(false)
-	elif distance > maximum_range:
-		engagement_readiness_label.text = "사거리 밖  %dm / %dm" % [roundi(distance), roundi(maximum_range)]
-		_set_engagement_readiness_color(false)
-	else:
-		engagement_readiness_label.text = "교전 가능 범위  %dm / %dm" % [roundi(distance), roundi(maximum_range)]
-		_set_engagement_readiness_color(true)
+	engagement_source_label.text = selected_asset.definition.display_name
+	var source_rows: Array[Dictionary] = [
+		{"label": "상태", "value": _asset_state_text(selected_asset), "warning": not selected_asset.active},
+		{"label": "내구도", "value": "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)},
+		{"label": "지휘통제", "value": "직접 연결 %d" % selected_asset_connection_count},
+	]
+	source_rows.append_array(selected_asset.selection_status_rows())
+	_set_metric_rows(engagement_source_metrics, source_rows)
+	engagement_target_label.text = "%s %s" % [_affiliation_text(selected_track), _classification_text(selected_track.classification)]
+	_set_metric_rows(engagement_target_metrics, [
+		{"label": "상태", "value": _track_state_text(selected_track.state)},
+		{"label": "추적 품질", "value": "%d%%" % roundi(selected_track.track_quality * 100.0)},
+		{"label": "고도", "value": "%dm" % roundi(selected_track.estimated_position.y)},
+		{"label": "속도", "value": "%dm/s" % roundi(selected_track.estimated_velocity.length())},
+	])
 
-func _asset_resource_detail(unit: DefenseUnit) -> String:
-	var lines := unit.resource_status_text().split("\n", false)
-	if lines.is_empty():
-		return ""
-	if lines[0].begins_with("상태 "):
-		var status_parts := lines[0].split(" · ", false)
-		lines.remove_at(0)
-		if status_parts.size() > 2:
-			lines.insert(0, " · ".join(status_parts.slice(2)))
-	return "\n".join(lines).replace(" · ", "    ")
+func _set_metric_rows(grid: GridContainer, rows: Array[Dictionary]) -> void:
+	if grid.get_child_count() != rows.size() * 2:
+		for child: Node in grid.get_children():
+			child.free()
+		for row: Dictionary in rows:
+			var key_label := Label.new()
+			key_label.add_theme_color_override("font_color", Color(0.58, 0.68, 0.72))
+			key_label.add_theme_font_size_override("font_size", 14)
+			grid.add_child(key_label)
+			var value_label := Label.new()
+			value_label.custom_minimum_size.x = 132.0
+			value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			value_label.add_theme_font_size_override("font_size", 14)
+			grid.add_child(value_label)
+	for index: int in rows.size():
+		var row: Dictionary = rows[index]
+		var key_label := grid.get_child(index * 2) as Label
+		var value_label := grid.get_child(index * 2 + 1) as Label
+		key_label.text = String(row.get("label", ""))
+		value_label.text = String(row.get("value", ""))
+		value_label.add_theme_color_override("font_color", Color(1.0, 0.62, 0.3) if bool(row.get("warning", false)) else Color(0.86, 0.9, 0.88))
 
 func _asset_state_text(unit: DefenseUnit) -> String:
 	if unit.integrity <= 0.0:
@@ -462,9 +469,6 @@ func _asset_state_text(unit: DefenseUnit) -> String:
 
 func _set_state_color(positive: bool) -> void:
 	selection_state_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.66) if positive else Color(1.0, 0.62, 0.3))
-
-func _set_engagement_readiness_color(ready: bool) -> void:
-	engagement_readiness_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.66) if ready else Color(1.0, 0.62, 0.3))
 
 func _fit_selection_panel() -> void:
 	selected_asset_panel.reset_size()

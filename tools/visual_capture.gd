@@ -25,7 +25,7 @@ func run() -> void:
 		if not selection_ok:
 			quit(1)
 			return
-		print("VISUAL_CAPTURE_OK asset_selection track_selection engagement_review")
+		print("VISUAL_CAPTURE_OK power_asset_selection asset_selection track_selection engagement_review")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-topbar-menus-only"):
@@ -532,16 +532,24 @@ func _capture_selection_panel() -> bool:
 	main._on_pressure_changed(5)
 	_place_asset(main.scenario.available_defenses[0], -1.0)
 	_place_asset(main.scenario.available_defenses[1], 1.0)
+	_place_asset(main.scenario.available_defenses[6], 1.0)
 	var battery: DefenseUnit
 	var radar: SearchRadar
+	var laser: HighEnergyLaser
 	for defense: DefenseUnit in main.defenses:
 		if defense is MissileBattery:
 			battery = defense
 		elif defense is SearchRadar:
 			radar = defense as SearchRadar
-	if battery == null or radar == null:
-		push_error("Selection capture could not place a radar and armed asset")
+		elif defense is HighEnergyLaser:
+			laser = defense as HighEnergyLaser
+	if battery == null or radar == null or laser == null:
+		push_error("Selection capture could not place its radar and armed assets")
 		return false
+	main._on_asset_selected(laser)
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_power_asset_selection.png")
 	main._on_asset_selected(battery)
 	main.camera_rig.focus_on(battery.global_position)
 	main.camera_rig.zoom_distance = 430.0
@@ -569,7 +577,7 @@ func _capture_selection_panel() -> bool:
 	main._on_world_selected(track.estimated_position)
 	for index: int in 4:
 		await process_frame
-	if not main.hud.engagement_section.visible or not bool(battery.identity_marker.get("selected")):
+	if not main.hud.engagement_section.visible or not bool(battery.identity_marker.get("selected")) or not main.track_display.engagement_distance_label.visible:
 		push_error("Engagement review did not preserve the armed asset selection")
 		return false
 	_save_capture("/tmp/airscain_engagement_review.png")

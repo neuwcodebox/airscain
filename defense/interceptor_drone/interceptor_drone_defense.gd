@@ -76,6 +76,15 @@ func release_engagement(track_id: int) -> void:
 func resource_status_text() -> String:
 	return "%s\n드론 대기 %d · 출격 %d · 충전 %d" % [operational_status_text(), available_drones, active_drones.size(), recharge_queue.size()]
 
+func selection_status_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = [
+		{"label": "대기 드론", "value": str(available_drones)},
+		{"label": "출격", "value": str(active_drones.size())},
+		{"label": "충전", "value": str(recharge_queue.size())},
+	]
+	rows.append_array(_selection_task_rows())
+	return rows
+
 func capture_content_state() -> Dictionary:
 	return {"available_drones": available_drones, "recharge_queue": recharge_queue.duplicate(), "cooldown": cooldown, "doctrine": capture_doctrine_state()}
 

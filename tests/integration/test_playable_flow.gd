@@ -557,7 +557,8 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_eq(main.c2_overlay.visible_c2_link_count, preview_c2_count)
 	assert_eq(main.c2_overlay.visible_support_link_count, 1)
 	assert_eq(main.hud.asset_support_value.text, "연결됨")
-	assert_string_contains(main.hud.asset_resource_label.text, "전력 수요 12 / 총 공급 20")
+	assert_eq(_metric_value(main.hud.asset_resource_metrics, "수요 / 공급"), "12 / 20")
+	assert_eq(_metric_value(main.hud.asset_resource_metrics, "공급 상태"), "정상")
 	var support_definition := main.scenario.available_defenses[5]
 	main.placement.select(support_definition)
 	assert_eq((main.placement.range_disc.mesh as TorusMesh).outer_radius, (support_definition as SupportFacilityDefinition).service_range)
@@ -629,6 +630,8 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	assert_string_contains(main.hud.engagement_source_label.text, battery.definition.display_name)
 	assert_string_contains(main.hud.engagement_target_label.text, "무인기")
 	assert_same(main.track_display.selected_engagement_source, battery)
+	assert_true(main.track_display.engagement_distance_label.visible)
+	assert_string_contains(main.track_display.engagement_distance_label.text, "m / ")
 	main._on_focus_requested()
 	assert_almost_eq(main.camera_rig.global_position.x, track.estimated_position.x, 0.01)
 	assert_almost_eq(main.camera_rig.global_position.z, track.estimated_position.z, 0.01)
@@ -783,7 +786,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var command_result: Dictionary = main.session.request_placement(command_definition, _find_valid_position_for(command_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(command_result.success)
 	assert_same(main.placement.pick_asset_at(battery.global_position), battery)
-	assert_string_contains(main.hud.asset_resource_label.text, "탄약")
+	assert_false(_metric_value(main.hud.asset_resource_metrics, "표준 요격탄").is_empty())
 	assert_gt(int(main.c2_overlay.get("visible_link_count")), 0)
 	for frame: int in 300:
 		main.player_knowledge.call("gameplay_tick", 0.02)
@@ -1553,6 +1556,12 @@ func _place_for(instance: AirscainMain, definition: DefenseDefinition) -> Dictio
 			if instance.battlefield.placement_result(position, definition.placement_profile).valid:
 				return instance.session.request_placement(definition, position, instance.battlefield, instance.defense_parent, instance.registry, instance.projectile_parent)
 	return {"success": false, "reason": "테스트 배치 위치 없음"}
+
+func _metric_value(grid: GridContainer, key: String) -> String:
+	for index: int in range(0, grid.get_child_count(), 2):
+		if (grid.get_child(index) as Label).text == key:
+			return (grid.get_child(index + 1) as Label).text
+	return ""
 
 func _find_defense(runtime_id: int) -> DefenseUnit:
 	for unit: DefenseUnit in main.defenses:

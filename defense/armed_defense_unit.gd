@@ -58,6 +58,18 @@ func resource_status_text() -> String:
 		return _with_support_status("%s\n탄약 고갈" % operational_status_text())
 	return _with_support_status("%s\n탄약 %d + %d" % [operational_status_text(), magazine.rounds, magazine.reserve])
 
+func selection_status_rows() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if uses_ammunition():
+		var ammunition := "%d + %d" % [magazine.rounds, magazine.reserve]
+		if magazine.is_depleted():
+			ammunition = "고갈"
+		rows.append({"label": "탄약", "value": ammunition, "warning": magazine.is_depleted()})
+		if magazine.is_reloading():
+			rows.append({"label": "재장전", "value": "%.1f초" % magazine.reload_remaining})
+	rows.append_array(_selection_task_rows())
+	return rows
+
 func uses_ammunition() -> bool:
 	return false
 

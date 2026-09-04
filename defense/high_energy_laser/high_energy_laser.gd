@@ -85,6 +85,26 @@ func resource_status_text() -> String:
 		status += " · %s" % relocation_manager.task_status(self)
 	return status
 
+func selection_status_rows() -> Array[Dictionary]:
+	var heat_ratio := roundi(energy_state.heat / energy_state.heat_capacity * 100.0)
+	var rows: Array[Dictionary] = [
+		{"label": "충전", "value": "%d%%" % roundi(energy_state.energy / energy_state.capacity * 100.0)},
+		{"label": "열", "value": "과열" if energy_state.overheated else "%d%%" % heat_ratio, "warning": energy_state.overheated},
+	]
+	rows.append_array(_power_status_rows())
+	rows.append_array(_selection_task_rows())
+	return rows
+
+func _power_status_rows() -> Array[Dictionary]:
+	if power_manager == null:
+		return [{"label": "전력", "value": "공급 없음", "warning": true}]
+	var capacity := power_manager.generation_capacity()
+	var shortage := power_manager.total_demand() > capacity
+	return [
+		{"label": "수요 / 공급", "value": "%d / %d" % [roundi(power_demand()), roundi(capacity)]},
+		{"label": "공급 상태", "value": "부족" if shortage else "정상", "warning": shortage},
+	]
+
 func _fire_pulse(track: PlayerTrack) -> void:
 	weapon_fired.emit(self, false)
 	if enemy_knowledge != null:
