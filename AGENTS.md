@@ -42,6 +42,7 @@ godot --path . --scene res://path/to/scene.tscn
 ## Validation
 
 - During iteration, use the cheapest relevant validation for the change.
+- Test observable requirements and stable invariants, not incidental implementation details. Do not lock exact UI geometry or tuning values unless the specification makes them contractual.
 - Run broader validation only when the scope of the change warrants it.
 - Do not run a full headless import routinely after scene or resource changes.
 - After adding, moving, or replacing project files, run `godot --headless --audio-driver Dummy --editor --path . --quit` to generate Godot metadata.
