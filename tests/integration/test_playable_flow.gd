@@ -410,14 +410,23 @@ func test_combat_audio_uses_selected_event_groups_and_routes_combat_feedback() -
 	var other_source_id := other_launch_source.get_instance_id()
 	var other_player: AudioStreamPlayer = main.combat_audio.source_players[other_source_id]
 	assert_not_same(main.combat_audio.source_players[source_id], other_player)
+	var launch_player: AudioStreamPlayer = main.combat_audio.source_players[source_id]
 	var detonation_count := main.combat_audio.played_count(CombatAudio.EXPLOSION)
 	launch_source._finish_flight(true)
 	assert_false(main.combat_audio.source_players.has(source_id))
+	assert_true(launch_player.playing)
+	assert_true(main.combat_audio.fade_tweens.has(launch_player.get_instance_id()))
 	assert_eq(main.combat_audio.played_count(CombatAudio.EXPLOSION), detonation_count + 1)
 	assert_same(main.combat_audio.source_players[other_source_id], other_player)
 	assert_true(other_player.playing)
+	await get_tree().create_timer(CombatAudio.DETONATION_FADE_SECONDS + 0.05).timeout
+	assert_false(launch_player.playing)
+	assert_false(main.combat_audio.fade_tweens.has(launch_player.get_instance_id()))
 	other_launch_source._finish_flight(false)
 	assert_false(main.combat_audio.source_players.has(other_source_id))
+	assert_true(other_player.playing)
+	await get_tree().create_timer(CombatAudio.RETIRE_FADE_SECONDS + 0.05).timeout
+	assert_false(other_player.playing)
 	launch_source.queue_free()
 	other_launch_source.queue_free()
 	var city_impact_count := main.combat_audio.played_count(CombatAudio.BIG_EXPLOSION)

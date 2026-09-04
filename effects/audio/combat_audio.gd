@@ -11,6 +11,9 @@ const LONG_MISSILE := &"long_missile"
 const MISSILE := &"missile"
 const SHORT_MISSILE := &"short_missile"
 const MISSILE_EVENTS: Array[StringName] = [LONG_MISSILE, MISSILE, SHORT_MISSILE]
+const DETONATION_FADE_SECONDS := 0.12
+const RETIRE_FADE_SECONDS := 0.25
+const FADE_FLOOR_DB := -40.0
 
 const STREAM_GROUPS: Dictionary = {
 	CONTACT: [
@@ -60,6 +63,9 @@ var last_stream_paths: Dictionary[StringName, String] = {}
 var players: Array[AudioStreamPlayer] = []
 var source_players: Dictionary[int, AudioStreamPlayer] = {}
 var player_source_ids: Dictionary[int, int] = {}
+var fade_tweens: Dictionary[int, Tween] = {}
+var fade_generations: Dictionary[int, int] = {}
+var next_fade_generation: int = 1
 var next_player_index: int = 0
 var rng := RandomNumberGenerator.new()
 @export var enabled: bool = true
@@ -83,6 +89,7 @@ func _exit_tree() -> void:
 
 func stop_all() -> void:
 	for player: AudioStreamPlayer in players:
+		_cancel_player_fade(player)
 		player.stop()
 		player.stream = null
 	source_players.clear()
@@ -119,6 +126,7 @@ func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
 	var choices: Array = STREAM_GROUPS[event_id]
 	var stream := choices[rng.randi_range(0, choices.size() - 1)] as AudioStream
 	var player := _available_player()
+	_cancel_player_fade(player)
 	_release_player_source(player)
 	player.stream = stream
 	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
@@ -155,12 +163,50 @@ func _release_player_source(player: AudioStreamPlayer) -> void:
 	source_players.erase(source_id)
 
 func _on_source_flight_ended(detonated: bool, source_id: int) -> void:
-	_stop_source(source_id)
+	_fade_source(source_id, DETONATION_FADE_SECONDS if detonated else RETIRE_FADE_SECONDS)
 	if detonated:
 		play_event(EXPLOSION)
 
 func _on_source_tree_exiting(source_id: int) -> void:
-	_stop_source(source_id)
+	_fade_source(source_id, RETIRE_FADE_SECONDS)
+
+func _fade_source(source_id: int, duration: float) -> void:
+	var player := source_players.get(source_id) as AudioStreamPlayer
+	if player == null:
+		return
+	var player_id := player.get_instance_id()
+	if int(player_source_ids.get(player_id, 0)) != source_id:
+		source_players.erase(source_id)
+		return
+	player_source_ids.erase(player_id)
+	source_players.erase(source_id)
+	_cancel_player_fade(player)
+	var generation := next_fade_generation
+	next_fade_generation += 1
+	fade_generations[player_id] = generation
+	var tween := create_tween()
+	fade_tweens[player_id] = tween
+	tween.tween_property(player, "volume_db", FADE_FLOOR_DB, duration)
+	tween.tween_callback(_finish_player_fade.bind(player, generation))
+
+func _finish_player_fade(player: AudioStreamPlayer, generation: int) -> void:
+	if not is_instance_valid(player):
+		return
+	var player_id := player.get_instance_id()
+	if int(fade_generations.get(player_id, 0)) != generation:
+		return
+	player.stop()
+	player.stream = null
+	fade_tweens.erase(player_id)
+	fade_generations.erase(player_id)
+
+func _cancel_player_fade(player: AudioStreamPlayer) -> void:
+	var player_id := player.get_instance_id()
+	var tween := fade_tweens.get(player_id) as Tween
+	if tween != null and tween.is_valid():
+		tween.kill()
+	fade_tweens.erase(player_id)
+	fade_generations.erase(player_id)
 
 func _stop_source(source_id: int) -> void:
 	var player := source_players.get(source_id) as AudioStreamPlayer
@@ -168,6 +214,7 @@ func _stop_source(source_id: int) -> void:
 		return
 	var player_id := player.get_instance_id()
 	if int(player_source_ids.get(player_id, 0)) == source_id:
+		_cancel_player_fade(player)
 		player.stop()
 		player.stream = null
 		player_source_ids.erase(player_id)
