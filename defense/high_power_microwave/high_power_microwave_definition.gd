@@ -20,6 +20,12 @@ func placement_c2_range() -> float:
 func placement_power_demand() -> float:
 	return power_demand
 
+func tactical_overlay_mode() -> StringName:
+	return &"weapon"
+
+func tactical_range() -> float:
+	return attack_range
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

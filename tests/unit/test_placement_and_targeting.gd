@@ -9,6 +9,38 @@ const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 class RoleDefenseDouble:
 	extends DefenseUnit
 
+class CapabilityProviderDouble:
+	extends DefenseUnit
+
+	func service_range() -> float:
+		return 150.0
+
+	func support_capacity() -> float:
+		return 5.0
+
+	func support_slots() -> int:
+		return 1
+
+	func power_capacity() -> float:
+		return 12.0
+
+class CapabilityConsumerDouble:
+	extends DefenseUnit
+
+	var replenished: bool = false
+
+	func uses_ammunition() -> bool:
+		return true
+
+	func ammunition_needs_resupply() -> bool:
+		return not replenished
+
+	func resupply_work() -> float:
+		return 5.0
+
+	func complete_resupply() -> void:
+		replenished = true
+
 var battlefield: Battlefield
 var objective: ProtectedObjective
 
@@ -616,6 +648,29 @@ func test_power_manager_allocates_finite_generation_capacity() -> void:
 	assert_eq(manager.request_power(12.0), 12.0)
 	assert_eq(manager.request_power(12.0), 8.0)
 	assert_eq(manager.request_power(1.0), 0.0)
+
+func test_support_and_power_managers_accept_capability_providers() -> void:
+	var support: SupportManager = autofree(SupportManager.new()) as SupportManager
+	var power: PowerManager = autofree(PowerManager.new()) as PowerManager
+	var support_session: GameSession = autofree(GameSession.new()) as GameSession
+	support_session.reset(100)
+	support.configure(support_session)
+	var definition := DefenseDefinition.new()
+	definition.maximum_integrity = 100.0
+	var provider := add_child_autofree(CapabilityProviderDouble.new()) as CapabilityProviderDouble
+	provider.setup(1, definition)
+	var consumer := add_child_autofree(CapabilityConsumerDouble.new()) as CapabilityConsumerDouble
+	consumer.setup(2, definition)
+	consumer.global_position = Vector3(100.0, 0.0, 0.0)
+	consumer.configure_support(support)
+	support.register_asset(provider)
+	support.register_asset(consumer)
+	power.register_asset(provider)
+	assert_same(support.service_facility_for(consumer), provider)
+	assert_true(consumer.request_resupply())
+	support.gameplay_tick(1.0)
+	assert_true(consumer.replenished)
+	assert_eq(power.generation_capacity(), 12.0)
 
 func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager

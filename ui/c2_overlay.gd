@@ -111,13 +111,13 @@ func _rebuild_range() -> void:
 	var radius := 0.0
 	if placement_active:
 		center = placement_position
-		if placement_definition is not SupportFacilityDefinition:
+		if placement_definition.placement_support_range() <= 0.0:
 			radius = placement_definition.placement_c2_range()
 			range_material.albedo_color = C2_COLOR if placement_ready else INCOMPLETE_COLOR
 	elif selected_asset != null:
 		center = selected_asset.global_position
-		if selected_asset is SupportFacility:
-			radius = (selected_asset as SupportFacility).service_range()
+		if selected_asset.service_range() > 0.0:
+			radius = selected_asset.service_range()
 			range_material.albedo_color = SUPPORT_COLOR
 		else:
 			radius = selected_asset.c2_link_range()
@@ -152,18 +152,17 @@ func _support_relations() -> Array[Array]:
 	if support_manager == null:
 		return result
 	if placement_active:
-		if placement_definition is SupportFacilityDefinition:
-			var service_range := (placement_definition as SupportFacilityDefinition).service_range
+		var service_range := placement_definition.placement_support_range()
+		if service_range > 0.0:
 			for unit: DefenseUnit in support_manager.serviceable_units_from(placement_position, service_range):
 				result.append([placement_position, unit.global_position])
 		else:
 			var provider := support_manager.service_facility_for_position(placement_position)
 			if provider != null:
 				result.append([placement_position, provider.global_position])
-	elif selected_asset is SupportFacility:
-		var facility := selected_asset as SupportFacility
-		for unit: DefenseUnit in support_manager.serviceable_units_from(facility.global_position, facility.service_range(), facility):
-			result.append([facility.global_position, unit.global_position])
+	elif selected_asset != null and selected_asset.service_range() > 0.0:
+		for unit: DefenseUnit in support_manager.serviceable_units_from(selected_asset.global_position, selected_asset.service_range(), selected_asset):
+			result.append([selected_asset.global_position, unit.global_position])
 	elif selected_asset != null:
 		var provider := support_manager.service_facility_for(selected_asset)
 		if provider != null and provider != selected_asset:

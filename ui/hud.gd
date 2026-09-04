@@ -292,18 +292,17 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int, support_connec
 	focus_button.visible = unit != null or selected_track != null
 	if unit != null:
 		_refresh_selected_asset_label()
-		var supports_doctrine := unit.has_method("set_hold_fire")
+		var supports_doctrine := unit.supports_engagement_controls()
 		hold_fire_button.visible = supports_doctrine
 		engage_unknown_button.visible = supports_doctrine
 		priority_target_button.visible = supports_doctrine
-		munition_mode_button.visible = unit is MissileBattery and (unit.definition as MissileBatteryDefinition).munitions.size() > 1
-		resupply_button.visible = unit is ArmedDefenseUnit and (unit as ArmedDefenseUnit).uses_ammunition()
+		munition_mode_button.visible = unit.supports_munition_selection()
+		resupply_button.visible = unit.uses_ammunition()
 		repair_button.visible = true
 		relocation_button.visible = unit.definition.mobile
 		if supports_doctrine:
-			var doctrine: Variant = unit.get("doctrine")
-			hold_fire_button.set_pressed_no_signal(bool(doctrine.get("hold_fire")))
-			engage_unknown_button.set_pressed_no_signal(bool(doctrine.get("engage_unknown")))
+			hold_fire_button.set_pressed_no_signal(unit.engagement_hold_fire())
+			engage_unknown_button.set_pressed_no_signal(unit.engagement_engages_unknown())
 			priority_target_button.disabled = true
 	elif selected_track == null:
 		selected_asset_label.text = "선택 자산 없음"
@@ -319,18 +318,18 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int, support_connec
 func _refresh_selected_asset_label() -> void:
 	var resource_status := selected_asset.resource_status_text()
 	selected_asset_label.text = selected_asset.definition.display_name
-	if selected_asset is SupportFacility:
+	if selected_asset.service_range() > 0.0:
 		selected_asset_label.text += "\n지원 가능 자산  %d" % selected_asset_support_connection_count
 	else:
 		selected_asset_label.text += "\nC2 직접 연결  %d" % selected_asset_connection_count
 		selected_asset_label.text += "\n지역 지원  %s" % ("연결됨" if selected_asset_support_connection_count > 0 else "범위 밖")
 	if not resource_status.is_empty():
 		selected_asset_label.text += "\n%s" % resource_status
-	if selected_asset is ArmedDefenseUnit:
-		resupply_button.text = "재보급 요청  $%d" % (selected_asset as ArmedDefenseUnit).resupply_cost()
-	if selected_asset is MissileBattery:
-		munition_mode_button.text = "탄종  %s" % (selected_asset as MissileBattery).munition_mode_text()
-	resupply_button.disabled = not selected_asset is ArmedDefenseUnit or not (selected_asset as ArmedDefenseUnit).uses_ammunition() or not (selected_asset as ArmedDefenseUnit).can_request_resupply()
+	if selected_asset.uses_ammunition():
+		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost()
+	if selected_asset.supports_munition_selection():
+		munition_mode_button.text = "탄종  %s" % selected_asset.munition_mode_text()
+	resupply_button.disabled = not selected_asset.uses_ammunition() or not selected_asset.can_request_resupply()
 	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost()
 	repair_button.disabled = not selected_asset.can_request_repair()
 	relocation_button.text = "재배치 위치 지정" if selected_asset.can_request_relocation() else "재배치 중"
@@ -546,13 +545,7 @@ func _apply_menu_row_style(button: Button) -> void:
 	button.add_theme_stylebox_override("disabled", menu_row_disabled)
 
 func _catalog_group_for(definition: DefenseDefinition) -> StringName:
-	if definition is SearchRadarDefinition:
-		return &"sensor"
-	if definition is CommandPostDefinition or definition is SupportFacilityDefinition:
-		return &"network"
-	if definition is MissileBatteryDefinition:
-		return &"missile"
-	return &"special"
+	return definition.catalog_group()
 
 func _on_defense_pressed(definition: DefenseDefinition) -> void:
 	set_catalog_expanded(false)

@@ -207,7 +207,7 @@ func _create_preview() -> void:
 	preview.add_child(base)
 	range_disc = MeshInstance3D.new()
 	var disc := TorusMesh.new()
-	var displayed_range := (selected as SupportFacilityDefinition).service_range if selected is SupportFacilityDefinition else selected.preview_range
+	var displayed_range := selected.placement_support_range() if selected.placement_support_range() > 0.0 else selected.preview_range
 	disc.inner_radius = displayed_range - 2.5
 	disc.outer_radius = displayed_range
 	disc.rings = 96

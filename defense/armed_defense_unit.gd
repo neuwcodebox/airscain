@@ -24,6 +24,15 @@ func configure_support(manager: SupportManager) -> void:
 func c2_roles() -> int:
 	return C2Role.DEFENSE
 
+func supports_engagement_controls() -> bool:
+	return true
+
+func engagement_hold_fire() -> bool:
+	return doctrine.hold_fire
+
+func engagement_engages_unknown() -> bool:
+	return doctrine.engage_unknown
+
 func set_hold_fire(enabled: bool) -> void:
 	doctrine.hold_fire = enabled
 
@@ -72,6 +81,9 @@ func ammunition_reserve_ratio() -> float:
 
 func combat_resource_low() -> bool:
 	return uses_ammunition() and ammunition_reserve_ratio() <= 0.2
+
+func combat_resource_depleted() -> bool:
+	return uses_ammunition() and magazine.is_depleted()
 
 func critical_status_text() -> String:
 	var operational_status := super.critical_status_text()

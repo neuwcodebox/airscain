@@ -56,14 +56,14 @@ func _rebuild() -> void:
 			continue
 		match mode:
 			MODE_SENSOR:
-				if unit is SearchRadar:
-					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.preview_range * unit.operational_efficiency(), Color(0.18, 0.82, 1.0, 0.72), 96, 0)
+				if unit.definition.tactical_overlay_mode() == MODE_SENSOR:
+					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), Color(0.18, 0.82, 1.0, 0.72), 96, 0)
 			MODE_WEAPON:
-				if unit is ArmedDefenseUnit:
-					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.preview_range * unit.operational_efficiency(), Color(1.0, 0.48, 0.18, 0.72), 96, 2)
+				if unit.definition.tactical_overlay_mode() == MODE_WEAPON:
+					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), Color(1.0, 0.48, 0.18, 0.72), 96, 2)
 			MODE_SUPPORT:
-				if unit is SupportFacility:
-					vertex_count += _add_ring(mesh, unit.global_position, (unit as SupportFacility).service_range(), Color(0.36, 1.0, 0.54, 0.86), 96, 0)
+				if unit.definition.tactical_overlay_mode() == MODE_SUPPORT:
+					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range(), Color(0.36, 1.0, 0.54, 0.86), 96, 0)
 			MODE_ELECTRONIC:
 				var interference := registry.jamming_at(unit.global_position) if registry != null else 0.0
 				if interference > 0.02:

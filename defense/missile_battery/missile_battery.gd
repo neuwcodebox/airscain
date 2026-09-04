@@ -141,6 +141,9 @@ func cycle_munition_mode() -> void:
 	var index := modes.find(munition_mode)
 	munition_mode = modes[(index + 1) % modes.size()]
 
+func supports_munition_selection() -> bool:
+	return _definition != null and _definition.munitions.size() > 1
+
 func munition_mode_text() -> String:
 	if munition_mode == &"auto":
 		return "자동"

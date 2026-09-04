@@ -72,6 +72,73 @@ func c2_link_range() -> float:
 func power_demand() -> float:
 	return 0.0
 
+func power_capacity() -> float:
+	return 0.0
+
+func service_range() -> float:
+	return 0.0
+
+func support_capacity() -> float:
+	return 0.0
+
+func support_slots() -> int:
+	return 0
+
+func supports_position(position: Vector3) -> bool:
+	var offset := Vector2(position.x - global_position.x, position.z - global_position.z)
+	return active and support_capacity() > 0.0 and offset.length() <= service_range()
+
+func supports_engagement_controls() -> bool:
+	return false
+
+func engagement_hold_fire() -> bool:
+	return false
+
+func engagement_engages_unknown() -> bool:
+	return false
+
+func set_hold_fire(_enabled: bool) -> void:
+	pass
+
+func set_engage_unknown(_enabled: bool) -> void:
+	pass
+
+func set_priority_track(_track_id: int) -> void:
+	pass
+
+func supports_munition_selection() -> bool:
+	return false
+
+func cycle_munition_mode() -> void:
+	pass
+
+func munition_mode_text() -> String:
+	return ""
+
+func uses_ammunition() -> bool:
+	return false
+
+func resupply_work() -> float:
+	return 0.0
+
+func resupply_cost() -> int:
+	return 0
+
+func ammunition_needs_resupply() -> bool:
+	return false
+
+func can_request_resupply() -> bool:
+	return uses_ammunition() and support_manager != null and ammunition_needs_resupply() and support_manager.task_status(self).is_empty() and support_manager.can_service(self)
+
+func request_resupply() -> bool:
+	return support_manager != null and support_manager.request_resupply(self)
+
+func complete_resupply() -> void:
+	pass
+
+func combat_resource_depleted() -> bool:
+	return false
+
 func local_sensor_ids() -> Array[int]:
 	return []
 

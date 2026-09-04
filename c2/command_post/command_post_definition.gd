@@ -9,6 +9,9 @@ func placement_c2_roles() -> int:
 func placement_c2_range() -> float:
 	return link_range
 
+func catalog_group() -> StringName:
+	return &"network"
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

@@ -84,10 +84,4 @@ func _record_asset(asset: DefenseUnit, source: String, confidence: float, uncert
 		reports.pop_front()
 
 func _role_for(asset: DefenseUnit) -> StringName:
-	if asset is SupportFacility:
-		return &"support"
-	if (asset.c2_roles() & DefenseUnit.C2Role.SENSOR) != 0:
-		return &"sensor"
-	if (asset.c2_roles() & DefenseUnit.C2Role.COMMAND) != 0:
-		return &"command"
-	return &"weapon"
+	return asset.definition.enemy_knowledge_role()

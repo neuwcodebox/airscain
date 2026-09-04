@@ -9,6 +9,21 @@ extends DefenseDefinition
 func placement_power_capacity() -> float:
 	return power_capacity
 
+func catalog_group() -> StringName:
+	return &"network"
+
+func tactical_overlay_mode() -> StringName:
+	return &"support"
+
+func tactical_range() -> float:
+	return service_range
+
+func placement_support_range() -> float:
+	return service_range
+
+func enemy_knowledge_role() -> StringName:
+	return &"support"
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

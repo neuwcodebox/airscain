@@ -35,3 +35,23 @@ func placement_power_demand() -> float:
 
 func placement_power_capacity() -> float:
 	return 0.0
+
+func catalog_group() -> StringName:
+	return &"special"
+
+func tactical_overlay_mode() -> StringName:
+	return &"none"
+
+func tactical_range() -> float:
+	return preview_range
+
+func placement_support_range() -> float:
+	return 0.0
+
+func enemy_knowledge_role() -> StringName:
+	var roles := placement_c2_roles()
+	if (roles & DefenseUnit.C2Role.SENSOR) != 0:
+		return &"sensor"
+	if (roles & DefenseUnit.C2Role.COMMAND) != 0:
+		return &"command"
+	return &"weapon"

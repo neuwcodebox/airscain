@@ -1,7 +1,7 @@
 class_name PowerManager
 extends Node
 
-var facilities: Array[SupportFacility] = []
+var facilities: Array[DefenseUnit] = []
 var consumers: Array[DefenseUnit] = []
 var available_power: float = 0.0
 
@@ -11,8 +11,8 @@ func reset() -> void:
 	available_power = 0.0
 
 func register_asset(unit: DefenseUnit) -> void:
-	if unit is SupportFacility:
-		facilities.append(unit as SupportFacility)
+	if unit.power_capacity() > 0.0:
+		facilities.append(unit)
 	if unit.power_demand() > 0.0 and not consumers.has(unit):
 		consumers.append(unit)
 
@@ -28,7 +28,7 @@ func request_power(demand: float) -> float:
 
 func generation_capacity() -> float:
 	var result := 0.0
-	for facility: SupportFacility in facilities:
+	for facility: DefenseUnit in facilities:
 		if is_instance_valid(facility):
 			result += facility.power_capacity()
 	return result

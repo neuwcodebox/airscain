@@ -403,7 +403,7 @@ func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.IN
 
 func _refresh_selected_track_panel() -> void:
 	var details := track_display.selection_details()
-	hud.set_selected_track(selected_track, selected_asset != null and selected_asset.has_method("set_priority_track"), int(details.sensor_count), int(details.engagement_count))
+	hud.set_selected_track(selected_track, selected_asset != null and selected_asset.supports_engagement_controls(), int(details.sensor_count), int(details.engagement_count))
 
 func _refresh_tactical_ui() -> void:
 	var hostile_count := 0
@@ -421,7 +421,7 @@ func _refresh_tactical_ui() -> void:
 			continue
 		if not defense.active:
 			disabled_count += 1
-		if defense is ArmedDefenseUnit and (defense as ArmedDefenseUnit).uses_ammunition() and (defense as ArmedDefenseUnit).magazine.is_depleted():
+		if defense.combat_resource_depleted():
 			depleted_count += 1
 	if depleted_count > 0:
 		warnings.append("탄약 고갈 %d" % depleted_count)
@@ -452,28 +452,28 @@ func _on_focus_requested() -> void:
 		camera_rig.focus_on(selected_asset.global_position)
 
 func _on_hold_fire_requested(enabled: bool) -> void:
-	if selected_asset != null and selected_asset.has_method("set_hold_fire"):
-		selected_asset.call("set_hold_fire", enabled)
+	if selected_asset != null and selected_asset.supports_engagement_controls():
+		selected_asset.set_hold_fire(enabled)
 		if game_mode == GameMode.TRAINING and training_step == TrainingStep.DOCTRINE and not enabled:
 			session.set_simulation_speed(1.0)
 			_set_training_step(TrainingStep.ENGAGE)
 
 func _on_engage_unknown_requested(enabled: bool) -> void:
-	if selected_asset != null and selected_asset.has_method("set_engage_unknown"):
-		selected_asset.call("set_engage_unknown", enabled)
+	if selected_asset != null and selected_asset.supports_engagement_controls():
+		selected_asset.set_engage_unknown(enabled)
 
 func _on_priority_target_requested() -> void:
-	if selected_asset != null and selected_track != null and selected_asset.has_method("set_priority_track"):
-		selected_asset.call("set_priority_track", selected_track.track_id)
+	if selected_asset != null and selected_track != null and selected_asset.supports_engagement_controls():
+		selected_asset.set_priority_track(selected_track.track_id)
 		hud.set_feedback("항적을 우선표적으로 지정했습니다")
 
 func _on_munition_mode_requested() -> void:
-	if selected_asset is MissileBattery:
-		(selected_asset as MissileBattery).cycle_munition_mode()
+	if selected_asset != null and selected_asset.supports_munition_selection():
+		selected_asset.cycle_munition_mode()
 		hud.set_feedback("탄종 운용 모드를 변경했습니다")
 
 func _on_resupply_requested() -> void:
-	var requested := selected_asset is ArmedDefenseUnit and (selected_asset as ArmedDefenseUnit).request_resupply()
+	var requested := selected_asset != null and selected_asset.request_resupply()
 	if requested:
 		hud.set_feedback("재보급 작업을 요청했습니다")
 		if game_mode == GameMode.TRAINING and training_step == TrainingStep.RESUPPLY:

@@ -1,7 +1,7 @@
 class_name SupportManager
 extends Node
 
-var facilities: Array[SupportFacility] = []
+var facilities: Array[DefenseUnit] = []
 const RESUPPLY := "resupply"
 const REPAIR := "repair"
 
@@ -19,10 +19,10 @@ func reset() -> void:
 
 func register_asset(unit: DefenseUnit) -> void:
 	consumers[unit.runtime_id] = unit
-	if unit is SupportFacility:
-		facilities.append(unit as SupportFacility)
+	if unit.service_range() > 0.0 and unit.support_slots() > 0:
+		facilities.append(unit)
 
-func request_resupply(unit: ArmedDefenseUnit) -> bool:
+func request_resupply(unit: DefenseUnit) -> bool:
 	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or not unit.ammunition_needs_resupply() or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false
 	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
@@ -49,7 +49,7 @@ func gameplay_tick(delta: float) -> void:
 			assignments[facility.runtime_id] = []
 		(assignments[facility.runtime_id] as Array).append(index)
 	var completed_indices: Array[int] = []
-	for facility: SupportFacility in facilities:
+	for facility: DefenseUnit in facilities:
 		if not is_instance_valid(facility) or not assignments.has(facility.runtime_id):
 			continue
 		var assigned_indices: Array = assignments[facility.runtime_id]
@@ -69,15 +69,15 @@ func gameplay_tick(delta: float) -> void:
 	for task_index: int in completed_indices:
 		_complete_task(task_index)
 
-func service_facility_for(unit: DefenseUnit) -> SupportFacility:
+func service_facility_for(unit: DefenseUnit) -> DefenseUnit:
 	if unit == null or not is_instance_valid(unit):
 		return null
 	return service_facility_for_position(unit.global_position)
 
-func service_facility_for_position(position: Vector3) -> SupportFacility:
-	var nearest: SupportFacility
+func service_facility_for_position(position: Vector3) -> DefenseUnit:
+	var nearest: DefenseUnit
 	var nearest_distance := INF
-	for facility: SupportFacility in facilities:
+	for facility: DefenseUnit in facilities:
 		if not is_instance_valid(facility) or not facility.supports_position(position):
 			continue
 		var offset := Vector2(position.x - facility.global_position.x, position.z - facility.global_position.z)
@@ -110,8 +110,8 @@ func _complete_task(index: int) -> void:
 	var task: Dictionary = tasks[index]
 	var target := _task_target(index)
 	if target != null:
-		if String(task.kind) == RESUPPLY and target is ArmedDefenseUnit:
-			(target as ArmedDefenseUnit).complete_resupply()
+		if String(task.kind) == RESUPPLY and target.uses_ammunition():
+			target.complete_resupply()
 		elif String(task.kind) == REPAIR and target.integrity > 0.0:
 			target.complete_repair()
 	tasks.remove_at(index)
