@@ -111,16 +111,16 @@ func _apply_visual_color() -> void:
 
 func _sample_exhaust(from_position: Vector3, to_position: Vector3) -> void:
 	for child: Node in body.get_children():
-		if child is GPUParticles3D and child.has_method("sample_world_segment"):
-			child.call("sample_world_segment", from_position, to_position)
+		if child is LingeringSmokeTrail:
+			(child as LingeringSmokeTrail).sample_world_segment(from_position, to_position)
 
 func _release_exhaust_trail() -> void:
 	var parent := get_parent()
 	if parent == null:
 		return
 	for child: Node in body.get_children():
-		if child is GPUParticles3D and child.has_method("release_to"):
-			child.call("release_to", parent)
+		if child is LingeringSmokeTrail:
+			(child as LingeringSmokeTrail).release_to(parent)
 
 func _spawn_strike_munition(strike_target: Vector3) -> void:
 	var parent := get_parent()

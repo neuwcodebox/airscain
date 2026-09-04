@@ -100,9 +100,9 @@ func gameplay_tick(delta: float) -> void:
 	if _resolve_terrain_impact(previous):
 		return
 	look_at(global_position + velocity, Vector3.UP)
-	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 	if smoke != null:
-		smoke.call("sample_world_segment", previous, global_position)
+		smoke.sample_world_segment(previous, global_position)
 	if not countermeasure_attempted:
 		var countermeasure_target := _countermeasure_target()
 		if countermeasure_target != null and global_position.distance_to(countermeasure_target.get_aim_position()) <= 120.0:
@@ -152,9 +152,9 @@ func _advance_unguided(delta: float) -> bool:
 		return true
 	if velocity.length_squared() > 0.001:
 		look_at(global_position + velocity, Vector3.UP)
-	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 	if smoke != null:
-		smoke.call("sample_world_segment", previous, global_position)
+		smoke.sample_world_segment(previous, global_position)
 	return _resolve_proximity_intercept(previous)
 
 func _resolve_terrain_impact(previous: Vector3) -> bool:
@@ -164,9 +164,9 @@ func _resolve_terrain_impact(previous: Vector3) -> bool:
 	if impact.is_empty():
 		return false
 	global_position = impact.position
-	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 	if smoke != null:
-		smoke.call("sample_world_segment", previous, global_position)
+		smoke.sample_world_segment(previous, global_position)
 	_expire(Color(0.62, 0.68, 0.7), "지형 충돌")
 	return true
 
@@ -229,10 +229,10 @@ func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName) -
 	burst.call("setup", countermeasure_type)
 
 func _release_smoke_trail() -> void:
-	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
+	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 	var parent := get_parent()
 	if smoke != null:
-		smoke.call("release_to", parent)
+		smoke.release_to(parent)
 
 func _countermeasure_target() -> ThreatUnit:
 	var selected: ThreatUnit

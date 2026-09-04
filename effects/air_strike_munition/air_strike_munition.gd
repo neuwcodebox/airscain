@@ -48,16 +48,16 @@ func _orient_to_target() -> void:
 	look_at(target_position, up_direction)
 
 func _sample_trail(from_position: Vector3, to_position: Vector3) -> void:
-	var smoke := $SmokeTrail as GPUParticles3D
-	smoke.call("sample_world_segment", from_position, to_position)
+	var smoke := $SmokeTrail as LingeringSmokeTrail
+	smoke.sample_world_segment(from_position, to_position)
 
 func _impact() -> void:
 	if objective != null and is_instance_valid(objective):
 		objective.apply_surface_impact(damage, target_position)
 	var parent := get_parent()
 	if parent != null:
-		var smoke := $SmokeTrail as GPUParticles3D
-		smoke.call("release_to", parent)
+		var smoke := $SmokeTrail as LingeringSmokeTrail
+		smoke.release_to(parent)
 		var explosion := EXPLOSION_SCENE.instantiate() as ExplosionEffect
 		parent.add_child(explosion)
 		explosion.global_position = target_position

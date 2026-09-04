@@ -132,6 +132,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK broad_launch_sector curved_missile_departure")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-smoke-only"):
+		await _capture_missile_smoke_trail()
+		print("VISUAL_CAPTURE_OK missile_smoke_timed_fade")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-building-impact-only"):
 		await _capture_building_impact_smoke()
 		print("VISUAL_CAPTURE_OK building_swept_impact exact_impact_smoke")
@@ -244,10 +249,6 @@ func run() -> void:
 		quit(0)
 		return
 	await _capture_missile_smoke_trail()
-	if OS.get_cmdline_user_args().has("--capture-smoke-only"):
-		print("VISUAL_CAPTURE_OK catalog_wheel missile_smoke_timed_fade")
-		quit(0)
-		return
 	var city_camera_position := main.camera_rig.global_position
 	var city_camera_zoom := main.camera_rig.zoom_distance
 	_apply_city_building_impacts(35, 2)
@@ -1315,7 +1316,24 @@ func _capture_missile_rack_salvo() -> void:
 	track.affiliation_confidence = 1.0
 	track.estimated_position = target_position
 	var munition := definition.munitions[0]
-	for launch_index: int in munition.magazine_capacity:
+	battery._launch_salvo(track, munition, 2)
+	if battery.interceptors.size() != 1:
+		push_error("Missile salvo launched multiple rounds in the same frame")
+		quit(1)
+		return
+	battery._tick_pending_salvo(definition.salvo_interval * 0.5)
+	if battery.interceptors.size() != 1:
+		push_error("Missile salvo ignored its configured launch interval")
+		quit(1)
+		return
+	battery._tick_pending_salvo(definition.salvo_interval * 0.5 + 0.001)
+	if battery.interceptors.size() != 2:
+		push_error("Missile salvo did not launch its queued second round")
+		quit(1)
+		return
+	for interceptor: HomingInterceptor in battery.interceptors:
+		interceptor.gameplay_tick(definition.salvo_interval)
+	for launch_index: int in munition.magazine_capacity - 2:
 		battery._launch_salvo(track, munition, 1)
 		for frame_index: int in 4:
 			for interceptor: HomingInterceptor in battery.interceptors:
@@ -1771,7 +1789,7 @@ func _capture_missile_smoke_trail() -> void:
 	main.altitude_profile.visible = false
 	await _wait_seconds(0.35)
 	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
-	var smoke_bounds := smoke.capture_aabb()
+	var smoke_bounds := smoke.smoke_bounds()
 	_save_capture("/tmp/airscain_missile_smoke_trail.png")
 	if smoke_bounds.size.length() < 25.0:
 		push_error("Missile smoke trail did not produce a visible particle footprint")
@@ -1781,7 +1799,7 @@ func _capture_missile_smoke_trail() -> void:
 	interceptor.queue_free()
 	var fade_quarter := smoke.release_fade_duration * 0.25
 	await _wait_seconds(fade_quarter)
-	var aged_smoke_bounds := smoke.capture_aabb()
+	var aged_smoke_bounds := smoke.smoke_bounds()
 	_save_capture("/tmp/airscain_missile_smoke_aged.png")
 	if maxf(aged_smoke_bounds.size.y, aged_smoke_bounds.size.z) < 4.0:
 		push_error("Missile smoke trail did not develop a visible turbulent cross-section")
@@ -1817,7 +1835,7 @@ func _capture_missile_smoke_trail() -> void:
 	lost_track.estimated_position = midpoint
 	self_destruct.global_position = midpoint + Vector3(0.0, 15.0, 0.0)
 	self_destruct.configure(lost_track, ThreatRegistry.new(), battery_definition.munitions[0], Vector3.FORWARD, 9902)
-	self_destruct.gameplay_tick(0.05)
+	self_destruct.gameplay_tick(HomingInterceptor.REACQUISITION_GRACE_DURATION + 0.05)
 	for index: int in 3:
 		await process_frame
 	var detonation := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect

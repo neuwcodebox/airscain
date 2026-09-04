@@ -1,7 +1,8 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource path="res://enemy/attack_uav/attack_uav.gd" type="Script" id="1"]
 [ext_resource path="res://effects/lingering_smoke_trail.gd" type="Script" id="2"]
+[ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="3"]
 
 [sub_resource type="StandardMaterial3D" id="MissileMaterial"]
 albedo_color = Color(0.45, 0.46, 0.4, 1)
@@ -41,47 +42,19 @@ height = 2.4
 radial_segments = 8
 rings = 4
 
-[sub_resource type="Gradient" id="ExhaustGradient"]
-offsets = PackedFloat32Array(0, 0.08, 0.45, 0.68, 0.88, 1)
-colors = PackedColorArray(0.24, 0.26, 0.27, 0, 0.22, 0.24, 0.25, 0.62, 0.2, 0.22, 0.23, 0.48, 0.19, 0.21, 0.22, 0.2, 0.18, 0.2, 0.2, 0, 0.18, 0.2, 0.2, 0)
-
-[sub_resource type="GradientTexture1D" id="ExhaustGradientTexture"]
-gradient = SubResource("ExhaustGradient")
-
-[sub_resource type="ParticleProcessMaterial" id="ExhaustProcess"]
-direction = Vector3(0, 0, 1)
-spread = 12.0
-gravity = Vector3(0.04, 0.02, 0.012)
-initial_velocity_min = 0.1
-initial_velocity_max = 0.7
-damping_min = 0.07
-damping_max = 0.15
-scale_min = 0.65
-scale_max = 2.4
-color_ramp = SubResource("ExhaustGradientTexture")
-lifetime_randomness = 0.0
-turbulence_enabled = true
-turbulence_noise_strength = 2.0
-turbulence_noise_scale = 2.4
-turbulence_noise_speed = Vector3(0.032, 0.01, 0.02)
-turbulence_noise_speed_random = 0.3
-turbulence_influence_min = 0.16
-turbulence_influence_max = 0.3
-turbulence_initial_displacement_min = 0.12
-turbulence_initial_displacement_max = 0.45
-
 [sub_resource type="StandardMaterial3D" id="ExhaustMaterial"]
 transparency = 4
 shading_mode = 1
 albedo_color = Color(0.18, 0.2, 0.2, 0.52)
 roughness = 1.0
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("3")
+billboard_mode = 1
+billboard_keep_scale = true
 
-[sub_resource type="SphereMesh" id="ExhaustMesh"]
+[sub_resource type="QuadMesh" id="ExhaustMesh"]
 material = SubResource("ExhaustMaterial")
-radius = 0.45
-height = 0.9
-radial_segments = 6
-rings = 3
+size = Vector2(3, 3)
 
 [node name="CruiseMissile" type="Node3D"]
 script = ExtResource("1")
@@ -122,17 +95,16 @@ light_color = Color(1, 0.3, 0.06, 1)
 light_energy = 12.0
 omni_range = 24.0
 
-[node name="ExhaustTrail" type="GPUParticles3D" parent="Body"]
+[node name="ExhaustTrail" type="MultiMeshInstance3D" parent="Body"]
 position = Vector3(0, 0, 6.2)
-emitting = true
-amount = 1560
-lifetime = 18.0
-visibility_aabb = AABB(-160, -80, -160, 320, 240, 320)
-local_coords = false
-cast_shadow = 1
-process_material = SubResource("ExhaustProcess")
-draw_pass_1 = SubResource("ExhaustMesh")
 script = ExtResource("2")
+puff_mesh = SubResource("ExhaustMesh")
+amount = 1100
+lifetime = 18.0
+shadow_emission_stride = 2
+initial_scale = 0.65
+final_scale = 2.4
+drift_speed = 0.16
 sample_spacing = 2.0
-particles_per_sample = 2
-sample_radius = 0.4
+particles_per_sample = 1
+sample_radius = 0.2

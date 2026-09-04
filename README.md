@@ -73,7 +73,7 @@ godot --path .
 
 ## 개발과 검증
 
-프로젝트는 Godot 4.7.2, 네이티브용 Mobile 렌더러, 웹용 Compatibility 렌더러와 typed GDScript를 사용합니다. GUT 테스트 도구는 저장소에 포함되어 있습니다.
+프로젝트는 Godot 4.7.2와 typed GDScript를 사용하며, 네이티브와 웹 모두 같은 Compatibility 렌더러 설정으로 실행됩니다. GUT 테스트 도구는 저장소에 포함되어 있습니다.
 
 ```bash
 godot --headless --audio-driver Dummy --path . \

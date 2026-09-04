@@ -322,10 +322,6 @@ func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 
 func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_casters() -> void:
 	var smoke_cases: Array[Dictionary] = [
-		{"scene": preload("res://defense/missile_battery/homing_interceptor.tscn"), "paths": ["SmokeTrail"]},
-		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "paths": ["Body/ExhaustTrail"]},
-		{"scene": preload("res://enemy/strike_aircraft/strike_aircraft.tscn"), "paths": ["Body/LeftExhaustTrail", "Body/RightExhaustTrail"]},
-		{"scene": preload("res://effects/air_strike_munition/air_strike_munition.tscn"), "paths": ["SmokeTrail"]},
 		{"scene": preload("res://effects/damage_smoke/damage_smoke.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/explosion/explosion.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/interceptor_miss/interceptor_miss.tscn"), "paths": ["Smoke"]},
@@ -351,6 +347,30 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 			assert_true(shadow_material.shader.code.contains("VERTEX *= sqrt"), "%s shadow fade must contract the solid particle silhouette" % path)
 			if mesh is QuadMesh:
 				assert_true(shadow_mesh is SphereMesh, "%s billboard shadow must use round geometry without card corners" % path)
+
+func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> void:
+	var trail_cases: Array[Dictionary] = [
+		{"scene": preload("res://defense/missile_battery/homing_interceptor.tscn"), "paths": ["SmokeTrail"]},
+		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "paths": ["Body/ExhaustTrail"]},
+		{"scene": preload("res://enemy/strike_aircraft/strike_aircraft.tscn"), "paths": ["Body/LeftExhaustTrail", "Body/RightExhaustTrail"]},
+		{"scene": preload("res://effects/air_strike_munition/air_strike_munition.tscn"), "paths": ["SmokeTrail"]},
+	]
+	for trail_case: Dictionary in trail_cases:
+		var effect: Node = add_child_autofree((trail_case.scene as PackedScene).instantiate())
+		for path: String in trail_case.paths:
+			var trail := effect.get_node(path) as LingeringSmokeTrail
+			assert_not_null(trail.multimesh, "%s must build a Compatibility-safe multimesh" % path)
+			assert_true(trail.multimesh.mesh is QuadMesh, "%s visible puffs must be soft cards" % path)
+			var material := (trail.multimesh.mesh as QuadMesh).material as StandardMaterial3D
+			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS)
+			assert_eq(material.billboard_mode, BaseMaterial3D.BILLBOARD_ENABLED)
+			assert_true(material.vertex_color_use_as_albedo)
+			assert_not_null(material.albedo_texture)
+			assert_eq(trail.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+			var shadow := trail.get_node("SmokeShadow") as MultiMeshInstance3D
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+			assert_true(shadow.multimesh.mesh is SphereMesh)
+			assert_eq(shadow.multimesh.instance_count, ceili(float(trail.amount) / float(trail.shadow_emission_stride)))
 
 func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
@@ -521,6 +541,9 @@ func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> v
 	assert_eq(medium.fire_interval, 2.8)
 	assert_eq(short_range.fire_interval, 2.0)
 	assert_eq(long_range.fire_interval, 3.5)
+	assert_eq(medium.salvo_interval, 0.28)
+	assert_eq(short_range.salvo_interval, 0.2)
+	assert_eq(long_range.salvo_interval, 0.35)
 	assert_gt(long_range.maximum_engagement_altitude, medium.maximum_engagement_altitude)
 	assert_gt(medium.maximum_engagement_altitude, short_range.maximum_engagement_altitude)
 	assert_gt(long_range.minimum_engagement_altitude, short_range.minimum_engagement_altitude)

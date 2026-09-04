@@ -1057,16 +1057,14 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_gt(agl, 5.0)
 	assert_lt(agl, 45.0)
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
-	var exhaust := threat.get_node("Body/ExhaustTrail") as GPUParticles3D
+	var exhaust := threat.get_node("Body/ExhaustTrail") as LingeringSmokeTrail
 	assert_true(exhaust.emitting)
 	assert_gt(int(exhaust.get("emitted_sample_count")), 20)
 	assert_gte(exhaust.lifetime, 9.0)
 	assert_gte(exhaust.amount, 700)
-	assert_lt((exhaust.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
-	assert_lte((exhaust.process_material as ParticleProcessMaterial).initial_velocity_max, 0.8)
-	assert_true((exhaust.process_material as ParticleProcessMaterial).turbulence_enabled)
-	assert_eq((exhaust.process_material as ParticleProcessMaterial).lifetime_randomness, 0.0)
-	assert_not_null((exhaust.process_material as ParticleProcessMaterial).color_ramp)
+	assert_gt(exhaust.drift_speed, 0.0)
+	assert_gt(exhaust.final_scale, exhaust.initial_scale)
+	assert_true(exhaust.puff_mesh.material is StandardMaterial3D)
 	assert_gte((threat.get_node("Body/EngineLight") as OmniLight3D).light_energy, 8.0)
 	var integrity_before := main.objective.current_integrity
 	var impact_target := threat.mission_runtime.fixed_target
@@ -1133,7 +1131,7 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	var munition := main.threat_parent.get_node_or_null("StrikeMunition") as Node3D
 	assert_not_null(munition)
 	assert_gte((munition.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
-	assert_eq(threat.get_node("Body").find_children("*ExhaustTrail", "GPUParticles3D").size(), 2)
+	assert_eq(threat.get_node("Body").find_children("*ExhaustTrail", "MultiMeshInstance3D").size(), 2)
 	assert_gte((threat.get_node("Body/LeftEngineLight") as OmniLight3D).light_energy, 9.0)
 	munition.call("_process", 1.0)
 	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
@@ -1449,7 +1447,7 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	assert_not_null(self_destruct)
 	assert_eq(self_destruct.effect_radius, 7.0)
 	assert_true((self_destruct.get_node("Sparks") as GPUParticles3D).emitting)
-	var lingering_trail := main.projectile_parent.get_node_or_null("SmokeTrail") as GPUParticles3D
+	var lingering_trail := main.projectile_parent.get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 	assert_not_null(lingering_trail)
 	assert_false(lingering_trail.emitting)
 	assert_gte(lingering_trail.lifetime, 24.0)
@@ -1459,22 +1457,25 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(interceptor)
-	var smoke := interceptor.get_node("SmokeTrail") as GPUParticles3D
-	smoke.call("sample_world_segment", Vector3.ZERO, Vector3(0.0, 0.0, 26.0))
-	assert_gte(int(smoke.get("emitted_sample_count")), 28)
+	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
+	smoke.sample_world_segment(Vector3.ZERO, Vector3(0.0, 0.0, 26.0))
+	assert_gte(int(smoke.get("emitted_sample_count")), 26)
 	assert_gt((smoke.get("last_emitted_world_position") as Vector3).z, 24.0)
 	assert_true(smoke.emitting)
 	assert_gte(smoke.lifetime, 24.0)
-	assert_gte(smoke.amount, 1900)
-	assert_lt((smoke.process_material as ParticleProcessMaterial).gravity.length(), 0.3)
-	assert_lte((smoke.process_material as ParticleProcessMaterial).initial_velocity_max, 0.8)
-	assert_true((smoke.process_material as ParticleProcessMaterial).turbulence_enabled)
-	assert_between((smoke.process_material as ParticleProcessMaterial).lifetime_randomness, 0.1, 0.3)
-	var smoke_gradient := ((smoke.process_material as ParticleProcessMaterial).color_ramp as GradientTexture1D).gradient
-	assert_lt(smoke_gradient.sample(0.68).a, smoke_gradient.sample(0.45).a)
-	assert_eq(smoke_gradient.sample(0.88).a, 0.0)
-	assert_eq(smoke_gradient.sample(0.96).a, 0.0)
-	assert_gte(smoke.visibility_aabb.size.x, 292.0)
+	assert_gte(smoke.amount, 2200)
+	assert_true(smoke.puff_mesh is QuadMesh)
+	var smoke_material := smoke.smoke_material
+	assert_eq(smoke_material.billboard_mode, BaseMaterial3D.BILLBOARD_ENABLED)
+	assert_true(smoke_material.vertex_color_use_as_albedo)
+	assert_not_null(smoke_material.albedo_texture)
+	assert_lte(smoke.sample_spacing, smoke.puff_mesh.size.x)
+	var smoke_shadow := smoke.get_node("SmokeShadow") as MultiMeshInstance3D
+	assert_eq(smoke_shadow.multimesh.instance_count, ceili(float(smoke.amount) / 2.0))
+	assert_gt(smoke.drift_speed, 0.0)
+	assert_gt(smoke.final_scale, smoke.initial_scale)
+	assert_lt(smoke._puff_alpha(0.68), smoke._puff_alpha(0.45))
+	assert_eq(smoke._puff_alpha(0.88), 0.0)
 	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	interceptor.queue_free()
 
@@ -1485,13 +1486,15 @@ func test_released_smoke_trail_reaches_zero_opacity_before_cleanup() -> void:
 	var initial_alpha := smoke.smoke_material.albedo_color.a
 	smoke.release_to(main.effects_parent)
 	smoke._process(smoke.release_fade_duration * 0.5)
-	assert_between(smoke.smoke_material.albedo_color.a, 0.0, initial_alpha)
 	assert_between(smoke.current_shadow_opacity_ratio, 0.0, 1.0)
 	assert_almost_eq(smoke.current_opacity_ratio, 0.5, 0.001)
+	assert_almost_eq(smoke.smoke_material.albedo_color.a, initial_alpha * 0.5, 0.001)
+	assert_almost_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), 0.5, 0.001)
 	smoke._process(smoke.release_fade_duration * 0.5)
-	assert_eq(smoke.smoke_material.albedo_color.a, 0.0)
 	assert_eq(smoke.current_shadow_opacity_ratio, 0.0)
 	assert_eq(smoke.current_opacity_ratio, 0.0)
+	assert_eq(smoke.smoke_material.albedo_color.a, 0.0)
+	assert_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), 0.0)
 	assert_false(smoke.is_queued_for_deletion())
 	smoke._process(smoke.transparent_cleanup_delay + 0.01)
 	assert_true(smoke.is_queued_for_deletion())

@@ -518,10 +518,40 @@ func test_high_speed_interceptor_leads_moving_track_and_launches_configured_salv
 	var munition := battery.munition_for_track(ballistic)
 	var rounds_before := battery.magazines[munition.id].rounds
 	battery._launch_salvo(ballistic, munition, munition.salvo_size)
+	assert_eq(projectiles.get_child_count(), 1)
+	assert_eq(battery.interceptors.size(), 1)
+	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 1)
+	assert_eq(battery.pending_salvo_remaining_rounds, 1)
+	battery._tick_pending_salvo(definition.salvo_interval - 0.01)
+	assert_eq(projectiles.get_child_count(), 1)
+	battery._tick_pending_salvo(0.011)
 	assert_eq(projectiles.get_child_count(), 2)
 	assert_eq(battery.interceptors.size(), 2)
 	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 2)
 	assert_ne(battery.interceptors[0].global_position, battery.interceptors[1].global_position)
+	assert_eq(battery.pending_salvo_remaining_rounds, 0)
+
+func test_pending_missile_salvo_round_trips_through_content_state() -> void:
+	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(72, definition)
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	battery.configure_combat(ThreatRegistry.new(), projectiles)
+	var track := _confirmed_track(Vector3(500.0, 600.0, 0.0))
+	track.classification = &"ballistic_missile"
+	var munition := battery.munition_for_track(track)
+	battery._launch_salvo(track, munition, 2)
+	battery._tick_pending_salvo(0.1)
+	var state := battery.capture_content_state()
+	assert_eq(state.pending_salvo.remaining_rounds, 1)
+	assert_almost_eq(float(state.pending_salvo.delay_remaining), 0.25, 0.001)
+	assert_eq(definition.runtime_state_validation_error(state), "")
+	var restored := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	restored.setup(72, definition)
+	restored.restore_content_state(state)
+	assert_eq(restored.pending_salvo_track_id, track.track_id)
+	assert_eq(restored.pending_salvo_remaining_rounds, 1)
+	assert_almost_eq(restored.pending_salvo_delay_remaining, 0.25, 0.001)
 
 func test_doctrine_rejects_neutral_low_quality_and_hold_fire_tracks() -> void:
 	var doctrine := EngagementDoctrine.new()

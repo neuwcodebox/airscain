@@ -3,6 +3,7 @@ extends DefenseDefinition
 
 @export var attack_range: float = 300.0
 @export var fire_interval: float = 2.2
+@export var salvo_interval: float = 0.28
 @export var engagement_channels: int = 2
 @export var maximum_interceptors_per_track: int = 2
 @export var c2_range: float = 600.0
@@ -44,6 +45,16 @@ func runtime_state_validation_error(content_state: Dictionary) -> String:
 		var magazine_error := WeaponMagazine.validation_error(magazine_states.get(String(munition.id)))
 		if not magazine_error.is_empty():
 			return "%s: %s" % [munition.id, magazine_error]
+	var pending_salvo: Variant = content_state.get("pending_salvo", {})
+	if not pending_salvo is Dictionary:
+		return "연속 발사 상태가 올바르지 않습니다"
+	if not (pending_salvo as Dictionary).is_empty():
+		var pending_munition_id := StringName(String(pending_salvo.get("munition_id", "")))
+		var remaining_rounds := int(pending_salvo.get("remaining_rounds", 0))
+		var next_sequence := int(pending_salvo.get("next_sequence", 0))
+		var delay_remaining := float(pending_salvo.get("delay_remaining", -1.0))
+		if int(pending_salvo.get("track_id", -1)) <= 0 or not _munition_definition_map().has(pending_munition_id) or remaining_rounds <= 0 or next_sequence <= 0 or delay_remaining < 0.0 or delay_remaining > salvo_interval:
+			return "연속 발사 상태가 올바르지 않습니다"
 	return ""
 
 func persistent_projectile_state_validation_error(projectile_type: StringName, state: Dictionary) -> String:
@@ -65,7 +76,7 @@ func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():
 		return base_error
-	if attack_range <= 0.0 or fire_interval <= 0.0 or engagement_channels < 1 or maximum_interceptors_per_track < 1 or maximum_interceptors_per_track > engagement_channels or c2_range <= 0.0 or minimum_engagement_altitude < 0.0 or maximum_engagement_altitude <= minimum_engagement_altitude or munitions.is_empty() or launch_audio_event.is_empty():
+	if attack_range <= 0.0 or fire_interval <= 0.0 or salvo_interval <= 0.0 or engagement_channels < 1 or maximum_interceptors_per_track < 1 or maximum_interceptors_per_track > engagement_channels or c2_range <= 0.0 or minimum_engagement_altitude < 0.0 or maximum_engagement_altitude <= minimum_engagement_altitude or munitions.is_empty() or launch_audio_event.is_empty():
 		return "미사일 포대 설정값은 0보다 커야 합니다"
 	var ids: Dictionary[StringName, bool] = {}
 	for munition: MissileMunitionDefinition in munitions:

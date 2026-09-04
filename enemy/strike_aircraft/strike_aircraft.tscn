@@ -1,7 +1,8 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource path="res://enemy/attack_uav/attack_uav.gd" type="Script" id="1"]
 [ext_resource path="res://effects/lingering_smoke_trail.gd" type="Script" id="2"]
+[ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="3"]
 
 [sub_resource type="StandardMaterial3D" id="Material"]
 albedo_color = Color(0.32, 0.34, 0.38, 1)
@@ -31,42 +32,18 @@ height = 2.8
 radial_segments = 8
 rings = 4
 
-[sub_resource type="Gradient" id="ContrailGradient"]
-offsets = PackedFloat32Array(0, 0.08, 0.45, 0.68, 0.88, 1)
-colors = PackedColorArray(0.78, 0.8, 0.82, 0, 0.76, 0.78, 0.8, 0.58, 0.7, 0.74, 0.77, 0.44, 0.62, 0.67, 0.71, 0.18, 0.58, 0.62, 0.67, 0, 0.58, 0.62, 0.67, 0)
-
-[sub_resource type="GradientTexture1D" id="ContrailGradientTexture"]
-gradient = SubResource("ContrailGradient")
-
-[sub_resource type="ParticleProcessMaterial" id="ContrailProcess"]
-gravity = Vector3(0.035, 0.018, 0.01)
-initial_velocity_min = 0.08
-initial_velocity_max = 0.6
-damping_min = 0.08
-damping_max = 0.16
-scale_min = 0.7
-scale_max = 2.1
-color_ramp = SubResource("ContrailGradientTexture")
-lifetime_randomness = 0.0
-turbulence_enabled = true
-turbulence_noise_strength = 1.8
-turbulence_noise_scale = 2.8
-turbulence_noise_speed = Vector3(0.03, 0.008, 0.018)
-turbulence_noise_speed_random = 0.28
-turbulence_influence_min = 0.14
-turbulence_influence_max = 0.26
-
 [sub_resource type="StandardMaterial3D" id="ContrailMaterial"]
 transparency = 4
 shading_mode = 1
 albedo_color = Color(0.72, 0.76, 0.8, 0.48)
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("3")
+billboard_mode = 1
+billboard_keep_scale = true
 
-[sub_resource type="SphereMesh" id="ContrailMesh"]
+[sub_resource type="QuadMesh" id="ContrailMesh"]
 material = SubResource("ContrailMaterial")
-radius = 0.5
-height = 1.0
-radial_segments = 6
-rings = 3
+size = Vector2(3, 3)
 
 [node name="StrikeAircraft" type="Node3D"]
 script = ExtResource("1")
@@ -110,28 +87,26 @@ light_color = Color(1, 0.28, 0.04, 1)
 light_energy = 13.0
 omni_range = 28.0
 
-[node name="LeftExhaustTrail" type="GPUParticles3D" parent="Body"]
+[node name="LeftExhaustTrail" type="MultiMeshInstance3D" parent="Body"]
 position = Vector3(-1.25, 0, 8.8)
-emitting = true
+script = ExtResource("2")
+puff_mesh = SubResource("ContrailMesh")
 amount = 1040
 lifetime = 14.0
-visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
-local_coords = false
-cast_shadow = 1
-process_material = SubResource("ContrailProcess")
-draw_pass_1 = SubResource("ContrailMesh")
-script = ExtResource("2")
+shadow_emission_stride = 2
+initial_scale = 0.7
+final_scale = 2.1
+drift_speed = 0.14
 sample_spacing = 2.6
 
-[node name="RightExhaustTrail" type="GPUParticles3D" parent="Body"]
+[node name="RightExhaustTrail" type="MultiMeshInstance3D" parent="Body"]
 position = Vector3(1.25, 0, 8.8)
-emitting = true
+script = ExtResource("2")
+puff_mesh = SubResource("ContrailMesh")
 amount = 1040
 lifetime = 14.0
-visibility_aabb = AABB(-180, -80, -180, 360, 240, 360)
-local_coords = false
-cast_shadow = 1
-process_material = SubResource("ContrailProcess")
-draw_pass_1 = SubResource("ContrailMesh")
-script = ExtResource("2")
+shadow_emission_stride = 2
+initial_scale = 0.7
+final_scale = 2.1
+drift_speed = 0.14
 sample_spacing = 2.6

@@ -12,6 +12,7 @@ const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_
 const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
 const AIR_STRIKE_MUNITION_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
 const FALLING_WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
+const MAXIMUM_GAMEPLAY_STEP := 1.0 / 30.0
 
 static var requested_seed: int = -1
 static var requested_mode: GameMode = GameMode.SUSTAINED
@@ -116,19 +117,25 @@ func _process(delta: float) -> void:
 	var simulation_delta := session.gameplay_delta(delta)
 	if simulation_delta <= 0.0:
 		return
-	director.gameplay_tick(simulation_delta)
-	player_knowledge.call("gameplay_tick", simulation_delta)
-	c2_network.call("gameplay_tick", simulation_delta)
-	engagement_coordinator.gameplay_tick(simulation_delta)
-	support_manager.gameplay_tick(simulation_delta)
-	relocation_manager.gameplay_tick(simulation_delta)
-	enemy_knowledge.gameplay_tick(simulation_delta)
+	var gameplay_step_count := ceili(simulation_delta / MAXIMUM_GAMEPLAY_STEP)
+	var gameplay_step := simulation_delta / float(gameplay_step_count)
+	for _step_index: int in gameplay_step_count:
+		_gameplay_step(gameplay_step)
+
+func _gameplay_step(delta: float) -> void:
+	director.gameplay_tick(delta)
+	player_knowledge.call("gameplay_tick", delta)
+	c2_network.call("gameplay_tick", delta)
+	engagement_coordinator.gameplay_tick(delta)
+	support_manager.gameplay_tick(delta)
+	relocation_manager.gameplay_tick(delta)
+	enemy_knowledge.gameplay_tick(delta)
 	power_manager.begin_tick()
 	for defense: DefenseUnit in defenses:
 		if is_instance_valid(defense):
-			defense.gameplay_tick(simulation_delta)
+			defense.gameplay_tick(delta)
 	for threat: ThreatUnit in registry.get_active():
-		threat.gameplay_tick(simulation_delta)
+		threat.gameplay_tick(delta)
 
 func _spawn_objective() -> void:
 	objective = scenario.objective_definition.scene.instantiate() as ProtectedObjective
