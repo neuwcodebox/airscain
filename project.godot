@@ -1,5 +1,8 @@
+config_version=5
+
 [application]
 config/name="Airscain"
+config/features=PackedStringArray("4.7")
 run/main_scene="res://main/app.tscn"
 
 [display]
