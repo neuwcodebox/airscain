@@ -10,8 +10,8 @@ const COUNTERMEASURE_SCENE := preload("res://effects/countermeasure_burst/counte
 const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 const BOOST_GUIDANCE_RAMP_DURATION := 0.55
 const REACQUISITION_GRACE_DURATION := 2.5
-const DESTROYED_TARGET_ABORT_DURATION := 0.55
-const DESTROYED_TARGET_CLIMB_ANGLE := deg_to_rad(25.0)
+const DESTROYED_TARGET_ABORT_DURATION := REACQUISITION_GRACE_DURATION
+const DESTROYED_TARGET_CLIMB_ANGLE := deg_to_rad(50.0)
 
 var target_track: PlayerTrack
 var registry: ThreatRegistry

@@ -1930,15 +1930,21 @@ func _capture_resolved_target_interceptor(center: Vector3) -> void:
 		push_error("Interceptor did not climb after its correlated target was destroyed")
 		quit(1)
 		return
-	for tick: int in 20:
+	for tick: int in ceili(interceptor.maximum_lifetime / 0.05) + 1:
 		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
 			break
 		interceptor.gameplay_tick(0.05)
 		await process_frame
-	if is_instance_valid(interceptor) or main.projectile_parent.get_node_or_null("InterceptorMiss") != null or main.projectile_parent.get_node_or_null("Explosion") == null:
+	var explosion := main.projectile_parent.get_node_or_null("Explosion") as Node3D
+	if is_instance_valid(interceptor) or main.projectile_parent.get_node_or_null("InterceptorMiss") != null or explosion == null:
 		push_error("Destroyed-target interceptor did not complete its climb with a clean self-destruct")
 		quit(1)
 		return
+	var capture_center := position_at_resolution.lerp(explosion.global_position, 0.5)
+	main.camera_rig.camera.global_position = capture_center + Vector3(40.0, 35.0, 680.0)
+	main.camera_rig.camera.look_at(capture_center, Vector3.UP)
+	for index: int in 3:
+		await process_frame
 	_save_capture("/tmp/airscain_target_resolved_interceptor.png")
 
 func _place_asset(definition: DefenseDefinition, direction: float) -> void:

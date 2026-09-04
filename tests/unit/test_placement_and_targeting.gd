@@ -147,7 +147,7 @@ func test_interceptor_climbs_then_self_destructs_when_its_target_is_destroyed() 
 	assert_false(interceptor.is_queued_for_deletion())
 	assert_gt(interceptor.global_position.x, position_before_resolution.x)
 	assert_gt(interceptor.global_position.y, position_before_resolution.y)
-	for tick: int in 10:
+	for tick: int in ceili(interceptor.maximum_lifetime / 0.1) + 1:
 		if interceptor.is_queued_for_deletion():
 			break
 		interceptor.gameplay_tick(0.1)
@@ -189,7 +189,7 @@ func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructin
 	interceptor.configure(original_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 4, 0, candidates)
 	registry.remove(original)
 	assert_same(interceptor.target_track, original_track)
-	interceptor.gameplay_tick(0.35)
+	interceptor.gameplay_tick(1.0)
 	assert_false(interceptor.is_queued_for_deletion())
 	alternate_track.state = PlayerTrack.State.CONFIRMED
 	interceptor.gameplay_tick(0.05)
