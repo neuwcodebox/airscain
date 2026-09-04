@@ -46,6 +46,10 @@ var menu_row_hover: StyleBoxFlat
 var menu_row_pressed: StyleBoxFlat
 var menu_row_disabled: StyleBoxFlat
 const FEEDBACK_DURATION := 3.5
+const METRIC_KEY_COLOR := Color(0.58, 0.68, 0.72)
+const METRIC_VALUE_COLOR := Color(0.86, 0.9, 0.88)
+const METRIC_WARNING_COLOR := Color(1.0, 0.62, 0.3)
+const METRIC_FONT_SIZE := 14
 const MENU_COLLAPSED_SYMBOL := "▼"
 const MENU_EXPANDED_SYMBOL := "▲"
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
@@ -95,11 +99,13 @@ const CATALOG_GROUP_LABELS := {
 @onready var selected_asset_label: Label = %SelectedAssetLabel
 @onready var selection_state_label: Label = %SelectionStateLabel
 @onready var asset_section: VBoxContainer = %AssetSection
+@onready var asset_metrics: GridContainer = %AssetMetrics
 @onready var asset_integrity_value: Label = %AssetIntegrityValue
 @onready var asset_network_value: Label = %AssetNetworkValue
 @onready var asset_support_value: Label = %AssetSupportValue
 @onready var asset_resource_metrics: GridContainer = %AssetResourceMetrics
 @onready var track_section: VBoxContainer = %TrackSection
+@onready var track_metrics: GridContainer = %TrackMetrics
 @onready var selected_track_label: Label = %SelectedTrackLabel
 @onready var relation_legend: HBoxContainer = %RelationLegend
 @onready var track_classification_confidence_value: Label = %TrackClassificationConfidenceValue
@@ -138,6 +144,8 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	defense_definitions = defenses
 	threat_definitions = threats
 	configured_game_mode = game_mode
+	_style_metric_grid(asset_metrics, 132.0)
+	_style_metric_grid(track_metrics, 48.0)
 	_ensure_menu_row_styles()
 	_apply_menu_row_style(city_restoration_button)
 	_build_defense_catalog()
@@ -442,21 +450,30 @@ func _set_metric_rows(grid: GridContainer, rows: Array[Dictionary]) -> void:
 			child.free()
 		for row: Dictionary in rows:
 			var key_label := Label.new()
-			key_label.add_theme_color_override("font_color", Color(0.58, 0.68, 0.72))
-			key_label.add_theme_font_size_override("font_size", 14)
 			grid.add_child(key_label)
 			var value_label := Label.new()
-			value_label.custom_minimum_size.x = 132.0
-			value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			value_label.add_theme_font_size_override("font_size", 14)
 			grid.add_child(value_label)
+	_style_metric_grid(grid, 132.0)
 	for index: int in rows.size():
 		var row: Dictionary = rows[index]
 		var key_label := grid.get_child(index * 2) as Label
 		var value_label := grid.get_child(index * 2 + 1) as Label
 		key_label.text = String(row.get("label", ""))
 		value_label.text = String(row.get("value", ""))
-		value_label.add_theme_color_override("font_color", Color(1.0, 0.62, 0.3) if bool(row.get("warning", false)) else Color(0.86, 0.9, 0.88))
+		value_label.add_theme_color_override("font_color", METRIC_WARNING_COLOR if bool(row.get("warning", false)) else METRIC_VALUE_COLOR)
+
+func _style_metric_grid(grid: GridContainer, value_width: float) -> void:
+	for index: int in grid.get_child_count():
+		var label := grid.get_child(index) as Label
+		if label == null:
+			continue
+		label.add_theme_font_size_override("font_size", METRIC_FONT_SIZE)
+		if index % 2 == 0:
+			label.add_theme_color_override("font_color", METRIC_KEY_COLOR)
+		else:
+			label.custom_minimum_size.x = value_width
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			label.add_theme_color_override("font_color", METRIC_VALUE_COLOR)
 
 func _asset_state_text(unit: DefenseUnit) -> String:
 	if unit.integrity <= 0.0:

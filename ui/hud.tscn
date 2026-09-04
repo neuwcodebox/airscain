@@ -505,42 +505,43 @@ theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
 theme_override_font_sizes/font_size = 13
 text = "운용 상태"
 
-[node name="Metrics" type="GridContainer" parent="SelectedAssetPanel/VBox/AssetSection"]
+[node name="AssetMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/AssetSection"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 5
 columns = 2
 
-[node name="IntegrityKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+[node name="IntegrityKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
 text = "내구도"
 
-[node name="AssetIntegrityValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+[node name="AssetIntegrityValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 0)
 layout_mode = 2
 text = "100%"
 horizontal_alignment = 2
 
-[node name="NetworkKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+[node name="NetworkKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
 text = "지휘통제"
 
-[node name="AssetNetworkValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+[node name="AssetNetworkValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 0)
 layout_mode = 2
 text = "직접 연결 0"
 horizontal_alignment = 2
 
-[node name="SupportKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+[node name="SupportKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
 text = "지역 지원"
 
-[node name="AssetSupportValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+[node name="AssetSupportValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(132, 0)
 layout_mode = 2
@@ -563,12 +564,13 @@ theme_override_constants/separation = 7
 [node name="SelectedTrackLabel" type="Label" parent="SelectedAssetPanel/VBox/TrackSection"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.95, 0.82, 0.42, 1)
-theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_font_sizes/font_size = 13
 text = "항적 정보"
 autowrap_mode = 2
 
 [node name="TrackMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/TrackSection"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 5
@@ -724,43 +726,48 @@ text = "예상 경로"
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 12
 
-[node name="SourceCaption" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection"]
+[node name="SourceSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox/EngagementSection"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SourceCaption" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/SourceSection"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
 theme_override_font_sizes/font_size = 13
 text = "선택 자산"
 
-[node name="EngagementSourceLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection"]
+[node name="EngagementSourceLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/SourceSection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "미사일 포대"
 
-[node name="EngagementSourceMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/EngagementSection"]
+[node name="EngagementSourceMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/EngagementSection/SourceSection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="EngagementSeparator" type="HSeparator" parent="SelectedAssetPanel/VBox/EngagementSection"]
+[node name="TargetSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox/EngagementSection"]
 layout_mode = 2
+theme_override_constants/separation = 4
 
-[node name="TargetCaption" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection"]
+[node name="TargetCaption" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/TargetSection"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.72, 0.3, 1)
 theme_override_font_sizes/font_size = 13
 text = "선택 항적"
 
-[node name="EngagementTargetLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection"]
+[node name="EngagementTargetLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/TargetSection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 15
 text = "적성 무인기"
 
-[node name="EngagementTargetMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/EngagementSection"]
+[node name="EngagementTargetMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/EngagementSection/TargetSection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12
