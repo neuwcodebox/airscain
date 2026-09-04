@@ -59,6 +59,9 @@ func enemy_knowledge_role() -> StringName:
 func has_ammunition_state() -> bool:
 	return false
 
+func weapon_audio_event() -> StringName:
+	return &""
+
 func persistent_projectile_types() -> Array[StringName]:
 	return []
 

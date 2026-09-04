@@ -226,6 +226,7 @@ func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition,
 	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks(), battlefield)
 	interceptor.target_changed.connect(_on_interceptor_target_changed)
 	interceptors.append(interceptor)
+	projectile_launched.emit(self, interceptor)
 
 func _on_interceptor_target_changed(previous_track_id: int, new_track_id: int, remaining_lifetime: float) -> void:
 	if engagement_coordinator == null:

@@ -43,7 +43,7 @@ var game_mode: GameMode = GameMode.SUSTAINED
 @onready var power_manager: PowerManager = $PowerManager
 @onready var relocation_manager: RelocationManager = $RelocationManager
 @onready var enemy_knowledge: EnemyKnowledge = $EnemyKnowledge
-@onready var combat_audio: Node = $CombatAudio
+@onready var combat_audio: CombatAudio = $CombatAudio
 @onready var ui_audio: UiAudio = $UiAudio
 @onready var track_display: TrackDisplay = $WorldObjects/TacticalTracks
 @onready var c2_overlay: C2Overlay = $WorldObjects/C2Overlay
@@ -190,8 +190,7 @@ func _connect_flow() -> void:
 	placement.sandbox_threat_placement_requested.connect(_on_sandbox_threat_placement_requested)
 	training_controller.selection_clear_requested.connect(_clear_selection)
 	player_knowledge.connect("track_removed", _on_track_removed)
-	player_knowledge.connect("track_created", _on_track_contact_audio)
-	objective.integrity_changed.connect(_on_objective_integrity_audio)
+	objective.damage_received.connect(_on_objective_damage_audio)
 
 func _on_start_requested() -> void:
 	if game_mode == GameMode.TRAINING and not training_controller.can_start_defense():
@@ -220,8 +219,8 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	support_manager.register_asset(unit)
 	power_manager.register_asset(unit)
 	relocation_manager.register_asset(unit)
-	unit.weapon_fired.connect(_on_weapon_fired_audio)
-	unit.damage_received.connect(_on_defense_damage_audio)
+	unit.weapon_fired.connect(_on_weapon_fired)
+	unit.projectile_launched.connect(_on_projectile_launched_audio)
 	if game_mode == GameMode.TRAINING:
 		training_controller.defense_placed(unit)
 
@@ -243,7 +242,8 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	if _resolves_without_explosion(threat):
 		threat.queue_free()
 		return
-	combat_audio.call("play_event", &"explosion", 0.8 if neutralized else 1.0)
+	if not _is_city_impact(threat, neutralized):
+		combat_audio.play_event(CombatAudio.EXPLOSION, 0.8 if neutralized else 1.0)
 	_spawn_explosion(threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
 	if game_mode == GameMode.TRAINING:
 		training_controller.threat_resolved(threat)
@@ -254,6 +254,12 @@ func _leaves_falling_wreck(threat: ThreatUnit) -> bool:
 
 func _resolves_without_explosion(threat: ThreatUnit) -> bool:
 	return threat.definition.signature_class == &"bird"
+
+func _is_city_impact(threat: ThreatUnit, neutralized: bool) -> bool:
+	if neutralized or not threat is AttackUav:
+		return false
+	var mission := (threat as AttackUav).mission_runtime.profile
+	return mission != null and mission.type == ThreatMissionDefinition.Type.IMPACT
 
 func _spawn_falling_wreck(threat: ThreatUnit) -> void:
 	var effect := FALLING_WRECK_SCENE.instantiate() as Node3D
@@ -284,7 +290,6 @@ func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 func _on_pressure_changed(level: int) -> void:
 	session.update_pressure(level)
 	hud.set_pressure(level)
-	combat_audio.call("play_event", &"pressure", clampf(0.45 + float(level) * 0.04, 0.45, 1.0))
 
 func _on_recovery_started(_completed_window: int) -> void:
 	session.grant_attack_window_reward(scenario.attack_window_reward)
@@ -301,21 +306,16 @@ func _on_placement_succeeded() -> void:
 func _on_placement_rejected() -> void:
 	ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
-func _on_track_contact_audio(_track: PlayerTrack) -> void:
-	combat_audio.call("play_event", &"contact", 0.55)
-
-func _on_weapon_fired_audio(_unit: DefenseUnit, low_resources: bool) -> void:
+func _on_weapon_fired(_unit: DefenseUnit, _low_resources: bool) -> void:
 	session.register_weapon_fire()
-	combat_audio.call("play_event", &"launch", 0.52)
-	if low_resources:
-		combat_audio.call("play_event", &"low_ammo", 0.7)
 
-func _on_defense_damage_audio(_unit: DefenseUnit, _amount: float, integrity_ratio: float) -> void:
-	combat_audio.call("play_event", &"damage", clampf(1.1 - integrity_ratio, 0.45, 1.0))
+func _on_projectile_launched_audio(unit: DefenseUnit, projectile: Node) -> void:
+	var event_id := unit.definition.weapon_audio_event()
+	if not event_id.is_empty():
+		combat_audio.play_missile_event(event_id, projectile)
 
-func _on_objective_integrity_audio(current: int, maximum: int) -> void:
-	var damage_ratio := 1.0 - float(current) / maxf(1.0, float(maximum))
-	combat_audio.call("play_event", &"damage", clampf(0.55 + damage_ratio, 0.55, 1.0))
+func _on_objective_damage_audio(_amount: int) -> void:
+	combat_audio.play_event(CombatAudio.BIG_EXPLOSION)
 
 func _spawn_explosion(position: Vector3, color: Color, radius: float) -> void:
 	var effect := EXPLOSION_SCENE.instantiate() as ExplosionEffect

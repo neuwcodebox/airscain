@@ -45,6 +45,7 @@ engagement_channels = 4
 c2_range = 480.0
 minimum_engagement_altitude = 0.0
 maximum_engagement_altitude = 180.0
+launch_audio_event = &"short_missile"
 munitions = Array[ExtResource("4")]([SubResource("QuickReactionMunition")])
 mobile = true
 relocation_duration = 6.0

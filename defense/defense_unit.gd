@@ -3,6 +3,7 @@ extends Node3D
 
 signal damage_received(unit: DefenseUnit, amount: float, integrity_ratio: float)
 signal weapon_fired(unit: DefenseUnit, low_resources: bool)
+signal projectile_launched(unit: DefenseUnit, projectile: Node)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 const STATUS_MARKER_SCENE := preload("res://effects/unit_status_marker/unit_status_marker.tscn")

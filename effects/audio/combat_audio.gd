@@ -1,25 +1,55 @@
 class_name CombatAudio
 extends Node
 
-const CONTACT := &"contact"
-const LAUNCH := &"launch"
-const LOW_AMMO := &"low_ammo"
-const DAMAGE := &"damage"
-const PRESSURE := &"pressure"
+const BIG_EXPLOSION := &"big_explosion"
 const EXPLOSION := &"explosion"
-const MIX_RATE := 16000
+const LONG_MISSILE := &"long_missile"
+const MISSILE := &"missile"
+const SHORT_MISSILE := &"short_missile"
+const MISSILE_EVENTS: Array[StringName] = [LONG_MISSILE, MISSILE, SHORT_MISSILE]
 
-var streams: Dictionary[StringName, AudioStreamWAV] = {}
+const STREAM_GROUPS: Dictionary = {
+	BIG_EXPLOSION: [
+		preload("res://effects/audio/combat/big_explosion_1.ogg"),
+		preload("res://effects/audio/combat/big_explosion_2.ogg"),
+		preload("res://effects/audio/combat/big_explosion_3.ogg"),
+		preload("res://effects/audio/combat/big_explosion_4.ogg"),
+	],
+	EXPLOSION: [
+		preload("res://effects/audio/combat/explosion_1.ogg"),
+		preload("res://effects/audio/combat/explosion_2.ogg"),
+		preload("res://effects/audio/combat/explosion_3.ogg"),
+		preload("res://effects/audio/combat/explosion_4.ogg"),
+		preload("res://effects/audio/combat/explosion_5.ogg"),
+	],
+	LONG_MISSILE: [
+		preload("res://effects/audio/combat/long_missile_1.ogg"),
+		preload("res://effects/audio/combat/long_missile_2.ogg"),
+		preload("res://effects/audio/combat/long_missile_3.ogg"),
+	],
+	MISSILE: [
+		preload("res://effects/audio/combat/missile_1.ogg"),
+		preload("res://effects/audio/combat/missile_2.ogg"),
+	],
+	SHORT_MISSILE: [
+		preload("res://effects/audio/combat/short_missile_1.ogg"),
+	],
+}
+
 var cooldowns: Dictionary[StringName, float] = {}
 var event_counts: Dictionary[StringName, int] = {}
+var last_stream_paths: Dictionary[StringName, String] = {}
 var players: Array[AudioStreamPlayer] = []
+var source_players: Dictionary[int, AudioStreamPlayer] = {}
+var player_source_ids: Dictionary[int, int] = {}
 var next_player_index: int = 0
-@export var enabled: bool = false
+var rng := RandomNumberGenerator.new()
+@export var enabled: bool = true
 
 func _ready() -> void:
 	if not enabled:
 		return
-	_build_streams()
+	rng.randomize()
 	for index: int in 8:
 		var player := AudioStreamPlayer.new()
 		player.name = "Voice%d" % index
@@ -37,21 +67,58 @@ func stop_all() -> void:
 	for player: AudioStreamPlayer in players:
 		player.stop()
 		player.stream = null
-	streams.clear()
+	source_players.clear()
+	player_source_ids.clear()
 
 func play_event(event_id: StringName, intensity: float = 1.0) -> bool:
-	if not enabled or not streams.has(event_id) or float(cooldowns.get(event_id, 0.0)) > 0.0 or players.is_empty():
+	if event_id in MISSILE_EVENTS or not enabled or not STREAM_GROUPS.has(event_id) or float(cooldowns.get(event_id, 0.0)) > 0.0 or players.is_empty():
 		return false
-	var player := _available_player()
-	player.stream = streams[event_id]
-	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
-	player.play()
+	var player := _play_stream(event_id, intensity)
+	if player == null:
+		return false
 	cooldowns[event_id] = _event_cooldown(event_id)
-	event_counts[event_id] = event_counts.get(event_id, 0) + 1
 	return true
 
+func play_missile_event(event_id: StringName, source: Node, intensity: float = 1.0) -> bool:
+	if source == null or event_id not in MISSILE_EVENTS:
+		return false
+	var source_id := source.get_instance_id()
+	if source_players.has(source_id):
+		_stop_source(source_id)
+	var player := _play_stream(event_id, intensity)
+	if player == null:
+		return false
+	source_players[source_id] = player
+	player_source_ids[player.get_instance_id()] = source_id
+	if source.has_signal("flight_ended"):
+		source.connect("flight_ended", _on_source_flight_ended.bind(source_id), CONNECT_ONE_SHOT)
+	source.tree_exiting.connect(_on_source_tree_exiting.bind(source_id), CONNECT_ONE_SHOT)
+	return true
+
+func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
+	if not enabled or not STREAM_GROUPS.has(event_id) or players.is_empty():
+		return null
+	var choices: Array = STREAM_GROUPS[event_id]
+	var stream := choices[rng.randi_range(0, choices.size() - 1)] as AudioStream
+	var player := _available_player()
+	_release_player_source(player)
+	player.stream = stream
+	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
+	player.play()
+	event_counts[event_id] = event_counts.get(event_id, 0) + 1
+	last_stream_paths[event_id] = stream.resource_path
+	return player
+
 func played_count(event_id: StringName) -> int:
-	return int(event_counts.get(event_id, 0))
+	return event_counts.get(event_id, 0)
+
+func last_stream_path(event_id: StringName) -> String:
+	return last_stream_paths.get(event_id, "")
+
+func stream_count(event_id: StringName) -> int:
+	if not STREAM_GROUPS.has(event_id):
+		return 0
+	return (STREAM_GROUPS[event_id] as Array).size()
 
 func _available_player() -> AudioStreamPlayer:
 	for player: AudioStreamPlayer in players:
@@ -61,48 +128,37 @@ func _available_player() -> AudioStreamPlayer:
 	next_player_index = (next_player_index + 1) % players.size()
 	return player
 
+func _release_player_source(player: AudioStreamPlayer) -> void:
+	var player_id := player.get_instance_id()
+	if not player_source_ids.has(player_id):
+		return
+	var source_id := player_source_ids[player_id]
+	player_source_ids.erase(player_id)
+	source_players.erase(source_id)
+
+func _on_source_flight_ended(detonated: bool, source_id: int) -> void:
+	_stop_source(source_id)
+	if detonated:
+		play_event(EXPLOSION)
+
+func _on_source_tree_exiting(source_id: int) -> void:
+	_stop_source(source_id)
+
+func _stop_source(source_id: int) -> void:
+	var player := source_players.get(source_id) as AudioStreamPlayer
+	if player == null:
+		return
+	var player_id := player.get_instance_id()
+	if int(player_source_ids.get(player_id, 0)) == source_id:
+		player.stop()
+		player.stream = null
+		player_source_ids.erase(player_id)
+	source_players.erase(source_id)
+
 func _event_cooldown(event_id: StringName) -> float:
 	match event_id:
-		CONTACT:
-			return 0.45
-		LAUNCH:
-			return 0.08
-		LOW_AMMO:
-			return 2.5
-		DAMAGE:
-			return 0.55
-		PRESSURE:
-			return 1.0
+		BIG_EXPLOSION:
+			return 0.5
 		EXPLOSION:
 			return 0.12
 	return 0.1
-
-func _build_streams() -> void:
-	streams[CONTACT] = _make_sound([880.0, 1170.0], 0.16, 0.0, 0.0)
-	streams[LAUNCH] = _make_sound([155.0, 92.0], 0.24, 0.42, 0.0)
-	streams[LOW_AMMO] = _make_sound([620.0, 390.0, 620.0], 0.32, 0.0, 7.0)
-	streams[DAMAGE] = _make_sound([125.0, 68.0], 0.38, 0.68, 0.0)
-	streams[PRESSURE] = _make_sound([440.0, 660.0, 880.0], 0.42, 0.05, 9.0)
-	streams[EXPLOSION] = _make_sound([82.0, 46.0], 0.46, 0.82, 0.0)
-
-func _make_sound(frequencies: Array[float], duration: float, noise_mix: float, pulse_rate: float) -> AudioStreamWAV:
-	var sample_count := roundi(duration * float(MIX_RATE))
-	var data := PackedByteArray()
-	data.resize(sample_count * 2)
-	for index: int in sample_count:
-		var time := float(index) / float(MIX_RATE)
-		var segment := mini(frequencies.size() - 1, int(time / duration * float(frequencies.size())))
-		var frequency := frequencies[segment]
-		var tone := sin(TAU * frequency * time) * 0.72 + sin(TAU * frequency * 2.02 * time) * 0.18
-		var noise := sin(float(index * 173 + 19) * 12.9898) * 0.5 + sin(float(index * 71 + 7) * 4.1414) * 0.5
-		var envelope := minf(1.0, time / 0.012) * minf(1.0, (duration - time) / 0.055)
-		var pulse := 1.0 if pulse_rate <= 0.0 else 0.42 + 0.58 * maxf(0.0, sin(TAU * pulse_rate * time))
-		var sample := clampi(roundi(lerpf(tone, noise, noise_mix) * envelope * pulse * 24500.0), -32768, 32767)
-		data[index * 2] = sample & 0xff
-		data[index * 2 + 1] = (sample >> 8) & 0xff
-	var stream := AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = MIX_RATE
-	stream.stereo = false
-	stream.data = data
-	return stream

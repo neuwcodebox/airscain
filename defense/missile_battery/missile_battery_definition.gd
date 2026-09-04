@@ -9,6 +9,7 @@ extends DefenseDefinition
 @export var minimum_engagement_altitude: float = 0.0
 @export var maximum_engagement_altitude: float = 450.0
 @export var munitions: Array[MissileMunitionDefinition] = []
+@export var launch_audio_event: StringName = &"missile"
 
 func placement_c2_roles() -> int:
 	return DefenseUnit.C2Role.DEFENSE
@@ -27,6 +28,9 @@ func tactical_range() -> float:
 
 func has_ammunition_state() -> bool:
 	return true
+
+func weapon_audio_event() -> StringName:
+	return launch_audio_event
 
 func persistent_projectile_types() -> Array[StringName]:
 	return [&"homing_interceptor"]
@@ -61,7 +65,7 @@ func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():
 		return base_error
-	if attack_range <= 0.0 or fire_interval <= 0.0 or engagement_channels < 1 or maximum_interceptors_per_track < 1 or maximum_interceptors_per_track > engagement_channels or c2_range <= 0.0 or minimum_engagement_altitude < 0.0 or maximum_engagement_altitude <= minimum_engagement_altitude or munitions.is_empty():
+	if attack_range <= 0.0 or fire_interval <= 0.0 or engagement_channels < 1 or maximum_interceptors_per_track < 1 or maximum_interceptors_per_track > engagement_channels or c2_range <= 0.0 or minimum_engagement_altitude < 0.0 or maximum_engagement_altitude <= minimum_engagement_altitude or munitions.is_empty() or launch_audio_event.is_empty():
 		return "미사일 포대 설정값은 0보다 커야 합니다"
 	var ids: Dictionary[StringName, bool] = {}
 	for munition: MissileMunitionDefinition in munitions:

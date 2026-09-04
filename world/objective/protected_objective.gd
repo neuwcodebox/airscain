@@ -2,6 +2,7 @@ class_name ProtectedObjective
 extends Node3D
 
 signal integrity_changed(current: int, maximum: int)
+signal damage_received(amount: int)
 signal depleted(objective: ProtectedObjective)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
@@ -25,9 +26,11 @@ func setup(id_value: int, definition_value: ObjectiveDefinition) -> void:
 func apply_mission_damage(amount: int) -> bool:
 	if current_integrity <= 0 or amount <= 0:
 		return false
+	var previous_integrity := current_integrity
 	current_integrity = maxi(0, current_integrity - amount)
 	_sync_damage_visuals()
 	integrity_changed.emit(current_integrity, definition.maximum_integrity)
+	damage_received.emit(previous_integrity - current_integrity)
 	if current_integrity == 0:
 		depleted.emit(self)
 	return true

@@ -2,6 +2,7 @@ class_name HomingInterceptor
 extends Node3D
 
 signal target_changed(previous_track_id: int, new_track_id: int, remaining_lifetime: float)
+signal flight_ended(detonated: bool)
 
 const MISS_EFFECT_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
 const DETONATION_SCENE := preload("res://effects/explosion/explosion.tscn")
@@ -37,6 +38,7 @@ var minimum_preferred_speed: float = 0.0
 var other_target_match: float = 1.0
 var small_target_match: float = 0.22
 var rng := RandomNumberGenerator.new()
+var flight_ended_emitted: bool = false
 
 func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null) -> void:
 	target_track = track_value
@@ -151,6 +153,7 @@ func _resolve_proximity_intercept(previous: Vector3) -> bool:
 		var nearest := Geometry3D.get_closest_point_to_segment(physical_position, previous, global_position)
 		if nearest.distance_to(physical_position) <= proximity_radius:
 			global_position = nearest
+			_finish_flight(true)
 			_spawn_detonation(Color(0.45, 0.78, 1.0), 6.0)
 			threat.receive_damage(damage)
 			_release_smoke_trail()
@@ -159,6 +162,7 @@ func _resolve_proximity_intercept(previous: Vector3) -> bool:
 	return false
 
 func _expire(color: Color, reason: String) -> void:
+	_finish_flight(true)
 	var parent := get_parent()
 	if parent != null:
 		_spawn_detonation(color, 7.0)
@@ -170,8 +174,15 @@ func _expire(color: Color, reason: String) -> void:
 	queue_free()
 
 func _retire_without_detonation() -> void:
+	_finish_flight(false)
 	_release_smoke_trail()
 	queue_free()
+
+func _finish_flight(detonated: bool) -> void:
+	if flight_ended_emitted:
+		return
+	flight_ended_emitted = true
+	flight_ended.emit(detonated)
 
 func _spawn_detonation(color: Color, radius: float) -> void:
 	var parent := get_parent()
