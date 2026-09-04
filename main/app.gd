@@ -7,6 +7,7 @@ const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 var gameplay: AirscainMain
 var previous_simulation_speed: float = 1.0
 var save_path: String = SaveStore.DEFAULT_PATH
+var prepared_combat_stream_count: int = 0
 
 @onready var main_menu: Control = %MainMenu
 @onready var pause_menu: Control = %PauseMenu
@@ -30,6 +31,7 @@ static func apply_global_font() -> FontFile:
 	return font
 
 func _ready() -> void:
+	prepared_combat_stream_count = CombatAudio.prepare_samples()
 	main_menu.visible = true
 	pause_menu.visible = false
 	ui_audio.connect_buttons(main_menu)

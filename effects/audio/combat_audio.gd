@@ -68,17 +68,41 @@ var fade_generations: Dictionary[int, int] = {}
 var next_fade_generation: int = 1
 var next_player_index: int = 0
 var rng := RandomNumberGenerator.new()
+var prepared_stream_count: int = 0
 @export var enabled: bool = true
 
 func _ready() -> void:
 	if not enabled:
 		return
+	prepared_stream_count = prepare_samples()
 	rng.randomize()
 	for index: int in 8:
 		var player := AudioStreamPlayer.new()
 		player.name = "Voice%d" % index
+		player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(player)
 		players.append(player)
+
+static func all_streams() -> Array[AudioStream]:
+	var streams: Array[AudioStream] = []
+	for group: Array in STREAM_GROUPS.values():
+		for candidate: Variant in group:
+			var stream := candidate as AudioStream
+			if stream != null and stream not in streams:
+				streams.append(stream)
+	return streams
+
+static func prepare_samples() -> int:
+	if not uses_sample_playback():
+		return 0
+	var streams := all_streams()
+	for stream: AudioStream in streams:
+		if not AudioServer.is_stream_registered_as_sample(stream):
+			AudioServer.register_stream_as_sample(stream)
+	return streams.size()
+
+static func uses_sample_playback() -> bool:
+	return OS.has_feature("web")
 
 func _process(delta: float) -> void:
 	for event_id: StringName in cooldowns.keys():

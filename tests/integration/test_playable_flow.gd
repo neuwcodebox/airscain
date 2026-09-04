@@ -81,8 +81,13 @@ func test_non_combat_ui_audio_uses_selected_sources_and_routes_feedback() -> voi
 	assert_eq(UiAudio.STREAMS[UiAudio.PLACEMENT_SUCCESS].resource_path, "res://ui/audio/placement_success.ogg")
 	assert_eq(UiAudio.STREAMS[UiAudio.ACTION_COMPLETE].resource_path, "res://ui/audio/action_complete.ogg")
 	assert_eq(UiAudio.STREAMS[UiAudio.ACTION_REJECTED].resource_path, "res://ui/audio/action_rejected.ogg")
+	var expected_playback_type := AudioServer.PLAYBACK_TYPE_SAMPLE if OS.has_feature("web") else AudioServer.PLAYBACK_TYPE_STREAM
+	var expected_prepared_ui_streams := UiAudio.STREAMS.size() if OS.has_feature("web") else 0
+	assert_eq(main.ui_audio.prepared_stream_count, expected_prepared_ui_streams)
 	assert_almost_eq(main.ui_audio.click_player.volume_db, linear_to_db(0.7), 0.001)
 	assert_almost_eq(main.ui_audio.feedback_player.volume_db, linear_to_db(0.7), 0.001)
+	assert_eq(main.ui_audio.click_player.playback_type, expected_playback_type)
+	assert_eq(main.ui_audio.feedback_player.playback_type, expected_playback_type)
 	var click_count := main.ui_audio.played_count(UiAudio.CLICK)
 	main.hud.normal_button.pressed.emit()
 	assert_eq(main.ui_audio.played_count(UiAudio.CLICK), click_count + 1)
@@ -342,6 +347,12 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 func test_combat_audio_uses_selected_event_groups_and_routes_combat_feedback() -> void:
 	assert_true(main.combat_audio.enabled)
 	assert_eq(main.combat_audio.players.size(), 8)
+	var expected_playback_type := AudioServer.PLAYBACK_TYPE_SAMPLE if OS.has_feature("web") else AudioServer.PLAYBACK_TYPE_STREAM
+	var expected_prepared_combat_streams := 21 if OS.has_feature("web") else 0
+	assert_eq(main.combat_audio.prepared_stream_count, expected_prepared_combat_streams)
+	assert_eq(CombatAudio.all_streams().size(), 21)
+	for player: AudioStreamPlayer in main.combat_audio.players:
+		assert_eq(player.playback_type, expected_playback_type)
 	assert_eq(main.combat_audio.stream_count(CombatAudio.CONTACT), 1)
 	assert_eq(main.combat_audio.stream_count(CombatAudio.PRESSURE), 1)
 	assert_eq(main.combat_audio.stream_count(CombatAudio.LOW_AMMO), 1)

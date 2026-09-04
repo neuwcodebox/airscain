@@ -14,6 +14,8 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	assert_true(main_menu.visible)
 	assert_false(pause_menu.visible)
 	assert_null(app.get("gameplay"))
+	var expected_prepared_combat_streams := CombatAudio.all_streams().size() if OS.has_feature("web") else 0
+	assert_eq(app.get("prepared_combat_stream_count"), expected_prepared_combat_streams)
 	app.call("start_game", AirscainMain.GameMode.TRAINING)
 	await get_tree().process_frame
 	var gameplay := app.get("gameplay") as AirscainMain

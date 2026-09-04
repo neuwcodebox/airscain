@@ -19,10 +19,27 @@ const STREAMS: Dictionary[StringName, AudioStream] = {
 var event_counts: Dictionary[StringName, int] = {}
 var click_player: AudioStreamPlayer
 var feedback_player: AudioStreamPlayer
+var prepared_stream_count: int = 0
 
 func _ready() -> void:
+	prepared_stream_count = prepare_samples()
 	click_player = _create_player("ClickPlayer")
 	feedback_player = _create_player("FeedbackPlayer")
+
+static func prepare_samples() -> int:
+	if not uses_sample_playback():
+		return 0
+	var streams: Array[AudioStream] = []
+	for stream: AudioStream in STREAMS.values():
+		if stream not in streams:
+			streams.append(stream)
+	for stream: AudioStream in streams:
+		if not AudioServer.is_stream_registered_as_sample(stream):
+			AudioServer.register_stream_as_sample(stream)
+	return streams.size()
+
+static func uses_sample_playback() -> bool:
+	return OS.has_feature("web")
 
 func connect_buttons(root: Node) -> void:
 	_connect_buttons_recursive(root)
@@ -52,6 +69,7 @@ func stop_all() -> void:
 func _create_player(player_name: String) -> AudioStreamPlayer:
 	var player := AudioStreamPlayer.new()
 	player.name = player_name
+	player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 	player.volume_db = linear_to_db(VOLUME_LINEAR)
 	add_child(player)
 	return player
