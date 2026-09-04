@@ -88,7 +88,7 @@ func _tick_pending_waves(delta: float) -> void:
 
 func _spawn_group(entry: ThreatSpawnEntry, group_angle: float) -> void:
 	var group_target: Variant = null
-	if entry.threat_definition is AttackUavDefinition and (entry.threat_definition as AttackUavDefinition).mission.target_role == ThreatMissionDefinition.TargetRole.CITY and (entry.threat_definition as AttackUavDefinition).mission.type == ThreatMissionDefinition.Type.IMPACT:
+	if entry.threat_definition.shares_city_impact_target():
 		group_target = battlefield.random_city_building_target(rng)
 	for group_index: int in entry.group_size:
 		if registry.hostile_count() >= scenario.active_threat_cap:
@@ -166,29 +166,22 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	if threat == null:
 		return null
 	threat_parent.add_child(threat)
-	var spawn_radius_multiplier := 0.68
-	if entry.threat_definition is AttackUavDefinition:
-		spawn_radius_multiplier = (entry.threat_definition as AttackUavDefinition).movement.spawn_radius_multiplier
-	var edge := scenario.battlefield_size * spawn_radius_multiplier - edge_offset
+	var edge := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - edge_offset
 	var spawn_position := Vector3(cos(angle) * edge, 0.0, sin(angle) * edge)
-	var spawn_altitude := 70.0
-	if entry.threat_definition is AttackUavDefinition:
-		spawn_altitude = (entry.threat_definition as AttackUavDefinition).movement.cruise_altitude
-	spawn_position.y = battlefield.flight_surface_height(spawn_position.x, spawn_position.z) + spawn_altitude
+	spawn_position.y = battlefield.flight_surface_height(spawn_position.x, spawn_position.z) + entry.threat_definition.spawn_altitude()
 	threat.global_position = spawn_position
 	threat.setup(next_runtime_id, entry.threat_definition)
 	threat.configure_enemy_knowledge(enemy_knowledge)
 	next_runtime_id += 1
 	var target := objective.get_target_point(rng)
 	var target_asset: DefenseUnit
-	var targets_city := false
-	if entry.threat_definition is AttackUavDefinition:
-		var mission := (entry.threat_definition as AttackUavDefinition).mission
-		targets_city = mission.target_role == ThreatMissionDefinition.TargetRole.CITY and mission.type == ThreatMissionDefinition.Type.IMPACT
+	var mission := entry.threat_definition.mission_definition()
+	var targets_city := entry.threat_definition.shares_city_impact_target()
+	if mission != null:
 		if targets_city:
 			target = battlefield.random_city_building_target(rng)
-		if entry.threat_definition.id == &"anti_radiation_missile":
-			target_asset = _known_target_for_role(&"sensor")
+		if entry.threat_definition.requires_role_knowledge:
+			target_asset = _known_target_for_role(entry.threat_definition.adaptive_knowledge_role)
 		else:
 			target_asset = choose_target_for(mission)
 	if target_override is Vector3:
@@ -206,16 +199,15 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
 	if mission == null or mission.target_role == ThreatMissionDefinition.TargetRole.CITY or defense_parent == null:
 		return null
+	var role := &"sensor"
+	if mission.target_role == ThreatMissionDefinition.TargetRole.COMMAND:
+		role = &"command"
+	elif mission.target_role == ThreatMissionDefinition.TargetRole.SUPPORT:
+		role = &"support"
 	var candidates: Array[DefenseUnit] = []
 	for child: Node in defense_parent.get_children():
 		var unit := child as DefenseUnit
-		if unit == null or unit.integrity <= 0.0:
-			continue
-		if mission.target_role == ThreatMissionDefinition.TargetRole.SENSOR and (unit.c2_roles() & DefenseUnit.C2Role.SENSOR) != 0:
-			candidates.append(unit)
-		elif mission.target_role == ThreatMissionDefinition.TargetRole.COMMAND and (unit.c2_roles() & DefenseUnit.C2Role.COMMAND) != 0:
-			candidates.append(unit)
-		elif mission.target_role == ThreatMissionDefinition.TargetRole.SUPPORT and unit is SupportFacility:
+		if unit != null and unit.integrity > 0.0 and unit.definition.enemy_knowledge_role() == role:
 			candidates.append(unit)
 	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
 
@@ -251,21 +243,17 @@ func _choose_entry_for_budget(budget: float) -> ThreatSpawnEntry:
 
 func adaptive_entry_weight(entry: ThreatSpawnEntry) -> float:
 	var weight := maxf(0.0, entry.selection_weight)
-	var definition_id := entry.threat_definition.id
 	if enemy_knowledge == null:
 		return weight
-	if definition_id == &"support_strike_uav" and not enemy_knowledge.best_estimate_for_role(&"support").is_empty():
-		weight *= 2.4
-	elif definition_id == &"command_strike_uav" and not enemy_knowledge.best_estimate_for_role(&"command").is_empty():
-		weight *= 2.2
-	elif definition_id == &"cruise_missile" and not enemy_knowledge.best_estimate_for_role(&"sensor").is_empty():
-		weight *= 1.7
-	elif definition_id == &"anti_radiation_missile":
-		if enemy_knowledge.best_estimate_for_role(&"sensor").is_empty():
+	var definition := entry.threat_definition
+	if not definition.adaptive_knowledge_role.is_empty():
+		var estimate := enemy_knowledge.best_estimate_for_role(definition.adaptive_knowledge_role)
+		if estimate.is_empty() and definition.requires_role_knowledge:
 			return 0.0
-		weight *= 3.0
-	if definition_id == &"swarm_uav" and recent_neutralization_rate() > 0.65:
-		weight *= 1.9
+		if not estimate.is_empty():
+			weight *= definition.adaptive_knowledge_weight
+	if recent_neutralization_rate() > 0.65:
+		weight *= definition.high_neutralization_weight
 	return weight
 
 func recent_neutralization_rate() -> float:

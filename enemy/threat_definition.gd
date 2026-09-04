@@ -18,6 +18,22 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export_range(0.0, 1.0) var chaff_effectiveness: float = 0.0
 @export var countermeasure_charges: int = 0
 @export_range(0.0, 2.0) var electronic_vulnerability: float = 1.0
+@export var adaptive_knowledge_role: StringName
+@export_range(0.0, 4.0, 0.1) var adaptive_knowledge_weight: float = 1.0
+@export var requires_role_knowledge: bool = false
+@export_range(1.0, 4.0, 0.1) var high_neutralization_weight: float = 1.0
+
+func spawn_radius_multiplier() -> float:
+	return 0.68
+
+func spawn_altitude() -> float:
+	return 70.0
+
+func mission_definition() -> ThreatMissionDefinition:
+	return null
+
+func shares_city_impact_target() -> bool:
+	return false
 
 func runtime_state_validation_error(_content_state: Dictionary, _defense_ids: Dictionary[int, bool]) -> String:
 	return ""
@@ -33,4 +49,6 @@ func validation_error() -> String:
 		return "재밍 설정이 올바르지 않습니다"
 	if flare_effectiveness < 0.0 or flare_effectiveness > 1.0 or chaff_effectiveness < 0.0 or chaff_effectiveness > 1.0 or countermeasure_charges < 0 or electronic_vulnerability < 0.0 or electronic_vulnerability > 2.0:
 		return "대응책 설정이 올바르지 않습니다"
+	if adaptive_knowledge_weight < 0.0 or high_neutralization_weight < 1.0 or requires_role_knowledge and adaptive_knowledge_role.is_empty():
+		return "적응형 공격 가중치 설정이 올바르지 않습니다"
 	return ""
