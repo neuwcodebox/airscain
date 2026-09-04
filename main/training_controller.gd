@@ -107,7 +107,7 @@ func _set_step(next_step: Step) -> void:
 	step = next_step
 	match step:
 		Step.CAMERA:
-			hud.set_training_lesson(1, 13, "전장 살펴보기", "WASD로 이동하고 Q/E 또는 우클릭 드래그로 회전하며, 주황색 훈련 표적 진입 표시를 찾아보세요.", true)
+			hud.set_training_lesson(1, 13, "전장 살펴보기", "WASD 또는 휠 클릭 드래그로 이동하고 Q/E 또는 우클릭 드래그로 회전하며, 주황색 훈련 표적 진입 표시를 찾아보세요.", true)
 		Step.RADAR:
 			hud.set_training_lesson(2, 13, "탐색 센서", "상단의 방공 자산을 열어 탐색 레이더를 고르세요. 표적은 주황색 진입 표시 너머 먼 해상에서 오므로 도시와 진입 표시 사이의 평탄한 지형에 배치하세요.")
 		Step.COMMAND:

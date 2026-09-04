@@ -150,6 +150,7 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(training.training_controller.step, TrainingController.Step.CAMERA)
 	assert_true(training.hud.training_panel.visible)
 	assert_string_contains(training.hud.training_title.text, "1/13")
+	assert_string_contains(training.hud.training_body.text, "휠 클릭 드래그로 이동")
 	assert_true(bool(training.tactical_screen_overlay.get("training_approach_visible")))
 	var approach_position: Vector3 = training.tactical_screen_overlay.get("training_approach_position")
 	assert_gt(approach_position.x, training.objective.global_position.x + training.scenario.battlefield_size * 0.55)
