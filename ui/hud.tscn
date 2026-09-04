@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource path="res://ui/hud.gd" type="Script" id="1"]
 
@@ -54,6 +54,22 @@ content_margin_left = 30.0
 content_margin_top = 26.0
 content_margin_right = 30.0
 content_margin_bottom = 26.0
+
+[sub_resource type="StyleBoxFlat" id="SelectionCard"]
+bg_color = Color(0.055, 0.08, 0.105, 0.96)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.12, 0.28, 0.36, 0.9)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+content_margin_left = 11.0
+content_margin_top = 8.0
+content_margin_right = 11.0
+content_margin_bottom = 8.0
 
 [node name="HUD" type="Control"]
 layout_mode = 3
@@ -448,8 +464,8 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 18.0
-offset_top = -520.0
-offset_right = 398.0
+offset_top = -18.0
+offset_right = 418.0
 offset_bottom = -18.0
 grow_vertical = 0
 mouse_filter = 1
@@ -457,78 +473,357 @@ theme_override_styles/panel = SubResource("CatalogPanel")
 
 [node name="VBox" type="VBoxContainer" parent="SelectedAssetPanel"]
 layout_mode = 2
-theme_override_constants/separation = 7
+theme_override_constants/separation = 9
 
-[node name="SelectedAssetLabel" type="Label" parent="SelectedAssetPanel/VBox"]
+[node name="SelectionKindLabel" type="Label" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(350, 0)
 layout_mode = 2
+theme_override_colors/font_color = Color(0.42, 0.72, 0.82, 1)
+theme_override_font_sizes/font_size = 12
+text = "방공 자산"
+
+[node name="Header" type="HBoxContainer" parent="SelectedAssetPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SelectedAssetLabel" type="Label" parent="SelectedAssetPanel/VBox/Header"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(280, 30)
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 19
 text = "선택 자산"
 vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="SelectedTrackLabel" type="Label" parent="SelectedAssetPanel/VBox"]
+[node name="SelectionStateLabel" type="Label" parent="SelectedAssetPanel/VBox/Header"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 96)
+custom_minimum_size = Vector2(74, 0)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.9, 0.9, 0.8, 1)
-theme_override_font_sizes/font_size = 15
-text = "항적을 클릭해 상세 확인"
+theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
+theme_override_font_sizes/font_size = 13
+text = "정상"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="HeaderSeparator" type="HSeparator" parent="SelectedAssetPanel/VBox"]
+layout_mode = 2
+
+[node name="AssetSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="SectionLabel" type="Label" parent="SelectedAssetPanel/VBox/AssetSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_font_sizes/font_size = 13
+text = "운용 상태"
+
+[node name="Metrics" type="GridContainer" parent="SelectedAssetPanel/VBox/AssetSection"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 5
+columns = 2
+
+[node name="IntegrityKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "내구도"
+
+[node name="AssetIntegrityValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "100%"
+horizontal_alignment = 2
+
+[node name="NetworkKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "지휘통제"
+
+[node name="AssetNetworkValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "직접 연결 0"
+horizontal_alignment = 2
+
+[node name="SupportKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "지역 지원"
+
+[node name="AssetSupportValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/Metrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "범위 밖"
+horizontal_alignment = 2
+
+[node name="AssetResourceLabel" type="Label" parent="SelectedAssetPanel/VBox/AssetSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.82, 0.86, 0.84, 1)
+theme_override_font_sizes/font_size = 14
+text = "운용 자원"
 autowrap_mode = 2
 
-[node name="RelationLegend" type="Label" parent="SelectedAssetPanel/VBox"]
+[node name="TrackSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="SelectedTrackLabel" type="Label" parent="SelectedAssetPanel/VBox/TrackSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.82, 0.42, 1)
+theme_override_font_sizes/font_size = 15
+text = "항적 정보"
+autowrap_mode = 2
+
+[node name="TrackMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/TrackSection"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 5
+columns = 4
+
+[node name="ClassificationConfidenceKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "분류 확신"
+
+[node name="TrackClassificationConfidenceValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0%"
+horizontal_alignment = 2
+
+[node name="AffiliationConfidenceKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "소속 확신"
+
+[node name="TrackAffiliationConfidenceValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "0%"
+horizontal_alignment = 2
+
+[node name="QualityKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "추적 품질"
+
+[node name="TrackQualityValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0%"
+horizontal_alignment = 2
+
+[node name="UncertaintyKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "위치 오차"
+
+[node name="TrackUncertaintyValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "±0m"
+horizontal_alignment = 2
+
+[node name="AltitudeKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "고도"
+
+[node name="TrackAltitudeValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0m"
+horizontal_alignment = 2
+
+[node name="SpeedKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "속도"
+
+[node name="TrackSpeedValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0m/s"
+horizontal_alignment = 2
+
+[node name="SensorKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "기여 센서"
+
+[node name="TrackSensorValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0"
+horizontal_alignment = 2
+
+[node name="EngagementKey" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
+text = "교전 자산"
+
+[node name="TrackEngagementValue" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/TrackMetrics"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0"
+horizontal_alignment = 2
+
+[node name="RelationLegend" type="Label" parent="SelectedAssetPanel/VBox/TrackSection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.65, 0.78, 0.84, 1)
 theme_override_font_sizes/font_size = 13
-text = "━ 센서 기여   ┄ 교전 관계   ┄ 예상 경로"
+text = "청색  센서 기여    주황  교전 중    황색  예상 경로"
+autowrap_mode = 2
 
-[node name="HoldFireButton" type="CheckButton" parent="SelectedAssetPanel/VBox"]
+[node name="EngagementSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="EngagementSourceCard" type="PanelContainer" parent="SelectedAssetPanel/VBox/EngagementSection"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("SelectionCard")
+
+[node name="VBox" type="VBoxContainer" parent="SelectedAssetPanel/VBox/EngagementSection/EngagementSourceCard"]
+layout_mode = 2
+
+[node name="Caption" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/EngagementSourceCard/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.8, 0.95, 1)
+theme_override_font_sizes/font_size = 12
+text = "선택 자산"
+
+[node name="EngagementSourceLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/EngagementSourceCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "미사일 포대"
+
+[node name="DirectionLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.92, 0.82, 1)
+theme_override_font_sizes/font_size = 12
+text = "교전 대상으로 지정"
+horizontal_alignment = 1
+
+[node name="EngagementTargetCard" type="PanelContainer" parent="SelectedAssetPanel/VBox/EngagementSection"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("SelectionCard")
+
+[node name="VBox" type="VBoxContainer" parent="SelectedAssetPanel/VBox/EngagementSection/EngagementTargetCard"]
+layout_mode = 2
+
+[node name="Caption" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/EngagementTargetCard/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.72, 0.3, 1)
+theme_override_font_sizes/font_size = 12
+text = "선택 항적"
+
+[node name="EngagementTargetLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/EngagementTargetCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "적성 무인기"
+
+[node name="EngagementReadinessLabel" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
+theme_override_font_sizes/font_size = 14
+text = "교전 가능 범위"
+horizontal_alignment = 1
+
+[node name="DoctrineSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SectionLabel" type="Label" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_font_sizes/font_size = 13
+text = "교전 설정"
+
+[node name="HoldFireButton" type="CheckButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "사격중지"
 
-[node name="EngageUnknownButton" type="CheckButton" parent="SelectedAssetPanel/VBox"]
+[node name="EngageUnknownButton" type="CheckButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "미확인 항적 교전 허용"
 
-[node name="PriorityTargetButton" type="Button" parent="SelectedAssetPanel/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "선택 항적 우선지정"
-
-[node name="MunitionModeButton" type="Button" parent="SelectedAssetPanel/VBox"]
+[node name="MunitionModeButton" type="Button" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 text = "탄종  자동"
 
-[node name="ResupplyButton" type="Button" parent="SelectedAssetPanel/VBox"]
+[node name="ActionSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="SectionLabel" type="Label" parent="SelectedAssetPanel/VBox/ActionSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_font_sizes/font_size = 13
+text = "명령"
+
+[node name="ActionGrid" type="GridContainer" parent="SelectedAssetPanel/VBox/ActionSection"]
+layout_mode = 2
+theme_override_constants/h_separation = 6
+theme_override_constants/v_separation = 6
+columns = 2
+
+[node name="PriorityTargetButton" type="Button" parent="SelectedAssetPanel/VBox/ActionSection/ActionGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+disabled = true
+text = "우선 표적 지정"
+
+[node name="ResupplyButton" type="Button" parent="SelectedAssetPanel/VBox/ActionSection/ActionGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
 disabled = true
 text = "재보급 요청"
 
-[node name="RepairButton" type="Button" parent="SelectedAssetPanel/VBox"]
+[node name="RepairButton" type="Button" parent="SelectedAssetPanel/VBox/ActionSection/ActionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 disabled = true
 text = "수리 요청"
 
-[node name="RelocationButton" type="Button" parent="SelectedAssetPanel/VBox"]
+[node name="RelocationButton" type="Button" parent="SelectedAssetPanel/VBox/ActionSection/ActionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 disabled = true
 text = "재배치 위치 지정"
 
-[node name="FocusButton" type="Button" parent="SelectedAssetPanel/VBox"]
+[node name="FocusButton" type="Button" parent="SelectedAssetPanel/VBox/ActionSection/ActionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "선택 위치로 초점 이동"
+size_flags_horizontal = 3
+text = "위치로 이동"
 
 [node name="GameOverBlocker" type="ColorRect" parent="."]
 unique_name_in_owner = true
@@ -671,14 +966,14 @@ text = "메인 메뉴"
 [connection signal="pressed" from="ThreatMenu/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
 [connection signal="item_selected" from="ThreatMenu/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
-[connection signal="toggled" from="SelectedAssetPanel/VBox/HoldFireButton" to="." method="_on_hold_fire_toggled"]
-[connection signal="toggled" from="SelectedAssetPanel/VBox/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/MunitionModeButton" to="." method="_on_munition_mode_pressed"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/ResupplyButton" to="." method="_on_resupply_pressed"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/RepairButton" to="." method="_on_repair_pressed"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/RelocationButton" to="." method="_on_relocation_pressed"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/FocusButton" to="." method="_on_focus_pressed"]
+[connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/HoldFireButton" to="." method="_on_hold_fire_toggled"]
+[connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionModeButton" to="." method="_on_munition_mode_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/ResupplyButton" to="." method="_on_resupply_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/RepairButton" to="." method="_on_repair_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/RelocationButton" to="." method="_on_relocation_pressed"]
+[connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/FocusButton" to="." method="_on_focus_pressed"]
 [connection signal="pressed" from="StartButton" to="." method="_on_start_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/Actions/SameSeedButton" to="." method="_on_same_seed_pressed"]
 [connection signal="pressed" from="GameOverPanel/VBox/Actions/NewSeedButton" to="." method="_on_new_seed_pressed"]

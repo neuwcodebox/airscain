@@ -6,6 +6,7 @@ var markers: Dictionary[int, TrackMarker] = {}
 var defense_parent: Node3D
 var engagement_coordinator: EngagementCoordinator
 var selected_track: PlayerTrack
+var selected_engagement_source: DefenseUnit
 var selection_lines := MeshInstance3D.new()
 var line_material := StandardMaterial3D.new()
 var rebuild_remaining: float = 0.0
@@ -43,6 +44,10 @@ func select_track(track: PlayerTrack) -> void:
 		marker.set_selected(track != null and marker.track.track_id == track.track_id)
 	_rebuild_selection_lines()
 
+func select_engagement_source(unit: DefenseUnit) -> void:
+	selected_engagement_source = unit if unit != null and unit.supports_engagement_controls() else null
+	_rebuild_selection_lines()
+
 func selection_details() -> Dictionary:
 	if selected_track == null:
 		return {"sensor_count": 0, "engagement_count": 0}
@@ -53,6 +58,7 @@ func selection_details() -> Dictionary:
 
 func reset() -> void:
 	selected_track = null
+	selected_engagement_source = null
 	selection_lines.mesh = null
 	for marker: TrackMarker in markers.values():
 		if is_instance_valid(marker):
@@ -106,6 +112,8 @@ func _rebuild_selection_lines() -> void:
 	if engagement_coordinator != null:
 		for owner: DefenseUnit in _related_assets(engagement_coordinator.engagement_owner_ids(selected_track.track_id)):
 			vertex_count += _add_dashed_segment(mesh, owner.global_position + Vector3.UP * 9.0, selected_track.estimated_position + Vector3.UP * 12.0, Color(1.0, 0.34, 0.18, 0.82), 10)
+	if selected_engagement_source != null and is_instance_valid(selected_engagement_source):
+		vertex_count += _add_dashed_segment(mesh, selected_engagement_source.global_position + Vector3.UP * 9.0, selected_track.estimated_position + Vector3.UP * 12.0, Color(0.28, 0.9, 1.0, 0.88), 8)
 	if vertex_count > 0:
 		mesh.surface_end()
 		selection_lines.mesh = mesh

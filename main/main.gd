@@ -390,7 +390,12 @@ func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.IN
 		_set_selected_asset(null)
 		c2_overlay.select_asset(null)
 		hud.set_selected_asset(null, 0)
+	elif selected_asset != null and not selected_asset.supports_engagement_controls():
+		_set_selected_asset(null)
+		c2_overlay.select_asset(null)
+		hud.set_selected_asset(null, 0)
 	track_display.select_track(selected_track)
+	track_display.select_engagement_source(selected_asset)
 	tactical_screen_overlay.select_track(selected_track)
 	_refresh_selected_track_panel()
 	if game_mode == GameMode.TRAINING:
@@ -545,6 +550,7 @@ func _clear_selection() -> void:
 	_set_selected_asset(null)
 	selected_track = null
 	track_display.select_track(null)
+	track_display.select_engagement_source(null)
 	tactical_screen_overlay.select_track(null)
 	c2_overlay.select_asset(null)
 	hud.set_selected_asset(null, 0)
@@ -655,6 +661,7 @@ func _clear_runtime_objects() -> void:
 	_set_selected_asset(null)
 	selected_track = null
 	track_display.select_track(null)
+	track_display.select_engagement_source(null)
 	tactical_screen_overlay.select_track(null)
 	c2_overlay.select_asset(null)
 	hud.set_selected_asset(null, 0)

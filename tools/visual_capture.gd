@@ -20,6 +20,14 @@ func run() -> void:
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
+	if OS.get_cmdline_user_args().has("--capture-selection-panel-only"):
+		var selection_ok := await _capture_selection_panel()
+		if not selection_ok:
+			quit(1)
+			return
+		print("VISUAL_CAPTURE_OK asset_selection track_selection engagement_review")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-topbar-menus-only"):
 		await _capture_topbar_menus()
 		print("VISUAL_CAPTURE_OK defense_assets_menu city_status_menu")
@@ -351,6 +359,24 @@ func run() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_tactical_selection.png")
+	var review_source: DefenseUnit
+	for defense: DefenseUnit in main.defenses:
+		if defense.supports_engagement_controls():
+			review_source = defense
+			break
+	if review_source == null:
+		push_error("No armed asset was available for engagement review capture")
+		quit(1)
+		return
+	main._on_asset_selected(review_source)
+	main._on_world_selected(early_tracks[0].estimated_position)
+	for index: int in 3:
+		await process_frame
+	if not main.hud.engagement_section.visible or main.track_display.selected_engagement_source != review_source:
+		push_error("Engagement review did not preserve both selections")
+		quit(1)
+		return
+	_save_capture("/tmp/airscain_engagement_review.png")
 	for index: int in 150:
 		await process_frame
 	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
@@ -369,7 +395,7 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("VISUAL_CAPTURE_OK initial catalog_wheel camera_rotation placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection combat coasting city_damage game_over")
+	print("VISUAL_CAPTURE_OK initial catalog_wheel camera_rotation placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection engagement_review combat coasting city_damage game_over")
 	quit(0)
 
 func _capture_operation_menus() -> void:
@@ -500,6 +526,54 @@ func _place_initial_assets() -> void:
 	_place_asset(main.scenario.available_defenses[10], 1.0)
 	var rooftop_position: Vector3 = main.battlefield.rooftop_pads[0].position
 	main.session.request_placement(main.scenario.available_defenses[1], rooftop_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+
+func _capture_selection_panel() -> bool:
+	main.session.budget = 5000
+	main._on_pressure_changed(5)
+	_place_asset(main.scenario.available_defenses[0], -1.0)
+	_place_asset(main.scenario.available_defenses[1], 1.0)
+	var battery: DefenseUnit
+	var radar: SearchRadar
+	for defense: DefenseUnit in main.defenses:
+		if defense is MissileBattery:
+			battery = defense
+		elif defense is SearchRadar:
+			radar = defense as SearchRadar
+	if battery == null or radar == null:
+		push_error("Selection capture could not place a radar and armed asset")
+		return false
+	main._on_asset_selected(battery)
+	main.camera_rig.focus_on(battery.global_position)
+	main.camera_rig.zoom_distance = 430.0
+	main.camera_rig._update_camera()
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_asset_selection.png")
+	var threat := main.director.spawn_one()
+	threat.global_position = radar.global_position + Vector3(180.0, 70.0, 0.0)
+	radar.gameplay_tick(0.8)
+	var tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
+	if tracks.is_empty():
+		push_error("Selection capture did not produce a public track")
+		return false
+	var track := tracks[0]
+	main._on_asset_selected(radar)
+	main._on_world_selected(track.estimated_position)
+	for index: int in 4:
+		await process_frame
+	if not main.hud.track_section.visible or radar.identity_marker.get("selected"):
+		push_error("Track-only selection did not replace a non-weapon asset")
+		return false
+	_save_capture("/tmp/airscain_track_selection.png")
+	main._on_asset_selected(battery)
+	main._on_world_selected(track.estimated_position)
+	for index: int in 4:
+		await process_frame
+	if not main.hud.engagement_section.visible or not bool(battery.identity_marker.get("selected")):
+		push_error("Engagement review did not preserve the armed asset selection")
+		return false
+	_save_capture("/tmp/airscain_engagement_review.png")
+	return true
 
 func _spawn_swarm_near_close_in_gun() -> void:
 	var gun: CloseInGun

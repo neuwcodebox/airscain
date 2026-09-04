@@ -31,6 +31,9 @@ var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
 var selected_asset_connection_count: int = 0
 var selected_asset_support_connection_count: int = 0
+var selected_track_sensor_count: int = 0
+var selected_track_engagement_count: int = 0
+var selected_track_can_prioritize: bool = false
 var overlay_mode_index: int = 0
 var catalog_expanded: bool = false
 var city_menu_expanded: bool = false
@@ -88,9 +91,31 @@ const CATALOG_GROUP_LABELS := {
 @onready var final_combat_stats: Label = %FinalCombatStats
 @onready var final_network_stats: Label = %FinalNetworkStats
 @onready var selected_asset_panel: PanelContainer = %SelectedAssetPanel
+@onready var selection_kind_label: Label = %SelectionKindLabel
 @onready var selected_asset_label: Label = %SelectedAssetLabel
+@onready var selection_state_label: Label = %SelectionStateLabel
+@onready var asset_section: VBoxContainer = %AssetSection
+@onready var asset_integrity_value: Label = %AssetIntegrityValue
+@onready var asset_network_value: Label = %AssetNetworkValue
+@onready var asset_support_value: Label = %AssetSupportValue
+@onready var asset_resource_label: Label = %AssetResourceLabel
+@onready var track_section: VBoxContainer = %TrackSection
 @onready var selected_track_label: Label = %SelectedTrackLabel
 @onready var relation_legend: Label = %RelationLegend
+@onready var track_classification_confidence_value: Label = %TrackClassificationConfidenceValue
+@onready var track_affiliation_confidence_value: Label = %TrackAffiliationConfidenceValue
+@onready var track_quality_value: Label = %TrackQualityValue
+@onready var track_uncertainty_value: Label = %TrackUncertaintyValue
+@onready var track_altitude_value: Label = %TrackAltitudeValue
+@onready var track_speed_value: Label = %TrackSpeedValue
+@onready var track_sensor_value: Label = %TrackSensorValue
+@onready var track_engagement_value: Label = %TrackEngagementValue
+@onready var engagement_section: VBoxContainer = %EngagementSection
+@onready var engagement_source_label: Label = %EngagementSourceLabel
+@onready var engagement_target_label: Label = %EngagementTargetLabel
+@onready var engagement_readiness_label: Label = %EngagementReadinessLabel
+@onready var doctrine_section: VBoxContainer = %DoctrineSection
+@onready var action_section: VBoxContainer = %ActionSection
 @onready var hold_fire_button: CheckButton = %HoldFireButton
 @onready var engage_unknown_button: CheckButton = %EngageUnknownButton
 @onready var priority_target_button: Button = %PriorityTargetButton
@@ -278,7 +303,7 @@ func _process(delta: float) -> void:
 		if feedback_remaining <= 0.0:
 			_set_feedback_text(feedback_context)
 	if selected_asset != null and is_instance_valid(selected_asset):
-		_refresh_selected_asset_label()
+		_refresh_selected_asset_label(false)
 
 func refresh_selected_asset() -> void:
 	if selected_asset != null and is_instance_valid(selected_asset):
@@ -288,43 +313,27 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int, support_connec
 	selected_asset = unit
 	selected_asset_connection_count = connection_count
 	selected_asset_support_connection_count = support_connection_count
-	selected_asset_panel.visible = unit != null or selected_track != null
-	focus_button.visible = unit != null or selected_track != null
 	if unit != null:
-		_refresh_selected_asset_label()
 		var supports_doctrine := unit.supports_engagement_controls()
-		hold_fire_button.visible = supports_doctrine
-		engage_unknown_button.visible = supports_doctrine
-		priority_target_button.visible = supports_doctrine
-		munition_mode_button.visible = unit.supports_munition_selection()
-		resupply_button.visible = unit.uses_ammunition()
-		repair_button.visible = true
-		relocation_button.visible = unit.definition.mobile
 		if supports_doctrine:
 			hold_fire_button.set_pressed_no_signal(unit.engagement_hold_fire())
 			engage_unknown_button.set_pressed_no_signal(unit.engagement_engages_unknown())
-			priority_target_button.disabled = true
-	elif selected_track == null:
-		selected_asset_label.text = "선택 자산 없음"
-	if unit == null:
-		hold_fire_button.visible = false
-		engage_unknown_button.visible = false
-		priority_target_button.visible = false
-		munition_mode_button.visible = false
-		resupply_button.visible = false
-		repair_button.visible = false
-		relocation_button.visible = false
-
-func _refresh_selected_asset_label() -> void:
-	var resource_status := selected_asset.resource_status_text()
-	selected_asset_label.text = selected_asset.definition.display_name
-	if selected_asset.service_range() > 0.0:
-		selected_asset_label.text += "\n지원 가능 자산  %d" % selected_asset_support_connection_count
+		_refresh_selected_asset_label()
 	else:
-		selected_asset_label.text += "\nC2 직접 연결  %d" % selected_asset_connection_count
-		selected_asset_label.text += "\n지역 지원  %s" % ("연결됨" if selected_asset_support_connection_count > 0 else "범위 밖")
-	if not resource_status.is_empty():
-		selected_asset_label.text += "\n%s" % resource_status
+		_refresh_selection_view()
+
+func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
+	if selected_asset == null or not is_instance_valid(selected_asset):
+		return
+	asset_integrity_value.text = "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)
+	if selected_asset.service_range() > 0.0:
+		asset_network_value.text = "해당 없음"
+		asset_support_value.text = "지원 가능 %d" % selected_asset_support_connection_count
+	else:
+		asset_network_value.text = "직접 연결 %d" % selected_asset_connection_count
+		asset_support_value.text = "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
+	asset_resource_label.text = _asset_resource_detail(selected_asset)
+	asset_resource_label.visible = not asset_resource_label.text.is_empty()
 	if selected_asset.uses_ammunition():
 		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost()
 	if selected_asset.supports_munition_selection():
@@ -334,25 +343,138 @@ func _refresh_selected_asset_label() -> void:
 	repair_button.disabled = not selected_asset.can_request_repair()
 	relocation_button.text = "재배치 위치 지정" if selected_asset.can_request_relocation() else "재배치 중"
 	relocation_button.disabled = not selected_asset.can_request_relocation()
+	_refresh_selection_view(fit_panel)
 
 func set_selected_track(track: PlayerTrack, can_prioritize: bool, sensor_count: int = 0, engagement_count: int = 0) -> void:
 	selected_track = track
-	if selected_asset == null:
-		selected_asset_label.text = "선택 자산 없음"
-	selected_asset_panel.visible = selected_asset != null or track != null
-	focus_button.visible = selected_asset != null or track != null
-	if track == null:
-		selected_track_label.visible = false
-		relation_legend.visible = false
-		priority_target_button.disabled = true
+	selected_track_can_prioritize = can_prioritize
+	selected_track_sensor_count = sensor_count
+	selected_track_engagement_count = engagement_count
+	_refresh_selection_view()
+
+func _refresh_selection_view(fit_panel: bool = true) -> void:
+	var has_asset := selected_asset != null and is_instance_valid(selected_asset)
+	var has_track := selected_track != null
+	var engagement_review := has_asset and has_track and selected_asset.supports_engagement_controls()
+	selected_asset_panel.visible = has_asset or has_track
+	if not selected_asset_panel.visible:
 		return
-	selected_track_label.visible = true
-	relation_legend.visible = true
-	selected_track_label.text = "%s %s · %s\n분류 확신 %d%% · 소속 확신 %d%%\n추적 품질 %d%% · 오차 ±%dm\n고도 %dm · 속도 %dm/s\n센서 %d · 교전 자산 %d" % [_affiliation_text(track), _classification_text(track.classification), _track_state_text(track.state), int(track.classification_confidence * 100.0), int(track.affiliation_confidence * 100.0), int(track.track_quality * 100.0), roundi(track.position_uncertainty), roundi(track.estimated_position.y), roundi(track.estimated_velocity.length()), sensor_count, engagement_count]
-	priority_target_button.disabled = not can_prioritize
+	asset_section.visible = has_asset and not has_track
+	track_section.visible = has_track and not engagement_review
+	engagement_section.visible = engagement_review
+	doctrine_section.visible = has_asset and not has_track and selected_asset.supports_engagement_controls()
+	action_section.visible = has_asset or has_track
+	hold_fire_button.visible = doctrine_section.visible
+	engage_unknown_button.visible = doctrine_section.visible
+	munition_mode_button.visible = doctrine_section.visible and selected_asset.supports_munition_selection()
+	priority_target_button.visible = engagement_review
+	priority_target_button.disabled = not selected_track_can_prioritize
+	resupply_button.visible = has_asset and not has_track and selected_asset.uses_ammunition()
+	repair_button.visible = has_asset and not has_track
+	relocation_button.visible = has_asset and not has_track and selected_asset.definition.mobile
+	focus_button.visible = has_asset or has_track
+	if engagement_review:
+		_refresh_engagement_review()
+	elif has_track:
+		_refresh_track_details()
+	else:
+		selection_kind_label.text = "방공 자산"
+		selected_asset_label.text = selected_asset.definition.display_name
+		selection_state_label.text = _asset_state_text(selected_asset)
+		_set_state_color(selected_asset.active and selected_asset.operational_ratio() >= 0.75)
+		_refresh_selected_asset_label_fields_only()
+	if fit_panel:
+		call_deferred("_fit_selection_panel")
+
+func _refresh_selected_asset_label_fields_only() -> void:
+	asset_integrity_value.text = "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)
+	if selected_asset.service_range() > 0.0:
+		asset_network_value.text = "해당 없음"
+		asset_support_value.text = "지원 가능 %d" % selected_asset_support_connection_count
+	else:
+		asset_network_value.text = "직접 연결 %d" % selected_asset_connection_count
+		asset_support_value.text = "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
+	asset_resource_label.text = _asset_resource_detail(selected_asset)
+	asset_resource_label.visible = not asset_resource_label.text.is_empty()
+
+func _refresh_track_details() -> void:
+	selection_kind_label.text = "항적 정보"
+	selected_asset_label.text = "%s %s" % [_affiliation_text(selected_track), _classification_text(selected_track.classification)]
+	selection_state_label.text = _track_state_text(selected_track.state)
+	_set_state_color(selected_track.state == PlayerTrack.State.CONFIRMED)
+	selected_track_label.text = "식별 및 추적 정보"
+	track_classification_confidence_value.text = "%d%%" % roundi(selected_track.classification_confidence * 100.0)
+	track_affiliation_confidence_value.text = "%d%%" % roundi(selected_track.affiliation_confidence * 100.0)
+	track_quality_value.text = "%d%%" % roundi(selected_track.track_quality * 100.0)
+	track_uncertainty_value.text = "±%dm" % roundi(selected_track.position_uncertainty)
+	track_altitude_value.text = "%dm" % roundi(selected_track.estimated_position.y)
+	track_speed_value.text = "%dm/s" % roundi(selected_track.estimated_velocity.length())
+	track_sensor_value.text = str(selected_track_sensor_count)
+	track_engagement_value.text = str(selected_track_engagement_count)
+
+func _refresh_engagement_review() -> void:
+	selection_kind_label.text = "교전 검토"
+	selected_asset_label.text = "자산과 항적"
+	selection_state_label.text = "선택됨"
+	_set_state_color(true)
+	var resource_detail := _asset_resource_detail(selected_asset)
+	engagement_source_label.text = "%s\n내구도 %d%%    C2 직접 연결 %d" % [selected_asset.definition.display_name, roundi(selected_asset.operational_ratio() * 100.0), selected_asset_connection_count]
+	if not resource_detail.is_empty():
+		engagement_source_label.text += "\n%s" % resource_detail
+	engagement_target_label.text = "%s %s    %s\n추적 품질 %d%%    고도 %dm    속도 %dm/s" % [_affiliation_text(selected_track), _classification_text(selected_track.classification), _track_state_text(selected_track.state), roundi(selected_track.track_quality * 100.0), roundi(selected_track.estimated_position.y), roundi(selected_track.estimated_velocity.length())]
+	var distance := selected_asset.global_position.distance_to(selected_track.estimated_position)
+	var maximum_range := selected_asset.definition.tactical_range() * selected_asset.operational_efficiency()
+	if not selected_asset.active:
+		engagement_readiness_label.text = "자산 기능 정지"
+		_set_engagement_readiness_color(false)
+	elif selected_asset.engagement_hold_fire():
+		engagement_readiness_label.text = "사격중지 상태"
+		_set_engagement_readiness_color(false)
+	elif selected_asset.combat_resource_depleted():
+		engagement_readiness_label.text = "교전 자원 고갈"
+		_set_engagement_readiness_color(false)
+	elif distance > maximum_range:
+		engagement_readiness_label.text = "사거리 밖  %dm / %dm" % [roundi(distance), roundi(maximum_range)]
+		_set_engagement_readiness_color(false)
+	else:
+		engagement_readiness_label.text = "교전 가능 범위  %dm / %dm" % [roundi(distance), roundi(maximum_range)]
+		_set_engagement_readiness_color(true)
+
+func _asset_resource_detail(unit: DefenseUnit) -> String:
+	var lines := unit.resource_status_text().split("\n", false)
+	if lines.is_empty():
+		return ""
+	if lines[0].begins_with("상태 "):
+		var status_parts := lines[0].split(" · ", false)
+		lines.remove_at(0)
+		if status_parts.size() > 2:
+			lines.insert(0, " · ".join(status_parts.slice(2)))
+	return "\n".join(lines).replace(" · ", "    ")
+
+func _asset_state_text(unit: DefenseUnit) -> String:
+	if unit.integrity <= 0.0:
+		return "파괴"
+	if not unit.active:
+		return "기능 정지"
+	if unit.operational_ratio() < 0.75:
+		return "성능 저하"
+	return "정상"
+
+func _set_state_color(positive: bool) -> void:
+	selection_state_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.66) if positive else Color(1.0, 0.62, 0.3))
+
+func _set_engagement_readiness_color(ready: bool) -> void:
+	engagement_readiness_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.66) if ready else Color(1.0, 0.62, 0.3))
+
+func _fit_selection_panel() -> void:
+	selected_asset_panel.reset_size()
+	var panel_size := selected_asset_panel.get_combined_minimum_size()
+	selected_asset_panel.size = panel_size
+	selected_asset_panel.position = Vector2(18.0, get_viewport_rect().size.y - panel_size.y - 18.0)
 
 func _classification_text(classification: StringName) -> String:
 	match classification:
+		&"bird": return "조류"
 		&"uav": return "무인기"
 		&"small_uav": return "소형 무인기"
 		&"cruise_missile": return "순항미사일"
