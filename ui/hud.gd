@@ -100,10 +100,6 @@ const CATALOG_GROUP_LABELS := {
 @onready var selection_state_label: Label = %SelectionStateLabel
 @onready var asset_section: VBoxContainer = %AssetSection
 @onready var asset_metrics: GridContainer = %AssetMetrics
-@onready var asset_integrity_value: Label = %AssetIntegrityValue
-@onready var asset_network_value: Label = %AssetNetworkValue
-@onready var asset_support_value: Label = %AssetSupportValue
-@onready var asset_resource_metrics: GridContainer = %AssetResourceMetrics
 @onready var track_section: VBoxContainer = %TrackSection
 @onready var track_metrics: GridContainer = %TrackMetrics
 @onready var selected_track_label: Label = %SelectedTrackLabel
@@ -144,7 +140,6 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	defense_definitions = defenses
 	threat_definitions = threats
 	configured_game_mode = game_mode
-	_style_metric_grid(asset_metrics, 132.0)
 	_style_metric_grid(track_metrics, 48.0)
 	_ensure_menu_row_styles()
 	_apply_menu_row_style(city_restoration_button)
@@ -334,16 +329,7 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int, support_connec
 func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	if selected_asset == null or not is_instance_valid(selected_asset):
 		return
-	asset_integrity_value.text = "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)
-	if selected_asset.service_range() > 0.0:
-		asset_network_value.text = "해당 없음"
-		asset_support_value.text = "지원 가능 %d" % selected_asset_support_connection_count
-	else:
-		asset_network_value.text = "직접 연결 %d" % selected_asset_connection_count
-		asset_support_value.text = "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
-	var status_rows := selected_asset.selection_status_rows()
-	_set_metric_rows(asset_resource_metrics, status_rows)
-	asset_resource_metrics.visible = not status_rows.is_empty()
+	_refresh_asset_metrics()
 	if selected_asset.uses_ammunition():
 		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost()
 	if selected_asset.supports_munition_selection():
@@ -397,16 +383,21 @@ func _refresh_selection_view(fit_panel: bool = true) -> void:
 		call_deferred("_fit_selection_panel")
 
 func _refresh_selected_asset_label_fields_only() -> void:
-	asset_integrity_value.text = "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)
+	_refresh_asset_metrics()
+
+func _refresh_asset_metrics() -> void:
+	var network_value := "직접 연결 %d" % selected_asset_connection_count
+	var support_value := "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
 	if selected_asset.service_range() > 0.0:
-		asset_network_value.text = "해당 없음"
-		asset_support_value.text = "지원 가능 %d" % selected_asset_support_connection_count
-	else:
-		asset_network_value.text = "직접 연결 %d" % selected_asset_connection_count
-		asset_support_value.text = "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
-	var status_rows := selected_asset.selection_status_rows()
-	_set_metric_rows(asset_resource_metrics, status_rows)
-	asset_resource_metrics.visible = not status_rows.is_empty()
+		network_value = "해당 없음"
+		support_value = "지원 가능 %d" % selected_asset_support_connection_count
+	var rows: Array[Dictionary] = [
+		{"label": "내구도", "value": "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)},
+		{"label": "지휘통제", "value": network_value},
+		{"label": "지역 지원", "value": support_value},
+	]
+	rows.append_array(selected_asset.selection_status_rows())
+	_set_metric_rows(asset_metrics, rows)
 
 func _refresh_track_details() -> void:
 	selection_kind_label.text = "항적 정보"

@@ -512,49 +512,6 @@ theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 5
 columns = 2
 
-[node name="IntegrityKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
-text = "내구도"
-
-[node name="AssetIntegrityValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 0)
-layout_mode = 2
-text = "100%"
-horizontal_alignment = 2
-
-[node name="NetworkKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
-text = "지휘통제"
-
-[node name="AssetNetworkValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 0)
-layout_mode = 2
-text = "직접 연결 0"
-horizontal_alignment = 2
-
-[node name="SupportKey" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 1)
-text = "지역 지원"
-
-[node name="AssetSupportValue" type="Label" parent="SelectedAssetPanel/VBox/AssetSection/AssetMetrics"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 0)
-layout_mode = 2
-text = "범위 밖"
-horizontal_alignment = 2
-
-[node name="AssetResourceMetrics" type="GridContainer" parent="SelectedAssetPanel/VBox/AssetSection"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/h_separation = 12
-theme_override_constants/v_separation = 5
-columns = 2
-
 [node name="TrackSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
 visible = false

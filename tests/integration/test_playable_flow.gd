@@ -556,9 +556,9 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main._on_asset_selected(laser)
 	assert_eq(main.c2_overlay.visible_c2_link_count, preview_c2_count)
 	assert_eq(main.c2_overlay.visible_support_link_count, 1)
-	assert_eq(main.hud.asset_support_value.text, "연결됨")
-	assert_eq(_metric_value(main.hud.asset_resource_metrics, "수요 / 공급"), "12 / 20")
-	assert_eq(_metric_value(main.hud.asset_resource_metrics, "공급 상태"), "정상")
+	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "연결됨")
+	assert_eq(_metric_value(main.hud.asset_metrics, "수요 / 공급"), "12 / 20")
+	assert_eq(_metric_value(main.hud.asset_metrics, "공급 상태"), "정상")
 	var support_definition := main.scenario.available_defenses[5]
 	main.placement.select(support_definition)
 	assert_eq((main.placement.range_disc.mesh as TorusMesh).outer_radius, (support_definition as SupportFacilityDefinition).service_range)
@@ -571,7 +571,7 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main.placement.cancel()
 	main._on_asset_selected(support)
 	var selected_support_count := main.c2_overlay.visible_support_link_count
-	assert_eq(main.hud.asset_support_value.text, "지원 가능 %d" % selected_support_count)
+	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "지원 가능 %d" % selected_support_count)
 	assert_true(main.c2_overlay.range_ring.visible)
 	assert_eq((main.c2_overlay.range_ring.mesh as TorusMesh).rings, 96)
 	main.c2_overlay.preview_placement(support_definition, support.global_position, true)
@@ -786,7 +786,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var command_result: Dictionary = main.session.request_placement(command_definition, _find_valid_position_for(command_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(command_result.success)
 	assert_same(main.placement.pick_asset_at(battery.global_position), battery)
-	assert_false(_metric_value(main.hud.asset_resource_metrics, "표준 요격탄").is_empty())
+	assert_false(_metric_value(main.hud.asset_metrics, "표준 요격탄").is_empty())
 	assert_gt(int(main.c2_overlay.get("visible_link_count")), 0)
 	for frame: int in 300:
 		main.player_knowledge.call("gameplay_tick", 0.02)
