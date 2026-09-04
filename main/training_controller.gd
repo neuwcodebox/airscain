@@ -127,8 +127,7 @@ func _set_step(next_step: Step) -> void:
 		Step.ENGAGE:
 			hud.set_training_lesson(10, 13, "자동교전 관찰 · 자동 재생", "포대가 선회·조준하고 표적을 요격하는 과정을 관찰하세요. 교전 종료 후 자동 일시정지됩니다.")
 		Step.SUPPORT:
-			hud.set_catalog_expanded(true)
-			hud.set_training_lesson(11, 13, "통합 지원", "열린 방공 자산에서 통합 지원기지를 골라 배치하세요. 배치 후 포대의 예비탄을 훈련용으로 소진시킵니다.")
+			hud.set_training_lesson(11, 13, "통합 지원", "상단의 방공 자산을 열어 통합 지원기지를 골라 배치하세요. 배치 후 포대의 예비탄을 훈련용으로 소진시킵니다.")
 		Step.RESUPPLY:
 			hud.set_training_lesson(12, 13, "재보급 작업 · 일시정지", "미사일 포대를 다시 선택하세요. 활성화된 재보급 요청을 눌러 지원 대기열에 작업을 넣으세요.")
 		Step.OVERLAY:

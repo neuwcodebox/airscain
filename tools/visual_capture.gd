@@ -1292,6 +1292,12 @@ func _capture_training_guidance() -> bool:
 		return false
 	_save_capture("/tmp/airscain_training_entry_catalog_open.png")
 	main.hud.set_catalog_expanded(false)
+	main.training_controller._set_step(TrainingController.Step.SUPPORT)
+	await process_frame
+	if main.hud.catalog_expanded or not main.hud.training_panel.visible:
+		push_error("Training support step opened the asset catalog over its instructions")
+		return false
+	_save_capture("/tmp/airscain_training_support_instructions.png")
 	main.training_controller._set_step(TrainingController.Step.ACQUIRE)
 	await process_frame
 	if bool(main.tactical_screen_overlay.get("training_approach_visible")):
