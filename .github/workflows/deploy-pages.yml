@@ -1,0 +1,99 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2
+  GODOT_ENGINE_SHA512: 9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65
+  GODOT_TEMPLATES_SHA512: ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b06672e1648d2e5f40980c9adc28d23e1b92e732ee7bf3461997aa804af74ec2fcd7a93ccb84079
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Install Godot
+        shell: bash
+        run: |
+          release="${GODOT_VERSION}-stable"
+          archive="Godot_v${release}_linux.x86_64.zip"
+          download_root="https://github.com/godotengine/godot-builds/releases/download/${release}"
+          godot_dir="${RUNNER_TEMP}/godot"
+
+          mkdir -p "${godot_dir}"
+          curl --fail --location --retry 3 --output "${RUNNER_TEMP}/${archive}" "${download_root}/${archive}"
+          echo "${GODOT_ENGINE_SHA512}  ${RUNNER_TEMP}/${archive}" | sha512sum --check --strict
+          unzip -q "${RUNNER_TEMP}/${archive}" -d "${godot_dir}"
+          mv "${godot_dir}/Godot_v${release}_linux.x86_64" "${godot_dir}/godot"
+          chmod +x "${godot_dir}/godot"
+          echo "${godot_dir}" >> "${GITHUB_PATH}"
+
+      - name: Cache Godot export templates
+        id: export-template-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/godot-data/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          key: godot-export-templates-${{ runner.os }}-${{ env.GODOT_VERSION }}-stable
+
+      - name: Install Godot export templates
+        if: steps.export-template-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          release="${GODOT_VERSION}-stable"
+          templates="Godot_v${release}_export_templates.tpz"
+          download_root="https://github.com/godotengine/godot-builds/releases/download/${release}"
+          template_dir="${RUNNER_TEMP}/godot-data/godot/export_templates/${GODOT_VERSION}.stable"
+
+          mkdir -p "${template_dir}"
+          curl --fail --location --retry 3 --output "${RUNNER_TEMP}/${templates}" "${download_root}/${templates}"
+          echo "${GODOT_TEMPLATES_SHA512}  ${RUNNER_TEMP}/${templates}" | sha512sum --check --strict
+          unzip -j -q "${RUNNER_TEMP}/${templates}" \
+            templates/web_nothreads_debug.zip \
+            templates/web_nothreads_release.zip \
+            -d "${template_dir}"
+
+      - name: Import project resources
+        run: XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --editor --path . --quit
+
+      - name: Export Web build
+        run: |
+          mkdir -p build/web
+          XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --path . --export-release Web build/web/index.html
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/web
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

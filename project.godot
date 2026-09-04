@@ -15,7 +15,9 @@ window/stretch/mode="canvas_items"
 [rendering]
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
+renderer/rendering_method.web="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
+textures/vram_compression/import_etc2_astc=true
 
 [input]
 camera_forward={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":87)]}

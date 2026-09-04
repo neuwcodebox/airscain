@@ -889,3 +889,18 @@
 ### 진행 기록
 
 - 2026-09-05: 표적 파괴가 확인된 요격탄은 장비 본래 선회율로 50도 상승 방향을 향해 선회하면서 기존과 같은 2.5초 재획득 유예 동안 도달 가능한 적성 항적을 매 tick 다시 평가한다. 유예 중 생긴 대체 표적은 정상 유도로 추적하고, 끝까지 없으면 별도 실패 문구 없이 공중 자폭한다. 상승 중 다른 위협이나 지형과 만나면 기존 충돌 판정을 유지하며 이전 저장의 관성 비행 상태도 새 종료 상태로 복원한다. 전체 11개 스크립트, 165개 테스트와 2,525개 단언을 통과했으며 실제 Forward Mobile 렌더에서 상승 연기 궤적과 종단 공중폭발을 확인했다.
+
+---
+
+## 53. GitHub Pages 웹 배포
+
+- [x] 네이티브 Mobile 렌더러를 유지하면서 웹 빌드에 Compatibility 렌더러를 적용한다.
+- [x] 단일 스레드 Web export preset과 재현 가능한 로컬 빌드 경로를 추가한다.
+- [x] `main` push와 수동 실행에서 Pages artifact를 빌드·배포하는 GitHub Actions workflow를 추가한다.
+- [x] 실제 Web export와 브라우저 렌더를 검증한다.
+
+**완료 기준:** 새 클론에서 GitHub Actions가 Web 산출물을 만들고 Pages에 배포할 수 있으며, 같은 산출물이 로컬 HTTP 서버의 실제 브라우저에서 오류 없이 실행된다.
+
+### 진행 기록
+
+- 2026-09-05: 네이티브 Mobile 렌더러를 유지하면서 Web feature에는 Compatibility 렌더러를 적용하고, 단일 스레드 Web preset과 GitHub Pages build/deploy workflow를 추가했다. Godot 4.7.2 공식 release·template은 SHA-512로 검증하고 Web template만 버전별로 캐시한다. 실제 release export 후 로컬 HTTP 서버의 Firefox에서 메인 메뉴와 3D 전장, 전체 정적 요청 성공과 런타임 오류 0건을 확인했으며 전체 11개 스크립트, 165개 테스트와 2,525개 단언이 통과했다.
