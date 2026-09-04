@@ -12,6 +12,9 @@ func before_each() -> void:
 func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 1600)
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 900)
+	assert_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method"), "gl_compatibility")
+	assert_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile"), "gl_compatibility")
+	assert_eq(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d"), Viewport.MSAA_2X)
 	assert_not_null(main.objective)
 	assert_gt(main.battlefield.terrain.mesh.get_surface_count(), 0)
 	var terrain_material := main.battlefield.terrain.material_override as ShaderMaterial

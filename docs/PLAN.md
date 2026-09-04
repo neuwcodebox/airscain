@@ -894,7 +894,7 @@
 
 ## 53. GitHub Pages 웹 배포
 
-- [x] 네이티브 Mobile 렌더러를 유지하면서 웹 빌드에 Compatibility 렌더러를 적용한다.
+- [x] 네이티브와 웹 빌드가 같은 Compatibility 렌더러 설정을 사용하게 한다.
 - [x] 단일 스레드 Web export preset과 재현 가능한 로컬 빌드 경로를 추가한다.
 - [x] `main` push와 수동 실행에서 Pages artifact를 빌드·배포하는 GitHub Actions workflow를 추가한다.
 - [x] 실제 Web export와 브라우저 렌더를 검증한다.
@@ -903,4 +903,29 @@
 
 ### 진행 기록
 
-- 2026-09-05: 네이티브 Mobile 렌더러를 유지하면서 Web feature에는 Compatibility 렌더러를 적용하고, 단일 스레드 Web preset과 GitHub Pages build/deploy workflow를 추가했다. Godot 4.7.2 공식 release·template은 SHA-512로 검증하고 Web template만 버전별로 캐시하며, 공식 Pages 액션은 Node 24 기반 버전을 사용한다. 실제 release export 후 로컬 HTTP 서버의 Firefox에서 메인 메뉴와 3D 전장, 전체 정적 요청 성공과 런타임 오류 0건을 확인했으며 전체 11개 스크립트, 165개 테스트와 2,525개 단언이 통과했다.
+- 2026-09-05: 네이티브와 Web이 같은 Compatibility 렌더러를 사용하도록 통일하고, 단일 스레드 Web preset과 GitHub Pages build/deploy workflow를 추가했다. Godot 4.7.2 공식 release·template은 SHA-512로 검증하고 Web template만 버전별로 캐시하며, 공식 Pages 액션은 Node 24 기반 버전을 사용한다. 실제 release export 후 로컬 HTTP 서버의 Firefox에서 메인 메뉴와 3D 전장, 전체 정적 요청 성공과 런타임 오류 0건을 확인했으며 전체 11개 스크립트, 165개 테스트와 2,525개 단언이 통과했다.
+
+---
+
+## 54. 공통 Compatibility 화면 품질
+
+- [x] 네이티브와 웹의 공통 3D MSAA를 적용한다.
+- [x] 공통 환경광과 그림자 설정을 조정해 지형·건물의 형태 대비를 회복한다.
+- [x] 설정 회귀 테스트와 실제 네이티브·웹 렌더를 검증한다.
+
+**완료 기준:** 네이티브와 웹이 별도 그래픽 분기 없이 같은 렌더러·품질 설정을 사용하고, 실제 양쪽 화면에서 전장의 형태와 UI를 정상적으로 식별할 수 있다.
+
+### 진행 기록
+
+- 2026-09-05: 프로젝트의 기본·mobile 렌더링 방식을 Compatibility 하나로 통일하고 공통 2× MSAA를 적용했다. 환경광 에너지와 그림자 bias를 낮춰 밝게 뭉개지던 지형 굴곡과 건물 측면의 대비를 회복했다. 통합 69개 테스트와 1,052개 단언이 통과했으며, 실제 네이티브 Compatibility 창과 새 release Web export의 Firefox에서 같은 화면 설정, 정적 요청 성공과 런타임 오류 0건을 확인했다.
+
+---
+
+## 55. 최초 효과음 재생 지연 제거
+
+- [ ] 현재 음원 로딩과 첫 재생 경로를 확인한다.
+- [ ] 로딩 구간에서 모든 압축 음원의 재생 인스턴스를 미리 준비한다.
+- [ ] 준비 과정이 사건 집계나 실제 재생 채널을 건드리지 않는지 자동 테스트한다.
+- [ ] 전체 회귀와 실제 실행에서 런타임 오류가 없는지 확인한다.
+
+**완료 기준:** UI 및 전투 효과음 리소스는 동적 파일 로딩 없이 준비되며, 개별 음원을 처음 사용하는 전투 사건에서 디코더 초기화가 발생하지 않는다.

@@ -24,7 +24,7 @@
 |---|---|
 | 엔진 | Godot 4.7.2 |
 | 언어 | typed GDScript |
-| 렌더러 | Mobile |
+| 렌더러 | Compatibility (네이티브·Web 공통) |
 | 주 실행 환경 | Windows 데스크톱 |
 | CLI | `PATH`에 있는 `godot` |
 | 장면 | 텍스트 `.tscn` |
