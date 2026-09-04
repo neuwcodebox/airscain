@@ -325,7 +325,6 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 		{"scene": preload("res://effects/damage_smoke/damage_smoke.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/explosion/explosion.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/interceptor_miss/interceptor_miss.tscn"), "paths": ["Smoke"]},
-		{"scene": preload("res://effects/falling_wreck/falling_wreck.tscn"), "paths": ["SmokeTrail"]},
 	]
 	for smoke_case: Dictionary in smoke_cases:
 		var effect: Node = add_child_autofree((smoke_case.scene as PackedScene).instantiate())
@@ -333,6 +332,7 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 			var particles := effect.get_node(path) as GPUParticles3D
 			assert_eq(particles.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s visible pass must not cast thresholded shadows" % path)
 			var mesh := particles.draw_pass_1 as Mesh
+			assert_true(mesh is QuadMesh, "%s visible smoke must use a soft radial card" % path)
 			var material := mesh.surface_get_material(0) as StandardMaterial3D
 			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS, "%s must keep smooth visible transparency" % path)
 			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % path)
@@ -354,6 +354,7 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "paths": ["Body/ExhaustTrail"]},
 		{"scene": preload("res://enemy/strike_aircraft/strike_aircraft.tscn"), "paths": ["Body/LeftExhaustTrail", "Body/RightExhaustTrail"]},
 		{"scene": preload("res://effects/air_strike_munition/air_strike_munition.tscn"), "paths": ["SmokeTrail"]},
+		{"scene": preload("res://effects/falling_wreck/falling_wreck.tscn"), "paths": ["SmokeTrail"]},
 	]
 	for trail_case: Dictionary in trail_cases:
 		var effect: Node = add_child_autofree((trail_case.scene as PackedScene).instantiate())
@@ -371,6 +372,48 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 			assert_true(shadow.multimesh.mesh is SphereMesh)
 			assert_eq(shadow.multimesh.instance_count, ceili(float(trail.amount) / float(trail.shadow_emission_stride)))
+
+func test_sampled_smoke_uses_irregular_variation_and_retires_expired_slots() -> void:
+	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	var trail := effect.get_node("SmokeTrail") as LingeringSmokeTrail
+	assert_eq(trail.multimesh.visible_instance_count, 0, "unused GPU smoke slots must not be initialized one by one")
+	trail.emitting = true
+	trail.sample_world_segment(Vector3.ZERO, Vector3(12.0, 0.0, 0.0))
+	assert_gt(trail._active_slots.size(), 8)
+	assert_gt(trail.multimesh.visible_instance_count, 0)
+	var first_slot := trail._active_slots[0]
+	var has_size_variation := false
+	var has_opacity_variation := false
+	var has_drift_variation := false
+	for slot: int in trail._active_slots:
+		has_size_variation = has_size_variation or not is_equal_approx(trail._size_variations[slot], trail._size_variations[first_slot])
+		has_opacity_variation = has_opacity_variation or not is_equal_approx(trail._opacity_variations[slot], trail._opacity_variations[first_slot])
+		has_drift_variation = has_drift_variation or not trail._drift_vectors[slot].is_equal_approx(trail._drift_vectors[first_slot])
+	assert_true(has_size_variation)
+	assert_true(has_opacity_variation)
+	assert_true(has_drift_variation)
+	var shadow_offsets: Array[int] = []
+	for group: int in 10:
+		for offset: int in trail.shadow_emission_stride:
+			if trail._should_cast_shadow(group * trail.shadow_emission_stride + offset + 1):
+				shadow_offsets.append(offset)
+	assert_ne(shadow_offsets.min(), shadow_offsets.max(), "shadow samples must not form a fixed dark-light cadence")
+	trail._process(trail.lifetime + 0.1)
+	assert_true(trail._active_slots.is_empty(), "expired smoke must leave the per-frame update set")
+	assert_eq(trail.multimesh.visible_instance_count, 0)
+
+func test_transient_glows_use_soft_cards_without_realtime_light_shadows() -> void:
+	var explosion := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect
+	for path: String in ["Flash", "FlashHalo", "Shockwave"]:
+		var mesh_instance := explosion.get_node(path) as MeshInstance3D
+		assert_true(mesh_instance.mesh is QuadMesh, "%s must not expose a faceted glow mesh" % path)
+		var material := mesh_instance.material_override as StandardMaterial3D
+		assert_not_null(material.albedo_texture, "%s must have a soft radial mask" % path)
+	assert_false((explosion.get_node("BlastLight") as OmniLight3D).shadow_enabled)
+	var miss: Node = add_child_autofree(preload("res://effects/interceptor_miss/interceptor_miss.tscn").instantiate())
+	assert_true((miss.get_node("Flash") as MeshInstance3D).mesh is QuadMesh)
+	var countermeasure: Node = add_child_autofree(preload("res://effects/countermeasure_burst/countermeasure_burst.tscn").instantiate())
+	assert_true((countermeasure.get_node("Flares") as GPUParticles3D).draw_pass_1 is QuadMesh)
 
 func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield

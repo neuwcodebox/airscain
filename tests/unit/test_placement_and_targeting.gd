@@ -107,8 +107,10 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_eq(chaff.explosiveness, 1.0)
 	assert_eq(glint_process.emission_sphere_radius, chaff_process.emission_sphere_radius)
 	assert_lte(glint_process.initial_velocity_max, 0.2)
-	var glint_material := (glints.draw_pass_1 as SphereMesh).material as ShaderMaterial
+	assert_true(glints.draw_pass_1 is QuadMesh)
+	var glint_material := (glints.draw_pass_1 as QuadMesh).material as ShaderMaterial
 	assert_true(glint_material.shader.code.contains("TIME * 11.0"))
+	assert_true(glint_material.shader.code.contains("distance(UV"))
 	var diverted_state := interceptor.capture_state()
 	assert_true(bool(diverted_state.countermeasure_decoy_active))
 	assert_eq(SaveDocument.vector3_from_data(diverted_state.countermeasure_decoy_position), interceptor.countermeasure_decoy_position)

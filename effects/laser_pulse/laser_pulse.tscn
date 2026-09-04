@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource path="res://effects/laser_pulse/laser_pulse.gd" type="Script" id="1"]
+[ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="2"]
 
 [sub_resource type="StandardMaterial3D" id="BeamMaterial"]
 transparency = 1
@@ -24,9 +25,12 @@ transparency = 1
 blend_mode = 1
 shading_mode = 0
 albedo_color = Color(0.65, 0.96, 1, 0.82)
+albedo_texture = ExtResource("2")
 emission_enabled = true
 emission = Color(0.12, 0.82, 1, 1)
 emission_energy_multiplier = 28.0
+billboard_mode = 1
+billboard_keep_scale = true
 
 [sub_resource type="CylinderMesh" id="BeamMesh"]
 material = SubResource("BeamMaterial")
@@ -42,12 +46,9 @@ bottom_radius = 0.72
 height = 1.0
 radial_segments = 10
 
-[sub_resource type="SphereMesh" id="FlashMesh"]
+[sub_resource type="QuadMesh" id="FlashMesh"]
 material = SubResource("FlashMaterial")
-radius = 0.9
-height = 1.8
-radial_segments = 10
-rings = 6
+size = Vector2(1.8, 1.8)
 
 [node name="LaserPulse" type="Node3D"]
 script = ExtResource("1")

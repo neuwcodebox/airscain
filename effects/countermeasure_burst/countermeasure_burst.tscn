@@ -1,6 +1,14 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource path="res://effects/countermeasure_burst/countermeasure_burst.gd" type="Script" id="1"]
+[ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="2"]
+
+[sub_resource type="Gradient" id="FlareLifetimeGradient"]
+offsets = PackedFloat32Array(0, 0.08, 0.62, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0.62, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="FlareLifetimeTexture"]
+gradient = SubResource("FlareLifetimeGradient")
 
 [sub_resource type="ParticleProcessMaterial" id="FlareProcess"]
 emission_shape = 1
@@ -13,21 +21,23 @@ initial_velocity_max = 28.0
 scale_min = 0.28
 scale_max = 0.65
 color = Color(1, 0.34, 0.04, 1)
+color_ramp = SubResource("FlareLifetimeTexture")
 
 [sub_resource type="StandardMaterial3D" id="FlareMaterial"]
 transparency = 1
 shading_mode = 0
+vertex_color_use_as_albedo = true
 albedo_color = Color(1, 0.38, 0.05, 0.95)
+albedo_texture = ExtResource("2")
 emission_enabled = true
 emission = Color(1, 0.12, 0.01, 1)
 emission_energy_multiplier = 8.0
+billboard_mode = 1
+billboard_keep_scale = true
 
-[sub_resource type="SphereMesh" id="FlareMesh"]
+[sub_resource type="QuadMesh" id="FlareMesh"]
 material = SubResource("FlareMaterial")
-radius = 0.42
-height = 0.84
-radial_segments = 6
-rings = 3
+size = Vector2(0.84, 0.84)
 
 [sub_resource type="ParticleProcessMaterial" id="ChaffProcess"]
 emission_shape = 1
@@ -79,6 +89,8 @@ varying float shimmer_phase;
 
 void vertex() {
 	shimmer_phase = dot(MODEL_MATRIX[3].xyz, vec3(0.173, 0.317, 0.491));
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
 }
 
 void fragment() {
@@ -86,20 +98,18 @@ void fragment() {
 	float wave_b = sin(TIME * 17.0 + shimmer_phase * 1.7);
 	float flash = smoothstep(1.15, 1.8, wave_a + wave_b);
 	vec3 glint_color = vec3(0.72, 0.88, 1.0);
+	float radial = 1.0 - smoothstep(0.12, 0.5, distance(UV, vec2(0.5)));
 	ALBEDO = glint_color;
 	EMISSION = glint_color * 12.0;
-	ALPHA = flash * COLOR.a;
+	ALPHA = flash * COLOR.a * radial;
 }"
 
 [sub_resource type="ShaderMaterial" id="ChaffGlintMaterial"]
 shader = SubResource("ChaffGlintShader")
 
-[sub_resource type="SphereMesh" id="ChaffGlintMesh"]
+[sub_resource type="QuadMesh" id="ChaffGlintMesh"]
 material = SubResource("ChaffGlintMaterial")
-radius = 0.24
-height = 0.48
-radial_segments = 5
-rings = 3
+size = Vector2(0.48, 0.48)
 
 [node name="CountermeasureBurst" type="Node3D"]
 script = ExtResource("1")

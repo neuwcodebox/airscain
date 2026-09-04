@@ -920,6 +920,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_true((explosion.get_node("Sparks") as GPUParticles3D).emitting)
 	assert_gt((explosion.get_node("BlastLight") as OmniLight3D).omni_range, 30.0)
+	assert_false((explosion.get_node("BlastLight") as OmniLight3D).shadow_enabled)
 	assert_not_null(explosion.get_node("Shockwave"))
 	assert_gt(main.combat_audio.played_count(CombatAudio.MISSILE), 0)
 	assert_gt(main.combat_audio.played_count(CombatAudio.EXPLOSION), 0)
@@ -1601,7 +1602,7 @@ func test_hpm_weakly_heats_bird_and_bird_falls_without_exploding_when_neutralize
 	var falling_bird := main.effects_parent.get_node_or_null("FallingWreck") as FallingWreckEffect
 	assert_not_null(falling_bird)
 	assert_eq(explosion_count_after, explosion_count_before)
-	assert_false((falling_bird.get_node("SmokeTrail") as GPUParticles3D).emitting)
+	assert_false((falling_bird.get_node("SmokeTrail") as LingeringSmokeTrail).emitting)
 	assert_false(falling_bird.get_node("ImpactFlash").visible)
 	assert_eq(falling_bird.get_node("Wreck").scale, Vector3.ONE * 0.42)
 

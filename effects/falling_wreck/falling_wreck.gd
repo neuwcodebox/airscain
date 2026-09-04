@@ -6,9 +6,10 @@ var ground_height: float
 var elapsed: float = 0.0
 var impacted: bool = false
 var impact_flash_enabled: bool = true
+var smoke_released: bool = false
 
 @onready var wreck: Node3D = $Wreck
-@onready var smoke: GPUParticles3D = $SmokeTrail
+@onready var smoke: LingeringSmokeTrail = $SmokeTrail
 @onready var impact_flash: MeshInstance3D = $ImpactFlash
 
 func setup(color: Color, initial_velocity: Vector3, ground_height_value: float, wreck_scale: float = 1.0, smoke_enabled: bool = true, flash_enabled: bool = true) -> void:
@@ -28,15 +29,17 @@ func setup(color: Color, initial_velocity: Vector3, ground_height_value: float, 
 func _process(delta: float) -> void:
 	elapsed += delta
 	if not impacted:
+		var previous_position := global_position
 		velocity += Vector3.DOWN * 34.0 * delta
 		global_position += velocity * delta
+		smoke.sample_world_segment(previous_position, global_position)
 		wreck.rotate_x(delta * 4.2)
 		wreck.rotate_z(delta * 3.4)
 		if global_position.y <= ground_height + 1.0:
 			global_position.y = ground_height + 1.0
 			impacted = true
 			wreck.visible = false
-			smoke.emitting = false
+			_release_smoke()
 			impact_flash.visible = impact_flash_enabled
 			elapsed = 0.0
 	else:
@@ -47,4 +50,11 @@ func _process(delta: float) -> void:
 		if elapsed >= 1.4:
 			queue_free()
 	if not impacted and elapsed >= 5.0:
+		_release_smoke()
 		queue_free()
+
+func _release_smoke() -> void:
+	if smoke_released or not is_instance_valid(smoke):
+		return
+	smoke_released = true
+	smoke.release_to(get_parent())

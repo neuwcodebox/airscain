@@ -14,17 +14,6 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	_sync_shadow_state()
 
-func emit_smoke_particle(
-		particle_transform: Transform3D,
-		velocity: Vector3,
-		particle_color: Color,
-		custom: Color,
-		flags: int
-) -> void:
-	emit_particle(particle_transform, velocity, particle_color, custom, flags)
-	if shadow_particles != null:
-		shadow_particles.emit_particle(particle_transform, velocity, particle_color, custom, flags)
-
 func set_shadow_opacity_ratio(ratio: float) -> void:
 	if shadow_material == null:
 		return

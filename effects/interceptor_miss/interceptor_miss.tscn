@@ -1,20 +1,30 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource path="res://effects/interceptor_miss/interceptor_miss.gd" type="Script" id="1"]
 [ext_resource path="res://effects/shadowed_smoke_particles.gd" type="Script" id="2"]
+[ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="3"]
+[ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="4"]
 
 [sub_resource type="StandardMaterial3D" id="FlashMaterial"]
 transparency = 1
 shading_mode = 0
 albedo_color = Color(0.8, 0.86, 0.9, 0.9)
+albedo_texture = ExtResource("4")
 emission_enabled = true
 emission = Color(0.6, 0.72, 0.84, 1)
+billboard_mode = 1
+billboard_keep_scale = true
 
-[sub_resource type="SphereMesh" id="FlashMesh"]
-radius = 0.7
-height = 1.4
-radial_segments = 8
-rings = 4
+[sub_resource type="QuadMesh" id="FlashMesh"]
+material = SubResource("FlashMaterial")
+size = Vector2(1.4, 1.4)
+
+[sub_resource type="Gradient" id="SmokeLifetimeGradient"]
+offsets = PackedFloat32Array(0, 0.1, 0.55, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 0.8, 1, 1, 1, 0.48, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="SmokeLifetimeTexture"]
+gradient = SubResource("SmokeLifetimeGradient")
 
 [sub_resource type="ParticleProcessMaterial" id="SmokeProcess"]
 emission_shape = 1
@@ -27,18 +37,20 @@ initial_velocity_max = 6.0
 scale_min = 0.5
 scale_max = 1.3
 color = Color(0.52, 0.57, 0.62, 0.48)
+color_ramp = SubResource("SmokeLifetimeTexture")
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
 transparency = 4
 shading_mode = 1
+vertex_color_use_as_albedo = true
 albedo_color = Color(0.5, 0.55, 0.6, 0.46)
+albedo_texture = ExtResource("3")
+billboard_mode = 1
+billboard_keep_scale = true
 
-[sub_resource type="SphereMesh" id="SmokeMesh"]
+[sub_resource type="QuadMesh" id="SmokeMesh"]
 material = SubResource("SmokeMaterial")
-radius = 0.55
-height = 1.1
-radial_segments = 6
-rings = 3
+size = Vector2(1.4, 1.4)
 
 [node name="InterceptorMiss" type="Node3D"]
 script = ExtResource("1")
@@ -51,6 +63,7 @@ material_override = SubResource("FlashMaterial")
 emitting = false
 amount = 18
 lifetime = 1.3
+randomness = 0.22
 one_shot = true
 explosiveness = 0.85
 visibility_aabb = AABB(-12, -12, -12, 24, 24, 24)

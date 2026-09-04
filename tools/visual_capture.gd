@@ -195,6 +195,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK surface_strike delayed_damage exact_impact_smoke")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-light-only"):
+		await _capture_hdr_light_vfx()
+		print("VISUAL_CAPTURE_OK hdr_explosion laser_glow")
+		quit(0)
+		return
 	await _verify_catalog_wheel_input()
 	await _capture_camera_rotation()
 	if OS.get_cmdline_user_args().has("--capture-camera-only"):
@@ -231,11 +236,6 @@ func run() -> void:
 		main.altitude_profile.visible = false
 		await _capture_countermeasure_defeat(countermeasure_center, false)
 		print("VISUAL_CAPTURE_OK chaff_initial_volume noise_shimmer delayed_diversion")
-		quit(0)
-		return
-	if OS.get_cmdline_user_args().has("--capture-light-only"):
-		await _capture_hdr_light_vfx()
-		print("VISUAL_CAPTURE_OK hdr_explosion laser_glow")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-city-status-only"):
@@ -667,6 +667,12 @@ func _capture_hdr_light_vfx() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_hdr_light_vfx.png")
+	await _wait_seconds(0.22)
+	main.camera_rig.camera.global_position = explosion.global_position + Vector3(0.0, 16.0, 48.0)
+	main.camera_rig.camera.look_at(explosion.global_position, Vector3.UP)
+	for index: int in 3:
+		await process_frame
+	_save_capture("/tmp/airscain_explosion_close.png")
 
 func _capture_city_detail() -> void:
 	main.camera_rig.focus_on(main.objective.global_position)
@@ -1783,7 +1789,8 @@ func _capture_missile_smoke_trail() -> void:
 	var previous_camera_position := main.camera_rig.global_position
 	var previous_zoom := main.camera_rig.zoom_distance
 	var midpoint := start.lerp(interceptor.global_position, 0.5)
-	main.camera_rig.camera.global_position = midpoint + Vector3(0.0, 75.0, 190.0)
+	var overview_camera_position := midpoint + Vector3(0.0, 75.0, 190.0)
+	main.camera_rig.camera.global_position = overview_camera_position
 	main.camera_rig.camera.look_at(midpoint, Vector3.UP)
 	main.hud.visible = false
 	main.altitude_profile.visible = false
@@ -1791,6 +1798,13 @@ func _capture_missile_smoke_trail() -> void:
 	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
 	var smoke_bounds := smoke.smoke_bounds()
 	_save_capture("/tmp/airscain_missile_smoke_trail.png")
+	main.camera_rig.camera.global_position = midpoint + Vector3(0.0, 11.0, 34.0)
+	main.camera_rig.camera.look_at(midpoint, Vector3.UP)
+	for index: int in 3:
+		await process_frame
+	_save_capture("/tmp/airscain_missile_smoke_close.png")
+	main.camera_rig.camera.global_position = overview_camera_position
+	main.camera_rig.camera.look_at(midpoint, Vector3.UP)
 	if smoke_bounds.size.length() < 25.0:
 		push_error("Missile smoke trail did not produce a visible particle footprint")
 		quit(1)

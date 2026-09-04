@@ -27,8 +27,8 @@ emission_energy_multiplier = 12.0
 material = SubResource("FlameMaterial")
 radius = 0.42
 height = 1.8
-radial_segments = 8
-rings = 4
+radial_segments = 16
+rings = 8
 
 [sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
 transparency = 4
