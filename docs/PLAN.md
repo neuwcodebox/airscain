@@ -903,4 +903,4 @@
 
 ### 진행 기록
 
-- 2026-09-05: 네이티브 Mobile 렌더러를 유지하면서 Web feature에는 Compatibility 렌더러를 적용하고, 단일 스레드 Web preset과 GitHub Pages build/deploy workflow를 추가했다. Godot 4.7.2 공식 release·template은 SHA-512로 검증하고 Web template만 버전별로 캐시한다. 실제 release export 후 로컬 HTTP 서버의 Firefox에서 메인 메뉴와 3D 전장, 전체 정적 요청 성공과 런타임 오류 0건을 확인했으며 전체 11개 스크립트, 165개 테스트와 2,525개 단언이 통과했다.
+- 2026-09-05: 네이티브 Mobile 렌더러를 유지하면서 Web feature에는 Compatibility 렌더러를 적용하고, 단일 스레드 Web preset과 GitHub Pages build/deploy workflow를 추가했다. Godot 4.7.2 공식 release·template은 SHA-512로 검증하고 Web template만 버전별로 캐시하며, 공식 Pages 액션은 Node 24 기반 버전을 사용한다. 실제 release export 후 로컬 HTTP 서버의 Firefox에서 메인 메뉴와 3D 전장, 전체 정적 요청 성공과 런타임 오류 0건을 확인했으며 전체 11개 스크립트, 165개 테스트와 2,525개 단언이 통과했다.
