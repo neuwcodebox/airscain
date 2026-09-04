@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
@@ -20,6 +20,7 @@
 [ext_resource path="res://ui/tactical_range_overlay.gd" type="Script" id="18"]
 [ext_resource path="res://effects/audio/combat_audio.gd" type="Script" id="19"]
 [ext_resource path="res://ui/altitude_profile.gd" type="Script" id="20"]
+[ext_resource path="res://main/training_controller.gd" type="Script" id="21"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -70,6 +71,9 @@ script = ExtResource("19")
 
 [node name="ThreatDirector" type="Node" parent="."]
 script = ExtResource("4")
+
+[node name="TrainingController" type="Node" parent="."]
+script = ExtResource("21")
 
 [node name="CameraRig" parent="." instance=ExtResource("5")]
 
