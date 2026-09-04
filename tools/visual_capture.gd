@@ -182,7 +182,7 @@ func run() -> void:
 		main.camera_rig.camera.global_position = resolved_target_center + Vector3(60.0, 50.0, 190.0)
 		main.camera_rig.camera.look_at(resolved_target_center, Vector3.UP)
 		await _capture_resolved_target_interceptor(resolved_target_center)
-		print("VISUAL_CAPTURE_OK destroyed_target coast_without_detonation")
+		print("VISUAL_CAPTURE_OK destroyed_target climb_and_self_destruct")
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-surface-strike-only"):
@@ -1926,15 +1926,17 @@ func _capture_resolved_target_interceptor(center: Vector3) -> void:
 	var position_at_resolution := interceptor.global_position
 	threat.receive_damage(10000.0)
 	interceptor.gameplay_tick(0.05)
-	if interceptor.is_queued_for_deletion() or interceptor.global_position.is_equal_approx(position_at_resolution) or not interceptor.target_destroyed_coast:
-		push_error("Interceptor did not coast after its correlated target was destroyed")
+	if interceptor.is_queued_for_deletion() or interceptor.global_position.y <= position_at_resolution.y:
+		push_error("Interceptor did not climb after its correlated target was destroyed")
 		quit(1)
 		return
-	for tick: int in 30:
+	for tick: int in 20:
+		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
+			break
 		interceptor.gameplay_tick(0.05)
 		await process_frame
-	if interceptor.is_queued_for_deletion() or main.projectile_parent.get_node_or_null("InterceptorMiss") != null or main.projectile_parent.get_node_or_null("Explosion") != null:
-		push_error("Destroyed-target interceptor detonated instead of passing the former aim point")
+	if is_instance_valid(interceptor) or main.projectile_parent.get_node_or_null("InterceptorMiss") != null or main.projectile_parent.get_node_or_null("Explosion") == null:
+		push_error("Destroyed-target interceptor did not complete its climb with a clean self-destruct")
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_target_resolved_interceptor.png")

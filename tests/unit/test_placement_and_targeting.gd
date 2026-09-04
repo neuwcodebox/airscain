@@ -120,7 +120,7 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_gt(interceptor.global_position.distance_to(threat.global_position), interceptor.proximity_radius)
 	assert_eq((projectile_parent.get_node("InterceptorMiss/Reason") as Label3D).text, "유도 이탈")
 
-func test_interceptor_coasts_past_a_destroyed_target_and_retires_without_detonating() -> void:
+func test_interceptor_climbs_then_self_destructs_when_its_target_is_destroyed() -> void:
 	var registry := ThreatRegistry.new()
 	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
 	var threat_definition := ThreatDefinition.new()
@@ -146,17 +146,13 @@ func test_interceptor_coasts_past_a_destroyed_target_and_retires_without_detonat
 	interceptor.gameplay_tick(0.1)
 	assert_false(interceptor.is_queued_for_deletion())
 	assert_gt(interceptor.global_position.x, position_before_resolution.x)
-	assert_true(interceptor.target_destroyed_coast)
-	assert_eq(interceptor.reacquisition_remaining, -1.0)
-	var waiting_state := interceptor.capture_state()
-	assert_true(bool(waiting_state.target_destroyed_coast))
-	interceptor.gameplay_tick(0.8)
-	assert_false(interceptor.is_queued_for_deletion())
-	assert_null(projectile_parent.get_node_or_null("Explosion"))
-	assert_null(projectile_parent.get_node_or_null("InterceptorMiss"))
-	interceptor.gameplay_tick(interceptor.maximum_lifetime)
+	assert_gt(interceptor.global_position.y, position_before_resolution.y)
+	for tick: int in 10:
+		if interceptor.is_queued_for_deletion():
+			break
+		interceptor.gameplay_tick(0.1)
 	assert_true(interceptor.is_queued_for_deletion())
-	assert_null(projectile_parent.get_node_or_null("Explosion"))
+	assert_not_null(projectile_parent.get_node_or_null("Explosion"))
 	assert_null(projectile_parent.get_node_or_null("InterceptorMiss"))
 
 func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructing() -> void:
@@ -193,15 +189,11 @@ func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructin
 	interceptor.configure(original_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 4, 0, candidates)
 	registry.remove(original)
 	assert_same(interceptor.target_track, original_track)
-	assert_true(interceptor.target_destroyed_coast)
-	assert_eq(interceptor.reacquisition_remaining, -1.0)
 	interceptor.gameplay_tick(0.35)
 	assert_false(interceptor.is_queued_for_deletion())
 	alternate_track.state = PlayerTrack.State.CONFIRMED
 	interceptor.gameplay_tick(0.05)
 	assert_same(interceptor.target_track, alternate_track)
-	assert_false(interceptor.target_destroyed_coast)
-	assert_eq(interceptor.reacquisition_remaining, -1.0)
 	interceptor.gameplay_tick(0.1)
 	assert_false(interceptor.is_queued_for_deletion())
 	assert_gt(interceptor.global_position.x, -100.0)

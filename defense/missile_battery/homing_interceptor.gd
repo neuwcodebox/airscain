@@ -10,6 +10,8 @@ const COUNTERMEASURE_SCENE := preload("res://effects/countermeasure_burst/counte
 const INTERCEPT_GUIDANCE := preload("res://defense/intercept_guidance.gd")
 const BOOST_GUIDANCE_RAMP_DURATION := 0.55
 const REACQUISITION_GRACE_DURATION := 2.5
+const DESTROYED_TARGET_ABORT_DURATION := 0.55
+const DESTROYED_TARGET_CLIMB_ANGLE := deg_to_rad(25.0)
 
 var target_track: PlayerTrack
 var registry: ThreatRegistry
@@ -29,7 +31,7 @@ var countermeasure_decoy_active: bool = false
 var countermeasure_decoy_position: Vector3
 var reacquisition_remaining: float = -1.0
 var reacquisition_reason: String = "표적 소실"
-var target_destroyed_coast: bool = false
+var target_destroyed_abort: bool = false
 var closest_guidance_distance: float = INF
 var boost_guidance_ramp_active: bool = false
 var alternative_tracks: Array[PlayerTrack] = []
@@ -65,14 +67,14 @@ func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definit
 func gameplay_tick(delta: float) -> void:
 	age += delta
 	if age >= maximum_lifetime:
-		if target_destroyed_coast:
-			_retire_without_detonation()
+		if target_destroyed_abort:
+			_self_destruct()
 		else:
 			_expire(Color(0.72, 0.78, 0.82), "요격 실패")
 		return
-	if target_destroyed_coast:
+	if target_destroyed_abort:
 		if not _try_retarget():
-			_coast_without_target(delta)
+			_continue_destroyed_target_abort(delta)
 			return
 	if reacquisition_remaining >= 0.0 or target_track == null or target_track.state == PlayerTrack.State.LOST:
 		if _try_retarget():
@@ -121,16 +123,39 @@ func gameplay_tick(delta: float) -> void:
 		_expire(Color(0.72, 0.78, 0.82), "유도 이탈")
 
 func _coast_without_target(delta: float) -> void:
+	_advance_unguided(delta)
+
+func _continue_destroyed_target_abort(delta: float) -> void:
+	var flight_delta := minf(delta, maxf(reacquisition_remaining, 0.0))
+	if flight_delta > 0.0:
+		var current_direction := velocity.normalized()
+		var horizontal_direction := Vector3(current_direction.x, 0.0, current_direction.z)
+		if horizontal_direction.length_squared() <= 0.001:
+			horizontal_direction = Vector3.FORWARD
+		else:
+			horizontal_direction = horizontal_direction.normalized()
+		var climb_angle := maxf(asin(clampf(current_direction.y, -1.0, 1.0)), DESTROYED_TARGET_CLIMB_ANGLE)
+		var desired_direction := horizontal_direction * cos(climb_angle) + Vector3.UP * sin(climb_angle)
+		var turn_angle := current_direction.angle_to(desired_direction)
+		var direction := desired_direction if turn_angle <= turn_rate * flight_delta else current_direction.slerp(desired_direction, turn_rate * flight_delta / turn_angle)
+		velocity = direction.normalized() * speed
+		if _advance_unguided(flight_delta):
+			return
+	reacquisition_remaining -= delta
+	if reacquisition_remaining <= 0.0:
+		_self_destruct()
+
+func _advance_unguided(delta: float) -> bool:
 	var previous := global_position
 	global_position += velocity * delta
 	if _resolve_terrain_impact(previous):
-		return
+		return true
 	if velocity.length_squared() > 0.001:
 		look_at(global_position + velocity, Vector3.UP)
 	var smoke := get_node_or_null("SmokeTrail") as GPUParticles3D
 	if smoke != null:
 		smoke.call("sample_world_segment", previous, global_position)
-	_resolve_proximity_intercept(previous)
+	return _resolve_proximity_intercept(previous)
 
 func _resolve_terrain_impact(previous: Vector3) -> bool:
 	if battlefield == null:
@@ -173,8 +198,9 @@ func _expire(color: Color, reason: String) -> void:
 	_release_smoke_trail()
 	queue_free()
 
-func _retire_without_detonation() -> void:
-	_finish_flight(false)
+func _self_destruct() -> void:
+	_finish_flight(true)
+	_spawn_detonation(Color(0.62, 0.72, 0.8), 7.0)
 	_release_smoke_trail()
 	queue_free()
 
@@ -233,15 +259,15 @@ func _connect_registry_signal() -> void:
 		registry.threat_removed.connect(_on_threat_removed)
 
 func _on_threat_removed(threat: ThreatUnit) -> void:
-	if target_track == null or threat == null:
+	if flight_ended_emitted or target_track == null or threat == null:
 		return
 	if not _removed_threat_matches_target(threat):
 		return
 	if _try_retarget():
 		return
 	if threat.health <= 0.0:
-		target_destroyed_coast = true
-		reacquisition_remaining = -1.0
+		target_destroyed_abort = true
+		reacquisition_remaining = DESTROYED_TARGET_ABORT_DURATION
 		reacquisition_reason = "표적 파괴 확인"
 		return
 	_begin_reacquisition("표적 소실")
@@ -304,7 +330,7 @@ func _try_retarget() -> bool:
 		return false
 	var previous_track_id := target_track.track_id if target_track != null else -1
 	target_track = selected
-	target_destroyed_coast = false
+	target_destroyed_abort = false
 	reacquisition_remaining = -1.0
 	reacquisition_reason = "표적 소실"
 	countermeasure_attempted = false
@@ -339,7 +365,7 @@ func capture_state() -> Dictionary:
 		"countermeasure_decoy_position": SaveDocument.vector3_to_data(countermeasure_decoy_position),
 		"reacquisition_remaining": reacquisition_remaining,
 		"reacquisition_reason": reacquisition_reason,
-		"target_destroyed_coast": target_destroyed_coast,
+		"target_destroyed_abort": target_destroyed_abort,
 		"closest_guidance_distance": closest_guidance_distance if closest_guidance_distance < INF else -1.0,
 		"boost_guidance_ramp_active": boost_guidance_ramp_active,
 		"preferred_classes": preferred_classes.map(func(classification: StringName) -> String: return String(classification)),
@@ -376,7 +402,9 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	countermeasure_decoy_position = SaveDocument.vector3_from_data(state.get("countermeasure_decoy_position", [0.0, 0.0, 0.0]))
 	reacquisition_remaining = float(state.get("reacquisition_remaining", 0.0 if bool(state.get("target_resolved", false)) else -1.0))
 	reacquisition_reason = String(state.get("reacquisition_reason", state.get("target_resolution_reason", "표적 소실")))
-	target_destroyed_coast = bool(state.get("target_destroyed_coast", false))
+	target_destroyed_abort = bool(state.get("target_destroyed_abort", state.get("target_destroyed_coast", false)))
+	if target_destroyed_abort and reacquisition_remaining < 0.0:
+		reacquisition_remaining = DESTROYED_TARGET_ABORT_DURATION
 	var saved_guidance_distance := float(state.get("closest_guidance_distance", -1.0))
 	closest_guidance_distance = INF if saved_guidance_distance < 0.0 else saved_guidance_distance
 	boost_guidance_ramp_active = bool(state.get("boost_guidance_ramp_active", false))
