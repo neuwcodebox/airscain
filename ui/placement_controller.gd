@@ -110,7 +110,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton:
 			var selection_click := event as InputEventMouseButton
 			if selection_click.pressed and selection_click.button_index == MOUSE_BUTTON_LEFT and get_viewport().gui_get_hovered_control() == null:
-				var screen_position := get_viewport().get_mouse_position()
+				var screen_position := selection_click.position
 				var hit := _terrain_hit(screen_position)
 				if not hit.is_empty():
 					if pick_asset_at(hit.position) == null:

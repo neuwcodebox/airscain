@@ -1292,14 +1292,14 @@ func _capture_training_guidance() -> bool:
 		return false
 	_save_capture("/tmp/airscain_training_entry_catalog_open.png")
 	main.hud.set_catalog_expanded(false)
-	main._set_training_step(AirscainMain.TrainingStep.ACQUIRE)
+	main.training_controller._set_step(TrainingController.Step.ACQUIRE)
 	var track_position := main.objective.global_position + Vector3.RIGHT * main.scenario.battlefield_size * 1.5
 	track_position.y = main.battlefield.flight_surface_height(track_position.x, track_position.z) + 80.0
 	var observation := SensorObservation.new()
 	observation.setup(9802, 0.0, track_position, 0.95, 4.0, 0.4, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.8)
 	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
 	main._refresh_tactical_ui()
-	if main.training_step != AirscainMain.TrainingStep.ACQUIRE or not is_equal_approx(main.session.simulation_speed, 1.0):
+	if main.training_controller.step != TrainingController.Step.ACQUIRE or not is_equal_approx(main.session.simulation_speed, 1.0):
 		push_error("Training paused for an unselectable tentative track")
 		return false
 	observation = SensorObservation.new()
@@ -1307,15 +1307,16 @@ func _capture_training_guidance() -> bool:
 	track = main.player_knowledge.call("submit_observation", observation)
 	main._refresh_tactical_ui()
 	var marker_position: Vector2 = main.tactical_screen_overlay.call("track_marker_screen_position", track)
-	if main.training_step != AirscainMain.TrainingStep.SELECT_TRACK or not is_zero_approx(main.session.simulation_speed) or not marker_position.is_finite():
+	if main.training_controller.step != TrainingController.Step.SELECT_TRACK or not is_zero_approx(main.session.simulation_speed) or not marker_position.is_finite():
 		push_error("Training did not pause with a selectable confirmed distant track")
 		return false
 	Input.warp_mouse(marker_position)
 	for frame_index: int in 4:
 		await process_frame
 	await _send_left_click(marker_position)
-	if main.selected_track != track or main.training_step != AirscainMain.TrainingStep.SELECT_ASSET:
-		push_error("Actual click on the distant track marker did not select it")
+	if main.selected_track != track or main.training_controller.step != TrainingController.Step.SELECT_ASSET:
+		var selected_id := main.selected_track.track_id if main.selected_track != null else -1
+		push_error("Actual click on the distant track marker did not select it (expected=%d selected=%d step=%d)" % [track.track_id, selected_id, main.training_controller.step])
 		return false
 	_save_capture("/tmp/airscain_training_distant_track_selected.png")
 	return true
