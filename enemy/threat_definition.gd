@@ -19,6 +19,9 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export var countermeasure_charges: int = 0
 @export_range(0.0, 2.0) var electronic_vulnerability: float = 1.0
 
+func runtime_state_validation_error(_content_state: Dictionary, _defense_ids: Dictionary[int, bool]) -> String:
+	return ""
+
 func validation_error() -> String:
 	if id.is_empty() or display_name.is_empty() or scene == null:
 		return "위협 Definition의 필수 참조가 없습니다"

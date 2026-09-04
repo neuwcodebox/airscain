@@ -26,6 +26,9 @@ func tactical_overlay_mode() -> StringName:
 func tactical_range() -> float:
 	return attack_range
 
+func runtime_state_validation_error(content_state: Dictionary) -> String:
+	return EnergyWeaponState.validation_error(content_state.get("energy"))
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

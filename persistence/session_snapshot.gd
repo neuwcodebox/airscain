@@ -70,11 +70,10 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var defense_definitions := defense_definition_map(scenario)
 	var contact_definitions := contact_definition_map(scenario)
 	var defense_ids: Dictionary[int, bool] = {}
-	var battery_ids: Dictionary[int, bool] = {}
 	var sensor_ids: Dictionary[int, bool] = {}
 	var armed_ids: Dictionary[int, bool] = {}
-	var drone_defense_ids: Dictionary[int, bool] = {}
 	var mobile_ids: Dictionary[int, bool] = {}
+	var projectile_owner_definitions: Dictionary[int, DefenseDefinition] = {}
 	for state: Dictionary in world_state.defenses:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not defense_definitions.has(definition_id):
@@ -83,52 +82,24 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if runtime_id <= 0 or defense_ids.has(runtime_id):
 			return "방공망 runtime ID가 올바르지 않습니다"
 		defense_ids[runtime_id] = true
-		if defense_definitions[definition_id].mobile:
+		var definition: DefenseDefinition = defense_definitions[definition_id]
+		if definition.mobile:
 			mobile_ids[runtime_id] = true
-		if defense_definitions[definition_id] is MissileBatteryDefinition:
-			battery_ids[runtime_id] = true
-		if defense_definitions[definition_id] is InterceptorDroneDefenseDefinition:
-			drone_defense_ids[runtime_id] = true
-		if defense_definitions[definition_id] is MissileBatteryDefinition or defense_definitions[definition_id] is CloseInGunDefinition:
+		if definition.has_ammunition_state():
 			armed_ids[runtime_id] = true
-		if defense_definitions[definition_id] is SearchRadarDefinition:
+		if (definition.placement_c2_roles() & DefenseUnit.C2Role.SENSOR) != 0:
 			sensor_ids[runtime_id] = true
+		if not definition.persistent_projectile_types().is_empty():
+			projectile_owner_definitions[runtime_id] = definition
 		if not _valid_vector_data(state.get("position")):
 			return "방공망 위치가 올바르지 않습니다"
-		var maximum_integrity: float = defense_definitions[definition_id].maximum_integrity
+		var maximum_integrity: float = definition.maximum_integrity
 		var integrity := float(state.get("integrity", -1.0))
 		if integrity < 0.0 or integrity > maximum_integrity:
 			return "방공망 내구도가 올바르지 않습니다"
-		if defense_definitions[definition_id] is MissileBatteryDefinition:
-			var battery_definition := defense_definitions[definition_id] as MissileBatteryDefinition
-			var content_state: Dictionary = state.get("content_state", {})
-			var magazine_states: Variant = content_state.get("munition_magazines")
-			var munition_mode := StringName(String(content_state.get("munition_mode", "")))
-			if not magazine_states is Dictionary or munition_mode != &"auto" and not _munition_definition_map(battery_definition).has(munition_mode):
-				return "%s: 탄종 선택 또는 재고 상태가 올바르지 않습니다" % definition_id
-			for munition: MissileMunitionDefinition in battery_definition.munitions:
-				var magazine_error := WeaponMagazine.validation_error(magazine_states.get(String(munition.id)))
-				if not magazine_error.is_empty():
-					return "%s/%s: %s" % [definition_id, munition.id, magazine_error]
-		elif defense_definitions[definition_id] is CloseInGunDefinition:
-			var content_state: Dictionary = state.get("content_state", {})
-			var magazine_error := WeaponMagazine.validation_error(content_state.get("magazine"))
-			if not magazine_error.is_empty():
-				return "%s: %s" % [definition_id, magazine_error]
-		if defense_definitions[definition_id] is HighEnergyLaserDefinition or defense_definitions[definition_id] is HighPowerMicrowaveDefinition:
-			var laser_state: Dictionary = state.get("content_state", {})
-			var energy_error := EnergyWeaponState.validation_error(laser_state.get("energy"))
-			if not energy_error.is_empty():
-				return "%s: %s" % [definition_id, energy_error]
-		if defense_definitions[definition_id] is InterceptorDroneDefenseDefinition:
-			var drone_state: Dictionary = state.get("content_state", {})
-			var available := int(drone_state.get("available_drones", -1))
-			var recharge: Variant = drone_state.get("recharge_queue")
-			if available < 0 or available > defense_definitions[definition_id].drone_count or not recharge is Array:
-				return "요격드론 기지 상태가 올바르지 않습니다"
-			for remaining: Variant in recharge:
-				if float(remaining) <= 0.0:
-					return "요격드론 재충전 상태가 올바르지 않습니다"
+		var content_error := definition.runtime_state_validation_error(state.get("content_state", {}))
+		if not content_error.is_empty():
+			return "%s: %s" % [definition_id, content_error]
 	for state: Dictionary in world_state.contacts:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not contact_definitions.has(definition_id):
@@ -138,21 +109,10 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var countermeasure_charges := int(state.get("countermeasure_charges", -1))
 		if countermeasure_charges < 0 or countermeasure_charges > contact_definitions[definition_id].countermeasure_charges:
 			return "위협 대응책 상태가 올바르지 않습니다"
-		if contact_definitions[definition_id] is AttackUavDefinition:
-			var attack_definition := contact_definitions[definition_id] as AttackUavDefinition
-			var content_state: Dictionary = state.get("content_state", {})
-			var movement_state: Dictionary = content_state.get("movement", {})
-			var mission_state: Dictionary = content_state.get("mission", {})
-			var mission_target_id := int(mission_state.get("target_defense_id", 0))
-			var mission_phase := int(mission_state.get("phase", -1))
-			if not _valid_vector_data(content_state.get("target_point")) or not _valid_vector_data(movement_state.get("velocity")) or not _valid_vector_data(mission_state.get("fixed_target")) or not _valid_vector_data(mission_state.get("exit_point")) or float(content_state.get("speed_multiplier", 0.0)) <= 0.0:
-				return "위협 이동 또는 임무 상태가 올바르지 않습니다"
-			if attack_definition.movement.mode == ThreatMovementDefinition.Mode.BALLISTIC_ARC:
-				var ballistic_progress := float(movement_state.get("ballistic_progress", -1.0))
-				if not _valid_vector_data(movement_state.get("ballistic_origin")) or not _valid_vector_data(movement_state.get("ballistic_target")) or ballistic_progress < 0.0 or ballistic_progress > 1.0 or float(movement_state.get("ballistic_duration", 0.0)) <= 0.0 or not movement_state.get("ballistic_initialized", null) is bool:
-					return "탄도 위협 비행 상태가 올바르지 않습니다"
-			if (mission_target_id != 0 and not defense_ids.has(mission_target_id)) or mission_phase < ThreatMissionRuntime.Phase.INBOUND or mission_phase > ThreatMissionRuntime.Phase.EGRESS or float(mission_state.get("action_elapsed", -1.0)) < 0.0:
-				return "위협 임무 대상 또는 진행 상태가 올바르지 않습니다"
+		var contact_definition: ThreatDefinition = contact_definitions[definition_id]
+		var content_error := contact_definition.runtime_state_validation_error(state.get("content_state", {}), defense_ids)
+		if not content_error.is_empty():
+			return "%s: %s" % [definition_id, content_error]
 	var knowledge_state: Dictionary = payload.player_knowledge
 	if float(knowledge_state.get("simulation_time", -1.0)) < 0.0 or int(knowledge_state.get("next_track_id", 0)) <= 0 or not knowledge_state.get("tracks", null) is Array:
 		return "플레이어 지식 상태가 올바르지 않습니다"
@@ -214,27 +174,24 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "재배치 작업 대상 또는 상태가 올바르지 않습니다"
 		relocation_targets[target_defense_id] = true
 	for projectile_state: Dictionary in world_state.projectiles:
-		var projectile_type := String(projectile_state.get("type", ""))
-		if projectile_type != "homing_interceptor" and projectile_type != "interceptor_drone" and projectile_type != "air_strike_munition":
-			return "지원하지 않는 발사체 형식입니다"
-		if projectile_type == "air_strike_munition":
+		var projectile_type := StringName(String(projectile_state.get("type", "")))
+		if projectile_type == &"air_strike_munition":
 			if not _valid_vector_data(projectile_state.get("position")) or not _valid_vector_data(projectile_state.get("target_position")) or float(projectile_state.get("speed", 0.0)) <= 0.0 or int(projectile_state.get("damage", 0)) <= 0:
 				return "공대지 탄 비행 상태가 올바르지 않습니다"
 			continue
 		var owner_id := int(projectile_state.get("owner_defense_id", 0))
-		if (projectile_type == "homing_interceptor" and not battery_ids.has(owner_id)) or (projectile_type == "interceptor_drone" and not drone_defense_ids.has(owner_id)):
+		if not projectile_owner_definitions.has(owner_id):
 			return "요격체가 존재하지 않는 포대를 참조합니다"
+		var owner_definition: DefenseDefinition = projectile_owner_definitions[owner_id]
+		if not owner_definition.persistent_projectile_types().has(projectile_type):
+			return "요격체 형식과 포대가 일치하지 않습니다"
 		if not track_ids.has(int(projectile_state.get("target_track_id", 0))):
 			return "요격체가 존재하지 않는 항적을 참조합니다"
 		if not _valid_vector_data(projectile_state.get("position")) or not _valid_vector_data(projectile_state.get("velocity")):
 			return "요격체 위치 또는 속도가 올바르지 않습니다"
-		if projectile_type == "homing_interceptor":
-			var maximum_lifetime := float(projectile_state.get("maximum_lifetime", 0.0))
-			var age := float(projectile_state.get("age", -1.0))
-			if float(projectile_state.get("speed", 0.0)) <= 0.0 or float(projectile_state.get("turn_rate", 0.0)) <= 0.0 or maximum_lifetime <= 0.0 or float(projectile_state.get("damage", 0.0)) <= 0.0 or float(projectile_state.get("proximity_radius", 0.0)) <= 0.0 or age < 0.0 or age >= maximum_lifetime:
-				return "요격체 비행 상태가 올바르지 않습니다"
-		elif int(projectile_state.get("state", -1)) < InterceptorDrone.State.OUTBOUND or int(projectile_state.get("state", -1)) > InterceptorDrone.State.RETURNING or float(projectile_state.get("age", -1.0)) < 0.0:
-			return "요격드론 비행 상태가 올바르지 않습니다"
+		var projectile_error := owner_definition.persistent_projectile_state_validation_error(projectile_type, projectile_state)
+		if not projectile_error.is_empty():
+			return projectile_error
 	var director_state: Dictionary = payload.director
 	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"
@@ -266,12 +223,6 @@ static func contact_definition_map(scenario: ScenarioDefinition) -> Dictionary[S
 		result[entry.threat_definition.id] = entry.threat_definition
 	for definition: ThreatDefinition in scenario.ambient_contacts:
 		result[definition.id] = definition
-	return result
-
-static func _munition_definition_map(definition: MissileBatteryDefinition) -> Dictionary[StringName, MissileMunitionDefinition]:
-	var result: Dictionary[StringName, MissileMunitionDefinition] = {}
-	for munition: MissileMunitionDefinition in definition.munitions:
-		result[munition.id] = munition
 	return result
 
 static func _valid_vector_data(value: Variant) -> bool:

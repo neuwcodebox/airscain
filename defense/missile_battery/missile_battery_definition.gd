@@ -25,6 +25,38 @@ func tactical_overlay_mode() -> StringName:
 func tactical_range() -> float:
 	return attack_range
 
+func has_ammunition_state() -> bool:
+	return true
+
+func persistent_projectile_types() -> Array[StringName]:
+	return [&"homing_interceptor"]
+
+func runtime_state_validation_error(content_state: Dictionary) -> String:
+	var magazine_states: Variant = content_state.get("munition_magazines")
+	var munition_mode := StringName(String(content_state.get("munition_mode", "")))
+	if not magazine_states is Dictionary or munition_mode != &"auto" and not _munition_definition_map().has(munition_mode):
+		return "탄종 선택 또는 재고 상태가 올바르지 않습니다"
+	for munition: MissileMunitionDefinition in munitions:
+		var magazine_error := WeaponMagazine.validation_error(magazine_states.get(String(munition.id)))
+		if not magazine_error.is_empty():
+			return "%s: %s" % [munition.id, magazine_error]
+	return ""
+
+func persistent_projectile_state_validation_error(projectile_type: StringName, state: Dictionary) -> String:
+	if projectile_type != &"homing_interceptor":
+		return super.persistent_projectile_state_validation_error(projectile_type, state)
+	var maximum_lifetime := float(state.get("maximum_lifetime", 0.0))
+	var age := float(state.get("age", -1.0))
+	if float(state.get("speed", 0.0)) <= 0.0 or float(state.get("turn_rate", 0.0)) <= 0.0 or maximum_lifetime <= 0.0 or float(state.get("damage", 0.0)) <= 0.0 or float(state.get("proximity_radius", 0.0)) <= 0.0 or age < 0.0 or age >= maximum_lifetime:
+		return "요격체 비행 상태가 올바르지 않습니다"
+	return ""
+
+func _munition_definition_map() -> Dictionary[StringName, MissileMunitionDefinition]:
+	var result: Dictionary[StringName, MissileMunitionDefinition] = {}
+	for munition: MissileMunitionDefinition in munitions:
+		result[munition.id] = munition
+	return result
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

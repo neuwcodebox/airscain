@@ -25,6 +25,26 @@ func tactical_overlay_mode() -> StringName:
 func tactical_range() -> float:
 	return attack_range
 
+func persistent_projectile_types() -> Array[StringName]:
+	return [&"interceptor_drone"]
+
+func runtime_state_validation_error(content_state: Dictionary) -> String:
+	var available := int(content_state.get("available_drones", -1))
+	var recharge: Variant = content_state.get("recharge_queue")
+	if available < 0 or available > drone_count or not recharge is Array:
+		return "요격드론 기지 상태가 올바르지 않습니다"
+	for remaining: Variant in recharge:
+		if float(remaining) <= 0.0:
+			return "요격드론 재충전 상태가 올바르지 않습니다"
+	return ""
+
+func persistent_projectile_state_validation_error(projectile_type: StringName, state: Dictionary) -> String:
+	if projectile_type != &"interceptor_drone":
+		return super.persistent_projectile_state_validation_error(projectile_type, state)
+	if int(state.get("state", -1)) < InterceptorDrone.State.OUTBOUND or int(state.get("state", -1)) > InterceptorDrone.State.RETURNING or float(state.get("age", -1.0)) < 0.0:
+		return "요격드론 비행 상태가 올바르지 않습니다"
+	return ""
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

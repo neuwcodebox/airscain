@@ -55,3 +55,15 @@ func enemy_knowledge_role() -> StringName:
 	if (roles & DefenseUnit.C2Role.COMMAND) != 0:
 		return &"command"
 	return &"weapon"
+
+func has_ammunition_state() -> bool:
+	return false
+
+func persistent_projectile_types() -> Array[StringName]:
+	return []
+
+func runtime_state_validation_error(_content_state: Dictionary) -> String:
+	return ""
+
+func persistent_projectile_state_validation_error(_projectile_type: StringName, _state: Dictionary) -> String:
+	return "지원하지 않는 방어 발사체 형식입니다"

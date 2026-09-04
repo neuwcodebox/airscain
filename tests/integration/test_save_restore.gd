@@ -2,6 +2,18 @@ extends GutTest
 
 const MAIN_SCENE := preload("res://main/main.tscn")
 
+class ValidatingDefenseDefinition:
+	extends DefenseDefinition
+
+	func runtime_state_validation_error(_content_state: Dictionary) -> String:
+		return "테스트 방어 상태 오류"
+
+class ValidatingThreatDefinition:
+	extends ThreatDefinition
+
+	func runtime_state_validation_error(_content_state: Dictionary, _defense_ids: Dictionary[int, bool]) -> String:
+		return "테스트 위협 상태 오류"
+
 var main: AirscainMain
 var save_path: String
 
@@ -94,6 +106,33 @@ func test_invalid_content_id_does_not_mutate_live_session() -> void:
 	assert_ne(error, "")
 	assert_eq(main.session.budget, original_budget)
 	assert_eq(main.registry.count(), 4)
+
+func test_snapshot_delegates_content_state_validation_to_definitions() -> void:
+	var defense_definition := ValidatingDefenseDefinition.new()
+	defense_definition.id = &"validating_defense"
+	main.scenario.available_defenses.append(defense_definition)
+	var defense_document := main.capture_save_document()
+	defense_document.payload.world.defenses.append({
+		"definition_id": "validating_defense",
+		"runtime_id": 999,
+		"position": [0.0, 0.0, 0.0],
+		"integrity": 100.0,
+		"content_state": {},
+	})
+	assert_true(SessionSnapshot.validation_error(defense_document.payload, main.scenario).contains("테스트 방어 상태 오류"))
+	main.scenario.available_defenses.pop_back()
+	var threat_definition := ValidatingThreatDefinition.new()
+	threat_definition.id = &"validating_threat"
+	main.scenario.ambient_contacts.append(threat_definition)
+	var threat_document := main.capture_save_document()
+	threat_document.payload.world.contacts.append({
+		"definition_id": "validating_threat",
+		"runtime_id": -999,
+		"position": [0.0, 40.0, 0.0],
+		"countermeasure_charges": 0,
+		"content_state": {},
+	})
+	assert_true(SessionSnapshot.validation_error(threat_document.payload, main.scenario).contains("테스트 위협 상태 오류"))
 
 func test_pending_air_strike_munition_restores_and_damages_at_its_surface_impact() -> void:
 	var target := main.objective.global_position + Vector3(32.0, 0.0, -24.0)
