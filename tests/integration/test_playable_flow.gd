@@ -78,6 +78,8 @@ func test_non_combat_ui_audio_uses_selected_sources_and_routes_feedback() -> voi
 	assert_eq(UiAudio.STREAMS[UiAudio.PLACEMENT_SUCCESS].resource_path, "res://ui/audio/placement_success.ogg")
 	assert_eq(UiAudio.STREAMS[UiAudio.ACTION_COMPLETE].resource_path, "res://ui/audio/action_complete.ogg")
 	assert_eq(UiAudio.STREAMS[UiAudio.ACTION_REJECTED].resource_path, "res://ui/audio/action_rejected.ogg")
+	assert_almost_eq(main.ui_audio.click_player.volume_db, linear_to_db(0.7), 0.001)
+	assert_almost_eq(main.ui_audio.feedback_player.volume_db, linear_to_db(0.7), 0.001)
 	var click_count := main.ui_audio.played_count(UiAudio.CLICK)
 	main.hud.normal_button.pressed.emit()
 	assert_eq(main.ui_audio.played_count(UiAudio.CLICK), click_count + 1)

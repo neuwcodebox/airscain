@@ -5,6 +5,7 @@ const CLICK := &"click"
 const PLACEMENT_SUCCESS := &"placement_success"
 const ACTION_COMPLETE := &"action_complete"
 const ACTION_REJECTED := &"action_rejected"
+const VOLUME_LINEAR := 0.7
 
 const STREAMS: Dictionary[StringName, AudioStream] = {
 	CLICK: preload("res://ui/audio/click.ogg"),
@@ -51,6 +52,7 @@ func stop_all() -> void:
 func _create_player(player_name: String) -> AudioStreamPlayer:
 	var player := AudioStreamPlayer.new()
 	player.name = player_name
+	player.volume_db = linear_to_db(VOLUME_LINEAR)
 	add_child(player)
 	return player
 
