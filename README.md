@@ -81,24 +81,6 @@ godot --headless --audio-driver Dummy --path . \
   -gdir=res://tests -ginclude_subdirs -gexit
 ```
 
-## GitHub Pages 배포
-
-`main` 브랜치에 push하면 GitHub Actions가 Godot 4.7.2와 공식 export template을 받아 단일 스레드 Web 빌드를 만들고 GitHub Pages에 배포합니다. 저장소의 **Settings → Pages → Build and deployment → Source**를 **GitHub Actions**로 한 번 지정해야 합니다. 이후 배포 주소는 `Deploy to GitHub Pages` workflow의 deployment에서 확인할 수 있습니다.
-
-로컬에 Godot Web export template이 설치되어 있다면 같은 산출물을 다음 명령으로 만들 수 있습니다.
-
-```bash
-mkdir -p build/web
-godot --headless --audio-driver Dummy --path . \
-  --export-release Web build/web/index.html
-```
-
-웹 빌드는 파일을 직접 열지 말고 HTTP 서버를 통해 실행해야 합니다. 예를 들어 저장소 루트에서 다음과 같이 확인합니다.
-
-```bash
-python3 -m http.server 8060 --directory build/web
-```
-
 ## 문서
 
 - [게임 요구사항](docs/SPEC.md)
