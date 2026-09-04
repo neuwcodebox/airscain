@@ -192,6 +192,7 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	var hostile_count := training.registry.hostile_count()
 	training._on_start_requested()
 	assert_eq(training.training_controller.step, TrainingController.Step.ACQUIRE)
+	assert_false(bool(training.tactical_screen_overlay.get("training_approach_visible")))
 	assert_false(training.hud.catalog_expanded)
 	assert_false(training.director.enabled)
 	assert_eq(training.registry.hostile_count(), hostile_count + 1)

@@ -1293,6 +1293,11 @@ func _capture_training_guidance() -> bool:
 	_save_capture("/tmp/airscain_training_entry_catalog_open.png")
 	main.hud.set_catalog_expanded(false)
 	main.training_controller._set_step(TrainingController.Step.ACQUIRE)
+	await process_frame
+	if bool(main.tactical_screen_overlay.get("training_approach_visible")):
+		push_error("Training approach remained visible during target acquisition")
+		return false
+	_save_capture("/tmp/airscain_training_acquire_clear.png")
 	var track_position := main.objective.global_position + Vector3.RIGHT * main.scenario.battlefield_size * 1.5
 	track_position.y = main.battlefield.flight_surface_height(track_position.x, track_position.z) + 80.0
 	var observation := SensorObservation.new()

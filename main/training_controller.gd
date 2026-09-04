@@ -64,7 +64,6 @@ func tracks_refreshed(selectable_hostile_count: int) -> void:
 	if step != Step.ACQUIRE or selectable_hostile_count <= 0:
 		return
 	session.set_simulation_speed(0.0)
-	tactical_screen_overlay.call("hide_training_approach")
 	_set_step(Step.SELECT_TRACK)
 
 func track_selected(track: PlayerTrack) -> void:
@@ -117,7 +116,8 @@ func _set_step(next_step: Step) -> void:
 		Step.START:
 			hud.set_training_lesson(5, 13, "방어 시작", "오른쪽 아래의 방어 시작을 누르세요. 표적 탐지까지 훈련이 자동 재생됩니다.")
 		Step.ACQUIRE:
-			hud.set_training_lesson(6, 13, "탐지와 항적 · 자동 재생", "진입 표시 너머 먼 해상에서 접근하는 표적을 레이더가 확인할 때까지 관찰하세요. 확인 즉시 자동 일시정지됩니다.")
+			tactical_screen_overlay.call("hide_training_approach")
+			hud.set_training_lesson(6, 13, "탐지와 항적 · 자동 재생", "먼 해상에서 접근하는 표적을 레이더가 확인할 때까지 관찰하세요. 확인 즉시 자동 일시정지됩니다.")
 		Step.SELECT_TRACK:
 			hud.set_training_lesson(7, 13, "항적 선택 · 일시정지", "지도에 나타난 적성 항적 표식을 클릭해 분류·소속·추적 품질을 확인하세요.")
 		Step.SELECT_ASSET:
@@ -147,7 +147,6 @@ func _spawn_training_threat() -> void:
 	threat.global_position = approach_position()
 	if threat is AttackUav:
 		(threat as AttackUav).speed_multiplier = 0.65
-	tactical_screen_overlay.call("show_training_approach", objective.global_position, threat.global_position)
 
 func _has_search_radar() -> bool:
 	for defense: DefenseUnit in defenses:
