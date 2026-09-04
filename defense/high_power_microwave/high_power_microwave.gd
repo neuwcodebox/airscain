@@ -93,8 +93,8 @@ func selection_status_rows() -> Array[Dictionary]:
 	else:
 		var capacity := power_manager.generation_capacity()
 		var shortage := power_manager.total_demand() > capacity
-		rows.append({"label": "수요 / 공급", "value": "%d / %d" % [roundi(power_demand()), roundi(capacity)]})
-		rows.append({"label": "공급 상태", "value": "부족" if shortage else "정상", "warning": shortage})
+		rows.append({"label": "전력 수요 / 공급", "value": "%d / %d" % [roundi(power_demand()), roundi(capacity)]})
+		rows.append({"label": "전력 상태", "value": "부족" if shortage else "정상", "warning": shortage})
 	rows.append_array(_selection_task_rows())
 	return rows
 

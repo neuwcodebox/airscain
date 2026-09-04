@@ -101,8 +101,8 @@ func _power_status_rows() -> Array[Dictionary]:
 	var capacity := power_manager.generation_capacity()
 	var shortage := power_manager.total_demand() > capacity
 	return [
-		{"label": "수요 / 공급", "value": "%d / %d" % [roundi(power_demand()), roundi(capacity)]},
-		{"label": "공급 상태", "value": "부족" if shortage else "정상", "warning": shortage},
+		{"label": "전력 수요 / 공급", "value": "%d / %d" % [roundi(power_demand()), roundi(capacity)]},
+		{"label": "전력 상태", "value": "부족" if shortage else "정상", "warning": shortage},
 	]
 
 func _fire_pulse(track: PlayerTrack) -> void:

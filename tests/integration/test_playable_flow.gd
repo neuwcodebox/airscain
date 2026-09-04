@@ -557,8 +557,8 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_eq(main.c2_overlay.visible_c2_link_count, preview_c2_count)
 	assert_eq(main.c2_overlay.visible_support_link_count, 1)
 	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "연결됨")
-	assert_eq(_metric_value(main.hud.asset_metrics, "수요 / 공급"), "12 / 20")
-	assert_eq(_metric_value(main.hud.asset_metrics, "공급 상태"), "정상")
+	assert_eq(_metric_value(main.hud.asset_metrics, "전력 수요 / 공급"), "12 / 20")
+	assert_eq(_metric_value(main.hud.asset_metrics, "전력 상태"), "정상")
 	var support_definition := main.scenario.available_defenses[5]
 	main.placement.select(support_definition)
 	assert_eq((main.placement.range_disc.mesh as TorusMesh).outer_radius, (support_definition as SupportFacilityDefinition).service_range)
