@@ -164,6 +164,22 @@ func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
 	assert_true(role_icons.has("▲"))
 	assert_true(role_icons.has("■"))
 
+func test_friendly_installation_selection_highlights_icon_and_footprint() -> void:
+	var defense := add_child_autofree(SCENARIO.available_defenses[0].scene.instantiate()) as DefenseUnit
+	defense.setup(1, SCENARIO.available_defenses[0])
+	var icon := defense.identity_marker.get_node("Icon") as Label3D
+	var selection_ring := defense.identity_marker.get_node("SelectionRing") as MeshInstance3D
+	assert_false(selection_ring.visible)
+	assert_eq(icon.outline_size, 4)
+	defense.set_selected(true)
+	assert_true(selection_ring.visible)
+	assert_eq(icon.outline_size, 8)
+	assert_eq(icon.scale, Vector3.ONE * 1.2)
+	assert_eq((selection_ring.mesh as TorusMesh).rings, 64)
+	defense.set_selected(false)
+	assert_false(selection_ring.visible)
+	assert_eq(icon.scale, Vector3.ONE)
+
 func _average(values: Array[float]) -> float:
 	var total := 0.0
 	for value: float in values:

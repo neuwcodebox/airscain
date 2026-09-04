@@ -97,6 +97,10 @@ func engagement_hold_fire() -> bool:
 func engagement_engages_unknown() -> bool:
 	return false
 
+func set_selected(enabled: bool) -> void:
+	_ensure_identity_marker()
+	identity_marker.call("set_selected", enabled)
+
 func set_hold_fire(_enabled: bool) -> void:
 	pass
 

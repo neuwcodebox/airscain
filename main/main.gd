@@ -341,7 +341,7 @@ func _on_main_menu_requested() -> void:
 	main_menu_requested.emit()
 
 func _on_asset_selected(unit: DefenseUnit) -> void:
-	selected_asset = unit
+	_set_selected_asset(unit)
 	selected_track = null
 	track_display.select_track(null)
 	tactical_screen_overlay.select_track(null)
@@ -387,7 +387,7 @@ func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.IN
 				nearest_distance = flat_distance
 				selected_track = track
 	if selected_track == null:
-		selected_asset = null
+		_set_selected_asset(null)
 		c2_overlay.select_asset(null)
 		hud.set_selected_asset(null, 0)
 	track_display.select_track(selected_track)
@@ -542,13 +542,20 @@ func _on_training_next_requested() -> void:
 		training_controller.next_requested()
 
 func _clear_selection() -> void:
-	selected_asset = null
+	_set_selected_asset(null)
 	selected_track = null
 	track_display.select_track(null)
 	tactical_screen_overlay.select_track(null)
 	c2_overlay.select_asset(null)
 	hud.set_selected_asset(null, 0)
 	hud.set_selected_track(null, false)
+
+func _set_selected_asset(unit: DefenseUnit) -> void:
+	if selected_asset != null and is_instance_valid(selected_asset):
+		selected_asset.set_selected(false)
+	selected_asset = unit
+	if selected_asset != null and is_instance_valid(selected_asset):
+		selected_asset.set_selected(true)
 
 func restore_from_document(document: Dictionary) -> String:
 	var document_error := SaveDocument.validation_error(document)
@@ -645,7 +652,7 @@ func _clear_runtime_objects() -> void:
 	power_manager.reset()
 	relocation_manager.reset()
 	enemy_knowledge.reset()
-	selected_asset = null
+	_set_selected_asset(null)
 	selected_track = null
 	track_display.select_track(null)
 	tactical_screen_overlay.select_track(null)

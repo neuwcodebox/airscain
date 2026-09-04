@@ -594,12 +594,14 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	var track: PlayerTrack = main.player_knowledge.call("get_active_tracks")[0]
 	assert_true(main.engagement_coordinator.try_reserve(track.track_id, radar.runtime_id, 2.0))
 	main._on_asset_selected(radar)
+	assert_true(bool(radar.identity_marker.get("selected")))
 	assert_false(main.hud.selected_track_label.visible)
 	var marker_screen_position := main.camera_rig.camera.unproject_position(track.estimated_position + Vector3.UP * 12.0)
 	main._on_world_selected(Vector3(900.0, 0.0, 900.0), marker_screen_position)
 	main.track_display._process(0.0)
 	var marker := main.track_display.markers[track.track_id] as TrackMarker
 	assert_true(marker.selected)
+	assert_true(bool(radar.identity_marker.get("selected")))
 	assert_false(marker.icon.text.contains("T-"))
 	assert_not_null(main.track_display.selection_lines.mesh)
 	assert_eq(main.track_display.selection_details(), {"sensor_count": 1, "engagement_count": 1})
@@ -617,6 +619,7 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main._on_world_selected(Vector3(900.0, 0.0, 900.0), Vector2(4.0, 4.0))
 	assert_null(main.selected_track)
 	assert_null(main.selected_asset)
+	assert_false(bool(radar.identity_marker.get("selected")))
 	assert_false(main.hud.selected_asset_panel.visible)
 
 func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
