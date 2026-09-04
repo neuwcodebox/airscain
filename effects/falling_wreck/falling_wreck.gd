@@ -9,6 +9,8 @@ var impact_flash_enabled: bool = true
 var smoke_released: bool = false
 
 @onready var wreck: Node3D = $Wreck
+@onready var body: MeshInstance3D = $Wreck/Body
+@onready var wing: MeshInstance3D = $Wreck/Wing
 @onready var smoke: LingeringSmokeTrail = $SmokeTrail
 @onready var impact_flash: MeshInstance3D = $ImpactFlash
 
@@ -17,14 +19,15 @@ func setup(color: Color, initial_velocity: Vector3, ground_height_value: float, 
 	ground_height = ground_height_value
 	impact_flash_enabled = flash_enabled
 	wreck.scale = Vector3.ONE * wreck_scale
-	for child: Node in wreck.get_children():
-		var mesh_instance := child as MeshInstance3D
-		if mesh_instance == null:
-			continue
-		var material := mesh_instance.material_override.duplicate() as StandardMaterial3D
-		material.albedo_color = color.darkened(0.45)
-		mesh_instance.material_override = material
+	_set_wreck_material(body, color)
+	_set_wreck_material(wing, color)
+	impact_flash.material_override = impact_flash.material_override.duplicate() as StandardMaterial3D
 	smoke.emitting = smoke_enabled
+
+func _set_wreck_material(mesh_instance: MeshInstance3D, color: Color) -> void:
+	var material := mesh_instance.material_override.duplicate() as StandardMaterial3D
+	material.albedo_color = color.darkened(0.45)
+	mesh_instance.material_override = material
 
 func _process(delta: float) -> void:
 	elapsed += delta

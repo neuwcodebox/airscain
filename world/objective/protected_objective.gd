@@ -13,7 +13,7 @@ var runtime_id: int
 var definition: ObjectiveDefinition
 var current_integrity: int
 var exclusion_radius: float = 165.0
-var damage_smoke_effects: Array[Node3D] = []
+var damage_smoke_effects: Array[DamageSmokeEffect] = []
 var damage_smoke_sites: Array[Dictionary] = []
 
 func setup(id_value: int, definition_value: ObjectiveDefinition) -> void:
@@ -51,7 +51,7 @@ func capture_damage_smoke_state() -> Array[Dictionary]:
 	return damage_smoke_sites.duplicate(true)
 
 func restore_damage_smoke_state(states: Array) -> void:
-	for effect: Node3D in damage_smoke_effects:
+	for effect: DamageSmokeEffect in damage_smoke_effects:
 		if is_instance_valid(effect):
 			effect.queue_free()
 	damage_smoke_effects.clear()
@@ -67,7 +67,7 @@ func _append_damage_smoke_site(global_impact_position: Vector3, building_height:
 	if damage_smoke_sites.size() >= MAX_DAMAGE_SMOKE_SITES:
 		damage_smoke_sites.pop_front()
 		if not damage_smoke_effects.is_empty():
-			var oldest: Node3D = damage_smoke_effects.pop_front()
+			var oldest: DamageSmokeEffect = damage_smoke_effects.pop_front()
 			oldest.queue_free()
 	damage_smoke_sites.append({
 		"offset": SaveDocument.vector3_to_data(to_local(global_impact_position)),
@@ -95,12 +95,12 @@ func _sync_damage_visuals() -> void:
 	var desired_count := damage_smoke_sites.size() if current_integrity < definition.maximum_integrity else 0
 	while damage_smoke_effects.size() < desired_count:
 		var index := damage_smoke_effects.size()
-		var effect := DAMAGE_SMOKE_SCENE.instantiate() as Node3D
+		var effect := DAMAGE_SMOKE_SCENE.instantiate() as DamageSmokeEffect
 		add_child(effect)
-		effect.call("set_city_scale", 1.5, float(damage_smoke_sites[index].building_height))
+		effect.set_city_scale(1.5, float(damage_smoke_sites[index].building_height))
 		damage_smoke_effects.append(effect)
 	while damage_smoke_effects.size() > desired_count:
-		var effect: Node3D = damage_smoke_effects.pop_back()
+		var effect: DamageSmokeEffect = damage_smoke_effects.pop_back()
 		effect.queue_free()
 	for index: int in damage_smoke_effects.size():
 		damage_smoke_effects[index].position = SaveDocument.vector3_from_data(damage_smoke_sites[index].offset)

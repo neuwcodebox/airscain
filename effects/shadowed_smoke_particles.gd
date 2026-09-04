@@ -1,7 +1,7 @@
+class_name ShadowedSmokeParticles
 extends GPUParticles3D
 
 const SHADOW_NODE_NAME := "SmokeShadow"
-const SHADOW_SHADER := preload("res://effects/smoke_shadow.gdshader")
 
 var shadow_particles: GPUParticles3D
 var shadow_material: ShaderMaterial
@@ -22,30 +22,10 @@ func set_shadow_opacity_ratio(ratio: float) -> void:
 
 func _create_shadow_particles() -> void:
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var source_mesh := draw_pass_1
-	if source_mesh == null or source_mesh.get_surface_count() == 0:
+	var proxy := SmokeShadowFactory.create(draw_pass_1)
+	if proxy == null:
 		return
-	var source_material := source_mesh.surface_get_material(0)
-	if source_material is not StandardMaterial3D:
-		return
-
-	var standard_material := source_material as StandardMaterial3D
-	var uses_billboard := standard_material.billboard_mode != BaseMaterial3D.BILLBOARD_DISABLED
-	var shadow_mesh: Mesh
-	if uses_billboard and source_mesh is QuadMesh:
-		var source_quad := source_mesh as QuadMesh
-		var sphere := SphereMesh.new()
-		sphere.radius = maxf(source_quad.size.x, source_quad.size.y) * 0.42
-		sphere.height = sphere.radius * 2.0
-		sphere.radial_segments = 8
-		sphere.rings = 4
-		shadow_mesh = sphere
-	else:
-		shadow_mesh = source_mesh.duplicate() as Mesh
-	shadow_material = ShaderMaterial.new()
-	shadow_material.shader = SHADOW_SHADER
-	shadow_material.set_shader_parameter("billboard_enabled", false if shadow_mesh is SphereMesh else uses_billboard)
-	shadow_mesh.surface_set_material(0, shadow_material)
+	shadow_material = proxy.material
 
 	shadow_particles = GPUParticles3D.new()
 	shadow_particles.name = SHADOW_NODE_NAME
@@ -64,7 +44,7 @@ func _create_shadow_particles() -> void:
 	shadow_particles.interp_to_end = interp_to_end
 	shadow_particles.speed_scale = speed_scale
 	shadow_particles.process_material = process_material
-	shadow_particles.draw_pass_1 = shadow_mesh
+	shadow_particles.draw_pass_1 = proxy.mesh
 	shadow_particles.use_fixed_seed = true
 	use_fixed_seed = true
 	shadow_particles.seed = seed
@@ -74,9 +54,13 @@ func _create_shadow_particles() -> void:
 func _sync_shadow_state() -> void:
 	if shadow_particles == null:
 		return
-	shadow_particles.amount = amount
-	shadow_particles.amount_ratio = amount_ratio
-	shadow_particles.lifetime = lifetime
-	shadow_particles.speed_scale = speed_scale
+	if shadow_particles.amount != amount:
+		shadow_particles.amount = amount
+	if not is_equal_approx(shadow_particles.amount_ratio, amount_ratio):
+		shadow_particles.amount_ratio = amount_ratio
+	if not is_equal_approx(shadow_particles.lifetime, lifetime):
+		shadow_particles.lifetime = lifetime
+	if not is_equal_approx(shadow_particles.speed_scale, speed_scale):
+		shadow_particles.speed_scale = speed_scale
 	if shadow_particles.emitting != emitting:
 		shadow_particles.emitting = emitting

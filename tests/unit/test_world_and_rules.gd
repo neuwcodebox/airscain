@@ -374,32 +374,37 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 			assert_eq(shadow.multimesh.instance_count, ceili(float(trail.amount) / float(trail.shadow_emission_stride)))
 
 func test_sampled_smoke_uses_irregular_variation_and_retires_expired_slots() -> void:
-	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
-	var trail := effect.get_node("SmokeTrail") as LingeringSmokeTrail
-	assert_eq(trail.multimesh.visible_instance_count, 0, "unused GPU smoke slots must not be initialized one by one")
-	trail.emitting = true
-	trail.sample_world_segment(Vector3.ZERO, Vector3(12.0, 0.0, 0.0))
-	assert_gt(trail._active_slots.size(), 8)
-	assert_gt(trail.multimesh.visible_instance_count, 0)
-	var first_slot := trail._active_slots[0]
+	var first_variation := SmokePuffDistribution.sample(1, 0.5)
+	var has_position_variation := false
 	var has_size_variation := false
 	var has_opacity_variation := false
 	var has_drift_variation := false
-	for slot: int in trail._active_slots:
-		has_size_variation = has_size_variation or not is_equal_approx(trail._size_variations[slot], trail._size_variations[first_slot])
-		has_opacity_variation = has_opacity_variation or not is_equal_approx(trail._opacity_variations[slot], trail._opacity_variations[first_slot])
-		has_drift_variation = has_drift_variation or not trail._drift_vectors[slot].is_equal_approx(trail._drift_vectors[first_slot])
+	for serial: int in range(2, 17):
+		var variation := SmokePuffDistribution.sample(serial, 0.5)
+		has_position_variation = has_position_variation or not variation.offset.is_equal_approx(first_variation.offset)
+		has_size_variation = has_size_variation or not is_equal_approx(variation.size_ratio, first_variation.size_ratio)
+		has_opacity_variation = has_opacity_variation or not is_equal_approx(variation.opacity_ratio, first_variation.opacity_ratio)
+		has_drift_variation = has_drift_variation or not variation.drift_direction.is_equal_approx(first_variation.drift_direction)
+	assert_true(has_position_variation)
 	assert_true(has_size_variation)
 	assert_true(has_opacity_variation)
 	assert_true(has_drift_variation)
 	var shadow_offsets: Array[int] = []
 	for group: int in 10:
-		for offset: int in trail.shadow_emission_stride:
-			if trail._should_cast_shadow(group * trail.shadow_emission_stride + offset + 1):
+		for offset: int in 2:
+			if SmokePuffDistribution.casts_shadow(group * 2 + offset + 1, 2):
 				shadow_offsets.append(offset)
 	assert_ne(shadow_offsets.min(), shadow_offsets.max(), "shadow samples must not form a fixed dark-light cadence")
+
+	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	var trail := effect.get_node("SmokeTrail") as LingeringSmokeTrail
+	assert_eq(trail.multimesh.visible_instance_count, 0, "unused GPU smoke slots must not be initialized one by one")
+	trail.emitting = true
+	trail.sample_world_segment(Vector3.ZERO, Vector3(12.0, 0.0, 0.0))
+	assert_gt(trail.active_puff_count(), 8)
+	assert_gt(trail.multimesh.visible_instance_count, 0)
 	trail._process(trail.lifetime + 0.1)
-	assert_true(trail._active_slots.is_empty(), "expired smoke must leave the per-frame update set")
+	assert_eq(trail.active_puff_count(), 0, "expired smoke must leave the per-frame update set")
 	assert_eq(trail.multimesh.visible_instance_count, 0)
 
 func test_transient_glows_use_soft_cards_without_realtime_light_shadows() -> void:
@@ -414,6 +419,18 @@ func test_transient_glows_use_soft_cards_without_realtime_light_shadows() -> voi
 	assert_true((miss.get_node("Flash") as MeshInstance3D).mesh is QuadMesh)
 	var countermeasure: Node = add_child_autofree(preload("res://effects/countermeasure_burst/countermeasure_burst.tscn").instantiate())
 	assert_true((countermeasure.get_node("Flares") as GPUParticles3D).draw_pass_1 is QuadMesh)
+
+func test_falling_wreck_impact_flash_material_is_instance_local() -> void:
+	var scene := preload("res://effects/falling_wreck/falling_wreck.tscn")
+	var first := add_child_autofree(scene.instantiate()) as FallingWreckEffect
+	var second := add_child_autofree(scene.instantiate()) as FallingWreckEffect
+	first.setup(Color.RED, Vector3.ZERO, 0.0)
+	second.setup(Color.BLUE, Vector3.ZERO, 0.0)
+	var first_material := first.impact_flash.material_override as StandardMaterial3D
+	var second_material := second.impact_flash.material_override as StandardMaterial3D
+	assert_ne(first_material, second_material)
+	first_material.albedo_color.a = 0.0
+	assert_gt(second_material.albedo_color.a, 0.0, "one wreck fade must not mutate another effect instance")
 
 func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_there() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield

@@ -19,7 +19,7 @@ var integrity: float
 var support_manager: SupportManager
 var relocation_manager: RelocationManager
 var enemy_knowledge: EnemyKnowledge
-var damage_smoke: Node
+var damage_smoke: DamageSmokeEffect
 var status_marker: Node3D
 var identity_marker: Node3D
 
@@ -253,9 +253,9 @@ func _refresh_damage_visual() -> void:
 		damage_smoke = null
 		return
 	if damage_smoke == null or not is_instance_valid(damage_smoke):
-		damage_smoke = DAMAGE_SMOKE_SCENE.instantiate()
+		damage_smoke = DAMAGE_SMOKE_SCENE.instantiate() as DamageSmokeEffect
 		add_child(damage_smoke)
-	damage_smoke.call("set_damage_ratio", damage_ratio)
+	damage_smoke.set_damage_ratio(damage_ratio)
 
 func _ensure_status_marker() -> void:
 	if status_marker != null and is_instance_valid(status_marker):

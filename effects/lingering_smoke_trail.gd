@@ -1,7 +1,6 @@
 class_name LingeringSmokeTrail
 extends MultiMeshInstance3D
 
-const SHADOW_SHADER := preload("res://effects/smoke_shadow.gdshader")
 const VISUAL_UPDATE_INTERVAL := 1.0 / 15.0
 
 @export var puff_mesh: QuadMesh
@@ -77,11 +76,8 @@ func sample_world_segment(from_position: Vector3, to_position: Vector3) -> void:
 		var world_position := from_position + direction * cursor
 		for _particle_index: int in particles_per_sample:
 			var serial := emitted_sample_count + 1
-			var phase := _random_unit(serial, 0) * TAU
-			var radius_ratio := sqrt(_random_unit(serial, 1))
-			var height_jitter := lerpf(-0.45, 0.45, _random_unit(serial, 2))
-			var offset := Vector3(cos(phase) * radius_ratio, height_jitter, sin(phase) * radius_ratio) * sample_radius
-			_emit_puff(world_position + offset, serial)
+			var variation := SmokePuffDistribution.sample(serial, sample_radius)
+			_emit_puff(world_position + variation.offset, variation)
 			emitted_sample_count += 1
 		last_emitted_world_position = world_position
 		cursor += sample_spacing
@@ -100,6 +96,9 @@ func smoke_bounds() -> AABB:
 		else:
 			bounds = bounds.expand(position)
 	return bounds.grow(puff_mesh.size.x * final_scale * 0.5) if has_point else AABB()
+
+func active_puff_count() -> int:
+	return _active_slots.size()
 
 func _process(delta: float) -> void:
 	_elapsed += delta
@@ -139,18 +138,15 @@ func _create_visible_multimesh() -> void:
 	smoke_multimesh.visible_instance_count = 0
 
 func _create_shadow_multimesh() -> void:
-	var sphere := SphereMesh.new()
-	sphere.radius = maxf(puff_mesh.size.x, puff_mesh.size.y) * 0.42
-	sphere.height = sphere.radius * 2.0
-	sphere.radial_segments = 6
-	sphere.rings = 3
-	shadow_material = ShaderMaterial.new()
-	shadow_material.shader = SHADOW_SHADER
-	sphere.material = shadow_material
+	var proxy := SmokeShadowFactory.create(puff_mesh, 6, 3)
+	if proxy == null:
+		push_error("Lingering smoke requires a StandardMaterial3D puff mesh")
+		return
+	shadow_material = proxy.material
 	var shadow_multimesh := MultiMesh.new()
 	shadow_multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	shadow_multimesh.use_colors = true
-	shadow_multimesh.mesh = sphere
+	shadow_multimesh.mesh = proxy.mesh
 	var shadow_count := ceili(float(amount) / float(shadow_emission_stride))
 	shadow_multimesh.instance_count = shadow_count
 	_shadow_owner_serials.resize(shadow_count)
@@ -161,7 +157,7 @@ func _create_shadow_multimesh() -> void:
 	shadow_particles.multimesh = shadow_multimesh
 	add_child(shadow_particles)
 
-func _emit_puff(position: Vector3, random_serial: int) -> void:
+func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> void:
 	var slot := _next_slot
 	_next_slot = (_next_slot + 1) % amount
 	if _occupied_slots[slot] == 0:
@@ -172,12 +168,9 @@ func _emit_puff(position: Vector3, random_serial: int) -> void:
 	_birth_times[slot] = _elapsed
 	_occupied_slots[slot] = 1
 	_positions[slot] = position
-	_size_variations[slot] = lerpf(0.76, 1.3, _random_unit(random_serial, 3))
-	_opacity_variations[slot] = lerpf(0.62, 1.0, _random_unit(random_serial, 4))
-	var drift_angle := _random_unit(random_serial, 5) * TAU
-	var lateral_speed := lerpf(0.45, 1.1, _random_unit(random_serial, 6))
-	var lift_speed := lerpf(0.28, 0.72, _random_unit(random_serial, 7))
-	_drift_vectors[slot] = Vector3(cos(drift_angle) * lateral_speed, lift_speed, sin(drift_angle) * lateral_speed)
+	_size_variations[slot] = variation.size_ratio
+	_opacity_variations[slot] = variation.opacity_ratio
+	_drift_vectors[slot] = variation.drift_direction
 	_serials[slot] = _emission_serial
 	multimesh.visible_instance_count = maxi(multimesh.visible_instance_count, slot + 1)
 	_update_puff(slot)
@@ -207,7 +200,7 @@ func _update_puff(slot: int) -> void:
 	var transform := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * scale_value), _positions[slot] + drift)
 	multimesh.set_instance_transform(slot, transform)
 	multimesh.set_instance_color(slot, Color(1.0, 1.0, 1.0, alpha))
-	if not _should_cast_shadow(_serials[slot]):
+	if shadow_particles == null or not SmokePuffDistribution.casts_shadow(_serials[slot], shadow_emission_stride):
 		return
 	var shadow_slot := _shadow_slot_for_serial(_serials[slot])
 	_shadow_owner_serials[shadow_slot] = _serials[slot]
@@ -222,10 +215,6 @@ func _puff_alpha(normalized_age: float) -> float:
 		return 1.0
 	return 1.0 - smoothstep(0.45, 0.88, normalized_age)
 
-func _random_unit(serial: int, salt: int) -> float:
-	var value := sin(float(serial) * 12.9898 + float(salt) * 78.233) * 43758.5453
-	return value - floorf(value)
-
 func _set_opacity_ratio(ratio: float) -> void:
 	current_opacity_ratio = clampf(ratio, 0.0, 1.0)
 	current_shadow_opacity_ratio = current_opacity_ratio
@@ -239,7 +228,7 @@ func _set_opacity_ratio(ratio: float) -> void:
 func _hide_puff_slot(slot: int) -> void:
 	_hide_instance(multimesh, slot)
 	var serial := _serials[slot]
-	if serial < 0 or not _should_cast_shadow(serial) or shadow_particles == null:
+	if serial < 0 or not SmokePuffDistribution.casts_shadow(serial, shadow_emission_stride) or shadow_particles == null:
 		return
 	var shadow_slot := _shadow_slot_for_serial(serial)
 	if _shadow_owner_serials[shadow_slot] == serial:
@@ -247,12 +236,7 @@ func _hide_puff_slot(slot: int) -> void:
 		_shadow_owner_serials[shadow_slot] = -1
 
 func _shadow_slot_for_serial(serial: int) -> int:
-	return int((serial - 1) / shadow_emission_stride) % shadow_particles.multimesh.instance_count
-
-func _should_cast_shadow(serial: int) -> bool:
-	var group := int((serial - 1) / shadow_emission_stride)
-	var selected_offset := mini(int(_random_unit(group + 1, 11) * float(shadow_emission_stride)), shadow_emission_stride - 1)
-	return (serial - 1) % shadow_emission_stride == selected_offset
+	return SmokePuffDistribution.shadow_group(serial, shadow_emission_stride) % shadow_particles.multimesh.instance_count
 
 func _hide_instance(target: MultiMesh, slot: int) -> void:
 	var zero_basis := Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO)
