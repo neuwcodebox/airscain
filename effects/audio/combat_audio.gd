@@ -1,6 +1,10 @@
 class_name CombatAudio
 extends Node
 
+const CONTACT := &"contact"
+const PRESSURE := &"pressure"
+const LOW_AMMO := &"low_ammo"
+const DAMAGE := &"damage"
 const BIG_EXPLOSION := &"big_explosion"
 const EXPLOSION := &"explosion"
 const LONG_MISSILE := &"long_missile"
@@ -9,6 +13,20 @@ const SHORT_MISSILE := &"short_missile"
 const MISSILE_EVENTS: Array[StringName] = [LONG_MISSILE, MISSILE, SHORT_MISSILE]
 
 const STREAM_GROUPS: Dictionary = {
+	CONTACT: [
+		preload("res://effects/audio/combat/contact.ogg"),
+	],
+	PRESSURE: [
+		preload("res://effects/audio/combat/pressure.ogg"),
+	],
+	LOW_AMMO: [
+		preload("res://effects/audio/combat/low_ammo.ogg"),
+	],
+	DAMAGE: [
+		preload("res://effects/audio/combat/small_explosion_1.ogg"),
+		preload("res://effects/audio/combat/small_explosion_2.ogg"),
+		preload("res://effects/audio/combat/small_explosion_3.ogg"),
+	],
 	BIG_EXPLOSION: [
 		preload("res://effects/audio/combat/big_explosion_1.ogg"),
 		preload("res://effects/audio/combat/big_explosion_2.ogg"),
@@ -157,6 +175,14 @@ func _stop_source(source_id: int) -> void:
 
 func _event_cooldown(event_id: StringName) -> float:
 	match event_id:
+		CONTACT:
+			return 0.45
+		PRESSURE:
+			return 1.0
+		LOW_AMMO:
+			return 2.5
+		DAMAGE:
+			return 0.55
 		BIG_EXPLOSION:
 			return 0.5
 		EXPLOSION:

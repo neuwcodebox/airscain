@@ -190,6 +190,7 @@ func _connect_flow() -> void:
 	placement.sandbox_threat_placement_requested.connect(_on_sandbox_threat_placement_requested)
 	training_controller.selection_clear_requested.connect(_clear_selection)
 	player_knowledge.connect("track_removed", _on_track_removed)
+	player_knowledge.connect("track_created", _on_track_contact_audio)
 	objective.damage_received.connect(_on_objective_damage_audio)
 
 func _on_start_requested() -> void:
@@ -220,6 +221,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	power_manager.register_asset(unit)
 	relocation_manager.register_asset(unit)
 	unit.weapon_fired.connect(_on_weapon_fired)
+	unit.damage_received.connect(_on_defense_damage_audio)
 	unit.projectile_launched.connect(_on_projectile_launched_audio)
 	if game_mode == GameMode.TRAINING:
 		training_controller.defense_placed(unit)
@@ -290,6 +292,7 @@ func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 func _on_pressure_changed(level: int) -> void:
 	session.update_pressure(level)
 	hud.set_pressure(level)
+	combat_audio.play_event(CombatAudio.PRESSURE, clampf(0.45 + float(level) * 0.04, 0.45, 1.0))
 
 func _on_recovery_started(_completed_window: int) -> void:
 	session.grant_attack_window_reward(scenario.attack_window_reward)
@@ -306,8 +309,16 @@ func _on_placement_succeeded() -> void:
 func _on_placement_rejected() -> void:
 	ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
-func _on_weapon_fired(_unit: DefenseUnit, _low_resources: bool) -> void:
+func _on_track_contact_audio(_track: PlayerTrack) -> void:
+	combat_audio.play_event(CombatAudio.CONTACT, 0.55)
+
+func _on_weapon_fired(_unit: DefenseUnit, low_resources: bool) -> void:
 	session.register_weapon_fire()
+	if low_resources:
+		combat_audio.play_event(CombatAudio.LOW_AMMO, 0.7)
+
+func _on_defense_damage_audio(_unit: DefenseUnit, _amount: float, integrity_ratio: float) -> void:
+	combat_audio.play_event(CombatAudio.DAMAGE, clampf(1.1 - integrity_ratio, 0.45, 1.0))
 
 func _on_projectile_launched_audio(unit: DefenseUnit, projectile: Node) -> void:
 	var event_id := unit.definition.weapon_audio_event()
