@@ -679,13 +679,61 @@ layout_mode = 2
 text = "0"
 horizontal_alignment = 2
 
-[node name="RelationLegend" type="Label" parent="SelectedAssetPanel/VBox/TrackSection"]
+[node name="RelationLegend" type="HBoxContainer" parent="SelectedAssetPanel/VBox/TrackSection"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.65, 0.78, 0.84, 1)
-theme_override_font_sizes/font_size = 13
-text = "청색  센서 기여    주황  교전 중    황색  예상 경로"
-autowrap_mode = 2
+theme_override_constants/separation = 13
+
+[node name="Sensor" type="HBoxContainer" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Swatch" type="ColorRect" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend/Sensor"]
+custom_minimum_size = Vector2(14, 3)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+color = Color(0.2, 0.82, 1, 0.75)
+
+[node name="Label" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend/Sensor"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.75, 0.79, 1)
+theme_override_font_sizes/font_size = 12
+text = "센서 기여"
+
+[node name="Engagement" type="HBoxContainer" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Swatch" type="ColorRect" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend/Engagement"]
+custom_minimum_size = Vector2(14, 3)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+color = Color(1, 0.34, 0.18, 0.82)
+
+[node name="Label" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend/Engagement"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.75, 0.79, 1)
+theme_override_font_sizes/font_size = 12
+text = "교전 중"
+
+[node name="Prediction" type="HBoxContainer" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend"]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Swatch" type="ColorRect" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend/Prediction"]
+custom_minimum_size = Vector2(14, 3)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+color = Color(1, 0.92, 0.45, 0.7)
+
+[node name="Label" type="Label" parent="SelectedAssetPanel/VBox/TrackSection/RelationLegend/Prediction"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.65, 0.75, 0.79, 1)
+theme_override_font_sizes/font_size = 12
+text = "예상 경로"
 
 [node name="EngagementSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
