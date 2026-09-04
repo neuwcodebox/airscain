@@ -33,6 +33,12 @@ godot --path . --scene res://path/to/scene.tscn
 - Put unit tests in `tests/unit/` and integration tests in `tests/integration/`.
 - Create a new top-level directory only when the existing structure does not fit naturally.
 
+## Extension Rules
+
+- Add defense and threat content through its Definition, resources, and runtime; shared systems must use common capabilities and policy data instead of concrete types or content IDs.
+- Definitions own content-specific save validation; `SessionSnapshot` owns only shared document structure and references.
+- Keep gameplay roots focused on composition and signal routing, and place mode-specific state in child controllers.
+
 ## Validation
 
 - During iteration, use the cheapest relevant validation for the change.
