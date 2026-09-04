@@ -44,6 +44,7 @@ var game_mode: GameMode = GameMode.SUSTAINED
 @onready var relocation_manager: RelocationManager = $RelocationManager
 @onready var enemy_knowledge: EnemyKnowledge = $EnemyKnowledge
 @onready var combat_audio: Node = $CombatAudio
+@onready var ui_audio: UiAudio = $UiAudio
 @onready var track_display: TrackDisplay = $WorldObjects/TacticalTracks
 @onready var c2_overlay: C2Overlay = $WorldObjects/C2Overlay
 @onready var tactical_range_overlay: Node = $WorldObjects/TacticalRangeOverlay
@@ -94,6 +95,7 @@ func _ready() -> void:
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
+	ui_audio.connect_buttons(hud)
 	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge, hud.training_panel)
 	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
@@ -161,6 +163,7 @@ func _connect_flow() -> void:
 	director.recovery_started.connect(_on_recovery_started)
 	session.defense_placed.connect(_on_defense_placed)
 	session.support_received.connect(_on_support_received)
+	support_manager.task_completed.connect(_on_support_task_completed)
 	hud.defense_selected.connect(placement.select)
 	hud.start_requested.connect(_on_start_requested)
 	hud.speed_requested.connect(session.set_simulation_speed)
@@ -170,6 +173,8 @@ func _connect_flow() -> void:
 	placement.asset_selected.connect(_on_asset_selected)
 	placement.world_selected.connect(_on_world_selected)
 	placement.placement_preview_changed.connect(_on_placement_preview_changed)
+	placement.placement_succeeded.connect(_on_placement_succeeded)
+	placement.placement_rejected.connect(_on_placement_rejected)
 	hud.overlay_requested.connect(_on_overlay_requested)
 	hud.hold_fire_requested.connect(_on_hold_fire_requested)
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
@@ -191,6 +196,7 @@ func _connect_flow() -> void:
 func _on_start_requested() -> void:
 	if game_mode == GameMode.TRAINING and not training_controller.can_start_defense():
 		hud.set_feedback("현재 훈련 단계를 먼저 완료하세요")
+		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 		return
 	if session.start_defense():
 		director.enabled = game_mode == GameMode.SUSTAINED
@@ -285,6 +291,15 @@ func _on_recovery_started(_completed_window: int) -> void:
 
 func _on_support_received(amount: int, reason: String) -> void:
 	hud.set_feedback("예산 +$%d (%s)" % [amount, reason])
+
+func _on_support_task_completed(_kind: StringName, _unit: DefenseUnit) -> void:
+	ui_audio.play_event(UiAudio.ACTION_COMPLETE)
+
+func _on_placement_succeeded() -> void:
+	ui_audio.play_event(UiAudio.PLACEMENT_SUCCESS)
+
+func _on_placement_rejected() -> void:
+	ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
 func _on_track_contact_audio(_track: PlayerTrack) -> void:
 	combat_audio.call("play_event", &"contact", 0.55)
@@ -475,6 +490,7 @@ func _on_resupply_requested() -> void:
 		hud.set_feedback("재보급 작업을 요청했습니다")
 	else:
 		hud.set_feedback("현재 재보급을 요청할 수 없습니다")
+		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 	if game_mode == GameMode.TRAINING:
 		training_controller.resupply_requested(requested)
 
@@ -483,24 +499,29 @@ func _on_repair_requested() -> void:
 		hud.set_feedback("수리 작업을 요청했습니다")
 	else:
 		hud.set_feedback("현재 수리를 요청할 수 없습니다")
+		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
 func _on_city_restoration_requested() -> void:
 	var definition := objective.definition
 	if objective.current_integrity >= definition.maximum_integrity:
 		hud.set_feedback("도시 기능이 이미 최대입니다")
+		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 		return
 	if not session.try_spend(definition.restoration_cost):
 		hud.set_feedback("도시 복구 예산이 부족합니다")
+		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 		return
 	var restored := mini(definition.restoration_amount, definition.maximum_integrity - objective.current_integrity)
 	objective.restore_integrity(objective.current_integrity + restored)
 	hud.set_feedback("도시 기능을 %d 복구했습니다" % restored)
+	ui_audio.play_event(UiAudio.ACTION_COMPLETE)
 
 func _on_relocation_requested() -> void:
 	if selected_asset != null and selected_asset.can_request_relocation():
 		placement.select_relocation(selected_asset)
 	else:
 		hud.set_feedback("현재 재배치할 수 없습니다")
+		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
 func save_operation() -> String:
 	if game_mode != GameMode.SUSTAINED:

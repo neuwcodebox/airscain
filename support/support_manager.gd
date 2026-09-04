@@ -1,6 +1,8 @@
 class_name SupportManager
 extends Node
 
+signal task_completed(kind: StringName, unit: DefenseUnit)
+
 var facilities: Array[DefenseUnit] = []
 const RESUPPLY := "resupply"
 const REPAIR := "repair"
@@ -109,12 +111,17 @@ func _task_target(index: int) -> DefenseUnit:
 func _complete_task(index: int) -> void:
 	var task: Dictionary = tasks[index]
 	var target := _task_target(index)
+	var completed := false
 	if target != null:
 		if String(task.kind) == RESUPPLY and target.uses_ammunition():
 			target.complete_resupply()
+			completed = true
 		elif String(task.kind) == REPAIR and target.integrity > 0.0:
 			target.complete_repair()
+			completed = true
 	tasks.remove_at(index)
+	if completed:
+		task_completed.emit(StringName(task.kind), target)
 
 func task_status(unit: DefenseUnit) -> String:
 	for index: int in tasks.size():

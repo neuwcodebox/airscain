@@ -15,6 +15,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 @onready var pause_load_button: Button = %PauseLoadButton
 @onready var menu_feedback_label: Label = %MenuFeedbackLabel
 @onready var pause_feedback_label: Label = %PauseFeedbackLabel
+@onready var ui_audio: UiAudio = $UiAudio
 
 func _enter_tree() -> void:
 	apply_global_font()
@@ -31,6 +32,8 @@ static func apply_global_font() -> FontFile:
 func _ready() -> void:
 	main_menu.visible = true
 	pause_menu.visible = false
+	ui_audio.connect_buttons(main_menu)
+	ui_audio.connect_buttons(pause_menu)
 	_refresh_main_load_button()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -105,6 +108,7 @@ func _on_pause_save_pressed() -> void:
 		var error := gameplay.save_operation()
 		gameplay.session.set_simulation_speed(0.0)
 		pause_feedback_label.text = "저장 완료" if error.is_empty() else "저장 실패 · %s" % error
+		ui_audio.play_event(UiAudio.ACTION_COMPLETE if error.is_empty() else UiAudio.ACTION_REJECTED)
 		pause_load_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED or not FileAccess.file_exists(save_path)
 
 func _on_pause_load_pressed() -> void:
@@ -115,12 +119,14 @@ func _on_pause_load_pressed() -> void:
 		previous_simulation_speed = gameplay.session.simulation_speed
 		gameplay.session.set_simulation_speed(0.0)
 	pause_feedback_label.text = "불러오기 완료" if error.is_empty() else "불러오기 실패 · %s" % error
+	ui_audio.play_event(UiAudio.ACTION_COMPLETE if error.is_empty() else UiAudio.ACTION_REJECTED)
 
 func _on_main_load_pressed() -> void:
 	var result := SaveStore.read(save_path)
 	var error: String = result.error
 	if not error.is_empty():
 		menu_feedback_label.text = "불러오기 실패 · %s" % error
+		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 		_refresh_main_load_button()
 		return
 	var document: Dictionary = result.document
@@ -129,6 +135,7 @@ func _on_main_load_pressed() -> void:
 	error = gameplay.restore_from_document(document)
 	if error.is_empty():
 		gameplay.hud.set_feedback("불러오기 완료")
+		ui_audio.play_event(UiAudio.ACTION_COMPLETE)
 		return
 	var failed_gameplay := gameplay
 	gameplay = null
@@ -136,6 +143,7 @@ func _on_main_load_pressed() -> void:
 	failed_gameplay.queue_free()
 	main_menu.visible = true
 	menu_feedback_label.text = "불러오기 실패 · %s" % error
+	ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
 func _refresh_main_load_button() -> void:
 	main_load_button.disabled = not FileAccess.file_exists(save_path)

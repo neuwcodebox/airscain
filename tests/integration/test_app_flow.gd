@@ -100,9 +100,13 @@ func test_save_and_load_controls_belong_to_main_and_pause_menus() -> void:
 	app.set_pause_menu(true)
 	assert_false(app.pause_save_button.disabled)
 	assert_true(app.pause_load_button.disabled)
+	var click_count := app.ui_audio.played_count(UiAudio.CLICK)
+	var completion_count := app.ui_audio.played_count(UiAudio.ACTION_COMPLETE)
 	app.pause_save_button.pressed.emit()
 	assert_eq(app.pause_feedback_label.text, "저장 완료")
 	assert_false(app.pause_load_button.disabled)
+	assert_eq(app.ui_audio.played_count(UiAudio.CLICK), click_count + 1)
+	assert_eq(app.ui_audio.played_count(UiAudio.ACTION_COMPLETE), completion_count + 1)
 	app.gameplay.session.budget = 999
 	app.pause_load_button.pressed.emit()
 	assert_eq(app.pause_feedback_label.text, "불러오기 완료")

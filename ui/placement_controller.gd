@@ -8,6 +8,8 @@ signal asset_selected(unit: DefenseUnit)
 signal world_selected(position: Vector3, screen_position: Vector2)
 signal sandbox_threat_placement_requested(definition: ThreatDefinition, position: Vector3)
 signal placement_preview_changed(definition: DefenseDefinition, position: Vector3, active: bool)
+signal placement_succeeded
+signal placement_rejected
 
 var session: GameSession
 var battlefield: Battlefield
@@ -149,7 +151,9 @@ func request_selected_defense_placement() -> bool:
 		result = session.request_placement(selected, candidate_position, battlefield, defense_parent, registry, projectile_parent)
 	feedback_changed.emit(String(result.reason), true)
 	if not result.success:
+		placement_rejected.emit()
 		return false
+	placement_succeeded.emit()
 	if session.unlimited_budget and relocating_unit == null:
 		_publish_dependency_preview(selected, candidate_position, true, true)
 		feedback_changed.emit("배치했습니다. 같은 자산을 계속 배치할 수 있습니다.", true)
