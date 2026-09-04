@@ -47,7 +47,7 @@ func submit_observation(observation: SensorObservation) -> PlayerTrack:
 		track_created.emit(track)
 	else:
 		var previous_state := track.state
-		track.apply_observation(observation, confirmation_threshold)
+		track.apply_observation(observation, confirmation_threshold, maximum_association_speed)
 		if track.state != previous_state:
 			track_state_changed.emit(track, previous_state)
 	track_updated.emit(track)
@@ -71,7 +71,8 @@ func _associate(observation: SensorObservation) -> PlayerTrack:
 		if track.sensor_observed_at.has(observation.sensor_id) and is_equal_approx(track.sensor_observed_at[observation.sensor_id], observation.timestamp):
 			continue
 		var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
-		var predicted_position := track.estimated_position + track.estimated_velocity * elapsed
+		var prediction_lead := maxf(0.0, observation.timestamp - simulation_time)
+		var predicted_position := track.estimated_position + track.estimated_velocity * prediction_lead
 		var distance := predicted_position.distance_to(observation.measured_position)
 		var dynamic_gate := association_gate + maximum_association_speed * elapsed
 		if distance < dynamic_gate and distance < nearest_distance:

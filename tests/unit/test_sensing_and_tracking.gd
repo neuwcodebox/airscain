@@ -50,6 +50,22 @@ func test_elapsed_time_expands_gate_for_high_speed_contact() -> void:
 	assert_same(knowledge.submit_observation(fast_followup), track)
 	assert_eq(knowledge.tracks.size(), 1)
 
+func test_close_formation_misassociation_cannot_launch_track_marker_away() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var first := SensorObservation.new()
+	first.setup(1, 0.0, Vector3.ZERO, 0.9, 8.0, 0.4, &"small_uav")
+	var track := knowledge.submit_observation(first)
+	var adjacent_contact := SensorObservation.new()
+	adjacent_contact.setup(1, 0.01, Vector3(80.0, 0.0, 0.0), 0.9, 8.0, 0.4, &"small_uav")
+	assert_same(knowledge.submit_observation(adjacent_contact), track)
+	assert_lte(track.estimated_velocity.length(), knowledge.maximum_association_speed)
+	knowledge.gameplay_tick(0.4)
+	var followup := SensorObservation.new()
+	followup.setup(1, knowledge.simulation_time, Vector3(17.0, 0.0, 0.0), 0.9, 8.0, 0.4, &"small_uav")
+	assert_same(knowledge.submit_observation(followup), track)
+	assert_eq(knowledge.tracks.size(), 1)
+	assert_lte(track.estimated_velocity.length(), knowledge.maximum_association_speed)
+
 func test_dynamic_gate_does_not_merge_different_classifications() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
 	var aircraft := SensorObservation.new()

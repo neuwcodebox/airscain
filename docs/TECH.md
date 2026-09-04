@@ -399,7 +399,7 @@ position = lerp(predicted_position, measured_position, position_gain)
 velocity = lerp(previous_velocity, measured_velocity, velocity_gain)
 ```
 
-gain은 측정 품질과 현재 불확실성에 따라 달라진다. 처음부터 Kalman Filter를 필수로 하지 않는다. 더 정교한 필터가 필요해져도 항적의 공개 상태와 생명주기는 유지한다.
+gain은 측정 품질과 현재 불확실성에 따라 달라진다. 관측 간 위치 차이로 계산한 속도와 갱신된 추정 속도는 공통 결합 정책의 최대 속도로 제한해, 밀집 표적의 순간적인 오결합이 항적을 전장 밖으로 발산시키지 않게 한다. 현재 simulation time까지 이미 예측된 위치에는 관측 시각이 앞선 차이만 추가 예측한다. 처음부터 Kalman Filter를 필수로 하지 않는다. 더 정교한 필터가 필요해져도 항적의 공개 상태와 생명주기는 유지한다.
 
 ### 관측 연결
 

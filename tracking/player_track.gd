@@ -34,15 +34,15 @@ func setup(id_value: int, observation: SensorObservation) -> void:
 	sensor_observed_at[observation.sensor_id] = observation.timestamp
 	_apply_identity_evidence(observation)
 
-func apply_observation(observation: SensorObservation, confirmation_threshold: float) -> void:
+func apply_observation(observation: SensorObservation, confirmation_threshold: float, maximum_speed: float) -> void:
 	var elapsed := observation.timestamp - last_observed_at
 	var measured_velocity := estimated_velocity
 	if elapsed > 0.001:
-		measured_velocity = (observation.measured_position - last_measured_position) / elapsed
+		measured_velocity = ((observation.measured_position - last_measured_position) / elapsed).limit_length(maximum_speed)
 	var position_gain := lerpf(0.25, 0.85, observation.quality)
 	var velocity_gain := lerpf(0.15, 0.65, observation.quality)
 	estimated_position = estimated_position.lerp(observation.measured_position, position_gain)
-	estimated_velocity = estimated_velocity.lerp(measured_velocity, velocity_gain)
+	estimated_velocity = estimated_velocity.lerp(measured_velocity, velocity_gain).limit_length(maximum_speed)
 	last_measured_position = observation.measured_position
 	last_observed_at = observation.timestamp
 	track_quality = clampf(track_quality + observation.quality * 0.35, 0.0, 1.0)
