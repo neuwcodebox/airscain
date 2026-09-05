@@ -17,6 +17,32 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-ciws-model-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		_place_asset(main.scenario.available_defenses[4], 1.0)
+		var gun := main.defenses[0] as CloseInGun
+		(main.get_node("UI") as CanvasLayer).visible = false
+		main.camera_rig.camera.global_position = gun.global_position + Vector3(22, 18, -28)
+		main.camera_rig.camera.look_at(gun.global_position + Vector3.UP * 6)
+		for frame: int in 4:
+			await process_frame
+		await RenderingServer.frame_post_draw
+		_save_capture("/tmp/airscain_ciws_model.png")
+		for frame: int in 30:
+			gun._aim_turret(gun.global_position + Vector3(0, 50, -150), 0.02)
+			gun._on_round_fired(gun.muzzle.global_position)
+			gun.gameplay_tick(0.02)
+			await process_frame
+		await RenderingServer.frame_post_draw
+		_save_capture("/tmp/airscain_ciws_elevated.png")
+		print("CIWS_MODEL_CAPTURE_OK")
+		main.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-cram-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

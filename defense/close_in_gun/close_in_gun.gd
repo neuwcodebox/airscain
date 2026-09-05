@@ -13,10 +13,13 @@ var rng := RandomNumberGenerator.new()
 var _definition: CloseInGunDefinition
 var flash_remaining: float = 0.0
 var gunfire: GunfireRuntime
+var barrel_spin_speed: float = 0.0
+var barrel_spin_remaining: float = 0.0
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
 @onready var muzzle: Marker3D = $Turret/Elevation/Muzzle
+@onready var barrel_cluster: Node3D = $Turret/Elevation/BarrelCluster
 @onready var muzzle_flash: MeshInstance3D = $MuzzleFlash
 @onready var muzzle_light: OmniLight3D = $MuzzleLight
 
@@ -48,6 +51,9 @@ func gameplay_tick(delta: float) -> void:
 		muzzle_flash.visible = flash_remaining > 0
 		muzzle_light.visible = muzzle_flash.visible
 		gunfire.gameplay_tick(delta)
+	barrel_spin_remaining = maxf(0, barrel_spin_remaining - delta)
+	barrel_spin_speed = move_toward(barrel_spin_speed, 28.0 if barrel_spin_remaining > 0 else 0.0, delta * 55.0)
+	barrel_cluster.rotation.z = fposmod(barrel_cluster.rotation.z + barrel_spin_speed * delta, TAU)
 	if not active or registry == null or player_knowledge == null or c2_network == null:
 		return
 	magazine.gameplay_tick(delta)
@@ -106,6 +112,7 @@ func _fire_burst(track: PlayerTrack) -> void:
 	gunfire.enqueue(muzzle.global_position, track.estimated_position, track.estimated_velocity, track.track_quality, weapon_match(track), _definition, rng)
 
 func _on_round_fired(position: Vector3) -> void:
+	barrel_spin_remaining = 0.15
 	flash_remaining = 0.014
 	muzzle_flash.global_position = position
 	muzzle_flash.scale = Vector3.ONE * (0.75 + float(gunfire.rounds.size() % 4) * 0.15)
