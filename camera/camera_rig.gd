@@ -15,8 +15,10 @@ var zoom_distance: float = 680.0
 var bounds: float = 810.0
 var yaw_radians: float = 0.0
 var wheel_input_exclusions: Array[Control] = []
+var input_blocked: bool = false
 
 @onready var camera: Camera3D = $Camera3D
+@onready var preferences: PlayerSettings = PlayerSettings.instance()
 
 func _ready() -> void:
 	_update_camera()
@@ -38,17 +40,23 @@ func exclude_wheel_input_over(control: Control) -> void:
 		wheel_input_exclusions.append(control)
 
 func _process(delta: float) -> void:
+	if input_blocked:
+		dragging = false
+		rotating = false
+		return
 	var rotation_input := Input.get_axis("camera_rotate_left", "camera_rotate_right")
 	if not is_zero_approx(rotation_input):
-		yaw_radians += deg_to_rad(rotation_speed_degrees) * rotation_input * delta
+		yaw_radians += deg_to_rad(rotation_speed_degrees) * rotation_input * delta * float(preferences.values.rotation)
 		_update_camera()
 	var input_vector := Input.get_vector("camera_left", "camera_right", "camera_forward", "camera_back")
 	if input_vector.length_squared() > 0.0:
 		var motion := Vector3(input_vector.x, 0.0, input_vector.y).rotated(Vector3.UP, yaw_radians) * pan_speed * delta * (zoom_distance / 520.0)
-		global_position += motion
+		global_position += motion * float(preferences.values.pan)
 		_clamp_position()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if input_blocked:
+		return
 	if event is InputEventMouseButton:
 		var mouse_button := event as InputEventMouseButton
 		if mouse_button.button_index == MOUSE_BUTTON_MIDDLE:
@@ -56,18 +64,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mouse_button.button_index == MOUSE_BUTTON_RIGHT:
 			rotating = mouse_button.pressed
 		elif mouse_button.pressed and mouse_button.button_index == MOUSE_BUTTON_WHEEL_UP and not _wheel_input_is_excluded(mouse_button.position):
-			zoom_distance = maxf(minimum_zoom, zoom_distance - zoom_step)
+			zoom_distance = maxf(minimum_zoom, zoom_distance - zoom_step * float(preferences.values.zoom))
 			_update_camera()
 		elif mouse_button.pressed and mouse_button.button_index == MOUSE_BUTTON_WHEEL_DOWN and not _wheel_input_is_excluded(mouse_button.position):
-			zoom_distance = minf(maximum_zoom, zoom_distance + zoom_step)
+			zoom_distance = minf(maximum_zoom, zoom_distance + zoom_step * float(preferences.values.zoom))
 			_update_camera()
 	elif event is InputEventMouseMotion and rotating:
 		var rotation_motion := event as InputEventMouseMotion
-		yaw_radians -= rotation_motion.relative.x * rotation_drag_speed
+		yaw_radians -= rotation_motion.relative.x * rotation_drag_speed * float(preferences.values.rotation)
 		_update_camera()
 	elif event is InputEventMouseMotion and dragging:
 		var motion := event as InputEventMouseMotion
-		global_position += Vector3(-motion.relative.x, 0.0, -motion.relative.y).rotated(Vector3.UP, yaw_radians) * drag_speed * (zoom_distance / 520.0)
+		global_position += Vector3(-motion.relative.x, 0.0, -motion.relative.y).rotated(Vector3.UP, yaw_radians) * drag_speed * (zoom_distance / 520.0) * float(preferences.values.pan)
 		_clamp_position()
 
 func _update_camera() -> void:

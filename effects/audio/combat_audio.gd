@@ -194,6 +194,7 @@ func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
 	_cancel_player_fade(player)
 	_release_player_source(player)
 	player.stream = stream
+	player.bus = &"Missiles" if event_id in MISSILE_EVENTS else &"Alerts" if event_id in [CONTACT, PRESSURE, LOW_AMMO] else &"Explosions"
 	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
 	player.play()
 	event_counts[event_id] = event_counts.get(event_id, 0) + 1

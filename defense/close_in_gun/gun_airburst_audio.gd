@@ -22,6 +22,7 @@ var gain: float = 0.0
 var starts: int = 0
 
 func _ready() -> void:
+	bus = &"Guns"
 	stream = loop_stream()
 	playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if CombatAudio.uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 	volume_linear = 0.0

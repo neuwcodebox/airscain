@@ -1,5 +1,8 @@
 config_version=5
 
+[autoload]
+GameSettings="*res://main/game_settings.gd"
+
 [application]
 config/name="Airscain"
 config/features=PackedStringArray("4.7", "GL Compatibility")

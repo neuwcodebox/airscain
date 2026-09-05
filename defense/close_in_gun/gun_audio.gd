@@ -33,6 +33,7 @@ static func all_streams() -> Array[AudioStream]:
 	return [sustain_stream(), END_SOUND]
 
 func _ready() -> void:
+	bus = &"Guns"
 	# WebAudio decodes the shared Ogg before combat and schedules its loop
 	# independently of game frames. Do not route this through a WASM stream.
 	stream = sustain_stream()
@@ -40,6 +41,7 @@ func _ready() -> void:
 	volume_linear = 0.0
 	ending_player = AudioStreamPlayer.new()
 	ending_player.name = "Ending"
+	ending_player.bus = bus
 	ending_player.stream = END_SOUND
 	ending_player.playback_type = playback_type
 	ending_player.volume_linear = 0.0

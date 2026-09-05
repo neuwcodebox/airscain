@@ -2,6 +2,34 @@ extends GutTest
 
 const APP_SCENE := preload("res://main/app.tscn")
 
+func test_settings_from_pause_keep_simulation_paused_and_block_camera() -> void:
+	var preferences := PlayerSettings.instance()
+	var original_path := preferences.settings_path
+	preferences.settings_path = "user://test_app_settings.cfg"
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	app.main_menu.get_node("Panel/VBox/SettingsButton").pressed.emit()
+	assert_true(app.settings_menu.visible)
+	app.settings_menu.visible = false
+	app.start_game(AirscainMain.GameMode.SANDBOX)
+	app.gameplay.session.set_simulation_speed(2.0)
+	app.set_pause_menu(true)
+	app.pause_menu.get_node("Panel/VBox/SettingsButton").pressed.emit()
+	assert_true(app.settings_menu.visible)
+	assert_true(app.gameplay.camera_rig.input_blocked)
+	assert_eq(app.gameplay.session.simulation_speed, 0.0)
+	var escape := InputEventAction.new()
+	escape.action = &"ui_cancel"
+	escape.pressed = true
+	app._input(escape)
+	assert_false(app.settings_menu.visible)
+	assert_true(app.pause_menu.visible)
+	assert_eq(app.gameplay.session.simulation_speed, 0.0)
+	app.set_pause_menu(false)
+	assert_false(app.gameplay.camera_rig.input_blocked)
+	assert_eq(app.gameplay.session.simulation_speed, 2.0)
+	DirAccess.remove_absolute(preferences.settings_path)
+	preferences.settings_path = original_path
+
 func after_each() -> void:
 	AirscainMain.requested_seed = -1
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED

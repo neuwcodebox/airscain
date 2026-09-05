@@ -10,6 +10,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 var prepared_combat_stream_count: int = 0
 var combat_vfx_warmup_started: bool = false
 var combat_vfx_warmup_completed: bool = false
+var settings_menu: SettingsMenu
 
 @onready var main_menu: Control = %MainMenu
 @onready var pause_menu: Control = %PauseMenu
@@ -33,6 +34,8 @@ static func apply_global_font() -> FontFile:
 	return font
 
 func _ready() -> void:
+	settings_menu = SettingsMenu.new()
+	add_child(settings_menu)
 	prepared_combat_stream_count = CombatAudio.prepare_samples()
 	main_menu.visible = true
 	pause_menu.visible = false
@@ -91,6 +94,14 @@ func _set_preparation_ui(ready: bool) -> void:
 	if not ready:
 		menu_feedback_label.text = "전장·전투 효과 준비 중…"
 
+func _input(event: InputEvent) -> void:
+	if settings_menu != null and settings_menu.visible and event.is_action_pressed("ui_cancel"):
+		settings_menu.close()
+		get_viewport().set_input_as_handled()
+
+func _on_settings_pressed() -> void:
+	settings_menu.open()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if gameplay != null and gameplay.session.phase != GameSession.Phase.GAME_OVER and event.is_action_pressed("ui_cancel"):
 		set_pause_menu(not pause_menu.visible)
@@ -127,6 +138,7 @@ func set_pause_menu(open: bool) -> void:
 		pause_menu.visible = false
 		return
 	pause_menu.visible = open
+	gameplay.camera_rig.input_blocked = open
 	if open:
 		previous_simulation_speed = gameplay.session.simulation_speed
 		gameplay.session.set_simulation_speed(0.0)

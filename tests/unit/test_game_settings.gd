@@ -1,0 +1,78 @@
+extends GutTest
+
+var previous_values: Dictionary
+var previous_path: String
+
+func before_each() -> void:
+	previous_values = PlayerSettings.instance().values.duplicate()
+	previous_path = PlayerSettings.instance().settings_path
+	PlayerSettings.instance().settings_path = "user://test_settings_%d.cfg" % get_instance_id()
+	PlayerSettings.instance().values = PlayerSettings.DEFAULTS.duplicate()
+	PlayerSettings.instance().apply_audio()
+
+func after_each() -> void:
+	if FileAccess.file_exists(PlayerSettings.instance().settings_path):
+		DirAccess.remove_absolute(PlayerSettings.instance().settings_path)
+	PlayerSettings.instance().settings_path = previous_path
+	PlayerSettings.instance().values = previous_values
+	PlayerSettings.instance().apply_audio()
+
+func test_preferences_round_trip_and_clamp_invalid_input() -> void:
+	PlayerSettings.instance().set_value("missile", 0.35)
+	PlayerSettings.instance().set_value("pan", 1.5)
+	PlayerSettings.instance().set_value("zoom", -100)
+	PlayerSettings.instance().set_value("ui", NAN)
+	assert_eq(PlayerSettings.instance().values.zoom, 0.25)
+	assert_eq(PlayerSettings.instance().values.ui, 1.0)
+	assert_eq(PlayerSettings.instance().save_preferences(), OK)
+	PlayerSettings.instance().values.clear()
+	PlayerSettings.instance().load_preferences()
+	assert_eq(PlayerSettings.instance().values.missile, 0.35)
+	assert_eq(PlayerSettings.instance().values.pan, 1.5)
+	assert_eq(PlayerSettings.instance().values.zoom, 0.25)
+
+func test_audio_categories_are_independent_and_zero_mutes() -> void:
+	PlayerSettings.instance().set_value("gun", 0.0)
+	assert_true(AudioServer.is_bus_mute(AudioServer.get_bus_index("Guns")))
+	assert_false(AudioServer.is_bus_mute(AudioServer.get_bus_index("Missiles")))
+	PlayerSettings.instance().set_value("gun", 0.5)
+	assert_false(AudioServer.is_bus_mute(AudioServer.get_bus_index("Guns")))
+	assert_almost_eq(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Guns")), linear_to_db(0.5), 0.001)
+
+func test_players_route_to_the_matching_category() -> void:
+	var combat := add_child_autofree(CombatAudio.new()) as CombatAudio
+	assert_eq(combat._play_stream(CombatAudio.CONTACT, 1.0).bus, &"Alerts")
+	assert_eq(combat._play_stream(CombatAudio.MISSILE, 1.0).bus, &"Missiles")
+	assert_eq(combat._play_stream(CombatAudio.EXPLOSION, 1.0).bus, &"Explosions")
+	assert_eq(combat.gun_airbursts.bus, &"Guns")
+	var ui := add_child_autofree(UiAudio.new()) as UiAudio
+	assert_eq(ui.click_player.bus, &"UI")
+	assert_eq(ui.feedback_player.bus, &"UI")
+	var gun := add_child_autofree(GunAudio.new()) as GunAudio
+	assert_eq(gun.bus, &"Guns")
+	assert_eq(gun.ending_player.bus, &"Guns")
+
+func test_settings_menu_updates_silently_and_saves_on_close() -> void:
+	var menu := add_child_autofree(SettingsMenu.new()) as SettingsMenu
+	menu.open()
+	menu.sliders["ui"].value = 0
+	assert_eq(PlayerSettings.instance().values.ui, 0.0)
+	assert_eq(menu.readouts["ui"].text, "0%")
+	menu.tabs.current_tab = 1
+	menu.close()
+	assert_false(menu.visible)
+	menu.open()
+	assert_eq(menu.tabs.current_tab, 0)
+	PlayerSettings.instance().load_preferences()
+	assert_eq(PlayerSettings.instance().values.ui, 0.0)
+
+func test_invalid_config_values_keep_safe_defaults() -> void:
+	var config := ConfigFile.new()
+	config.set_value("settings", "master", "loud")
+	config.set_value("settings", "rotation", 99)
+	config.set_value("settings", "fullscreen", "yes")
+	assert_eq(config.save(PlayerSettings.instance().settings_path), OK)
+	PlayerSettings.instance().load_preferences()
+	assert_eq(PlayerSettings.instance().values.master, 1.0)
+	assert_eq(PlayerSettings.instance().values.rotation, 2.0)
+	assert_false(PlayerSettings.instance().values.fullscreen)

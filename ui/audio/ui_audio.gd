@@ -68,6 +68,7 @@ func stop_all() -> void:
 
 func _create_player(player_name: String) -> AudioStreamPlayer:
 	var player := AudioStreamPlayer.new()
+	player.bus = &"UI"
 	player.name = player_name
 	player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 	player.volume_db = linear_to_db(VOLUME_LINEAR)
