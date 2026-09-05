@@ -1,5 +1,12 @@
 # PLAN.md
 
+## 미사일·소형 폭발 음량
+
+- [x] 기준 음원 `missile_1`과 `small_explosion_1`은 유지하고, `missile_2` −12.2dB, `small_explosion_2` −12dB, `small_explosion_3` −4.2dB를 Ogg 파일에 직접 반영했다. 길이·채널·무음·잔향과 기존 재생 코드는 유지한다.
+- [x] 재인코딩 후 통합 음량·True Peak·길이·채널을 확인하고 Godot 가져오기와 관련 오디오 회귀를 무음으로 검증했다.
+
+검증: FFmpeg ebur128 측정에서 변경 파일의 통합 음량은 각각 −22.4/−22.2/−22.2 LUFS, True Peak는 −13.1/−11.2/−3.5 dBTP였다. 44,100Hz·채널 수·Ogg duration_ts가 원본과 일치한다. 고품질 Vorbis 재인코딩 시 컨테이너 길이를 넘어 디코딩되는 패딩은 원래 프레임 길이로 제한했다. Godot headless Dummy 가져오기와 playable_flow 통합 55개 테스트·1,023개 단언이 오류 없이 통과했다. 실제 청취와 브라우저 출력 검증은 수행하지 않았다. 다른 음원과 런타임 코드는 변경하지 않았다.
+
 ## 유지보수 리팩토링
 
 - [x] `WreckAppearance`로 추락 기체 외형 복사·재질과 낙하 수명 처리를 분리했다.
