@@ -1172,11 +1172,10 @@ func _capture_smoke_ground_shadow() -> void:
 	smoke.emitting = false
 	main.camera_rig.camera.global_position = center + Vector3(0.0, 115.0, 145.0)
 	main.camera_rig.camera.look_at(Vector3(center.x, ground_height + 12.0, center.z), Vector3.UP)
-	smoke.speed_scale = 0.0
 	for frame_index: int in 60:
 		await process_frame
 	_save_capture("/tmp/airscain_smoke_ground_shadow.png")
-	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
+	var smoke_shadow := smoke.get_node("SmokeShadow") as MultiMeshInstance3D
 	smoke_shadow.visible = false
 	for frame_index: int in 4:
 		await process_frame

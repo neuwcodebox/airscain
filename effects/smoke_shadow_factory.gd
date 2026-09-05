@@ -13,7 +13,7 @@ class Proxy:
 		mesh = mesh_value
 		material = material_value
 
-static func create(source_mesh: Mesh, radial_segments: int = 8, rings: int = 4) -> Proxy:
+static func create(source_mesh: Mesh, radial_segments: int = 8, rings: int = 4, billboard_radius_ratio: float = 0.42) -> Proxy:
 	if source_mesh == null or source_mesh.get_surface_count() == 0:
 		return null
 	var source_material := source_mesh.surface_get_material(0) as StandardMaterial3D
@@ -24,7 +24,7 @@ static func create(source_mesh: Mesh, radial_segments: int = 8, rings: int = 4) 
 	if uses_billboard and source_mesh is QuadMesh:
 		var source_quad := source_mesh as QuadMesh
 		var sphere := SphereMesh.new()
-		sphere.radius = maxf(source_quad.size.x, source_quad.size.y) * 0.42
+		sphere.radius = maxf(source_quad.size.x, source_quad.size.y) * billboard_radius_ratio
 		sphere.height = sphere.radius * 2.0
 		sphere.radial_segments = radial_segments
 		sphere.rings = rings

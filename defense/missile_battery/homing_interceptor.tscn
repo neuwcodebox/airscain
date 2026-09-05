@@ -1,8 +1,8 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource path="res://defense/missile_battery/homing_interceptor.gd" type="Script" id="1"]
 [ext_resource path="res://effects/lingering_smoke_trail.gd" type="Script" id="2"]
-[ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="3"]
+[ext_resource path="res://effects/missile_smoke_material.tres" type="Material" id="4"]
 
 [sub_resource type="StandardMaterial3D" id="MissileMaterial"]
 albedo_color = Color(0.92, 0.92, 0.86, 1)
@@ -21,18 +21,8 @@ emission = Color(1, 0.25, 0.03, 1)
 emission_energy_multiplier = 12.0
 transparency = 1
 
-[sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
-albedo_color = Color(0.58, 0.62, 0.64, 0.48)
-roughness = 1.0
-transparency = 4
-shading_mode = 1
-vertex_color_use_as_albedo = true
-albedo_texture = ExtResource("3")
-billboard_mode = 1
-billboard_keep_scale = true
-
 [sub_resource type="QuadMesh" id="SmokeMesh"]
-material = SubResource("SmokeMaterial")
+material = ExtResource("4")
 size = Vector2(4, 4)
 
 [node name="HomingInterceptor" type="Node3D" groups=["friendly_altitude_projectiles"]]

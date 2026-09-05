@@ -275,7 +275,7 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(smoke.fixed_fps, 30)
 	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
-	assert_eq(smoke_shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+	assert_eq(smoke_shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY)
 	assert_true(smoke_shadow.draw_pass_1 is SphereMesh)
 	assert_eq(smoke_shadow.amount, smoke.amount)
 	assert_eq(smoke_shadow.lifetime, smoke.lifetime)
@@ -337,7 +337,7 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS, "%s must keep smooth visible transparency" % path)
 			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % path)
 			var shadow := particles.get_node("SmokeShadow") as GPUParticles3D
-			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s shadow proxy must cast" % path)
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY, "%s shadow proxy must remain outside the camera color pass" % path)
 			assert_eq(shadow.process_material, particles.process_material, "%s shadow motion must match visible smoke" % path)
 			var shadow_mesh := shadow.draw_pass_1 as Mesh
 			var shadow_material := shadow_mesh.surface_get_material(0) as ShaderMaterial
@@ -363,15 +363,33 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 			assert_not_null(trail.multimesh, "%s must build a Compatibility-safe multimesh" % path)
 			assert_true(trail.multimesh.mesh is QuadMesh, "%s visible puffs must be soft cards" % path)
 			var material := (trail.multimesh.mesh as QuadMesh).material as StandardMaterial3D
-			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS)
+			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "%s dense trail cards must blend without hollow depth-prepass centers" % path)
 			assert_eq(material.billboard_mode, BaseMaterial3D.BILLBOARD_ENABLED)
 			assert_true(material.vertex_color_use_as_albedo)
 			assert_not_null(material.albedo_texture)
 			assert_eq(trail.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 			var shadow := trail.get_node("SmokeShadow") as MultiMeshInstance3D
-			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY)
 			assert_true(shadow.multimesh.mesh is SphereMesh)
 			assert_eq(shadow.multimesh.instance_count, ceili(float(trail.amount) / float(trail.shadow_emission_stride)))
+			var shadow_sphere := shadow.multimesh.mesh as SphereMesh
+			assert_almost_eq(shadow_sphere.radius, maxf(trail.puff_mesh.size.x, trail.puff_mesh.size.y) * trail.shadow_radius_ratio, 0.001)
+			assert_lte(shadow_sphere.radius, maxf(trail.puff_mesh.size.x, trail.puff_mesh.size.y) * 0.35, "%s trail shadow must remain smaller than each visible puff" % path)
+
+func test_missile_trails_share_a_bright_smoke_body_material() -> void:
+	var trail_cases: Array[Dictionary] = [
+		{"scene": preload("res://defense/missile_battery/homing_interceptor.tscn"), "path": "SmokeTrail"},
+		{"scene": preload("res://enemy/cruise_missile/cruise_missile.tscn"), "path": "Body/ExhaustTrail"},
+		{"scene": preload("res://effects/air_strike_munition/air_strike_munition.tscn"), "path": "SmokeTrail"},
+	]
+	for trail_case: Dictionary in trail_cases:
+		var effect: Node = add_child_autofree((trail_case.scene as PackedScene).instantiate())
+		var trail := effect.get_node(trail_case.path as String) as LingeringSmokeTrail
+		var material := trail.smoke_material
+		assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_UNSHADED, "missile smoke body must stay white while its smaller proxy owns directional shadows")
+		assert_gte(material.albedo_color.r, 0.85)
+		assert_gte(material.albedo_color.g, 0.85)
+		assert_gte(material.albedo_color.b, 0.85)
 
 func test_sampled_smoke_uses_irregular_variation_and_retires_expired_slots() -> void:
 	var first_variation := SmokePuffDistribution.sample(1, 0.5)
@@ -598,9 +616,9 @@ func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> v
 	assert_eq(medium.engagement_channels, 6)
 	assert_eq(short_range.engagement_channels, 4)
 	assert_eq(long_range.engagement_channels, 4)
-	assert_eq(medium.launch_interval, 0.28)
-	assert_eq(short_range.launch_interval, 0.2)
-	assert_eq(long_range.launch_interval, 0.35)
+	assert_eq(medium.launch_interval, 0.56)
+	assert_eq(short_range.launch_interval, 0.4)
+	assert_eq(long_range.launch_interval, 0.7)
 	assert_gt(long_range.maximum_engagement_altitude, medium.maximum_engagement_altitude)
 	assert_gt(medium.maximum_engagement_altitude, short_range.maximum_engagement_altitude)
 	assert_gt(long_range.minimum_engagement_altitude, short_range.minimum_engagement_altitude)

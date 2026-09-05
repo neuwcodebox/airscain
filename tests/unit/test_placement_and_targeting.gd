@@ -463,7 +463,7 @@ func test_missile_rack_empties_visible_cells_then_shows_reload_and_ammunition() 
 	battery._process(0.0)
 	assert_false(battery.status_marker.visible)
 	assert_string_contains(battery.resource_status_text(), "재장전 9.0초")
-	assert_eq(definition.launch_interval, 0.28)
+	assert_eq(definition.launch_interval, 0.56)
 
 func test_missile_rack_launches_one_ready_round_per_interval() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery

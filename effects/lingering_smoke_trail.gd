@@ -10,6 +10,7 @@ const VISUAL_UPDATE_INTERVAL := 1.0 / 15.0
 @export_range(1, 4, 1) var particles_per_sample: int = 1
 @export_range(0.0, 2.0, 0.05) var sample_radius: float = 0.0
 @export_range(1, 4, 1) var shadow_emission_stride: int = 2
+@export_range(0.1, 0.42, 0.01) var shadow_radius_ratio: float = 0.34
 @export_range(0.1, 8.0, 0.05) var initial_scale: float = 1.0
 @export_range(0.1, 8.0, 0.05) var final_scale: float = 3.5
 @export_range(0.0, 2.0, 0.01) var drift_speed: float = 0.18
@@ -120,6 +121,7 @@ func _create_visible_multimesh() -> void:
 	var source_material := unique_mesh.material
 	if source_material is StandardMaterial3D:
 		smoke_material = (source_material as StandardMaterial3D).duplicate() as StandardMaterial3D
+		smoke_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		unique_mesh.material = smoke_material
 		initial_material_alpha = smoke_material.albedo_color.a
 	var smoke_multimesh := MultiMesh.new()
@@ -138,7 +140,7 @@ func _create_visible_multimesh() -> void:
 	smoke_multimesh.visible_instance_count = 0
 
 func _create_shadow_multimesh() -> void:
-	var proxy := SmokeShadowFactory.create(puff_mesh, 6, 3)
+	var proxy := SmokeShadowFactory.create(puff_mesh, 6, 3, shadow_radius_ratio)
 	if proxy == null:
 		push_error("Lingering smoke requires a StandardMaterial3D puff mesh")
 		return
@@ -153,7 +155,7 @@ func _create_shadow_multimesh() -> void:
 	shadow_multimesh.visible_instance_count = 0
 	shadow_particles = MultiMeshInstance3D.new()
 	shadow_particles.name = "SmokeShadow"
-	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	shadow_particles.multimesh = shadow_multimesh
 	add_child(shadow_particles)
 

@@ -29,7 +29,7 @@ func _create_shadow_particles() -> void:
 
 	shadow_particles = GPUParticles3D.new()
 	shadow_particles.name = SHADOW_NODE_NAME
-	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	shadow_particles.amount = amount
 	shadow_particles.amount_ratio = amount_ratio
 	shadow_particles.lifetime = lifetime
