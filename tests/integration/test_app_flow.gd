@@ -6,6 +6,35 @@ func after_each() -> void:
 	AirscainMain.requested_seed = -1
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 
+func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	await get_tree().process_frame
+	var backdrop := app.main_menu.get_node("Background")
+	var demo := backdrop.get("demo") as AirscainMain
+	var controller := backdrop.get("controller") as MenuDefenseDemo
+	controller.set_process(false)
+	assert_eq(demo.defenses.size(), 6)
+	assert_false(demo.director.enabled)
+	assert_false(demo.combat_audio.enabled)
+	assert_true(demo.session.unlimited_budget)
+	for index: int in 1200:
+		controller.tick(0.1)
+		assert_lte(controller.hostile_count(), MenuDefenseDemo.MAX_HOSTILES)
+		if index % 20 == 0:
+			await get_tree().process_frame
+	assert_gt(demo.session.weapon_fire_count, 0, "실제 센서·C2·무장이 발사합니다")
+	assert_gt(demo.session.neutralized_count, 0, "실제 요격체로 시연 위협을 격추합니다")
+	assert_gt(controller.spawn_count, 3)
+	assert_eq(demo.objective.current_integrity, demo.objective.definition.maximum_integrity)
+	for unit: DefenseUnit in demo.defenses:
+		assert_false(unit.combat_resource_depleted())
+	app.start_game(AirscainMain.GameMode.SUSTAINED)
+	assert_ne(demo.get_world_3d(), app.gameplay.get_world_3d())
+	assert_eq(app.gameplay.session.weapon_fire_count, 0)
+	assert_eq(app.gameplay.defenses.size(), 0)
+	assert_false(backdrop.can_process())
+	assert_false(controller.can_process())
+
 func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	var app: Node = add_child_autofree(APP_SCENE.instantiate())
 	await get_tree().process_frame

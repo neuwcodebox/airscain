@@ -187,6 +187,8 @@ func _on_main_load_pressed() -> void:
 	var document: Dictionary = result.document
 	var world_seed := int(document.payload.scenario.world_seed)
 	_create_gameplay(AirscainMain.GameMode.SUSTAINED, world_seed)
+	while not gameplay.combat_effect_pool.prepared:
+		await get_tree().process_frame
 	error = gameplay.restore_from_document(document)
 	if error.is_empty():
 		gameplay.hud.set_feedback("불러오기 완료")
