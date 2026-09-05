@@ -275,7 +275,7 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(smoke.fixed_fps, 30)
 	assert_eq(smoke.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	var smoke_shadow := smoke.get_node("SmokeShadow") as GPUParticles3D
-	assert_eq(smoke_shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY)
+	assert_eq(smoke_shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 	assert_true(smoke_shadow.draw_pass_1 is SphereMesh)
 	assert_eq(smoke_shadow.amount, smoke.amount)
 	assert_eq(smoke_shadow.lifetime, smoke.lifetime)
@@ -320,6 +320,20 @@ func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	assert_eq(objective.damage_smoke_effects.size(), 2)
 	assert_almost_eq(objective.damage_smoke_effects.back().global_position, surface_impact, Vector3.ONE * 0.001)
 
+func test_low_roof_smoke_becomes_visible_before_leaving_its_source() -> void:
+	var effect := add_child_autofree(preload("res://effects/damage_smoke/damage_smoke.tscn").instantiate()) as DamageSmokeEffect
+	effect.set_city_scale(1.5, 12.0)
+	effect.restart_at_source()
+	var process := effect.smoke.process_material as ParticleProcessMaterial
+	var ramp := process.color_ramp as GradientTexture1D
+	# The first visible puff must overlap the emission area, not rise several
+	# metres above a low roof during an invisible fraction of its long lifetime.
+	var age_near_source := 0.1 / effect.smoke.lifetime
+	assert_gt(ramp.gradient.sample(age_near_source).a, 0.5)
+	assert_eq(effect.smoke.shadow_particles.lifetime, effect.smoke.lifetime)
+	assert_eq(effect.smoke.shadow_particles.amount_ratio, effect.smoke.amount_ratio)
+	assert_true(effect.smoke.shadow_particles.emitting)
+
 func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_casters() -> void:
 	var smoke_cases: Array[Dictionary] = [
 		{"scene": preload("res://effects/damage_smoke/damage_smoke.tscn"), "paths": ["Smoke"]},
@@ -337,12 +351,13 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "%s must blend smoothly without Compatibility depth-prepass centers" % path)
 			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % path)
 			var shadow := particles.get_node("SmokeShadow") as GPUParticles3D
-			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY, "%s shadow proxy must remain outside the camera color pass" % path)
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s GPU shadow proxy must render in Compatibility" % path)
 			assert_eq(shadow.process_material, particles.process_material, "%s shadow motion must match visible smoke" % path)
 			var shadow_mesh := shadow.draw_pass_1 as Mesh
 			var shadow_material := shadow_mesh.surface_get_material(0) as ShaderMaterial
 			assert_not_null(shadow_material, "%s shadow opacity must use the shadow-pass shader" % path)
 			assert_eq(shadow_material.shader.resource_path, "res://effects/smoke_shadow.gdshader")
+			assert_true(shadow_material.shader.code.contains("!IN_SHADOW_PASS"), "%s proxy must discard its camera color pass" % path)
 			assert_false(shadow_material.shader.code.contains("ALPHA_HASH_SCALE"), "%s shadow must remain a solid surface instead of a pixel hash" % path)
 			assert_true(shadow_material.shader.code.contains("VERTEX *= sqrt"), "%s shadow fade must contract the solid particle silhouette" % path)
 			if mesh is QuadMesh:

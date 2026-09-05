@@ -19,6 +19,7 @@ func deactivate() -> void:
 	process_mode = Node.PROCESS_MODE_DISABLED
 
 func restart_at_source() -> void:
+	smoke._sync_shadow_state()
 	smoke.restart()
 	fire.restart()
 	if smoke.shadow_particles != null:
