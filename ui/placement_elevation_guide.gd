@@ -14,6 +14,7 @@ func _ready() -> void:
 	label.pixel_size = 0.00065
 	label.outline_size = 6
 	label.no_depth_test = true
+	label.render_priority = 120
 	label.fixed_size = true
 	label.position.y = 22.0
 	add_child(label)

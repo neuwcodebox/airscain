@@ -61,6 +61,8 @@ func test_placement_contours_are_world_local_and_do_not_change_terrain() -> void
 	placement.candidate_position = Vector3(100, first.generator.sea_level + 45, 100)
 	placement._update_elevation_guide()
 	assert_true(placement.elevation_guide.label.text.begins_with("해발 45m"))
+	assert_true(placement.elevation_guide.label.no_depth_test)
+	assert_gte(placement.elevation_guide.label.render_priority, 120)
 	assert_eq(material.get_shader_parameter("placement_contours"), true)
 	placement.cancel()
 	assert_eq(material.get_shader_parameter("placement_contours"), false)
