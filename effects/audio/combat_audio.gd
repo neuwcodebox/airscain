@@ -70,6 +70,7 @@ var next_player_index: int = 0
 var rng := RandomNumberGenerator.new()
 var prepared_stream_count: int = 0
 @export var enabled: bool = true
+var simulation_paused: bool = false
 
 func _ready() -> void:
 	if not enabled:

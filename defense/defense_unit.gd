@@ -48,6 +48,9 @@ func gameplay_tick(_delta: float) -> void:
 func configure_combat(_registry: ThreatRegistry, _projectile_parent: Node3D) -> void:
 	pass
 
+func configure_audio(_audio: CombatAudio) -> void:
+	pass
+
 func configure_player_knowledge(_battlefield: Battlefield, _player_knowledge: Node) -> void:
 	pass
 

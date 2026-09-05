@@ -541,6 +541,8 @@ lateral_acceleration =
 
 ### 기관포
 
+기관포 사격음은 `GunAudio` 자식이 제공된 시작·루프·종료 Ogg 원본을 포대별 독립 `AudioStreamInteractive`로 재생한다. 시작→루프는 오디오 믹서의 자동 전환, 루프 반복은 Ogg의 네이티브 루프를 사용해 프레임 단위 완료 콜백에 의한 공백을 피한다. 클립 전환에는 짧은 크로스페이드를 사용한다([Godot 공식 문서](https://docs.godotengine.org/en/stable/classes/class_audiostreaminteractive.html)). 실제 개별 탄의 발사 신호만 재생을 갱신하며 0.12초의 짧은 사격 간격은 하나의 연사로 유지한다. 같은 프레임에 수신한 탄은 프레임 지연만으로 종료하지 않는다. 사격 중단 시 종료음의 잔향을 끝까지 재생하고, 잔향 중 재사격하면 시작음으로 크로스페이드한다. 작전 일시정지 때 재생 위치를 보존하고 메뉴 시연에서는 전투음 설정을 따라 재생하지 않는다. 표적 변경·burst 예약은 소리를 재시작하지 않으며 비행 중인 탄의 상태와 오디오 재생 상태는 분리한다.
+
 모델은 [Raytheon의 Phalanx 공개 사진](https://www.rtx.com/en/raytheon/what-we-do/sea/phalanx-close-in-weapon-system)을 참고한 로우폴리 CIWS 실루엣이다. 밝은 원통형 레이더 돔과 둥근 상부, 하부 탄약 드럼, 양측 포 지지대, 6연장 회전 총열과 측면 광학 추적기를 scene에 구성한다. `Turret/Elevation/Muzzle`의 기존 발사 원점과 조준 축을 보존하며 총열 묶음은 그 축 주위로만 회전한다. 실제 발사 신호로 회전하고 사격이 멈추면 감속한다. 광학·레이더 외형은 새 탐지 능력을 부여하지 않으며 게임의 기존 센서·C2 요구를 유지한다.
 
 기관포는 사거리 260m에서 0.28초 간격으로 12발씩 사격하며, 한 burst 안에서는 초당 45발·620m/s의 발사 간격과 탄속을 사용한다. 기존 탄약·경제 단위는 burst 하나이며 총 피해량 24를 12발에 나눈다. `CloseInGunDefinition`이 탄수·발사율·속도·신관 설정을 소유하고, 포대의 `GunfireRuntime` 자식이 발사 대기와 비행탄을 수치 상태로 묶어서 처리한다. 독립 PhysicsBody나 Mesh 노드를 탄마다 생성하지 않는다.

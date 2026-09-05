@@ -15,6 +15,7 @@ var flash_remaining: float = 0.0
 var gunfire: GunfireRuntime
 var barrel_spin_speed: float = 0.0
 var barrel_spin_remaining: float = 0.0
+var firing_audio: GunAudio
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
@@ -32,6 +33,12 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	gunfire.name = "Gunfire"
 	add_child(gunfire)
 	gunfire.round_fired.connect(_on_round_fired)
+	firing_audio = GunAudio.new()
+	firing_audio.name = "FiringAudio"
+	add_child(firing_audio)
+
+func configure_audio(audio: CombatAudio) -> void:
+	firing_audio.context = audio
 
 func configure_combat(registry_value: ThreatRegistry, _projectile_parent_value: Node3D) -> void:
 	registry = registry_value
@@ -110,6 +117,7 @@ func _fire_burst(track: PlayerTrack) -> void:
 	gunfire.enqueue(muzzle.global_position, track.estimated_position, track.estimated_velocity, track.track_quality, weapon_match(track), _definition, rng)
 
 func _on_round_fired(position: Vector3) -> void:
+	firing_audio.notify_shot()
 	barrel_spin_remaining = 0.15
 	flash_remaining = 0.014
 	muzzle_flash.global_position = position

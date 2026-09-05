@@ -141,6 +141,7 @@ func _process(delta: float) -> void:
 		tactical_ui_refresh_remaining += 0.2
 		_refresh_tactical_ui()
 	var simulation_delta := session.gameplay_delta(delta)
+	combat_audio.simulation_paused = simulation_delta <= 0.0
 	if simulation_delta <= 0.0:
 		return
 	var gameplay_step_count := ceili(simulation_delta / MAXIMUM_GAMEPLAY_STEP)
@@ -249,6 +250,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	unit.configure_player_knowledge(battlefield, player_knowledge)
 	c2_network.call("register_asset", unit)
 	unit.configure_c2(c2_network)
+	unit.configure_audio(combat_audio)
 	unit.configure_engagements(engagement_coordinator)
 	unit.configure_support(support_manager)
 	unit.configure_power(power_manager)
