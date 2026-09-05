@@ -495,7 +495,7 @@ func _refresh_tactical_ui() -> void:
 		warnings.append("기능 정지 %d" % disabled_count)
 	if objective != null and objective.current_integrity <= objective.definition.maximum_integrity * 0.3:
 		warnings.append("도시 기능 위험")
-	hud.set_tactical_alert(hostile_count, engagement_coordinator.reservations.size(), warnings)
+	hud.set_tactical_alert(hostile_count, engagement_coordinator.total_reservations(), warnings)
 	if game_mode == GameMode.TRAINING:
 		training_controller.tracks_refreshed(selectable_hostile_count)
 	if selected_track != null:

@@ -30,7 +30,7 @@ var dependency_refresh_remaining: float = 0.0
 var last_dependency_definition: DefenseDefinition
 var last_dependency_position: Vector3
 var dependency_preview_active: bool = false
-var elevation_label: Label3D
+var elevation_guide: PlacementElevationGuide
 
 func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
 	session = session_value
@@ -223,28 +223,9 @@ func _create_preview() -> void:
 	range_disc.position.y = 1.5
 	range_disc.material_override = preview_material
 	preview.add_child(range_disc)
-	elevation_label = Label3D.new()
-	elevation_label.name = "ElevationLabel"
-	elevation_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	elevation_label.font = preload("res://ui/fonts/NanumSquareB.ttf")
-	elevation_label.font_size = 28
-	elevation_label.pixel_size = 0.00065
-	elevation_label.outline_size = 6
-	elevation_label.no_depth_test = true
-	elevation_label.fixed_size = true
-	elevation_label.position.y = 22.0
-	preview.add_child(elevation_label)
-	var stem := MeshInstance3D.new()
-	var line := CylinderMesh.new()
-	line.top_radius = 0.12
-	line.bottom_radius = 0.12
-	line.height = 12.0
-	line.radial_segments = 4
-	stem.mesh = line
-	stem.position = Vector3(0, 7, 0)
-	stem.material_override = preview_material
-	stem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	preview.add_child(stem)
+	elevation_guide = PlacementElevationGuide.new()
+	elevation_guide.guide_material = preview_material
+	preview.add_child(elevation_guide)
 
 func _update_elevation_guide() -> void:
 	if selected == null:
@@ -252,7 +233,7 @@ func _update_elevation_guide() -> void:
 	battlefield.set_placement_contours(true, candidate_position)
 	var altitude := candidate_position.y - battlefield.generator.sea_level
 	var slope := battlefield.generator.slope_degrees_at(candidate_position.x, candidate_position.z, 12.0)
-	elevation_label.text = "해발 %.0fm · 지형 경사 %.0f°" % [altitude, slope]
+	elevation_guide.show_measurements(altitude, slope)
 
 func _copy_preview_geometry(source: Node3D, parent_transform: Transform3D) -> void:
 	if not source.visible:

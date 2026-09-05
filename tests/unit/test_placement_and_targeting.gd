@@ -788,7 +788,7 @@ func test_reservation_query_indexes_match_live_list_after_every_mutation() -> vo
 			var owners: Array[int] = []
 			var count := 0
 			var interceptors := 0
-			for reservation: Dictionary in coordinator.reservations:
+			for reservation: Dictionary in coordinator.capture_state().reservations:
 				if int(reservation.track_id) != id:
 					continue
 				count += 1
@@ -803,7 +803,7 @@ func test_reservation_query_indexes_match_live_list_after_every_mutation() -> vo
 			assert_eq(coordinator.engagement_owner_ids(id), owners)
 		for id: int in range(1, 9):
 			var expected := 0
-			for reservation: Dictionary in coordinator.reservations:
+			for reservation: Dictionary in coordinator.capture_state().reservations:
 				if int(reservation.owner_defense_id) == id and StringName(reservation.kind) == EngagementCoordinator.FIRE_SUPPORT:
 					expected = int(reservation.track_id)
 					break
@@ -812,6 +812,16 @@ func test_reservation_query_indexes_match_live_list_after_every_mutation() -> vo
 	assert_eq(coordinator.reservation_count(1), 0)
 	assert_true(coordinator.engagement_owner_ids(1).is_empty())
 	assert_eq(coordinator.fire_support_target(1), 0)
+
+func test_reservation_snapshot_is_independent_of_runtime_state() -> void:
+	var coordinator := autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	assert_true(coordinator.try_reserve(1, 2, 3.0))
+	var snapshot := coordinator.capture_state()
+	snapshot.reservations[0].track_id = 99
+	snapshot.reservations.clear()
+	assert_eq(coordinator.total_reservations(), 1)
+	assert_eq(coordinator.reservation_count(1), 1)
+	assert_eq(coordinator.reservation_count(99), 0)
 
 func test_engagement_reservation_blocks_overkill_then_expires_or_releases() -> void:
 	var coordinator: EngagementCoordinator = autofree(EngagementCoordinator.new()) as EngagementCoordinator
