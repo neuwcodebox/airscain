@@ -114,6 +114,8 @@ func _add_secondary_effects() -> void:
 		model.position = WARMUP_POSITION
 		add_child(model)
 		model.set_process(false)
+		if scene == STRIKE_SCENE:
+			wreck.use_airframe(model)
 
 func _add_camera_and_light() -> void:
 	var camera := Camera3D.new()

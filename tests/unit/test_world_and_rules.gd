@@ -3,6 +3,57 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+func test_falling_wreck_preserves_airframe_geometry_without_live_systems() -> void:
+	var aircraft := add_child_autofree(preload("res://enemy/strike_aircraft/strike_aircraft.tscn").instantiate()) as Node3D
+	aircraft.rotation = Vector3(0.1, 0.8, -0.2)
+	var wreck := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	wreck.setup(Color.GRAY, Vector3.ZERO, -100)
+	wreck.use_airframe(aircraft)
+	var original := aircraft.find_child("FacetedFuselage", true, false) as MeshInstance3D
+	var fallen := wreck.wreck.find_child("FacetedFuselage", true, false) as MeshInstance3D
+	assert_not_null(fallen)
+	assert_same(fallen.mesh, original.mesh, "추락 시 원래 메시를 공유합니다")
+	assert_eq(wreck.wreck.basis, aircraft.global_basis)
+	assert_ne(fallen.get_active_material(0), original.get_active_material(0))
+	assert_lt((fallen.get_active_material(0) as StandardMaterial3D).albedo_color.v, (original.get_active_material(0) as StandardMaterial3D).albedo_color.v)
+	assert_null(wreck.wreck.find_child("LeftEngineGlow", true, false))
+	assert_eq(wreck.wreck.find_children("*", "Light3D", true, false).size(), 0)
+	assert_null(wreck.wreck.get_child(0).get_script(), "잔해에 비행 AI나 모델 생성 스크립트를 복제하지 않습니다")
+	assert_not_null(wreck.wreck.find_child("SweptWing", true, false))
+	assert_not_null(wreck.wreck.find_child("TwinFin", true, false))
+
+func test_falling_wreck_timeout_is_ten_seconds_and_releases_trail() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var wreck := preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate() as FallingWreckEffect
+	parent.add_child(wreck)
+	wreck.setup(Color.GRAY, Vector3.ZERO, -100000)
+	wreck.set_process(false)
+	wreck._process(5.1)
+	assert_false(wreck.is_queued_for_deletion())
+	wreck._process(4.8)
+	assert_false(wreck.is_queued_for_deletion())
+	wreck._process(0.11)
+	assert_true(wreck.is_queued_for_deletion())
+	assert_true(wreck.smoke_released)
+	assert_same(wreck.smoke.get_parent(), parent)
+
+func test_wreck_impact_reuses_one_composite_blast_and_birds_remain_quiet() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var pool := CombatEffectPool.new()
+	parent.add_child(pool)
+	var initial_available := pool.available.size()
+	for flash_enabled: bool in [true, false]:
+		var wreck := preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate() as FallingWreckEffect
+		parent.add_child(wreck)
+		wreck.setup(Color.GRAY, Vector3.DOWN, 0.0, 1.0, flash_enabled, flash_enabled)
+		wreck.set_process(false)
+		wreck._process(0.1)
+		assert_true(wreck.impacted)
+		assert_false(wreck.wreck.visible)
+		assert_eq(pool.available.size(), initial_available - 1, "조류는 추가 폭발을 만들지 않습니다")
+		wreck._process(0.2)
+		assert_eq(pool.available.size(), initial_available - 1, "착지 폭발은 한 번만 생성합니다")
+
 func test_project_uses_bundled_bold_nanum_square_with_symbol_fallback() -> void:
 	assert_eq(ProjectSettings.get_setting("gui/theme/custom_font", ""), "")
 	var bundled_font := AirscainApp.apply_global_font()
@@ -536,14 +587,21 @@ func test_energy_effects_retire_independently_and_can_be_replayed() -> void:
 	weapon.pulse_visual.play(25.0)
 	assert_true(weapon.pulse_visual.visible)
 
-func test_falling_wreck_impact_flash_material_is_instance_local() -> void:
+func test_falling_wreck_impact_materials_are_instance_local() -> void:
 	var scene := preload("res://effects/falling_wreck/falling_wreck.tscn")
-	var first := add_child_autofree(scene.instantiate()) as FallingWreckEffect
-	var second := add_child_autofree(scene.instantiate()) as FallingWreckEffect
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var first := scene.instantiate() as FallingWreckEffect
+	var second := scene.instantiate() as FallingWreckEffect
+	parent.add_child(first)
+	parent.add_child(second)
 	first.setup(Color.RED, Vector3.ZERO, 0.0)
 	second.setup(Color.BLUE, Vector3.ZERO, 0.0)
-	var first_material := first.impact_flash.material_override as StandardMaterial3D
-	var second_material := second.impact_flash.material_override as StandardMaterial3D
+	first._process(0.1)
+	second._process(0.1)
+	var explosions := parent.find_children("*", "ExplosionEffect", false, false)
+	assert_eq(explosions.size(), 2)
+	var first_material := (explosions[0] as ExplosionEffect).flash_material
+	var second_material := (explosions[1] as ExplosionEffect).flash_material
 	assert_ne(first_material, second_material)
 	first_material.albedo_color.a = 0.0
 	assert_gt(second_material.albedo_color.a, 0.0, "one wreck fade must not mutate another effect instance")

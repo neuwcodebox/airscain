@@ -20,6 +20,12 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-wreck-only"):
+		await _capture_falling_wreck()
+		main.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-ciws-model-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
@@ -649,6 +655,46 @@ func _capture_automatic_resupply() -> bool:
 		return false
 	print("VISUAL_CAPTURE_OK automatic_resupply actual_click paid_once completed_after_disable")
 	return true
+
+func _capture_falling_wreck() -> void:
+	AirscainApp.apply_global_font()
+	while not main.combat_effect_pool.prepared:
+		await process_frame
+	main.set_process(false)
+	main.hud.visible = false
+	var definition := preload("res://enemy/strike_aircraft/strike_aircraft.tres")
+	var aircraft := definition.scene.instantiate() as ThreatUnit
+	main.effects_parent.add_child(aircraft)
+	aircraft.setup(9999, definition)
+	var ground := main.battlefield.terrain_height(-400, -100)
+	aircraft.global_position = Vector3(-400, ground + 35, -100)
+	aircraft.rotation.y = 0.6
+	main.camera_rig.focus_on(Vector3(-400, ground + 12, -100))
+	main.camera_rig.zoom_distance = 150.0
+	main.camera_rig._update_camera()
+	for frame: int in 4:
+		await process_frame
+	await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_wreck_before.png")
+	main._spawn_falling_wreck(aircraft)
+	var wreck := main.effects_parent.get_node("FallingWreck") as FallingWreckEffect
+	wreck.set_process(false)
+	aircraft.queue_free()
+	wreck._process(0.12)
+	for frame: int in 4:
+		await process_frame
+	await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_wreck_falling.png")
+	while not wreck.impacted:
+		wreck._process(0.04)
+		await process_frame
+	await _wait_seconds(0.12)
+	await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_wreck_impact.png")
+	await _wait_seconds(0.65)
+	await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_wreck_afterglow.png")
+	print("VISUAL_CAPTURE_OK falling_airframe composite_impact")
 
 func _capture_selection_panel() -> bool:
 	AirscainApp.apply_global_font()

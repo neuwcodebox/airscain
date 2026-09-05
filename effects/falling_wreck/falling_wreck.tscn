@@ -1,9 +1,8 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource path="res://effects/falling_wreck/falling_wreck.gd" type="Script" id="1"]
 [ext_resource path="res://effects/lingering_smoke_trail.gd" type="Script" id="2"]
 [ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="3"]
-[ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="4"]
 
 [sub_resource type="StandardMaterial3D" id="WreckMaterial"]
 albedo_color = Color(0.2, 0.18, 0.16, 1)
@@ -28,20 +27,6 @@ billboard_keep_scale = true
 [sub_resource type="QuadMesh" id="SmokeMesh"]
 material = SubResource("SmokeMaterial")
 size = Vector2(2.2, 2.2)
-
-[sub_resource type="StandardMaterial3D" id="ImpactMaterial"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(1, 0.32, 0.05, 1)
-albedo_texture = ExtResource("4")
-emission_enabled = true
-emission = Color(1, 0.12, 0.01, 1)
-billboard_mode = 1
-billboard_keep_scale = true
-
-[sub_resource type="QuadMesh" id="ImpactMesh"]
-material = SubResource("ImpactMaterial")
-size = Vector2(2, 2)
 
 [node name="FallingWreck" type="Node3D"]
 script = ExtResource("1")
@@ -70,8 +55,3 @@ initial_scale = 0.7
 final_scale = 1.8
 drift_speed = 0.32
 release_fade_duration = 3.0
-
-[node name="ImpactFlash" type="MeshInstance3D" parent="."]
-visible = false
-mesh = SubResource("ImpactMesh")
-material_override = SubResource("ImpactMaterial")

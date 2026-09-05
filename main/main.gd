@@ -303,7 +303,7 @@ func _is_city_impact(threat: ThreatUnit, neutralized: bool) -> bool:
 	return mission != null and mission.type == ThreatMissionDefinition.Type.IMPACT
 
 func _spawn_falling_wreck(threat: ThreatUnit) -> void:
-	var effect := FALLING_WRECK_SCENE.instantiate() as Node3D
+	var effect := FALLING_WRECK_SCENE.instantiate() as FallingWreckEffect
 	effects_parent.add_child(effect)
 	effect.global_position = threat.global_position
 	var color := Color(0.45, 0.16, 0.1)
@@ -318,7 +318,8 @@ func _spawn_falling_wreck(threat: ThreatUnit) -> void:
 		smoke_enabled = false
 		flash_enabled = false
 	var ground_height := battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
-	effect.call("setup", color, threat.presentation_velocity(), ground_height, wreck_scale, smoke_enabled, flash_enabled)
+	effect.setup(color, threat.presentation_velocity(), ground_height, wreck_scale, smoke_enabled, flash_enabled)
+	effect.use_airframe(threat)
 
 func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 	if not _objective.definition.required_for_survival:

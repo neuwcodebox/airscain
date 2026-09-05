@@ -1796,8 +1796,11 @@ func test_hpm_weakly_heats_bird_and_bird_falls_without_exploding_when_neutralize
 	assert_not_null(falling_bird)
 	assert_eq(explosion_count_after, explosion_count_before)
 	assert_false((falling_bird.get_node("SmokeTrail") as LingeringSmokeTrail).emitting)
-	assert_false(falling_bird.get_node("ImpactFlash").visible)
-	assert_eq(falling_bird.get_node("Wreck").scale, Vector3.ONE * 0.42)
+	assert_eq(falling_bird.wreck.basis, bird.global_basis, "조류도 원래 크기와 자세를 보존합니다")
+	falling_bird.global_position.y = falling_bird.ground_height + 0.1
+	falling_bird._process(0.1)
+	assert_true(falling_bird.impacted)
+	assert_eq(main.effects_parent.get_children().filter(func(node: Node) -> bool: return node is ExplosionEffect).size(), explosion_count_before, "조류는 착지 때에도 폭발하지 않습니다")
 
 func test_interceptor_drone_returns_and_recharges_for_reuse() -> void:
 	main.registry.clear()
