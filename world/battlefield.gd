@@ -6,6 +6,10 @@ const CITY_TARGET_HORIZONTAL_FRACTION := Vector2(-0.34, 0.34)
 const CITY_TARGET_HEIGHT_FRACTION := Vector2(0.32, 0.86)
 
 var generator := WorldGenerator.new()
+var window_material: ShaderMaterial
+var street_lights: Array[OmniLight3D] = []
+var lamp_material: StandardMaterial3D
+
 var objective: ProtectedObjective
 var occupied_positions: Array[Vector3] = []
 var occupied_radii: Array[float] = []
@@ -27,6 +31,14 @@ var _city_bounds := AABB()
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
 @onready var city_visuals: Node3D = $CityVisuals
+
+func set_night_amount(amount: float) -> void:
+	if window_material != null:
+		window_material.set_shader_parameter("night_amount", amount)
+	if lamp_material != null:
+		lamp_material.emission_energy_multiplier = amount * 2.5
+	for light: OmniLight3D in street_lights:
+		light.light_energy = amount * 2.0
 
 func build(scenario: ScenarioDefinition) -> void:
 	battlefield_size = scenario.battlefield_size
@@ -244,6 +256,7 @@ func set_rooftop_pads_visible(visible_value: bool) -> void:
 			pad.visible = visible_value
 
 func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, city_blocks: Array[Dictionary], city_size: float, block_count: int) -> void:
+	street_lights.clear()
 	rooftop_pads.clear()
 	rooftop_pad_visuals.clear()
 	city_window_band_count = 0
@@ -269,6 +282,33 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 			_build_rooftop_pad(index, transforms[index])
 	_build_facade_multimesh(facade_bands)
 	_build_city_amenities(transforms, city_blocks, city_size, block_count)
+	_build_street_lights(city_blocks, city_size / float(block_count))
+
+func _build_street_lights(blocks: Array[Dictionary], spacing: float) -> void:
+	lamp_material = StandardMaterial3D.new()
+	lamp_material.albedo_color = Color("efe0bd")
+	lamp_material.emission_enabled = true
+	lamp_material.emission = Color("ffbf70")
+	lamp_material.emission_energy_multiplier = 0.0
+	var pole_material := StandardMaterial3D.new()
+	pole_material.albedo_color = Color("41484c")
+	for index: int in blocks.size():
+		var center: Vector3 = blocks[index].position
+		var p := center + Vector3(spacing * 0.43, 0, spacing * 0.32)
+		p.y = terrain_height(p.x, p.z)
+		_add_city_box("LampPole%d" % index, Vector3(0.25, 6.0, 0.25), p + Vector3.UP * 3.0, pole_material)
+		_add_city_box("Lamp%d" % index, Vector3(1.5, 0.25, 0.8), p + Vector3.UP * 6.0, lamp_material)
+		# Bounded district lights leave the positional-light budget for combat flashes.
+		if index % maxi(1, ceili(float(blocks.size()) / 6.0)) == 0 and street_lights.size() < 6:
+			var light := OmniLight3D.new()
+			light.position = p + Vector3.UP * 7.0
+			light.light_color = Color("ffbf80")
+			light.light_energy = 0.0
+			light.omni_range = spacing * 0.85
+			light.omni_attenuation = 1.6
+			light.shadow_enabled = false
+			city_visuals.add_child(light)
+			street_lights.append(light)
 
 func _add_building_architecture(index: int, building_transform: Transform3D, facade_material: StandardMaterial3D, reserves_rooftop: bool) -> void:
 	var building_size := building_transform.basis.get_scale()
@@ -312,13 +352,8 @@ func _append_facade_bands(building_transform: Transform3D, bands: Array[Transfor
 func _build_facade_multimesh(bands: Array[Transform3D]) -> void:
 	if bands.is_empty():
 		return
-	var window_material := StandardMaterial3D.new()
-	window_material.albedo_color = Color("263c48")
-	window_material.metallic = 0.22
-	window_material.roughness = 0.3
-	window_material.emission_enabled = true
-	window_material.emission = Color("102630")
-	window_material.emission_energy_multiplier = 0.6
+	window_material = ShaderMaterial.new()
+	window_material.shader = preload("res://world/city_windows.gdshader")
 	var window_mesh := BoxMesh.new()
 	window_mesh.size = Vector3.ONE
 	window_mesh.material = window_material

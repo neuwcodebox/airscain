@@ -22,6 +22,24 @@ func before_each() -> void:
 	main = add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
 	await get_tree().process_frame
 
+func test_day_night_follows_pause_speed_and_saved_operation() -> void:
+	main.set_process(false)
+	main.session.phase = GameSession.Phase.RUNNING
+	main.session.survival_time = 448.0
+	main.session.set_simulation_speed(2.0)
+	main._process(1.0)
+	assert_almost_eq(main.day_night.hour, 0.0, 0.001)
+	main.session.set_simulation_speed(0.0)
+	main._process(10.0)
+	assert_almost_eq(main.day_night.hour, 0.0, 0.001)
+	var saved := main.capture_save_document()
+	main.day_night.apply_time(0.0)
+	assert_eq(main.restore_from_document(saved), "")
+	assert_eq(main.day_night.night_amount, 1.0)
+	assert_gt(main.battlefield.street_lights.size(), 0)
+	assert_lte(main.battlefield.street_lights.size(), 6)
+	assert_eq(main.battlefield.window_material.get_shader_parameter("night_amount"), 1.0)
+
 func test_selected_asset_panel_shrinks_when_live_status_rows_disappear() -> void:
 	main.set_process(false)
 	var definition := preload("res://defense/close_in_gun/close_in_gun.tres")

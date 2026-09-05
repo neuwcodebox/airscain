@@ -64,6 +64,8 @@ var combat_effect_pool: CombatEffectPool
 @onready var tactical_screen_overlay: Node = $UI/TacticalScreenOverlay
 @onready var altitude_profile: Control = $UI/AltitudeProfile
 
+var day_night := DayNightCycle.new()
+
 func _ready() -> void:
 	scenario = BASE_SCENARIO.duplicate(true) as ScenarioDefinition
 	game_mode = requested_mode
@@ -76,6 +78,8 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	battlefield.build(scenario)
+	add_child(day_night)
+	day_night.configure($Sun, $WorldEnvironment, battlefield)
 	camera_rig.configure_for_battlefield(scenario.battlefield_size)
 	_spawn_objective()
 	_spawn_ambient_contacts()
@@ -141,6 +145,7 @@ func _process(delta: float) -> void:
 		tactical_ui_refresh_remaining += 0.2
 		_refresh_tactical_ui()
 	var simulation_delta := session.gameplay_delta(delta)
+	day_night.apply_time(session.survival_time)
 	combat_audio.simulation_paused = simulation_delta <= 0.0
 	if simulation_delta <= 0.0:
 		return
@@ -720,6 +725,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 			drone_owner.active_drones.append(drone)
 	director.restore_state(payload.director)
 	session.restore_state(payload.session)
+	day_night.apply_time(session.survival_time, true)
 
 func _find_defense(runtime_id: int) -> DefenseUnit:
 	for unit: DefenseUnit in defenses:
