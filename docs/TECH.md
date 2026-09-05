@@ -520,6 +520,8 @@ engagement_score =
 
 중·장거리 요격체에는 단순화한 proportional navigation을 기본 유도 방식으로 사용할 수 있다.
 
+`MissileBattery`의 고갈 capability는 모든 탄창을 검사한다. 전체 고갈은 `탄약 고갈`, 일부만 고갈이면 `일부 탄종 고갈`을 표시하며 각 탄종의 수량은 상세 패널에 둔다. 자동 모드의 최후 고가탄 보존은 `MissileMunitionDefinition.is_preferred()`가 아닌 표적에만 적용한다. 우선표적과 명시적 탄종 모드는 보존을 해제하지만 다른 교전 조건은 그대로 유지한다. 탄종 적합도가 0인 경우에는 후보에서 제외한다.
+
 ```text
 lateral_acceleration =
     navigation_constant

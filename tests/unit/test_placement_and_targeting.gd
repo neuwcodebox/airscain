@@ -546,10 +546,23 @@ func test_long_range_launcher_selects_and_preserves_specialized_munition() -> vo
 	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
 	specialized.rounds = 1
 	specialized.reserve = 0
-	assert_eq(battery.munition_for_track(ballistic).id, &"area_defense")
+	assert_eq(battery.munition_for_track(ballistic).id, &"high_speed_interceptor", "마지막 특수탄도 본래 방어 대상에는 사용합니다")
+	var slow := _confirmed_track(Vector3(200, 150, 0))
+	slow.classification = &"small_uav"
+	slow.track_id = ballistic.track_id + 1
+	assert_eq(battery.munition_for_track(slow).id, &"area_defense")
+	battery.set_munition_mode(&"high_speed_interceptor")
+	assert_eq(battery.munition_for_track(slow).id, &"high_speed_interceptor", "명시적 탄종 지정은 최후탄 보존보다 우선합니다")
+	battery.set_munition_mode(&"auto")
+	battery.magazines[&"area_defense"].rounds = 0
+	battery.magazines[&"area_defense"].reserve = 0
+	assert_null(battery.munition_for_track(slow), "자동 모드의 최후 특수탄은 저가 표적에 보존합니다")
+	battery.set_priority_track(slow.track_id)
+	assert_eq(battery.munition_for_track(slow).id, &"high_speed_interceptor")
 	battery.set_priority_track(ballistic.track_id)
 	assert_eq(battery.munition_for_track(ballistic).id, &"high_speed_interceptor")
 	battery.set_munition_mode(&"area_defense")
+	battery.magazines[&"area_defense"].rounds = 2
 	assert_eq(battery.munition_for_track(ballistic).id, &"area_defense")
 
 func test_high_speed_interceptor_leads_moving_track_and_launches_individual_rack_rounds() -> void:
@@ -568,15 +581,30 @@ func test_high_speed_interceptor_leads_moving_track_and_launches_individual_rack
 	ballistic.classification = &"ballistic_missile"
 	ballistic.estimated_velocity = target_velocity
 	var munition := battery.munition_for_track(ballistic)
+	battery.magazines[munition.id].reserve = 0
 	var rounds_before := battery.magazines[munition.id].rounds
 	assert_true(battery._fire_round(ballistic, munition))
 	assert_eq(projectiles.get_child_count(), 1)
 	assert_eq(battery.interceptors.size(), 1)
 	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 1)
+	assert_same(battery.munition_for_track(ballistic), munition)
 	assert_true(battery._fire_round(ballistic, munition))
 	assert_eq(projectiles.get_child_count(), 2)
 	assert_eq(battery.interceptors.size(), 2)
 	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 2)
+	assert_true(battery.magazines[munition.id].is_depleted())
+	assert_eq(battery.critical_status_text(), "일부 탄종 고갈")
+	assert_false(battery.combat_resource_depleted())
+	var area: WeaponMagazine = battery.magazines[&"area_defense"]
+	area.rounds = 0
+	area.reserve = 0
+	assert_eq(battery.critical_status_text(), "탄약 고갈")
+	assert_true(battery.combat_resource_depleted())
+	area.rounds = 1
+	assert_eq(battery.critical_status_text(), "일부 탄종 고갈")
+	area.rounds = 0
+	battery.magazines[munition.id].rounds = 1
+	assert_eq(battery.critical_status_text(), "일부 탄종 고갈", "첫 탄종 고갈은 전체 고갈이 아닙니다")
 	assert_ne(battery.interceptors[0].global_position, battery.interceptors[1].global_position)
 
 func test_missile_launch_sequence_and_interval_round_trip() -> void:

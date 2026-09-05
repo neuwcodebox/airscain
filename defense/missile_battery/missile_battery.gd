@@ -125,13 +125,36 @@ func munition_for_track(track: PlayerTrack) -> MissileMunitionDefinition:
 		if not munition_magazine.can_fire():
 			continue
 		var match := munition.match_for(track.classification, estimated_speed)
-		if munition.high_cost and munition_magazine.rounds + munition_magazine.reserve <= 1 and track.track_id != doctrine.priority_track_id:
+		if match <= 0.0:
+			continue
+		if _preserves_last_round(munition) and not munition.is_preferred(track.classification, estimated_speed) and track.track_id != doctrine.priority_track_id:
 			continue
 		var selection_score := match + (0.25 if munition.is_preferred(track.classification, estimated_speed) else 0.0)
 		if selection_score > selected_match:
 			selected = munition
 			selected_match = selection_score
 	return selected
+
+func _preserves_last_round(munition: MissileMunitionDefinition) -> bool:
+	var stock: WeaponMagazine = magazines[munition.id]
+	return munition_mode == &"auto" and munition.high_cost and stock.rounds + stock.reserve == 1
+
+func combat_resource_depleted() -> bool:
+	if magazines.is_empty():
+		return false
+	for stock: WeaponMagazine in magazines.values():
+		if not stock.is_depleted():
+			return false
+	return true
+
+func critical_status_text() -> String:
+	var status := super.critical_status_text()
+	if not status.is_empty():
+		return status
+	for stock: WeaponMagazine in magazines.values():
+		if stock.is_depleted():
+			return "일부 탄종 고갈"
+	return ""
 
 func set_munition_mode(mode: StringName) -> void:
 	if mode == &"auto" or magazines.has(mode):
@@ -207,6 +230,8 @@ func selection_status_rows() -> Array[Dictionary]:
 		if munition_magazine.is_depleted():
 			ammunition = "고갈"
 		rows.append({"label": munition.display_name, "value": ammunition, "warning": munition_magazine.is_depleted()})
+		if _preserves_last_round(munition):
+			rows.append({"label": "최후 1발", "value": "우선 위협·우선표적용", "warning": true})
 		if munition_magazine.is_reloading():
 			rows.append({"label": "재장전", "value": "%.1f초" % munition_magazine.reload_remaining})
 	rows.append_array(_selection_task_rows())
