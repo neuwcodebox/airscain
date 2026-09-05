@@ -7,7 +7,7 @@ func test_settings_from_pause_keep_simulation_paused_and_block_camera() -> void:
 	var original_path := preferences.settings_path
 	preferences.settings_path = "user://test_app_settings.cfg"
 	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
-	app.main_menu.get_node("Panel/VBox/SettingsButton").pressed.emit()
+	app.main_menu.get_node("Panel/VBox/Footer/SettingsButton").pressed.emit()
 	assert_true(app.settings_menu.visible)
 	app.settings_menu.visible = false
 	app.start_game(AirscainMain.GameMode.SANDBOX)

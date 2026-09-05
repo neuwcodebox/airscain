@@ -140,15 +140,21 @@ theme_override_colors/font_color = Color(1, 0.76, 0.4, 1)
 text = ""
 horizontal_alignment = 1
 
-[node name="QuitButton" type="Button" parent="MainMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 48)
+[node name="Footer" type="VBoxContainer" parent="MainMenu/Panel/VBox"]
 layout_mode = 2
-text = "종료"
+theme_override_constants/separation = 12
 
-[node name="SettingsButton" type="Button" parent="MainMenu/Panel/VBox" index="8"]
+[node name="SettingsButton" type="Button" parent="MainMenu/Panel/VBox/Footer"]
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
+size_flags_horizontal = 3
 text = "설정"
+
+[node name="QuitButton" type="Button" parent="MainMenu/Panel/VBox/Footer"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "종료"
 
 [node name="PauseLayer" type="CanvasLayer" parent="."]
 layer = 10
@@ -237,14 +243,14 @@ custom_minimum_size = Vector2(0, 52)
 layout_mode = 2
 text = "설정"
 
-[connection signal="pressed" from="MainMenu/Panel/VBox/SettingsButton" to="." method="_on_settings_pressed"]
+[connection signal="pressed" from="MainMenu/Panel/VBox/Footer/SettingsButton" to="." method="_on_settings_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/SettingsButton" to="." method="_on_settings_pressed"]
 
 [connection signal="pressed" from="MainMenu/Panel/VBox/SustainedButton" to="." method="_on_sustained_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/MainLoadButton" to="." method="_on_main_load_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/TrainingButton" to="." method="_on_training_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/SandboxButton" to="." method="_on_sandbox_pressed"]
-[connection signal="pressed" from="MainMenu/Panel/VBox/QuitButton" to="." method="_on_quit_pressed"]
+[connection signal="pressed" from="MainMenu/Panel/VBox/Footer/QuitButton" to="." method="_on_quit_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/ResumeButton" to="." method="_on_resume_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseSaveButton" to="." method="_on_pause_save_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseLoadButton" to="." method="_on_pause_load_pressed"]

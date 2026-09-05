@@ -15,7 +15,8 @@ func _ready() -> void:
 	_viewport = SubViewport.new()
 	_viewport.own_world_3d = true
 	_viewport.handle_input_locally = false
-	_viewport.msaa_3d = Viewport.MSAA_2X
+	_viewport.msaa_3d = int(PlayerSettings.instance().values.antialiasing) as Viewport.MSAA
+	PlayerSettings.instance().changed.connect(_apply_display_settings)
 	add_child(_viewport)
 	var previous_seed := AirscainMain.requested_seed
 	var previous_mode := AirscainMain.requested_mode
@@ -40,6 +41,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_elapsed += delta
 	_update_camera()
+
+func _apply_display_settings() -> void:
+	_viewport.msaa_3d = int(PlayerSettings.instance().values.antialiasing) as Viewport.MSAA
 
 func _update_camera() -> void:
 	var angle := 0.58 + sin(_elapsed * 0.025) * 0.06

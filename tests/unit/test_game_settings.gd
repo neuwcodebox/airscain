@@ -16,6 +16,24 @@ func after_each() -> void:
 	PlayerSettings.instance().settings_path = previous_path
 	PlayerSettings.instance().values = previous_values
 	PlayerSettings.instance().apply_audio()
+	PlayerSettings.instance().apply_rendering()
+
+func test_display_preferences_apply_and_round_trip() -> void:
+	var preferences := PlayerSettings.instance()
+	preferences.set_value("antialiasing", 2)
+	preferences.set_value("frame_limit", 2)
+	preferences.set_value("resolution", 2)
+	assert_eq(get_tree().root.msaa_3d, Viewport.MSAA_4X)
+	assert_eq(Engine.max_fps, 60)
+	assert_eq(preferences.save_preferences(), OK)
+	preferences.load_preferences()
+	assert_eq(preferences.values.antialiasing, 2)
+	assert_eq(preferences.values.frame_limit, 2)
+	assert_eq(preferences.values.resolution, 2)
+	preferences.set_value("resolution", 99)
+	assert_eq(preferences.values.resolution, 3)
+	preferences.set_value("antialiasing", -1)
+	assert_eq(preferences.values.antialiasing, 0)
 
 func test_preferences_round_trip_and_clamp_invalid_input() -> void:
 	PlayerSettings.instance().set_value("missile", 0.35)

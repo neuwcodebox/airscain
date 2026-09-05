@@ -893,7 +893,7 @@ Forward Mobile 환경은 HDR glow를 사용하되 일반 주광 재질이 번지
 
 ## 23. 테스트 전략
 
-앱 공통 설정은 `PlayerSettings` 타입의 `GameSettings` autoload가 소유하고 `user://settings.cfg`에 ConfigFile로 저장한다. 작전 저장 버전과 독립적이며 손상·잘못된 타입·비유한 수치는 기본값으로 대체하고 범위를 제한한다. `SettingsMenu`는 표시·입력만 담당한다. Master 아래 Missiles/Guns/Explosions/Alerts/UI 버스를 사용하며 기존 음원별 감쇠·기관포 대표 음성 예산·Web Sample 사전 등록은 유지한다. 기관포 발사·종료·자폭은 Guns, 접촉·탄약 부족·강도 변화는 Alerts로 보낸다. 카메라는 공통 감도를 적용하고 일시정지 메뉴에서 입력을 차단한다. 전체 화면은 네이티브 시작 시 복원하고 웹에서는 사용자 조작 시에만 요청한다.
+앱 공통 설정은 `PlayerSettings` 타입의 `GameSettings` autoload가 소유하고 `user://settings.cfg`에 ConfigFile로 저장한다. 작전 저장 버전과 독립적이며 손상·잘못된 타입·비유한 수치는 기본값으로 대체하고 범위를 제한한다. `SettingsMenu`는 표시·입력만 담당한다. Master 아래 Missiles/Guns/Explosions/Alerts/UI 버스를 사용하며 기존 음원별 감쇠·기관포 대표 음성 예산·Web Sample 사전 등록은 유지한다. 기관포 발사·종료·자폭은 Guns, 접촉·탄약 부족·강도 변화는 Alerts로 보낸다. 카메라는 공통 감도를 적용하고 일시정지 메뉴에서 입력을 차단한다. 전체 화면은 네이티브 시작 시 복원하고 웹에서는 사용자 조작 시에만 요청한다. 창 해상도는 네이티브 창 모드에서 작업 영역 안으로 제한해 적용하며, 웹/전체 화면에서는 창 크기를 강제로 바꾸지 않는다. MSAA는 루트 뷰포트와 메뉴 시연 SubViewport에 동일하게 적용하고 프레임 상한은 Engine.max_fps로 반영한다. 기본값은 기존 1600×900 창·MSAA 2×·프레임 제한 없음이다.
 
 ### 단위 테스트
 

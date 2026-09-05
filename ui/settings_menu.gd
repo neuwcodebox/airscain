@@ -5,6 +5,7 @@ signal closed
 var sliders: Dictionary[String, HSlider] = {}
 var readouts: Dictionary[String, Label] = {}
 var fullscreen: CheckButton
+var options: Dictionary[String, OptionButton] = {}
 var feedback: Label
 var close_button: Button
 var tabs: TabContainer
@@ -19,8 +20,8 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	dim.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.anchor_left = 0.2
-	panel.anchor_right = 0.8
+	panel.anchor_left = 0.24
+	panel.anchor_right = 0.76
 	panel.anchor_top = 0.1
 	panel.anchor_bottom = 0.9
 	var style := StyleBoxFlat.new()
@@ -38,7 +39,21 @@ func _ready() -> void:
 	column.add_child(title)
 	tabs = TabContainer.new()
 	tabs.tab_changed.connect(func(_index: int) -> void: _trap_focus.call_deferred())
-	tabs.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var body_style := StyleBoxEmpty.new()
+	body_style.content_margin_top = 24
+	body_style.content_margin_left = 8
+	body_style.content_margin_right = 8
+	tabs.add_theme_stylebox_override("panel", body_style)
+	for state: String in ["tab_selected", "tab_unselected", "tab_hovered"]:
+		var tab_style := StyleBoxFlat.new()
+		tab_style.bg_color = Color("294a4c") if state == "tab_selected" else Color("152b32")
+		tab_style.content_margin_left = 22
+		tab_style.content_margin_right = 22
+		tab_style.content_margin_top = 10
+		tab_style.content_margin_bottom = 10
+		tab_style.border_width_bottom = 2 if state == "tab_selected" else 0
+		tab_style.border_color = Color("83b7a9")
+		tabs.add_theme_stylebox_override(state, tab_style)
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(tabs)
 	var audio := _tab(tabs, "사운드")
@@ -52,8 +67,19 @@ func _ready() -> void:
 	var display := _tab(tabs, "화면")
 	fullscreen = CheckButton.new()
 	fullscreen.text = "전체 화면"
-	fullscreen.toggled.connect(func(enabled: bool) -> void: PlayerSettings.instance().set_value("fullscreen", enabled))
+	fullscreen.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	fullscreen.custom_minimum_size.y = 40
+	fullscreen.add_theme_constant_override("h_separation", 20)
+	fullscreen.toggled.connect(func(enabled: bool) -> void:
+		PlayerSettings.instance().set_value("fullscreen", enabled)
+		_refresh_display_options())
 	display.add_child(fullscreen)
+	var resolutions: Array[String] = []
+	for size: Vector2i in PlayerSettings.RESOLUTIONS:
+		resolutions.append("%d × %d" % [size.x, size.y])
+	_option(display, "resolution", "창 해상도", resolutions)
+	_option(display, "antialiasing", "안티앨리어싱", ["끄기", "MSAA 2×", "MSAA 4×", "MSAA 8×"])
+	_option(display, "frame_limit", "최대 프레임", ["제한 없음", "30 FPS", "60 FPS", "120 FPS", "144 FPS"])
 	feedback = Label.new()
 	feedback.add_theme_color_override("font_color", Color("ffbd80"))
 	column.add_child(feedback)
@@ -81,6 +107,31 @@ func _ready() -> void:
 			button_style.border_width_bottom = 1
 			button.add_theme_stylebox_override(state, button_style)
 	visible = false
+
+func _option(parent: VBoxContainer, key: String, caption: String, items: Array[String]) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	parent.add_child(row)
+	var label := Label.new()
+	label.text = caption
+	label.custom_minimum_size.x = 160
+	row.add_child(label)
+	var option := OptionButton.new()
+	option.custom_minimum_size = Vector2(230, 44)
+	for item: String in items:
+		option.add_item(item)
+	option.item_selected.connect(func(index: int) -> void: PlayerSettings.instance().set_value(key, index))
+	row.add_child(option)
+	options[key] = option
+
+func _refresh_display_options() -> void:
+	for key: String in options:
+		options[key].select(int(PlayerSettings.instance().values[key]))
+	var resolution := options["resolution"]
+	resolution.disabled = OS.has_feature("web") or fullscreen.button_pressed
+	resolution.tooltip_text = "브라우저 창 크기에 맞춤" if OS.has_feature("web") else "전체 화면에서는 모니터 해상도를 사용합니다" if fullscreen.button_pressed else ""
+	if OS.has_feature("web"):
+		resolution.set_item_text(resolution.selected, "브라우저 크기에 맞춤")
 
 func _tab(tabs: TabContainer, caption: String) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
@@ -131,6 +182,7 @@ func refresh() -> void:
 		sliders[key].set_value_no_signal(value)
 		readouts[key].text = "%d%%" % roundi(value)
 	fullscreen.set_pressed_no_signal(DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN])
+	_refresh_display_options()
 
 func open() -> void:
 	previous_focus = get_viewport().gui_get_focus_owner()
