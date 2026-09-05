@@ -1,4 +1,4 @@
-extends SubViewportContainer
+extends TextureRect
 ## An isolated attract-mode world; never writes a player's operation or save.
 
 const DEMO_SCENE := preload("res://main/main.tscn")
@@ -10,14 +10,17 @@ var controller: MenuDefenseDemo
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stretch = true
-	stretch_shrink = 1
+	expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	stretch_mode = TextureRect.STRETCH_SCALE
 	_viewport = SubViewport.new()
 	_viewport.own_world_3d = true
 	_viewport.handle_input_locally = false
 	_viewport.msaa_3d = int(PlayerSettings.instance().values.antialiasing) as Viewport.MSAA
 	PlayerSettings.instance().changed.connect(_apply_display_settings)
 	add_child(_viewport)
+	texture = _viewport.get_texture()
+	get_tree().root.size_changed.connect(_apply_display_settings)
+	_apply_display_settings()
 	var previous_seed := AirscainMain.requested_seed
 	var previous_mode := AirscainMain.requested_mode
 	AirscainMain.requested_seed = 1847
@@ -44,6 +47,10 @@ func _process(delta: float) -> void:
 
 func _apply_display_settings() -> void:
 	_viewport.msaa_3d = int(PlayerSettings.instance().values.antialiasing) as Viewport.MSAA
+	_viewport.size = get_tree().root.size.max(Vector2i.ONE)
+	if DisplayServer.get_name() == "headless":
+		_viewport.size = Vector2i(get_viewport_rect().size).max(Vector2i.ONE)
+	_viewport.scaling_3d_scale = PlayerSettings.render_scale_for(_viewport.size, int(PlayerSettings.instance().values.render_resolution))
 
 func _update_camera() -> void:
 	var angle := 0.58 + sin(_elapsed * 0.025) * 0.06

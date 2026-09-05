@@ -35,6 +35,21 @@ func test_display_preferences_apply_and_round_trip() -> void:
 	preferences.set_value("antialiasing", -1)
 	assert_eq(preferences.values.antialiasing, 0)
 
+func test_render_resolution_preserves_native_pixels_and_aspect_ratio() -> void:
+	assert_eq(PlayerSettings.render_scale_for(Vector2i(2560, 1440), 0), 1.0)
+	assert_eq(PlayerSettings.render_scale_for(Vector2i(2560, 1440), 4), 1.0)
+	assert_eq(PlayerSettings.render_scale_for(Vector2i(2560, 1440), 2), 0.625)
+	assert_eq(PlayerSettings.render_scale_for(Vector2i(3840, 2160), 4), 2.0 / 3.0)
+	assert_eq(PlayerSettings.render_scale_for(Vector2i.ZERO, 2), 1.0)
+	var preferences := PlayerSettings.instance()
+	var output := get_tree().root.size
+	preferences.set_value("render_resolution", 2)
+	assert_almost_eq(get_tree().root.scaling_3d_scale, PlayerSettings.render_scale_for(output, 2), 0.0001)
+	assert_eq(get_tree().root.size, output, "렌더링 해상도는 창 크기를 바꾸지 않습니다")
+	assert_eq(preferences.save_preferences(), OK)
+	preferences.load_preferences()
+	assert_eq(preferences.values.render_resolution, 2)
+
 func test_preferences_round_trip_and_clamp_invalid_input() -> void:
 	PlayerSettings.instance().set_value("missile", 0.35)
 	PlayerSettings.instance().set_value("pan", 1.5)

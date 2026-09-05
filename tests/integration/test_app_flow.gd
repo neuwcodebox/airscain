@@ -108,7 +108,7 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	assert_true(main_menu.visible)
 	assert_false(pause_menu.visible)
 	assert_null(app.get("gameplay"))
-	var backdrop := main_menu.get_node("Background") as SubViewportContainer
+	var backdrop := main_menu.get_node("Background") as TextureRect
 	var preview := backdrop.get_child(0) as SubViewport
 	assert_true(preview.own_world_3d, "메뉴 배경의 월드는 실제 작전과 분리됩니다")
 	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS)

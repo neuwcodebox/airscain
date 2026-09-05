@@ -6,8 +6,9 @@ signal changed
 const AUDIO_BUSES := {"master": "Master", "missile": "Missiles", "gun": "Guns", "explosion": "Explosions", "alert": "Alerts", "ui": "UI"}
 const RESOLUTIONS: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]
 const FRAME_LIMITS: Array[int] = [0, 30, 60, 120, 144]
-const OPTION_LIMITS := {"resolution": 3, "antialiasing": 3, "frame_limit": 4}
-const DEFAULTS := {"master": 1.0, "missile": 1.0, "gun": 1.0, "explosion": 1.0, "alert": 1.0, "ui": 1.0, "pan": 1.0, "rotation": 1.0, "zoom": 1.0, "fullscreen": false, "resolution": 1, "antialiasing": 1, "frame_limit": 0}
+const RENDER_RESOLUTIONS: Array[Vector2i] = [Vector2i.ZERO, Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
+const OPTION_LIMITS := {"resolution": 3, "antialiasing": 3, "frame_limit": 4, "render_resolution": 5}
+const DEFAULTS := {"master": 1.0, "missile": 1.0, "gun": 1.0, "explosion": 1.0, "alert": 1.0, "ui": 1.0, "pan": 1.0, "rotation": 1.0, "zoom": 1.0, "fullscreen": false, "resolution": 1, "antialiasing": 1, "frame_limit": 0, "render_resolution": 0}
 var values: Dictionary = DEFAULTS.duplicate()
 var settings_path: String = "user://settings.cfg"
 
@@ -23,6 +24,7 @@ func _ready() -> void:
 	load_preferences()
 	apply_audio()
 	apply_rendering()
+	get_tree().root.size_changed.connect(apply_rendering)
 	if not OS.has_feature("web"):
 		apply_display()
 
@@ -41,7 +43,7 @@ func set_value(key: String, value: Variant) -> void:
 		apply_audio()
 	elif key in ["fullscreen", "resolution"]:
 		apply_display()
-	elif key in ["antialiasing", "frame_limit"]:
+	elif key in ["antialiasing", "frame_limit", "render_resolution"]:
 		apply_rendering()
 	changed.emit()
 
@@ -64,7 +66,14 @@ func apply_display() -> void:
 
 func apply_rendering() -> void:
 	get_tree().root.msaa_3d = int(values.antialiasing) as Viewport.MSAA
+	get_tree().root.scaling_3d_scale = render_scale_for(get_tree().root.size, int(values.render_resolution))
 	Engine.max_fps = FRAME_LIMITS[int(values.frame_limit)]
+
+static func render_scale_for(output_size: Vector2i, selection: int) -> float:
+	if selection <= 0 or selection >= RENDER_RESOLUTIONS.size() or output_size.x <= 0 or output_size.y <= 0:
+		return 1.0
+	var target := RENDER_RESOLUTIONS[selection]
+	return clampf(minf(float(target.x) / output_size.x, float(target.y) / output_size.y), 0.1, 2.0)
 
 func reset_defaults() -> void:
 	values = DEFAULTS.duplicate()

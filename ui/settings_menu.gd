@@ -6,6 +6,7 @@ var sliders: Dictionary[String, HSlider] = {}
 var readouts: Dictionary[String, Label] = {}
 var fullscreen: CheckButton
 var options: Dictionary[String, OptionButton] = {}
+var render_readout: Label
 var feedback: Label
 var close_button: Button
 var tabs: TabContainer
@@ -78,6 +79,16 @@ func _ready() -> void:
 	for size: Vector2i in PlayerSettings.RESOLUTIONS:
 		resolutions.append("%d × %d" % [size.x, size.y])
 	_option(display, "resolution", "창 해상도", resolutions)
+	var render_options: Array[String] = ["자동 · 화면 픽셀에 맞춤"]
+	for index: int in range(1, PlayerSettings.RENDER_RESOLUTIONS.size()):
+		var size := PlayerSettings.RENDER_RESOLUTIONS[index]
+		render_options.append("%d × %d" % [size.x, size.y])
+	_option(display, "render_resolution", "렌더링 해상도", render_options)
+	render_readout = Label.new()
+	render_readout.add_theme_color_override("font_color", Color("83b7a9"))
+	display.add_child(render_readout)
+	get_tree().root.size_changed.connect(_refresh_render_readout)
+	PlayerSettings.instance().changed.connect(_refresh_render_readout)
 	_option(display, "antialiasing", "안티앨리어싱", ["끄기", "MSAA 2×", "MSAA 4×", "MSAA 8×"])
 	_option(display, "frame_limit", "최대 프레임", ["제한 없음", "30 FPS", "60 FPS", "120 FPS", "144 FPS"])
 	feedback = Label.new()
@@ -107,6 +118,12 @@ func _ready() -> void:
 			button_style.border_width_bottom = 1
 			button.add_theme_stylebox_override(state, button_style)
 	visible = false
+
+func _refresh_render_readout() -> void:
+	var output := get_tree().root.size
+	var scale := PlayerSettings.render_scale_for(output, int(PlayerSettings.instance().values.render_resolution))
+	var rendered := Vector2i(Vector2(output) * scale)
+	render_readout.text = "3D 렌더링 %d × %d · UI %d × %d" % [rendered.x, rendered.y, output.x, output.y]
 
 func _option(parent: VBoxContainer, key: String, caption: String, items: Array[String]) -> void:
 	var row := HBoxContainer.new()
@@ -183,6 +200,7 @@ func refresh() -> void:
 		readouts[key].text = "%d%%" % roundi(value)
 	fullscreen.set_pressed_no_signal(DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN])
 	_refresh_display_options()
+	_refresh_render_readout()
 
 func open() -> void:
 	previous_focus = get_viewport().gui_get_focus_owner()
