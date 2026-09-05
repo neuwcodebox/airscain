@@ -870,6 +870,9 @@ func _capture_hdr_light_vfx() -> void:
 	_save_capture("/tmp/airscain_explosion_close.png")
 
 func _capture_explosion_layers() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
+	await process_frame
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	var center := main.objective.global_position + Vector3(-320.0, 105.0, -170.0)
@@ -897,7 +900,8 @@ func _capture_explosion_layers() -> void:
 	explosion._apply_timeline(ExplosionTimeline.sample(1.6, explosion.effect_radius))
 	await _wait_seconds(0.85)
 	_save_capture("/tmp/airscain_explosion_residual_smoke.png")
-	if not is_instance_valid(explosion) or not explosion.smoke.emitting:
+	# A one-shot emitter stops emitting while its already-born particles linger.
+	if not is_instance_valid(explosion) or not explosion.smoke.is_visible_in_tree() or explosion.smoke.lifetime <= 1.6:
 		push_error("Explosion did not retain its smoke stage after the flash")
 		quit(1)
 

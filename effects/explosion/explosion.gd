@@ -73,7 +73,8 @@ func setup(color: Color, radius: float) -> void:
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	_apply_timeline(ExplosionTimeline.sample(elapsed, effect_radius))
+	if flash.visible or flash_halo.visible or pressure_ring.visible or shockwave.visible or blast_light.visible or elapsed <= ExplosionTimeline.PRESSURE_DELAY:
+		_apply_timeline(ExplosionTimeline.sample(elapsed, effect_radius))
 	if elapsed >= duration:
 		if reusable:
 			deactivate()
@@ -82,15 +83,19 @@ func _process(delta: float) -> void:
 			queue_free()
 
 func _apply_timeline(state: ExplosionTimeline.State) -> void:
-	flash.scale = Vector3.ONE * state.core_scale
-	_set_alpha(flash_material, state.core_alpha)
-	flash_halo.scale = Vector3.ONE * state.halo_scale
-	_set_alpha(halo_material, state.halo_alpha)
-	pressure_ring.scale = Vector3.ONE * state.pressure_scale
-	_set_alpha(pressure_material, state.pressure_alpha)
-	shockwave.scale = Vector3.ONE * state.ground_wave_scale
-	_set_alpha(shockwave_material, state.ground_wave_alpha)
-	blast_light.light_energy = state.light_energy
+	_apply_layer(flash, flash_material, state.core_scale, state.core_alpha)
+	_apply_layer(flash_halo, halo_material, state.halo_scale, state.halo_alpha)
+	_apply_layer(pressure_ring, pressure_material, state.pressure_scale, state.pressure_alpha)
+	_apply_layer(shockwave, shockwave_material, state.ground_wave_scale, state.ground_wave_alpha)
+	if blast_light.visible or state.light_energy > 0.0:
+		blast_light.light_energy = state.light_energy
+	blast_light.visible = state.light_energy > 0.0
+
+func _apply_layer(layer: MeshInstance3D, material: StandardMaterial3D, size: float, alpha: float) -> void:
+	if layer.visible or alpha > 0.0 or material.albedo_color.a != alpha:
+		layer.scale = Vector3.ONE * size
+		_set_alpha(material, alpha)
+	layer.visible = alpha > 0.0
 
 func _duplicate_colored_material(mesh_instance: MeshInstance3D, color: Color, alpha: float) -> StandardMaterial3D:
 	var material := (mesh_instance.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D

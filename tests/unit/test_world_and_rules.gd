@@ -964,6 +964,45 @@ func test_explosion_pool_reuses_instances_and_materials_without_reviving_other_e
 	assert_eq(second.flash_material.emission, Color.CYAN)
 	assert_eq(pool.available.size(), CombatEffectPool.CAPACITY - 2)
 
+func test_explosion_layers_retire_only_at_zero_and_restart_with_the_same_timeline() -> void:
+	var effect := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect
+	effect.setup(Color.ORANGE, 10)
+	for index: int in 150:
+		effect._process(0.01)
+		var state := ExplosionTimeline.sample(effect.elapsed, 10)
+		assert_eq(effect.flash.visible, state.core_alpha > 0.0)
+		assert_eq(effect.flash_halo.visible, state.halo_alpha > 0.0)
+		assert_eq(effect.pressure_ring.visible, state.pressure_alpha > 0.0)
+		assert_eq(effect.shockwave.visible, state.ground_wave_alpha > 0.0)
+		assert_eq(effect.blast_light.visible, state.light_energy > 0.0)
+		assert_almost_eq(effect.shockwave_material.albedo_color.a, state.ground_wave_alpha, 0.00001)
+	assert_true(effect.smoke.emitting)
+	assert_true(effect.sparks.emitting)
+	assert_true(effect.visible)
+	effect.setup(Color.CYAN, 12)
+	assert_true(effect.flash.visible)
+	assert_true(effect.blast_light.visible)
+	assert_false(effect.pressure_ring.visible)
+	effect._process(0.1)
+	assert_true(effect.pressure_ring.visible)
+
+func test_overflow_explosions_reuse_buffers_without_limiting_simultaneous_effects() -> void:
+	var pool := add_child_autofree(CombatEffectPool.new()) as CombatEffectPool
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var effects: Array[ExplosionEffect] = []
+	for index: int in CombatEffectPool.RETAINED_CAPACITY + 2:
+		effects.append(pool.spawn_explosion(parent, Vector3(index, 0, 0), Color.ORANGE, 8))
+		assert_true(effects.back().visible)
+	assert_eq(parent.get_child_count(), effects.size())
+	assert_eq(pool.retained_count, CombatEffectPool.RETAINED_CAPACITY)
+	var overflow := effects[CombatEffectPool.CAPACITY]
+	var material := overflow.flash_material
+	overflow._process(overflow.duration)
+	var reused := pool.spawn_explosion(parent, Vector3.ZERO, Color.WHITE, 10)
+	assert_same(reused, overflow)
+	assert_same(reused.flash_material, material)
+	assert_false(effects.back().reusable)
+
 func test_street_details_rotate_local_length_with_the_road() -> void:
 	var details := add_child_autofree(LandscapeDetails.new()) as LandscapeDetails
 	for yaw: float in [0.0, PI * 0.5, -PI * 0.5]:

@@ -4,6 +4,8 @@ extends Node3D
 
 const EXPLOSION := preload("res://effects/explosion/explosion.tscn")
 const CAPACITY := 8
+const RETAINED_CAPACITY := 32
+var retained_count: int = CAPACITY
 var available: Array[ExplosionEffect] = []
 var prepared: bool = false
 
@@ -23,6 +25,11 @@ func spawn_explosion(parent: Node3D, position: Vector3, color: Color, radius: fl
 	if available.is_empty():
 		effect = EXPLOSION.instantiate() as ExplosionEffect
 		parent.add_child(effect)
+		# Retain overflow buffers for later salvos without limiting visible effects.
+		if retained_count < RETAINED_CAPACITY:
+			retained_count += 1
+			effect.reusable = true
+			effect.finished.connect(_recycle)
 	else:
 		effect = available.pop_back()
 		effect.reparent(parent, false)
