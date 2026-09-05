@@ -304,6 +304,7 @@ func _is_city_impact(threat: ThreatUnit, neutralized: bool) -> bool:
 
 func _spawn_falling_wreck(threat: ThreatUnit) -> void:
 	var effect := FALLING_WRECK_SCENE.instantiate() as FallingWreckEffect
+	effect.battlefield = battlefield
 	effects_parent.add_child(effect)
 	effect.global_position = threat.global_position
 	var color := Color(0.45, 0.16, 0.1)

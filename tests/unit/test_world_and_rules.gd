@@ -3,6 +3,44 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+func test_wreck_hits_the_current_roof_instead_of_the_original_ground_height() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var bounds := field.city_building_bounds(0)
+	var roof := Vector3(bounds.get_center().x, bounds.end.y, bounds.get_center().z)
+	var wreck := preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate() as FallingWreckEffect
+	field.add_child(wreck)
+	wreck.battlefield = field
+	wreck.global_position = roof + Vector3.UP * 20
+	wreck.setup(Color.GRAY, Vector3.DOWN * 1000, -1000)
+	wreck._process(0.1)
+	assert_true(wreck.impacted)
+	assert_almost_eq(wreck.global_position, roof, Vector3.ONE * 0.01)
+	assert_false(wreck.wreck.visible)
+	assert_true(wreck.smoke_released)
+	var effects := field.get_children().filter(func(node: Node) -> bool: return node is ExplosionEffect)
+	assert_eq(effects.size(), 1)
+	assert_almost_eq((effects[0] as Node3D).global_position, roof, Vector3.ONE * 0.01)
+
+func test_lost_track_missile_pulls_up_without_changing_speed() -> void:
+	var missile := add_child_autofree(preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate()) as HomingInterceptor
+	missile.global_position = Vector3(0, 1000, 0)
+	missile.speed = 100
+	missile.maximum_lifetime = 10
+	missile.turn_rate = 2.0
+	missile.velocity = Vector3(1, -1, 0).normalized() * missile.speed
+	var track := PlayerTrack.new()
+	track.state = PlayerTrack.State.LOST
+	missile.target_track = track
+	var original_y := missile.velocity.y
+	missile.gameplay_tick(0.1)
+	assert_gt(missile.velocity.y, original_y)
+	for index: int in 8:
+		missile.gameplay_tick(0.1)
+	assert_gt(missile.velocity.y, 0.0)
+	assert_almost_eq(missile.velocity.length(), missile.speed, 0.001)
+	assert_gt(missile.reacquisition_remaining, 0.0)
+
 func test_placement_contours_are_world_local_and_do_not_change_terrain() -> void:
 	var first := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	var second := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield

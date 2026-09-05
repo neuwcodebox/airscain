@@ -6,6 +6,7 @@ static var wreck_materials: Dictionary[Color, StandardMaterial3D] = {}
 
 var velocity: Vector3
 var ground_height: float
+var battlefield: Battlefield
 var elapsed: float = 0.0
 var impacted: bool = false
 var impact_flash_enabled: bool = true
@@ -82,11 +83,25 @@ func _process(delta: float) -> void:
 		var previous_position := global_position
 		velocity += Vector3.DOWN * 34.0 * delta
 		global_position += velocity * delta
+		var hit := false
+		if battlefield != null:
+			var terrain_hit := battlefield.terrain_segment_impact(previous_position, global_position)
+			var building_hit := battlefield.building_segment_impact(previous_position, global_position)
+			var nearest := INF
+			for impact: Dictionary in [terrain_hit, building_hit]:
+				if not impact.is_empty():
+					var distance := previous_position.distance_squared_to(impact.position)
+					if distance < nearest:
+						nearest = distance
+						global_position = impact.position
+						hit = true
+		elif global_position.y <= ground_height + 1.0:
+			global_position.y = ground_height + 1.0
+			hit = true
 		smoke.sample_world_segment(previous_position, global_position)
 		wreck.rotate_x(delta * 4.2)
 		wreck.rotate_z(delta * 3.4)
-		if global_position.y <= ground_height + 1.0:
-			global_position.y = ground_height + 1.0
+		if hit:
 			impacted = true
 			wreck.visible = false
 			_release_smoke()

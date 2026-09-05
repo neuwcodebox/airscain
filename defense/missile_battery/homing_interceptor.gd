@@ -123,22 +123,26 @@ func gameplay_tick(delta: float) -> void:
 		_expire(Color(0.72, 0.78, 0.82), "유도 이탈")
 
 func _coast_without_target(delta: float) -> void:
+	_steer_search_climb(delta)
 	_advance_unguided(delta)
+
+func _steer_search_climb(delta: float) -> void:
+	var current_direction := velocity.normalized()
+	var horizontal_direction := Vector3(current_direction.x, 0.0, current_direction.z)
+	if horizontal_direction.length_squared() <= 0.001:
+		horizontal_direction = Vector3.FORWARD
+	else:
+		horizontal_direction = horizontal_direction.normalized()
+	var climb_angle := maxf(asin(clampf(current_direction.y, -1.0, 1.0)), DESTROYED_TARGET_CLIMB_ANGLE)
+	var desired_direction := horizontal_direction * cos(climb_angle) + Vector3.UP * sin(climb_angle)
+	var turn_angle := current_direction.angle_to(desired_direction)
+	var direction := desired_direction if turn_angle <= turn_rate * delta else current_direction.slerp(desired_direction, turn_rate * delta / turn_angle)
+	velocity = direction.normalized() * speed
 
 func _continue_destroyed_target_abort(delta: float) -> void:
 	var flight_delta := minf(delta, maxf(reacquisition_remaining, 0.0))
 	if flight_delta > 0.0:
-		var current_direction := velocity.normalized()
-		var horizontal_direction := Vector3(current_direction.x, 0.0, current_direction.z)
-		if horizontal_direction.length_squared() <= 0.001:
-			horizontal_direction = Vector3.FORWARD
-		else:
-			horizontal_direction = horizontal_direction.normalized()
-		var climb_angle := maxf(asin(clampf(current_direction.y, -1.0, 1.0)), DESTROYED_TARGET_CLIMB_ANGLE)
-		var desired_direction := horizontal_direction * cos(climb_angle) + Vector3.UP * sin(climb_angle)
-		var turn_angle := current_direction.angle_to(desired_direction)
-		var direction := desired_direction if turn_angle <= turn_rate * flight_delta else current_direction.slerp(desired_direction, turn_rate * flight_delta / turn_angle)
-		velocity = direction.normalized() * speed
+		_steer_search_climb(flight_delta)
 		if _advance_unguided(flight_delta):
 			return
 	reacquisition_remaining -= delta
