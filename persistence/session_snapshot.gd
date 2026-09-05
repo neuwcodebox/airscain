@@ -4,9 +4,17 @@ extends RefCounted
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
-	if version >= 20:
+	if version >= 21:
 		return payload
 	var result := payload.duplicate(true)
+	var support: Variant = result.world.get("support", {})
+	if support is Dictionary and support.get("tasks") is Array:
+		for task: Variant in support.tasks:
+			if task is Dictionary:
+				# Old resupply tasks have no reliable record of request origin.
+				task.user_requested = String(task.get("kind", "")) == SupportManager.REPAIR
+	if version >= 20:
+		return result
 	var smoke_sites: Variant = result.world.get("objective_damage_smoke", [])
 	if smoke_sites is Array:
 		var integrity := int(result.world.get("objective_integrity", 0))
@@ -233,6 +241,8 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		automatic_targets[target_id] = true
 	var support_targets: Dictionary[int, bool] = {}
 	for task: Dictionary in support_state.tasks:
+		if not task.get("user_requested") is bool:
+			return "지원 작업 요청 출처가 올바르지 않습니다"
 		var kind := String(task.get("kind", ""))
 		var target_defense_id := int(task.get("target_defense_id", 0))
 		if kind != SupportManager.RESUPPLY and kind != SupportManager.REPAIR:

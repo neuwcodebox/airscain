@@ -1,7 +1,7 @@
 class_name SupportManager
 extends Node
 
-signal task_completed(kind: StringName, unit: DefenseUnit)
+signal task_completed(kind: StringName, unit: DefenseUnit, user_requested: bool)
 signal task_requested(kind: StringName, unit: DefenseUnit)
 
 var facilities: Array[DefenseUnit] = []
@@ -29,10 +29,10 @@ func register_asset(unit: DefenseUnit) -> void:
 	if unit.service_range() > 0.0 and unit.support_slots() > 0:
 		facilities.append(unit)
 
-func request_resupply(unit: DefenseUnit) -> bool:
+func request_resupply(unit: DefenseUnit, user_requested: bool = true) -> bool:
 	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or not unit.ammunition_needs_resupply() or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false
-	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
+	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work(), user_requested)
 
 func set_automatic_resupply(unit: DefenseUnit, enabled: bool) -> void:
 	if not is_instance_valid(unit) or not unit.uses_ammunition() or not consumers.has(unit.runtime_id):
@@ -59,17 +59,17 @@ func _check_automatic_resupply(delta: float) -> void:
 		if not is_instance_valid(unit) or not unit.active or unit.integrity <= 0.0 or not unit.combat_resource_low():
 			continue
 		# Share the manual request's cost, coverage, queue and relocation guards.
-		request_resupply(unit)
+		request_resupply(unit, false)
 
 func request_repair(unit: DefenseUnit) -> bool:
 	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false
 	return _request_task(unit, REPAIR, unit.repair_cost(), unit.repair_work())
 
-func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float) -> bool:
+func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float, user_requested: bool = true) -> bool:
 	if session == null or not session.try_spend(cost):
 		return false
-	tasks.append({"kind": kind, "target_defense_id": unit.runtime_id, "remaining_work": work})
+	tasks.append({"kind": kind, "target_defense_id": unit.runtime_id, "remaining_work": work, "user_requested": user_requested})
 	task_requested.emit(StringName(kind), unit)
 	return true
 
@@ -155,7 +155,7 @@ func _complete_task(index: int) -> void:
 			completed = true
 	tasks.remove_at(index)
 	if completed:
-		task_completed.emit(StringName(task.kind), target)
+		task_completed.emit(StringName(task.kind), target, bool(task.user_requested))
 
 func task_status(unit: DefenseUnit) -> String:
 	for index: int in tasks.size():
@@ -200,4 +200,5 @@ func restore_state(state: Dictionary) -> void:
 			"kind": String(task.kind),
 			"target_defense_id": int(task.target_defense_id),
 			"remaining_work": float(task.remaining_work),
+			"user_requested": bool(task.user_requested),
 		})

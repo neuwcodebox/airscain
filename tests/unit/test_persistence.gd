@@ -2,6 +2,14 @@ extends GutTest
 
 const SAVE_STORE := preload("res://persistence/save_store.gd")
 
+func test_legacy_support_requests_do_not_guess_manual_resupply_origin() -> void:
+	var payload := {"world": {"support": {"tasks": [{"kind": "resupply"}, {"kind": "repair"}]}}}
+	var migrated := SessionSnapshot.migrate_content(payload, 20, null)
+	assert_false(migrated.world.support.tasks[0].user_requested)
+	assert_true(migrated.world.support.tasks[1].user_requested)
+	assert_false(payload.world.support.tasks[0].has("user_requested"))
+	assert_eq(SessionSnapshot.migrate_content(migrated, SaveDocument.CURRENT_VERSION, null), migrated)
+
 var save_path: String
 
 func before_each() -> void:

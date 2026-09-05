@@ -341,8 +341,9 @@ func _on_recovery_started(_completed_window: int) -> void:
 func _on_support_received(amount: int, reason: String) -> void:
 	hud.set_feedback("예산 +$%d (%s)" % [amount, reason])
 
-func _on_support_task_completed(kind: StringName, unit: DefenseUnit) -> void:
-	ui_audio.play_event(UiAudio.ACTION_COMPLETE)
+func _on_support_task_completed(kind: StringName, unit: DefenseUnit, user_requested: bool) -> void:
+	if user_requested:
+		ui_audio.play_event(UiAudio.ACTION_COMPLETE)
 	if game_mode == GameMode.TRAINING:
 		training_controller.support_completed(kind, unit)
 
