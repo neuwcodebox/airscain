@@ -56,6 +56,7 @@ func _buffer(size: Vector3, color: Color, energy: float, card: bool = false) -> 
 	instance.multimesh.use_colors = true
 	instance.multimesh.mesh = mesh
 	instance.multimesh.instance_count = CAPACITY
+	instance.multimesh.custom_aabb = AABB(-Vector3.ONE, Vector3.ONE * 2.0)
 	for index: int in CAPACITY:
 		instance.multimesh.set_instance_color(index, Color.WHITE)
 	instance.multimesh.visible_instance_count = 0
@@ -81,7 +82,7 @@ func cancel_pending() -> void:
 			rounds.remove_at(index)
 
 func gameplay_tick(delta: float) -> void:
-	if delta <= 0:
+	if delta <= 0 or rounds.is_empty() and bursts.is_empty():
 		return
 	var remaining := delta
 	while remaining > 0.000001:
@@ -98,6 +99,11 @@ func _step(delta: float) -> void:
 	var targets: Array[ThreatUnit] = []
 	if registry != null:
 		targets = registry.get_active()
+	var target_positions := PackedVector3Array()
+	var target_steps := PackedVector3Array()
+	for target: ThreatUnit in targets:
+		target_positions.append(target.get_aim_position())
+		target_steps.append(target.presentation_velocity())
 	for index: int in range(rounds.size() - 1, -1, -1):
 		var round := rounds[index]
 		var previous_age := float(round.age)
@@ -126,11 +132,12 @@ func _step(delta: float) -> void:
 		var victim: ThreatUnit
 		if float(round.age) >= ARM_TIME:
 			var armed_fraction := clampf((ARM_TIME - maxf(0, previous_age)) / maxf(0.00001, travel_time), 0, 1)
-			for target: ThreatUnit in targets:
+			for target_index: int in targets.size():
+				var target := targets[target_index]
 				if not is_instance_valid(target) or not target.is_targetable():
 					continue
-				var offset := start - target.get_aim_position()
-				var relative_step := end - start - target.presentation_velocity() * travel_time
+				var offset := start - target_positions[target_index]
+				var relative_step := end - start - target_steps[target_index] * travel_time
 				var along := clampf(-offset.dot(relative_step) / maxf(0.00001, relative_step.length_squared()), armed_fraction, 1)
 				if along <= stop and (offset + relative_step * along).length_squared() <= float(round.radius) * float(round.radius):
 					stop = along
@@ -153,28 +160,40 @@ func _detonate(position: Vector3, reason: StringName) -> void:
 
 func _sync_visuals() -> void:
 	var visible_rounds := 0
+	var bounds := AABB()
+	var has_bounds := false
 	for round: Dictionary in rounds:
 		if not bool(round.emitted):
 			continue
 		var direction := (round.velocity as Vector3).normalized()
 		var basis := Basis.looking_at(direction, Vector3.RIGHT if absf(direction.y) > 0.99 else Vector3.UP)
 		var pose := Transform3D(basis, round.position)
+		bounds = bounds.expand(pose.origin) if has_bounds else AABB(pose.origin, Vector3.ZERO)
+		has_bounds = true
 		cores.multimesh.set_instance_transform(visible_rounds, pose)
 		glows.multimesh.set_instance_transform(visible_rounds, pose)
 		visible_rounds += 1
 	cores.multimesh.visible_instance_count = visible_rounds
 	glows.multimesh.visible_instance_count = visible_rounds
+	var visible_flashes := 0
 	for index: int in bursts.size():
 		var burst := bursts[index]
 		var age := float(burst.age)
+		bounds = bounds.expand(burst.position) if has_bounds else AABB(burst.position, Vector3.ZERO)
+		has_bounds = true
 		var flash_size := 3.0 + minf(age / 0.08, 1.0) * 4.0
-		flashes.multimesh.set_instance_transform(index, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * flash_size), burst.position))
-		flashes.multimesh.set_instance_color(index, Color(1, 1, 1, maxf(0, 1 - age / 0.12)))
+		if age < 0.12:
+			flashes.multimesh.set_instance_transform(visible_flashes, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * flash_size), burst.position))
+			flashes.multimesh.set_instance_color(visible_flashes, Color(1, 1, 1, maxf(0, 1 - age / 0.12)))
+			visible_flashes += 1
 		var smoke_size := 2.0 + age * 5.0
 		smoke.multimesh.set_instance_transform(index, Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * smoke_size), (burst.position as Vector3) + Vector3(1, 1, 0) * age))
 		smoke.multimesh.set_instance_color(index, Color(1, 1, 1, minf(age / 0.08, 1.0) * maxf(0, 1 - age / 0.85)))
-	flashes.multimesh.visible_instance_count = bursts.size()
+	flashes.multimesh.visible_instance_count = visible_flashes
 	smoke.multimesh.visible_instance_count = bursts.size()
+	if has_bounds:
+		for layer: MultiMeshInstance3D in [cores, glows, flashes, smoke]:
+			layer.multimesh.custom_aabb = bounds.grow(12.0)
 
 func capture_state() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

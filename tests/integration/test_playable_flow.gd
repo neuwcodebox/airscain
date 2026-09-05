@@ -1659,16 +1659,14 @@ func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
 	assert_gte(smoke.amount, 2200)
 	assert_true(smoke.puff_mesh is QuadMesh)
 	var smoke_material := smoke.smoke_material
-	assert_eq(smoke_material.billboard_mode, BaseMaterial3D.BILLBOARD_ENABLED)
-	assert_true(smoke_material.vertex_color_use_as_albedo)
-	assert_not_null(smoke_material.albedo_texture)
+	assert_not_null(smoke_material.get_shader_parameter("puff_texture"))
+	assert_true(smoke.multimesh.use_custom_data)
 	assert_lte(smoke.sample_spacing, smoke.puff_mesh.size.x)
 	var smoke_shadow := smoke.get_node("SmokeShadow") as MultiMeshInstance3D
 	assert_eq(smoke_shadow.multimesh.instance_count, ceili(float(smoke.amount) / 2.0))
 	assert_gt(smoke.drift_speed, 0.0)
 	assert_gt(smoke.final_scale, smoke.initial_scale)
-	assert_lt(smoke._puff_alpha(0.68), smoke._puff_alpha(0.45))
-	assert_eq(smoke._puff_alpha(0.88), 0.0)
+	assert_eq(smoke_material.get_shader_parameter("trail_lifetime"), smoke.lifetime)
 	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	interceptor.queue_free()
 
@@ -1676,17 +1674,16 @@ func test_released_smoke_trail_reaches_zero_opacity_before_cleanup() -> void:
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(interceptor)
 	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
-	var initial_alpha := smoke.smoke_material.albedo_color.a
 	smoke.release_to(main.effects_parent)
 	smoke._process(smoke.release_fade_duration * 0.5)
 	assert_between(smoke.current_shadow_opacity_ratio, 0.0, 1.0)
 	assert_almost_eq(smoke.current_opacity_ratio, 0.5, 0.001)
-	assert_almost_eq(smoke.smoke_material.albedo_color.a, initial_alpha * 0.5, 0.001)
+	assert_almost_eq(float(smoke.smoke_material.get_shader_parameter("opacity_ratio")), 0.5, 0.001)
 	assert_almost_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), 0.5, 0.001)
 	smoke._process(smoke.release_fade_duration * 0.5)
 	assert_eq(smoke.current_shadow_opacity_ratio, 0.0)
 	assert_eq(smoke.current_opacity_ratio, 0.0)
-	assert_eq(smoke.smoke_material.albedo_color.a, 0.0)
+	assert_eq(float(smoke.smoke_material.get_shader_parameter("opacity_ratio")), 0.0)
 	assert_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), 0.0)
 	assert_false(smoke.is_queued_for_deletion())
 	smoke._process(smoke.transparent_cleanup_delay + 0.01)

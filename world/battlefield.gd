@@ -19,6 +19,10 @@ var city_rooftop_detail_count: int = 0
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_building_footprints: Array[Rect2] = []
 var city_buildings: Array[Transform3D] = []
+const BUILDING_CELL_SIZE := 64.0
+var _building_bounds: Array[AABB] = []
+var _building_cells: Dictionary[Vector2i, Array] = {}
+var _city_bounds := AABB()
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -52,9 +56,22 @@ func build(scenario: ScenarioDefinition) -> void:
 
 func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 	city_building_footprints.clear()
+	_building_bounds.clear()
+	_building_cells.clear()
 	for index: int in buildings.size():
 		var building := buildings[index]
 		var size := building.basis.get_scale()
+		var bounds := AABB(building.origin - size * 0.5, size)
+		_building_bounds.append(bounds)
+		_city_bounds = bounds if index == 0 else _city_bounds.merge(bounds)
+		var first := _building_cell(bounds.position)
+		var last := _building_cell(bounds.end)
+		for z: int in range(first.y, last.y + 1):
+			for x: int in range(first.x, last.x + 1):
+				var cell := Vector2i(x, z)
+				if not _building_cells.has(cell):
+					_building_cells[cell] = []
+				_building_cells[cell].append(index)
 		var architecture_margin := 1.2 if index % 3 == 0 else 0.35
 		var half_extents := Vector2(size.x, size.z) * 0.5 + Vector2.ONE * architecture_margin
 		city_building_footprints.append(Rect2(Vector2(building.origin.x, building.origin.z) - half_extents, half_extents * 2.0))
@@ -72,9 +89,20 @@ func random_city_building_target(rng: RandomNumberGenerator) -> Vector3:
 	)
 
 func building_segment_impact(from_position: Vector3, to_position: Vector3) -> Dictionary:
+	if _building_bounds.is_empty() or not _city_bounds.intersects_segment(from_position, to_position) is Vector3:
+		return {}
+	var first := _building_cell(from_position.min(to_position).max(_city_bounds.position))
+	var last := _building_cell(from_position.max(to_position).min(_city_bounds.end))
+	var candidates: Dictionary[int, bool] = {}
+	for z: int in range(first.y, last.y + 1):
+		for x: int in range(first.x, last.x + 1):
+			for index: int in _building_cells.get(Vector2i(x, z), []):
+				candidates[index] = true
+	var indices := candidates.keys()
+	indices.sort()
 	var nearest_distance := INF
 	var result: Dictionary = {}
-	for index: int in city_buildings.size():
+	for index: int in indices:
 		var building := city_buildings[index]
 		var intersection: Variant = city_building_bounds(index).intersects_segment(from_position, to_position)
 		if not intersection is Vector3:
@@ -122,9 +150,10 @@ func terrain_segment_impact(from_position: Vector3, to_position: Vector3) -> Dic
 	return {}
 
 func city_building_bounds(index: int) -> AABB:
-	var building := city_buildings[index]
-	var size := building.basis.get_scale()
-	return AABB(building.origin - size * 0.5, size)
+	return _building_bounds[index]
+
+func _building_cell(position: Vector3) -> Vector2i:
+	return Vector2i(floori(position.x / BUILDING_CELL_SIZE), floori(position.z / BUILDING_CELL_SIZE))
 
 func set_objective(objective_value: ProtectedObjective) -> void:
 	objective = objective_value

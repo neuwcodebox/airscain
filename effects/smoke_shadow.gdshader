@@ -1,6 +1,9 @@
 shader_type spatial;
 render_mode cull_disabled, unshaded;
 
+#include "res://effects/trail_motion.gdshaderinc"
+uniform bool trail_enabled = false;
+
 uniform bool billboard_enabled = false;
 uniform float opacity_ratio : hint_range(0.0, 1.0) = 1.0;
 
@@ -14,8 +17,13 @@ void vertex() {
 		);
 		MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
 	}
-	float particle_visibility = smoothstep(0.02, 0.35, COLOR.a) * opacity_ratio;
+	float alpha = trail_enabled ? trail_alpha(INSTANCE_CUSTOM) : COLOR.a;
+	float particle_visibility = smoothstep(0.02, 0.35, alpha) * opacity_ratio;
 	VERTEX *= sqrt(max(particle_visibility, 0.0));
+	if (trail_enabled) {
+		vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb);
+		VERTEX = VERTEX * motion.w + motion.xyz;
+	}
 }
 
 void fragment() {

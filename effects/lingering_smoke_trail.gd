@@ -2,6 +2,7 @@ class_name LingeringSmokeTrail
 extends MultiMeshInstance3D
 
 const VISUAL_UPDATE_INTERVAL := 1.0 / 15.0
+const TRAIL_SHADER := preload("res://effects/trail_smoke.gdshader")
 
 @export var puff_mesh: QuadMesh
 @export_range(32, 4096, 1) var amount: int = 1024
@@ -25,8 +26,7 @@ var sampled_path_length: float = 0.0
 var emitted_sample_count: int = 0
 var last_emitted_world_position: Vector3
 var current_opacity_ratio: float = 1.0
-var smoke_material: StandardMaterial3D
-var initial_material_alpha: float = 1.0
+var smoke_material: ShaderMaterial
 var shadow_particles: MultiMeshInstance3D
 var shadow_material: ShaderMaterial
 var current_shadow_opacity_ratio: float = 1.0
@@ -44,6 +44,9 @@ var _serials := PackedInt32Array()
 var _occupied_slots := PackedByteArray()
 var _shadow_owner_serials := PackedInt32Array()
 var _active_slots: Array[int] = []
+var _bounds := AABB()
+var _has_bounds := false
+var _bounds_dirty := false
 
 func _ready() -> void:
 	set_as_top_level(true)
@@ -103,9 +106,16 @@ func active_puff_count() -> int:
 
 func _process(delta: float) -> void:
 	_elapsed += delta
+	smoke_material.set_shader_parameter("trail_time", _elapsed)
+	shadow_material.set_shader_parameter("trail_time", _elapsed)
+	if _bounds_dirty:
+		var margin := puff_mesh.size.length() * maxf(initial_scale, final_scale) * 1.3 + lifetime * drift_speed * 2.0
+		multimesh.custom_aabb = _bounds.grow(margin)
+		shadow_particles.multimesh.custom_aabb = multimesh.custom_aabb
+		_bounds_dirty = false
 	_visual_update_remaining -= delta
 	if _visual_update_remaining <= 0.0:
-		_visual_update_remaining += VISUAL_UPDATE_INTERVAL
+		_visual_update_remaining = VISUAL_UPDATE_INTERVAL
 		_update_puffs()
 	if release_remaining < 0.0:
 		return
@@ -120,15 +130,20 @@ func _create_visible_multimesh() -> void:
 	var unique_mesh := puff_mesh.duplicate() as QuadMesh
 	var source_material := unique_mesh.material
 	if source_material is StandardMaterial3D:
-		smoke_material = (source_material as StandardMaterial3D).duplicate() as StandardMaterial3D
-		smoke_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		var source := source_material as StandardMaterial3D
+		smoke_material = ShaderMaterial.new()
+		smoke_material.shader = TRAIL_SHADER
+		smoke_material.set_shader_parameter("puff_texture", source.albedo_texture)
+		smoke_material.set_shader_parameter("tint", source.albedo_color)
+		_configure_motion(smoke_material)
 		unique_mesh.material = smoke_material
-		initial_material_alpha = smoke_material.albedo_color.a
 	var smoke_multimesh := MultiMesh.new()
 	smoke_multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	smoke_multimesh.use_colors = true
+	smoke_multimesh.use_custom_data = true
 	smoke_multimesh.mesh = unique_mesh
 	smoke_multimesh.instance_count = amount
+	smoke_multimesh.custom_aabb = AABB(-Vector3.ONE, Vector3.ONE * 2.0)
 	multimesh = smoke_multimesh
 	_birth_times.resize(amount)
 	_positions.resize(amount)
@@ -145,12 +160,16 @@ func _create_shadow_multimesh() -> void:
 		push_error("Lingering smoke requires a StandardMaterial3D puff mesh")
 		return
 	shadow_material = proxy.material
+	shadow_material.set_shader_parameter("trail_enabled", true)
+	_configure_motion(shadow_material)
 	var shadow_multimesh := MultiMesh.new()
 	shadow_multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	shadow_multimesh.use_colors = true
+	shadow_multimesh.use_custom_data = true
 	shadow_multimesh.mesh = proxy.mesh
 	var shadow_count := ceili(float(amount) / float(shadow_emission_stride))
 	shadow_multimesh.instance_count = shadow_count
+	shadow_multimesh.custom_aabb = AABB(-Vector3.ONE, Vector3.ONE * 2.0)
 	_shadow_owner_serials.resize(shadow_count)
 	shadow_multimesh.visible_instance_count = 0
 	shadow_particles = MultiMeshInstance3D.new()
@@ -158,6 +177,12 @@ func _create_shadow_multimesh() -> void:
 	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	shadow_particles.multimesh = shadow_multimesh
 	add_child(shadow_particles)
+
+func _configure_motion(material: ShaderMaterial) -> void:
+	material.set_shader_parameter("trail_lifetime", lifetime)
+	material.set_shader_parameter("trail_initial_scale", initial_scale)
+	material.set_shader_parameter("trail_final_scale", final_scale)
+	material.set_shader_parameter("trail_drift_speed", drift_speed)
 
 func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> void:
 	var slot := _next_slot
@@ -170,6 +195,9 @@ func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> v
 	_birth_times[slot] = _elapsed
 	_occupied_slots[slot] = 1
 	_positions[slot] = position
+	_bounds = _bounds.expand(position) if _has_bounds else AABB(position, Vector3.ZERO)
+	_has_bounds = true
+	_bounds_dirty = true
 	_size_variations[slot] = variation.size_ratio
 	_opacity_variations[slot] = variation.opacity_ratio
 	_drift_vectors[slot] = variation.drift_direction
@@ -183,47 +211,36 @@ func _update_puffs() -> void:
 		if _elapsed - _birth_times[slot] >= lifetime:
 			_hide_puff_slot(slot)
 			_occupied_slots[slot] = 0
-			_active_slots.remove_at(active_index)
+			_active_slots[active_index] = _active_slots.back()
+			_active_slots.pop_back()
 			continue
-		_update_puff(slot)
 	if _active_slots.is_empty():
 		multimesh.visible_instance_count = 0
 		shadow_particles.multimesh.visible_instance_count = 0
 
 func _update_puff(slot: int) -> void:
-	var age := _elapsed - _birth_times[slot]
-	if age < 0.0 or age >= lifetime:
-		_hide_puff_slot(slot)
-		return
-	var normalized_age := age / lifetime
-	var alpha := _puff_alpha(normalized_age) * _opacity_variations[slot]
-	var scale_value := lerpf(initial_scale, final_scale, smoothstep(0.0, 1.0, normalized_age)) * _size_variations[slot]
-	var drift := _drift_vectors[slot] * drift_speed * age
-	var transform := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * scale_value), _positions[slot] + drift)
+	# Upload a birth record once. Both passes animate from the same GPU data.
+	var transform := Transform3D(Basis.IDENTITY, _positions[slot])
+	var drift := _drift_vectors[slot] * 0.25 + Vector3.ONE * 0.5
+	var color := Color(drift.x, drift.y, drift.z, 1.0)
+	var data := Color(_birth_times[slot], _size_variations[slot], _opacity_variations[slot], 0.0)
 	multimesh.set_instance_transform(slot, transform)
-	multimesh.set_instance_color(slot, Color(1.0, 1.0, 1.0, alpha))
+	multimesh.set_instance_color(slot, color)
+	multimesh.set_instance_custom_data(slot, data)
 	if shadow_particles == null or not SmokePuffDistribution.casts_shadow(_serials[slot], shadow_emission_stride):
 		return
 	var shadow_slot := _shadow_slot_for_serial(_serials[slot])
 	_shadow_owner_serials[shadow_slot] = _serials[slot]
 	shadow_particles.multimesh.visible_instance_count = maxi(shadow_particles.multimesh.visible_instance_count, shadow_slot + 1)
 	shadow_particles.multimesh.set_instance_transform(shadow_slot, transform)
-	shadow_particles.multimesh.set_instance_color(shadow_slot, Color(1.0, 1.0, 1.0, alpha))
-
-func _puff_alpha(normalized_age: float) -> float:
-	if normalized_age < 0.015:
-		return smoothstep(0.0, 0.015, normalized_age)
-	if normalized_age < 0.45:
-		return 1.0
-	return 1.0 - smoothstep(0.45, 0.88, normalized_age)
+	shadow_particles.multimesh.set_instance_color(shadow_slot, color)
+	shadow_particles.multimesh.set_instance_custom_data(shadow_slot, data)
 
 func _set_opacity_ratio(ratio: float) -> void:
 	current_opacity_ratio = clampf(ratio, 0.0, 1.0)
 	current_shadow_opacity_ratio = current_opacity_ratio
 	if smoke_material != null:
-		var color := smoke_material.albedo_color
-		color.a = initial_material_alpha * current_opacity_ratio
-		smoke_material.albedo_color = color
+		smoke_material.set_shader_parameter("opacity_ratio", current_opacity_ratio)
 	if shadow_material != null:
 		shadow_material.set_shader_parameter("opacity_ratio", current_shadow_opacity_ratio)
 

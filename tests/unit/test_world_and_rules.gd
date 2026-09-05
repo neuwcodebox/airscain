@@ -3,6 +3,44 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+func test_building_spatial_candidates_preserve_nearest_segment_impacts() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 27331
+	for trial: int in 300:
+		var start := Vector3(rng.randf_range(-500, 500), rng.randf_range(0, 150), rng.randf_range(-500, 500))
+		var end := Vector3(rng.randf_range(-500, 500), rng.randf_range(0, 150), rng.randf_range(-500, 500))
+		if trial < field.city_buildings.size():
+			start = field.city_building_bounds(trial).get_center()
+		var expected_index := -1
+		var expected_position := Vector3.ZERO
+		var nearest := INF
+		for index: int in field.city_buildings.size():
+			var hit: Variant = field.city_building_bounds(index).intersects_segment(start, end)
+			if hit is Vector3 and start.distance_squared_to(hit) < nearest:
+				nearest = start.distance_squared_to(hit)
+				expected_index = index
+				expected_position = hit
+		var actual := field.building_segment_impact(start, end)
+		assert_eq(int(actual.get("building_index", -1)), expected_index)
+		if expected_index >= 0:
+			assert_almost_eq((actual.position as Vector3).distance_to(expected_position), 0.0, 0.001)
+
+func test_smoke_animates_shared_birth_records_without_per_puff_reuploads() -> void:
+	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	var trail := effect.smoke
+	trail.emitting = true
+	trail.sample_world_segment(Vector3.ZERO, Vector3(20, 0, 0))
+	var visible_buffer := trail.multimesh.buffer
+	var shadow_buffer := trail.shadow_particles.multimesh.buffer
+	trail._process(0.3)
+	assert_eq(trail.multimesh.buffer, visible_buffer)
+	assert_eq(trail.shadow_particles.multimesh.buffer, shadow_buffer)
+	assert_almost_eq(float(trail.smoke_material.get_shader_parameter("trail_time")), 0.3, 0.0001)
+	assert_eq(trail.smoke_material.get_shader_parameter("trail_time"), trail.shadow_material.get_shader_parameter("trail_time"))
+	assert_true(trail.multimesh.custom_aabb.has_point(Vector3(20, 0, 0)))
+
 func test_falling_wreck_preserves_airframe_geometry_without_live_systems() -> void:
 	var aircraft := add_child_autofree(preload("res://enemy/strike_aircraft/strike_aircraft.tscn").instantiate()) as Node3D
 	aircraft.rotation = Vector3(0.1, 0.8, -0.2)
@@ -464,11 +502,10 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 			var trail := effect.get_node(path) as LingeringSmokeTrail
 			assert_not_null(trail.multimesh, "%s must build a Compatibility-safe multimesh" % path)
 			assert_true(trail.multimesh.mesh is QuadMesh, "%s visible puffs must be soft cards" % path)
-			var material := (trail.multimesh.mesh as QuadMesh).material as StandardMaterial3D
-			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "%s dense trail cards must blend without hollow depth-prepass centers" % path)
-			assert_eq(material.billboard_mode, BaseMaterial3D.BILLBOARD_ENABLED)
-			assert_true(material.vertex_color_use_as_albedo)
-			assert_not_null(material.albedo_texture)
+			var material := (trail.multimesh.mesh as QuadMesh).material as ShaderMaterial
+			assert_not_null(material.get_shader_parameter("puff_texture"))
+			assert_true(trail.multimesh.use_custom_data)
+			assert_eq(material.get_shader_parameter("trail_lifetime"), trail.lifetime)
 			assert_eq(trail.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 			var shadow := trail.get_node("SmokeShadow") as MultiMeshInstance3D
 			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY)
@@ -488,10 +525,10 @@ func test_missile_trails_share_a_bright_smoke_body_material() -> void:
 		var effect: Node = add_child_autofree((trail_case.scene as PackedScene).instantiate())
 		var trail := effect.get_node(trail_case.path as String) as LingeringSmokeTrail
 		var material := trail.smoke_material
-		assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_UNSHADED, "missile smoke body must stay white while its smaller proxy owns directional shadows")
-		assert_gte(material.albedo_color.r, 0.85)
-		assert_gte(material.albedo_color.g, 0.85)
-		assert_gte(material.albedo_color.b, 0.85)
+		var tint: Color = material.get_shader_parameter("tint")
+		assert_gte(tint.r, 0.85)
+		assert_gte(tint.g, 0.85)
+		assert_gte(tint.b, 0.85)
 
 func test_sampled_smoke_uses_irregular_variation_and_retires_expired_slots() -> void:
 	var first_variation := SmokePuffDistribution.sample(1, 0.5)

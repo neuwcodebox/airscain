@@ -451,14 +451,16 @@ func _set_metric_rows(grid: GridContainer, rows: Array[Dictionary]) -> void:
 			grid.add_child(key_label)
 			var value_label := Label.new()
 			grid.add_child(value_label)
-	_style_metric_grid(grid, 132.0)
+		_style_metric_grid(grid, 132.0)
 	for index: int in rows.size():
 		var row: Dictionary = rows[index]
 		var key_label := grid.get_child(index * 2) as Label
 		var value_label := grid.get_child(index * 2 + 1) as Label
 		key_label.text = String(row.get("label", ""))
 		value_label.text = String(row.get("value", ""))
-		value_label.add_theme_color_override("font_color", METRIC_WARNING_COLOR if bool(row.get("warning", false)) else METRIC_VALUE_COLOR)
+		var color := METRIC_WARNING_COLOR if bool(row.get("warning", false)) else METRIC_VALUE_COLOR
+		if value_label.get_theme_color("font_color") != color:
+			value_label.add_theme_color_override("font_color", color)
 
 func _style_metric_grid(grid: GridContainer, value_width: float) -> void:
 	for index: int in grid.get_child_count():

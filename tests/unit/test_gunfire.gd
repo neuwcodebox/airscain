@@ -1,5 +1,14 @@
 extends GutTest
 
+func test_expired_airburst_flashes_leave_the_draw_list_while_smoke_lingers() -> void:
+	var runtime := add_child_autofree(GunfireRuntime.new()) as GunfireRuntime
+	runtime._detonate(Vector3.ZERO, &"timeout")
+	runtime.gameplay_tick(0.05)
+	assert_eq(runtime.flashes.multimesh.visible_instance_count, 1)
+	runtime.gameplay_tick(0.1)
+	assert_eq(runtime.flashes.multimesh.visible_instance_count, 0)
+	assert_eq(runtime.smoke.multimesh.visible_instance_count, 1)
+
 const DEFINITION := preload("res://defense/close_in_gun/close_in_gun.tres")
 const THREAT := preload("res://main/first_scenario.tres")
 

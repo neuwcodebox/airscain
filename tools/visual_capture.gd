@@ -1377,6 +1377,8 @@ func _capture_building_impact_smoke() -> void:
 	_save_capture("/tmp/airscain_building_smoke_crosswind.png")
 
 func _capture_smoke_ground_shadow() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
@@ -1401,6 +1403,7 @@ func _capture_smoke_ground_shadow() -> void:
 	main.camera_rig.camera.look_at(Vector3(center.x, ground_height + 12.0, center.z), Vector3.UP)
 	for frame_index: int in 60:
 		await process_frame
+	smoke.set_process(false)
 	_save_capture("/tmp/airscain_smoke_ground_shadow.png")
 	var smoke_shadow := smoke.get_node("SmokeShadow") as MultiMeshInstance3D
 	smoke_shadow.visible = false
@@ -2077,7 +2080,11 @@ func _capture_missile_smoke_trail() -> void:
 	self_destruct.gameplay_tick(HomingInterceptor.REACQUISITION_GRACE_DURATION + 0.05)
 	for index: int in 3:
 		await process_frame
-	var detonation := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
+	var detonation: ExplosionEffect
+	for child: Node in main.projectile_parent.get_children():
+		if child is ExplosionEffect and (child as ExplosionEffect).visible:
+			detonation = child as ExplosionEffect
+			break
 	if detonation == null or detonation.effect_radius < 7.0:
 		push_error("Interceptor self-destruct did not leave a visible detonation")
 		quit(1)
@@ -2192,7 +2199,10 @@ func _capture_resolved_target_interceptor(center: Vector3) -> void:
 			break
 		interceptor.gameplay_tick(0.05)
 		await process_frame
-	var explosion := main.projectile_parent.get_node_or_null("Explosion") as Node3D
+	var explosion: ExplosionEffect
+	for child: Node in main.projectile_parent.get_children():
+		if child is ExplosionEffect and (child as ExplosionEffect).visible:
+			explosion = child as ExplosionEffect
 	if is_instance_valid(interceptor) or main.projectile_parent.get_node_or_null("InterceptorMiss") != null or explosion == null:
 		push_error("Destroyed-target interceptor did not complete its climb with a clean self-destruct")
 		quit(1)
