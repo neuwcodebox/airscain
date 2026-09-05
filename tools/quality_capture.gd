@@ -9,6 +9,7 @@ func _init() -> void:
 
 func run() -> void:
 	AudioServer.set_bus_mute(0, true)
+	AirscainApp.apply_global_font()
 	AirscainMain.requested_seed = 73129
 	main = MAIN.instantiate() as AirscainMain
 	root.add_child(main)
@@ -62,6 +63,14 @@ func run() -> void:
 	hpm.pulse_visual._process(0.2)
 	hpm.pulse_visual.set_process(false)
 	await capture("field")
+	hpm.queue_free()
+	main.placement.select(main.scenario.available_defenses[1])
+	main.placement.set_process(false)
+	main.placement.preview.position = center
+	main.placement.preview_material.albedo_color = Color(0.2, 0.9, 0.55, 0.48)
+	main.camera_rig.camera.position = center + Vector3(24, 19, -42)
+	main.camera_rig.camera.look_at(center + Vector3.UP * 5)
+	await capture("placement")
 	main.queue_free()
 	await process_frame
 	print("QUALITY_CAPTURE_OK installations airframes laser field")

@@ -200,15 +200,12 @@ func _create_preview() -> void:
 	preview = Node3D.new()
 	preview.name = "PlacementPreview"
 	add_child(preview)
-	var base := MeshInstance3D.new()
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = selected.placement_profile.footprint_radius * 0.6
-	cylinder.bottom_radius = selected.placement_profile.footprint_radius * 0.75
-	cylinder.height = 7.0
-	base.mesh = cylinder
-	base.position.y = 3.5
-	base.material_override = preview_material
-	preview.add_child(base)
+	var model := selected.scene.instantiate() as Node3D
+	model.process_mode = Node.PROCESS_MODE_DISABLED
+	model.scale = Vector3.ONE * DefenseUnit.PRESENTATION_SCALE
+	preview.add_child(model)
+	_copy_preview_geometry(model, Transform3D.IDENTITY)
+	model.free()
 	range_disc = MeshInstance3D.new()
 	var disc := TorusMesh.new()
 	var displayed_range := selected.placement_support_range() if selected.placement_support_range() > 0.0 else selected.preview_range
@@ -221,6 +218,21 @@ func _create_preview() -> void:
 	range_disc.position.y = 1.5
 	range_disc.material_override = preview_material
 	preview.add_child(range_disc)
+
+func _copy_preview_geometry(source: Node3D, parent_transform: Transform3D) -> void:
+	if not source.visible:
+		return
+	var transform := parent_transform * source.transform
+	if source is MeshInstance3D and (source as MeshInstance3D).mesh != null:
+		var copy := MeshInstance3D.new()
+		copy.mesh = (source as MeshInstance3D).mesh
+		copy.transform = transform
+		copy.material_override = preview_material
+		copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		preview.add_child(copy)
+	for child: Node in source.get_children():
+		if child is Node3D:
+			_copy_preview_geometry(child as Node3D, transform)
 
 func _create_threat_preview() -> void:
 	if preview != null:

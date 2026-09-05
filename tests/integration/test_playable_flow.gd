@@ -181,7 +181,7 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(training.game_mode, AirscainMain.GameMode.TRAINING)
 	assert_eq(training.training_controller.step, TrainingController.Step.CAMERA)
 	assert_true(training.hud.training_panel.visible)
-	assert_string_contains(training.hud.training_title.text, "1/13")
+	assert_string_contains(training.hud.training_title.text, "1/%d" % TrainingController.LESSON_COUNT)
 	assert_string_contains(training.hud.training_body.text, "휠 클릭 드래그로 이동")
 	assert_true(bool(training.tactical_screen_overlay.get("training_approach_visible")))
 	var approach_position: Vector3 = training.tactical_screen_overlay.get("training_approach_position")
@@ -221,6 +221,11 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	var battery := battery_result.unit as MissileBattery
 	assert_true(battery.doctrine.hold_fire)
 	assert_eq(training.training_controller.step, TrainingController.Step.START)
+	var training_radar := radar_result.unit as DefenseUnit
+	training_radar.active = false
+	assert_false(training.training_controller.can_start_defense(), "연결된 센서 없이 훈련을 시작하지 않습니다")
+	training_radar.active = true
+	assert_true(training.training_controller.can_start_defense())
 	var hostile_count := training.registry.hostile_count()
 	training._on_start_requested()
 	assert_eq(training.training_controller.step, TrainingController.Step.ACQUIRE)
@@ -253,7 +258,13 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_same(training.selected_track, track)
 	assert_eq(training.training_controller.step, TrainingController.Step.SELECT_ASSET)
 	training._on_asset_selected(battery)
+	assert_eq(training.training_controller.step, TrainingController.Step.PRIORITY)
+	training._on_world_selected(Vector3.INF, distant_track_marker)
+	assert_false(training.hud.priority_target_button.disabled)
+	training.hud.priority_target_button.pressed.emit()
+	assert_eq(battery.doctrine.priority_track_id, track.track_id)
 	assert_eq(training.training_controller.step, TrainingController.Step.DOCTRINE)
+	training._on_asset_selected(battery)
 	assert_true(training.hud.hold_fire_button.button_pressed)
 	training._on_hold_fire_requested(false)
 	assert_false(battery.doctrine.hold_fire)
@@ -273,13 +284,87 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	training._on_asset_selected(battery)
 	assert_false(training.hud.resupply_button.disabled)
 	training._on_resupply_requested()
-	assert_eq(training.training_controller.step, TrainingController.Step.OVERLAY)
+	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY)
+	assert_eq(training.session.simulation_speed, 1.0)
 	assert_eq(training.support_manager.tasks.size(), 1)
+	training._on_overlay_requested(&"c2")
+	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY, "보급 완료 전에 다른 조작으로 건너뛰지 않습니다")
+	training.support_manager.gameplay_tick(100.0)
+	assert_eq(training.training_controller.step, TrainingController.Step.REPAIR)
+	assert_eq(training.session.simulation_speed, 0.0)
+	assert_gt(battery.magazine.reserve, 0)
+	assert_lt(battery.integrity, battery.definition.maximum_integrity)
+	training._on_asset_selected(battery)
+	assert_false(training.hud.repair_button.disabled)
+	training.hud.repair_button.pressed.emit()
+	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_REPAIR)
+	training.support_manager.gameplay_tick(100.0)
+	assert_eq(training.training_controller.step, TrainingController.Step.CITY_RESTORE)
+	assert_eq(battery.integrity, battery.definition.maximum_integrity)
+	assert_lt(training.objective.current_integrity, training.objective.definition.maximum_integrity)
+	var budget_before_restore := training.session.budget
+	training.hud.city_restoration_button.pressed.emit()
+	assert_eq(training.training_controller.step, TrainingController.Step.OVERLAY)
+	assert_eq(training.session.budget, budget_before_restore - training.objective.definition.restoration_cost)
 	training._on_overlay_requested(&"sensor")
+	assert_eq(training.training_controller.step, TrainingController.Step.OVERLAY)
+	training._on_overlay_requested(&"c2")
+	assert_eq(training.training_controller.step, TrainingController.Step.ALTITUDE)
+	assert_eq(training.session.current_pressure, 3)
+	var tracking_result := _place_for(training, training.scenario.available_defenses[3])
+	assert_true(tracking_result.success)
+	assert_eq(training.training_controller.step, TrainingController.Step.ENERGY)
+	var energy_result := _place_for(training, training.scenario.available_defenses[6])
+	assert_true(energy_result.success)
+	assert_eq(training.training_controller.step, TrainingController.Step.ENERGY_REVIEW)
+	training._on_training_next_requested()
+	assert_eq(training.training_controller.step, TrainingController.Step.ENERGY_REVIEW, "에너지 무기의 상태를 실제로 선택해야 합니다")
+	training._on_asset_selected(energy_result.unit)
+	assert_true(training.hud.training_next_button.visible)
+	training._on_training_next_requested()
+	assert_eq(training.training_controller.step, TrainingController.Step.RELOCATE)
+	var sensor := tracking_result.unit as DefenseUnit
+	training._on_asset_selected(sensor)
+	training.hud.relocation_button.pressed.emit()
+	assert_same(training.placement.relocating_unit, sensor)
+	var origin := sensor.global_position
+	var destination := Vector3.INF
+	for index: int in 64:
+		var candidate := origin + Vector3(cos(float(index)), 0, sin(float(index))) * (40.0 + index * 3.0)
+		candidate.y = training.battlefield.terrain_height(candidate.x, candidate.z)
+		if training.battlefield.placement_result(candidate, sensor.definition.placement_profile).valid:
+			destination = candidate
+			break
+	assert_true(destination.is_finite())
+	training.placement.candidate_position = destination
+	assert_true(training.placement.request_selected_defense_placement())
+	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RELOCATE)
+	assert_false(sensor.active)
+	training.relocation_manager.gameplay_tick(sensor.definition.relocation_duration + 0.1)
+	assert_true(sensor.active)
+	assert_eq(sensor.global_position, destination)
+	assert_eq(training.training_controller.step, TrainingController.Step.OPERATIONS)
+	assert_eq(training.session.simulation_speed, 0.0)
+	training._on_training_next_requested()
 	assert_eq(training.training_controller.step, TrainingController.Step.COMPLETE)
 	assert_string_contains(training.hud.training_title.text, "훈련 완료")
 	assert_eq(training.session.simulation_speed, 1.0)
 	assert_eq(training.save_operation(), "저장은 지속 작전에서만 사용할 수 있습니다")
+
+func test_asset_previews_show_geometry_without_creating_live_defenses() -> void:
+	var budget_before := main.session.budget
+	var contact_count := main.registry.count()
+	for definition: DefenseDefinition in main.scenario.available_defenses:
+		main.placement.select(definition)
+		assert_not_null(main.placement.preview)
+		var meshes := main.placement.preview.find_children("*", "MeshInstance3D", true, false)
+		assert_gt(meshes.size(), 1, "장비의 실제 실루엣과 범위를 표시합니다")
+		var live_units := main.placement.preview.find_children("*", "Node3D", true, false).filter(func(node: Node) -> bool: return node is DefenseUnit)
+		assert_true(live_units.is_empty(), "미리보기에는 게임 로직이 있는 자산이 남지 않습니다")
+	assert_eq(main.session.budget, budget_before)
+	assert_eq(main.session.defense_count, 0)
+	assert_eq(main.registry.count(), contact_count)
+	main.placement.cancel()
 
 func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX

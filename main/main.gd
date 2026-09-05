@@ -80,7 +80,7 @@ func _ready() -> void:
 	_spawn_ambient_contacts()
 	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus, scenario.support_interval, scenario.support_amount)
 	if game_mode == GameMode.TRAINING:
-		session.budget = 1000
+		session.budget = 2500
 	elif game_mode == GameMode.SANDBOX:
 		session.unlimited_budget = true
 		session.update_pressure(999)
@@ -100,7 +100,7 @@ func _ready() -> void:
 	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge, hud.training_panel)
 	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
-	training_controller.configure(scenario, battlefield, objective, defenses, registry, director, session, hud, tactical_screen_overlay)
+	training_controller.configure(scenario, battlefield, objective, defenses, registry, director, session, hud, tactical_screen_overlay, c2_network)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:
 		training_controller.begin()
@@ -171,6 +171,8 @@ func _connect_flow() -> void:
 	session.defense_placed.connect(_on_defense_placed)
 	session.support_received.connect(_on_support_received)
 	support_manager.task_completed.connect(_on_support_task_completed)
+	relocation_manager.relocation_started.connect(training_controller.relocation_started)
+	relocation_manager.relocation_completed.connect(training_controller.relocation_completed)
 	hud.defense_selected.connect(placement.select)
 	hud.start_requested.connect(_on_start_requested)
 	hud.speed_requested.connect(session.set_simulation_speed)
@@ -307,8 +309,10 @@ func _on_recovery_started(_completed_window: int) -> void:
 func _on_support_received(amount: int, reason: String) -> void:
 	hud.set_feedback("예산 +$%d (%s)" % [amount, reason])
 
-func _on_support_task_completed(_kind: StringName, _unit: DefenseUnit) -> void:
+func _on_support_task_completed(kind: StringName, unit: DefenseUnit) -> void:
 	ui_audio.play_event(UiAudio.ACTION_COMPLETE)
+	if game_mode == GameMode.TRAINING:
+		training_controller.support_completed(kind, unit)
 
 func _on_placement_succeeded() -> void:
 	ui_audio.play_event(UiAudio.PLACEMENT_SUCCESS)
@@ -486,7 +490,7 @@ func _on_hold_fire_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.supports_engagement_controls():
 		selected_asset.set_hold_fire(enabled)
 		if game_mode == GameMode.TRAINING:
-			training_controller.hold_fire_changed(enabled)
+			training_controller.hold_fire_changed(enabled, selected_asset)
 
 func _on_engage_unknown_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.supports_engagement_controls():
@@ -496,6 +500,8 @@ func _on_priority_target_requested() -> void:
 	if selected_asset != null and selected_track != null and selected_asset.supports_engagement_controls():
 		selected_asset.set_priority_track(selected_track.track_id)
 		hud.set_feedback("항적을 우선표적으로 지정했습니다")
+		if game_mode == GameMode.TRAINING:
+			training_controller.priority_assigned(selected_asset)
 
 func _on_munition_mode_requested() -> void:
 	if selected_asset != null and selected_asset.supports_munition_selection():
@@ -510,14 +516,17 @@ func _on_resupply_requested() -> void:
 		hud.set_feedback("현재 재보급을 요청할 수 없습니다")
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 	if game_mode == GameMode.TRAINING:
-		training_controller.resupply_requested(requested)
+		training_controller.resupply_requested(requested, selected_asset)
 
 func _on_repair_requested() -> void:
-	if selected_asset != null and selected_asset.request_repair():
+	var requested := selected_asset != null and selected_asset.request_repair()
+	if requested:
 		hud.set_feedback("수리 작업을 요청했습니다")
 	else:
 		hud.set_feedback("현재 수리를 요청할 수 없습니다")
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
+	if game_mode == GameMode.TRAINING:
+		training_controller.repair_requested(requested, selected_asset)
 
 func _on_city_restoration_requested() -> void:
 	var definition := objective.definition
@@ -533,6 +542,8 @@ func _on_city_restoration_requested() -> void:
 	objective.restore_integrity(objective.current_integrity + restored)
 	hud.set_feedback("도시 기능을 %d 복구했습니다" % restored)
 	ui_audio.play_event(UiAudio.ACTION_COMPLETE)
+	if game_mode == GameMode.TRAINING:
+		training_controller.city_restored()
 
 func _on_relocation_requested() -> void:
 	if selected_asset != null and selected_asset.can_request_relocation():

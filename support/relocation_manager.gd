@@ -1,6 +1,9 @@
 class_name RelocationManager
 extends Node
 
+signal relocation_started(unit: DefenseUnit)
+signal relocation_completed(unit: DefenseUnit)
+
 var battlefield: Battlefield
 var units: Dictionary[int, DefenseUnit] = {}
 var tasks: Array[Dictionary] = []
@@ -25,6 +28,7 @@ func request_relocation(unit: DefenseUnit, destination: Vector3) -> bool:
 	battlefield.register_occupancy(target, unit.definition.placement_profile.footprint_radius)
 	unit.active = false
 	tasks.append({"target_defense_id": unit.runtime_id, "origin": SaveDocument.vector3_to_data(unit.global_position), "destination": SaveDocument.vector3_to_data(target), "remaining": unit.definition.relocation_duration})
+	relocation_started.emit(unit)
 	return true
 
 func gameplay_tick(delta: float) -> void:
@@ -33,8 +37,8 @@ func gameplay_tick(delta: float) -> void:
 		task.remaining = float(task.remaining) - delta
 		tasks[index] = task
 		if float(task.remaining) <= 0.0:
-			_complete_task(task)
 			tasks.remove_at(index)
+			_complete_task(task)
 
 func task_status(unit: DefenseUnit) -> String:
 	for task: Dictionary in tasks:
@@ -63,3 +67,4 @@ func _complete_task(task: Dictionary) -> void:
 	battlefield.unregister_occupancy(SaveDocument.vector3_from_data(task.origin), unit.definition.placement_profile.footprint_radius)
 	unit.global_position = SaveDocument.vector3_from_data(task.destination)
 	unit.active = unit.operational_ratio() >= 0.35
+	relocation_completed.emit(unit)
