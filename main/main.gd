@@ -646,7 +646,7 @@ func restore_from_document(document: Dictionary) -> String:
 	var document_error := SaveDocument.validation_error(current_document)
 	if not document_error.is_empty():
 		return document_error
-	var payload: Dictionary = current_document.payload
+	var payload := SessionSnapshot.migrate_content(current_document.payload, int(current_document.version), scenario)
 	var snapshot_error := SessionSnapshot.validation_error(payload, scenario)
 	if not snapshot_error.is_empty():
 		return snapshot_error

@@ -1426,16 +1426,9 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 		if main.engagement_coordinator.has_reservation(track.track_id):
 			break
 	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
-	var tracer := main.projectile_parent.get_child(0) as TracerBurst
-	assert_gte(tracer.tracers.size(), 48)
-	assert_eq(tracer.tracer_glows.size(), tracer.tracers.size())
-	assert_lte(tracer.tracer_spacing, 4.0)
-	assert_gte(tracer.target_spread_radius, 5.0)
-	assert_gt(tracer.target_spread_radius, tracer.muzzle_spread_radius * 12.0)
-	assert_lt((tracer.beam.mesh as BoxMesh).size.z, threat.global_position.distance_to(gun.global_position) * 0.1)
-	var tracer_material := (tracer.beam.mesh as BoxMesh).material as StandardMaterial3D
-	assert_gte(tracer_material.emission_energy_multiplier, 16.0)
-	assert_gt((tracer.glow_beam.mesh as BoxMesh).size.x, (tracer.beam.mesh as BoxMesh).size.x * 2.0)
+	assert_eq(gun.gunfire.rounds.size(), (gun.definition as CloseInGunDefinition).rounds_per_burst)
+	assert_eq(threat.health, (threat.definition as AttackUavDefinition).maximum_health, "발사 순간에는 피해를 주지 않습니다")
+	var saved_gunfire := gun.gunfire.capture_state()
 	var saved_rounds := gun.magazine.rounds
 	var saved_cooldown := gun.cooldown
 	var saved_rng_state := gun.rng.state
@@ -1451,7 +1444,12 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	assert_eq(restored_gun.magazine.rounds, saved_rounds)
 	assert_eq(restored_threat.health, saved_health)
 	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
-	assert_eq(main.projectile_parent.get_child_count(), 0, "일시적인 예광탄 VFX는 저장 대상이 아닙니다")
+	assert_eq(restored_gun.gunfire.rounds.size(), saved_gunfire.size())
+	for index: int in saved_gunfire.size():
+		var restored_round := restored_gun.gunfire.rounds[index]
+		assert_almost_eq(restored_round.position as Vector3, SaveDocument.vector3_from_data(saved_gunfire[index].position), Vector3.ONE * 0.001)
+		assert_almost_eq(float(restored_round.age), float(saved_gunfire[index].age), 0.00001)
+		assert_eq(restored_round.emitted, saved_gunfire[index].emitted)
 	var budget_before_kill := main.session.budget
 	for frame: int in 80:
 		main.engagement_coordinator.gameplay_tick(0.1)

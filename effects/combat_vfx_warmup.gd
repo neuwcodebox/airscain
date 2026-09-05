@@ -10,7 +10,6 @@ const LASER_SCENE := preload("res://effects/laser_pulse/laser_pulse.tscn")
 const FIELD_SHADER := preload("res://effects/field_pulse.gdshader")
 const DAMAGE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 const COUNTERMEASURE_SCENE := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
-const TRACER_SCENE := preload("res://effects/tracer_burst/tracer_burst.tscn")
 const MISS_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
 const WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
 const STRIKE_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
@@ -94,9 +93,13 @@ func _add_damage_and_countermeasures() -> void:
 		burst.call("setup", kind)
 
 func _add_secondary_effects() -> void:
-	var tracer := TRACER_SCENE.instantiate() as TracerBurst
+	var tracer := GunfireRuntime.new()
 	add_child(tracer)
-	tracer.setup(WARMUP_POSITION + Vector3.LEFT * 2, WARMUP_POSITION + Vector3.RIGHT * 2)
+	var gun_definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
+	tracer.enqueue(WARMUP_POSITION, WARMUP_POSITION + Vector3.RIGHT * 100, Vector3.ZERO, 1, 1, gun_definition, RandomNumberGenerator.new())
+	tracer.gameplay_tick(0.01)
+	tracer._detonate(WARMUP_POSITION, &"timeout")
+	tracer._sync_visuals()
 	var miss := MISS_SCENE.instantiate() as InterceptorMissEffect
 	miss.position = WARMUP_POSITION
 	add_child(miss)

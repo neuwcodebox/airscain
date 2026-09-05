@@ -1,7 +1,6 @@
 class_name CloseInGun
 extends ArmedDefenseUnit
 
-const TRACER_SCENE := preload("res://effects/tracer_burst/tracer_burst.tscn")
 const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 
 @export var turret_turn_speed_degrees: float = 120.0
@@ -9,10 +8,11 @@ const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 @export var firing_alignment_degrees: float = 3.0
 
 var registry: ThreatRegistry
-var projectile_parent: Node3D
 var cooldown: float = 0.0
 var rng := RandomNumberGenerator.new()
 var _definition: CloseInGunDefinition
+var flash_remaining: float = 0.0
+var gunfire: GunfireRuntime
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
@@ -25,15 +25,29 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	_definition = definition_value as CloseInGunDefinition
 	rng.seed = id_value ^ 0x4C11DB7
 	magazine.setup(_definition.magazine_capacity, _definition.reserve_ammunition, _definition.reload_duration)
+	gunfire = GunfireRuntime.new()
+	gunfire.name = "Gunfire"
+	add_child(gunfire)
+	gunfire.round_fired.connect(_on_round_fired)
 
-func configure_combat(registry_value: ThreatRegistry, projectile_parent_value: Node3D) -> void:
+func configure_combat(registry_value: ThreatRegistry, _projectile_parent_value: Node3D) -> void:
 	registry = registry_value
-	projectile_parent = projectile_parent_value
 
 func c2_link_range() -> float:
 	return _definition.c2_range * operational_efficiency()
 
 func gameplay_tick(delta: float) -> void:
+	if delta <= 0.0:
+		return
+	if gunfire != null:
+		gunfire.registry = registry
+		gunfire.battlefield = battlefield
+		if not active or doctrine.hold_fire:
+			gunfire.cancel_pending()
+		flash_remaining = maxf(0, flash_remaining - delta)
+		muzzle_flash.visible = flash_remaining > 0
+		muzzle_light.visible = muzzle_flash.visible
+		gunfire.gameplay_tick(delta)
 	if not active or registry == null or player_knowledge == null or c2_network == null:
 		return
 	magazine.gameplay_tick(delta)
@@ -41,7 +55,9 @@ func gameplay_tick(delta: float) -> void:
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	if track == null:
 		return
-	var is_aimed := _aim_turret(track.estimated_position, delta)
+	var flight_time := muzzle.global_position.distance_to(track.estimated_position) / _definition.muzzle_velocity
+	var aim_position := track.estimated_position + track.estimated_velocity * flight_time - GunfireRuntime.GRAVITY * flight_time * flight_time * 0.5
+	var is_aimed := _aim_turret(aim_position, delta)
 	if is_aimed and cooldown <= 0.0 and magazine.can_fire() and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.burst_interval, engagement_limit(track)):
 		magazine.consume()
 		_fire_burst(track)
@@ -87,39 +103,15 @@ func _fire_burst(track: PlayerTrack) -> void:
 	weapon_fired.emit(self, combat_resource_low())
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"gun")
-	var tracer := TRACER_SCENE.instantiate() as TracerBurst
-	projectile_parent.add_child(tracer)
-	tracer.setup(muzzle.global_position, track.estimated_position)
-	muzzle_flash.global_position = muzzle.global_position
-	muzzle_flash.scale = Vector3.ONE * rng.randf_range(0.85, 1.2)
-	muzzle_flash.visible = true
-	muzzle_light.global_position = muzzle.global_position
-	muzzle_light.visible = true
-	get_tree().create_timer(0.12).timeout.connect(func() -> void:
-		if is_instance_valid(muzzle_flash):
-			muzzle_flash.visible = false
-		if is_instance_valid(muzzle_light):
-			muzzle_light.visible = false
-	)
-	var distance := global_position.distance_to(track.estimated_position)
-	var range_ratio := distance / (_definition.attack_range * operational_efficiency())
-	var range_factor := 1.0 / (1.0 + pow(range_ratio, 4.0))
-	var hit_probability := clampf(_definition.base_accuracy * track.track_quality * range_factor * weapon_match(track), 0.0, 1.0)
-	if rng.randf() > hit_probability:
-		return
-	var target := _physical_target_near(track.estimated_position)
-	if target != null:
-		target.receive_damage(_definition.burst_damage)
+	gunfire.enqueue(muzzle.global_position, track.estimated_position, track.estimated_velocity, track.track_quality, weapon_match(track), _definition, rng)
 
-func _physical_target_near(estimated_position: Vector3) -> ThreatUnit:
-	var selected: ThreatUnit
-	var nearest_distance := _definition.hit_tolerance
-	for threat: ThreatUnit in registry.get_active():
-		var distance := threat.get_aim_position().distance_to(estimated_position)
-		if distance < nearest_distance:
-			selected = threat
-			nearest_distance = distance
-	return selected
+func _on_round_fired(position: Vector3) -> void:
+	flash_remaining = 0.014
+	muzzle_flash.global_position = position
+	muzzle_flash.scale = Vector3.ONE * (0.75 + float(gunfire.rounds.size() % 4) * 0.15)
+	muzzle_flash.visible = true
+	muzzle_light.global_position = position
+	muzzle_light.visible = true
 
 func capture_content_state() -> Dictionary:
 	return {
@@ -127,6 +119,7 @@ func capture_content_state() -> Dictionary:
 		"rng_state": str(rng.state),
 		"magazine": magazine.capture_state(),
 		"doctrine": capture_doctrine_state(),
+		"gunfire": gunfire.capture_state(),
 	}
 
 func restore_content_state(state: Dictionary) -> void:
@@ -134,3 +127,4 @@ func restore_content_state(state: Dictionary) -> void:
 	rng.state = int(state.get("rng_state", rng.state))
 	magazine.restore_state(state.get("magazine", {}))
 	restore_doctrine_state(state.get("doctrine", {}))
+	gunfire.restore_state(state.get("gunfire", []))

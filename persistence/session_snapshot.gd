@@ -3,6 +3,20 @@ extends RefCounted
 
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
+static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
+	if version >= 18:
+		return payload
+	var result := payload.duplicate(true)
+	var definitions := defense_definition_map(scenario)
+	if result.world.get("defenses") is Array:
+		for state: Variant in result.world.defenses:
+			if not state is Dictionary or not state.get("content_state") is Dictionary:
+				continue
+			var id := StringName(String(state.get("definition_id", "")))
+			if definitions.has(id):
+				state.content_state = (definitions[id] as DefenseDefinition).migrate_runtime_state(state.content_state, version)
+	return result
+
 static func capture_payload(main: AirscainMain) -> Dictionary:
 	var defense_states: Array[Dictionary] = []
 	for unit: DefenseUnit in main.defenses:

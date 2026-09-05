@@ -68,5 +68,8 @@ func persistent_projectile_types() -> Array[StringName]:
 func runtime_state_validation_error(_content_state: Dictionary) -> String:
 	return ""
 
+func migrate_runtime_state(content_state: Dictionary, _version: int) -> Dictionary:
+	return content_state.duplicate(true)
+
 func persistent_projectile_state_validation_error(_projectile_type: StringName, _state: Dictionary) -> String:
 	return "지원하지 않는 방어 발사체 형식입니다"

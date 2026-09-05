@@ -46,7 +46,7 @@ func test_version_16_migration_disables_automatic_spending_without_mutating_sour
 	document.version = 16
 	document.payload.world.support = {"tasks": []}
 	var migrated := SaveDocument.decode(SaveDocument.encode(document))
-	assert_eq(int(migrated.version), SaveDocument.CURRENT_VERSION)
+	assert_eq(int(migrated.version), 17)
 	assert_eq(migrated.payload.world.support.automatic_resupply_ids, [])
 	assert_eq(document.version, 16)
 	assert_false(document.payload.world.support.has("automatic_resupply_ids"))

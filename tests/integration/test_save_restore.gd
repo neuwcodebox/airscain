@@ -410,6 +410,20 @@ func test_version_16_operation_restores_with_automatic_resupply_disabled() -> vo
 	assert_eq(document.version, 16)
 	assert_false(document.payload.world.support.has("automatic_resupply_ids"))
 
+func test_version_17_gun_migrates_without_inventing_rounds_or_changing_ammunition() -> void:
+	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
+	var id := gun.runtime_id
+	gun.magazine.rounds = 23
+	var document := main.capture_save_document()
+	document.payload.world.defenses[0].content_state.erase("gunfire")
+	assert_ne(main.restore_from_document(document), "", "현재 버전은 비행탄 필드를 생략할 수 없습니다")
+	document.version = 17
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_defense(id) as CloseInGun
+	assert_eq(restored.magazine.rounds, 23)
+	assert_eq(restored.gunfire.rounds.size(), 0)
+	assert_false(document.payload.world.defenses[0].content_state.has("gunfire"))
+
 func _find_defense(runtime_id: int) -> DefenseUnit:
 	for unit: DefenseUnit in main.defenses:
 		if unit.runtime_id == runtime_id:

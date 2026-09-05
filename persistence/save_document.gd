@@ -2,7 +2,7 @@ class_name SaveDocument
 extends RefCounted
 
 const FORMAT_ID := "airscain-save"
-const CURRENT_VERSION := 17
+const CURRENT_VERSION := 18
 const MIN_SUPPORTED_VERSION := 16
 const REQUIRED_SECTIONS: Array[String] = ["scenario", "session", "world", "player_knowledge", "director"]
 
@@ -39,7 +39,7 @@ static func migrate(document: Dictionary) -> Dictionary:
 	if not world.get("support") is Dictionary:
 		return document
 	# Version 16 has no automatic policy; never opt existing saves into spending.
-	upgraded.version = CURRENT_VERSION
+	upgraded.version = 17
 	upgraded.payload.world.support.automatic_resupply_ids = []
 	return upgraded
 

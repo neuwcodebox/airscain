@@ -17,6 +17,15 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-cram-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		_place_asset(main.scenario.available_defenses[4], 1.0)
+		await _capture_close_in_gun_barrage()
+		main.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-automatic-resupply-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
@@ -234,11 +243,6 @@ func run() -> void:
 	_save_capture("/tmp/airscain_placement.png")
 	main.placement.cancel()
 	_place_initial_assets()
-	if OS.get_cmdline_user_args().has("--capture-cram-only"):
-		await _capture_close_in_gun_barrage()
-		print("VISUAL_CAPTURE_OK close_in_gun dense_tracer_barrage muzzle_flash")
-		quit(0)
-		return
 	if OS.get_cmdline_user_args().has("--capture-friendly-icons-only"):
 		await _capture_friendly_identity_icons()
 		print("VISUAL_CAPTURE_OK friendly_role_icons persistent_status_markers")
@@ -680,31 +684,36 @@ func _capture_close_in_gun_barrage() -> void:
 	var target := gun.global_position + Vector3(230.0, 95.0, -35.0)
 	for index: int in 8:
 		gun._aim_turret(target, 0.25)
-	var burst := preload("res://effects/tracer_burst/tracer_burst.tscn").instantiate() as TracerBurst
-	main.projectile_parent.add_child(burst)
-	burst.setup(gun.muzzle.global_position, target)
-	burst._process(0.19)
-	burst.set_process(false)
-	gun.muzzle_flash.global_position = gun.muzzle.global_position
-	gun.muzzle_flash.visible = true
-	gun.muzzle_light.global_position = gun.muzzle.global_position
-	gun.muzzle_light.visible = true
-	var visible_tracers := 0
-	for tracer: MeshInstance3D in burst.tracers:
-		if tracer.visible:
-			visible_tracers += 1
-	if visible_tracers < 40:
-		push_error("Close-in gun barrage did not expose enough simultaneous tracer streaks")
-		quit(1)
-		return
-	var center := gun.muzzle.global_position.lerp(target, 0.5)
-	main.camera_rig.camera.global_position = center + Vector3(20.0, 78.0, 190.0)
+	main.set_process(false)
+	gun.gunfire.battlefield = main.battlefield
+	var definition := gun.definition as CloseInGunDefinition
+	var center := gun.muzzle.global_position.lerp(target, 1.1)
+	main.camera_rig.camera.global_position = center + Vector3(40.0, 170.0, 520.0)
 	main.camera_rig.camera.look_at(center, Vector3.UP)
 	main.hud.visible = false
 	main.altitude_profile.visible = false
+	var until_burst := 0.0
+	var peak_tick_usec := 0
+	for frame: int in 180:
+		var started := Time.get_ticks_usec()
+		until_burst -= 1.0 / 60.0
+		if until_burst <= 0:
+			gun.gunfire.enqueue(gun.muzzle.global_position, target, Vector3(15, 0, 0), 0.75, 1, definition, gun.rng)
+			until_burst += definition.burst_interval
+		gun.gameplay_tick(1.0 / 60.0)
+		peak_tick_usec = maxi(peak_tick_usec, Time.get_ticks_usec() - started)
+		await process_frame
+		await RenderingServer.frame_post_draw
+		if frame == 89:
+			_save_capture("/tmp/airscain_close_in_gun_flight.png")
+	if gun.gunfire.cores.multimesh.visible_instance_count < 12 or gun.gunfire.bursts.is_empty():
+		push_error("Close-in gun must show independently flying rounds and timed airbursts")
+		quit(1)
+		return
 	for index: int in 4:
 		await process_frame
 	_save_capture("/tmp/airscain_close_in_gun_barrage.png")
+	print("CRAM_CAPTURE_OK rounds=%d airbursts=%d fixed_buffers=%d peak_tick_ms=%.3f" % [gun.gunfire.rounds.size(), gun.gunfire.bursts.size(), gun.gunfire.get_child_count(), float(peak_tick_usec) / 1000])
 
 func _capture_hdr_light_vfx() -> void:
 	var environment := (main.get_node("WorldEnvironment") as WorldEnvironment).environment
