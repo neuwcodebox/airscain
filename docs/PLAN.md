@@ -1,5 +1,12 @@
 # PLAN.md
 
+## Web 오디오 버스 출력 경로
+
+- [x] 종류별 버스는 전체 개수를 늘려 확보하고 이름·Master 전송을 설정한다. Web Sample의 append 삽입 경로를 사용하지 않는다.
+- [x] 브라우저에서 Master 출력 경로·음원 신호·종류별 볼륨과 회귀 테스트를 무음 검증했다.
+
+검증: 수정 전 Firefox Web Sample에서 버스 0→4→5→0 순환, 모든 설정 100%·AudioContext running·클릭 재생 시작에도 출력 peak 0을 재현했다. 수정 후 하위 5개 버스→Master→출력 연결과 같은 클릭음 peak 0.211529를 확인했다. UI 0%는 peak 0·Master 비음소거, UI 49%는 peak 0.103649·미사일 버스 0dB 유지였다. AudioDestinationNode 연결을 차단하고 MediaStreamDestination/AnalyserNode로만 계측해 실제 소리는 출력하지 않았다. 전체 250개 테스트·14,885개 단언과 Web release 내보내기가 통과했다. 브라우저 JS 오류는 0건이며 기존 그래픽/WASM 경고만 남았다. 네이티브 테스트만으로는 Web Sample 내부 연결 오류를 검출할 수 없어 브라우저 신호 검증을 함께 수행했다.
+
 ## 낮밤 순환과 도시 야간 조명
 
 - [x] 작전 경과시간 기반 12분 주기·오전 시작, 태양 방향/색·환경광의 연속 변화와 도시 창문/가로등을 연결한다. 탐지 판정은 유지한다.

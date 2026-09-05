@@ -18,6 +18,23 @@ func after_each() -> void:
 	PlayerSettings.instance().apply_audio()
 	PlayerSettings.instance().apply_rendering()
 
+func test_audio_categories_route_to_master_and_preserve_independent_levels() -> void:
+	var settings := PlayerSettings.instance()
+	assert_eq(AudioServer.get_bus_index("Master"), 0)
+	for key: String in PlayerSettings.AUDIO_BUSES:
+		var name: String = PlayerSettings.AUDIO_BUSES[key]
+		var index := AudioServer.get_bus_index(name)
+		assert_gte(index, 0)
+		if name != "Master":
+			assert_eq(AudioServer.get_bus_send(index), &"Master")
+	settings.set_value("ui", 0.0)
+	assert_true(AudioServer.is_bus_mute(AudioServer.get_bus_index("UI")))
+	assert_false(AudioServer.is_bus_mute(0))
+	settings.set_value("ui", 0.5)
+	assert_false(AudioServer.is_bus_mute(AudioServer.get_bus_index("UI")))
+	assert_almost_eq(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("UI")), linear_to_db(0.5), 0.001)
+	assert_almost_eq(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Missiles")), 0.0, 0.001)
+
 func test_display_preferences_apply_and_round_trip() -> void:
 	var preferences := PlayerSettings.instance()
 	preferences.set_value("antialiasing", 2)

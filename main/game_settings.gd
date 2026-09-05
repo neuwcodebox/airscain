@@ -18,7 +18,8 @@ static func instance() -> PlayerSettings:
 func _ready() -> void:
 	for bus_name: String in AUDIO_BUSES.values():
 		if AudioServer.get_bus_index(bus_name) < 0:
-			AudioServer.add_bus()
+			# Grow without add_bus(): Web Sample mishandles its append sentinel.
+			AudioServer.set_bus_count(AudioServer.bus_count + 1)
 			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus_name)
 			AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
 	load_preferences()
