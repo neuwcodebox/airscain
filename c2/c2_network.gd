@@ -5,7 +5,11 @@ const MINIMUM_LINK_DISTANCE := 0.01
 
 var endpoints: Array[DefenseUnit] = []
 var threat_registry: ThreatRegistry
-var _topology_signature: int = 0
+var _topology_dirty: bool = true
+var _endpoint_ids: Array[int] = []
+var _endpoint_positions: Array[Vector3] = []
+var _endpoint_active: Array[bool] = []
+var _cached_jamming_epoch: int = -1
 var _reachable_sensor_cache: Dictionary[int, Array] = {}
 var _jamming_refresh_remaining: float = 0.0
 var _jamming_epoch: int = 0
@@ -55,8 +59,20 @@ func shared_tracks_for(unit: DefenseUnit, tracks: Array[PlayerTrack]) -> Array[P
 	return result
 
 func available_tracks_for(unit: DefenseUnit, tracks: Array[PlayerTrack]) -> Array[PlayerTrack]:
-	var result := local_tracks_for(unit, tracks)
-	result.append_array(shared_tracks_for(unit, tracks))
+	var result: Array[PlayerTrack] = []
+	var shared: Array[PlayerTrack] = []
+	var local_sensor_ids := unit.local_sensor_ids()
+	var reachable_sensor_ids := _reachable_sensor_ids(unit)
+	for track: PlayerTrack in tracks:
+		if _has_any_sensor(track, local_sensor_ids):
+			result.append(track)
+		else:
+			for sensor_id: int in track.contributing_sensor_ids:
+				if reachable_sensor_ids.has(sensor_id):
+					shared.append(track)
+					break
+	# Local tracks retain their original priority over shared tracks.
+	result.append_array(shared)
 	return result
 
 func has_command_path(unit: DefenseUnit, sensor_id: int) -> bool:
@@ -149,13 +165,24 @@ func _has_any_sensor(track: PlayerTrack, sensor_ids: Array[int]) -> bool:
 	return false
 
 func _refresh_cache_if_topology_changed() -> void:
-	var signature_value: int = endpoints.size()
-	for endpoint: DefenseUnit in endpoints:
-		signature_value = hash([signature_value, endpoint.get_instance_id(), endpoint.active, endpoint.global_position])
-	if threat_registry != null:
-		signature_value = hash([signature_value, _jamming_epoch])
-	if signature_value != _topology_signature:
-		_topology_signature = signature_value
+	var changed := _topology_dirty or (threat_registry != null and _cached_jamming_epoch != _jamming_epoch)
+	if _endpoint_ids.size() != endpoints.size():
+		_endpoint_ids.resize(endpoints.size())
+		_endpoint_positions.resize(endpoints.size())
+		_endpoint_active.resize(endpoints.size())
+		changed = true
+	for index: int in endpoints.size():
+		var endpoint := endpoints[index]
+		var id := endpoint.get_instance_id()
+		var position := endpoint.global_position
+		if _endpoint_ids[index] != id or _endpoint_positions[index] != position or _endpoint_active[index] != endpoint.active:
+			_endpoint_ids[index] = id
+			_endpoint_positions[index] = position
+			_endpoint_active[index] = endpoint.active
+			changed = true
+	if changed:
+		_topology_dirty = false
+		_cached_jamming_epoch = _jamming_epoch
 		_rebuild_reachable_cache()
 
 func _rebuild_reachable_cache() -> void:
@@ -190,5 +217,5 @@ func _rebuild_reachable_cache() -> void:
 			_reachable_sensor_cache[member.get_instance_id()] = shared_sensors.duplicate()
 
 func _invalidate_cache() -> void:
-	_topology_signature = 0
+	_topology_dirty = true
 	_reachable_sensor_cache.clear()

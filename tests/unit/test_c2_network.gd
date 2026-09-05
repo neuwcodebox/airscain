@@ -116,6 +116,26 @@ func _endpoint(id_value: int, roles: int, position: Vector3) -> EndpointDouble:
 	endpoint.global_position = position
 	return endpoint
 
+func test_available_track_query_preserves_local_first_order_and_live_observations() -> void:
+	var network := autofree(C2Network.new()) as C2Network
+	var sensor := _endpoint(1, DefenseUnit.C2Role.SENSOR, Vector3.ZERO)
+	var command := _endpoint(2, DefenseUnit.C2Role.COMMAND, Vector3(100, 0, 0))
+	var defense := _endpoint(3, DefenseUnit.C2Role.DEFENSE, Vector3(200, 0, 0))
+	defense.sensor_ids = [3]
+	for endpoint: EndpointDouble in [sensor, command, defense]:
+		network.register_asset(endpoint)
+	var shared := _track_from_sensor(1)
+	var local := _track_from_sensor(3)
+	var unknown := _track_from_sensor(99)
+	var tracks: Array[PlayerTrack] = [shared, unknown, local]
+	assert_eq(network.available_tracks_for(defense, tracks), [local, shared])
+	unknown.contributing_sensor_ids.append(1)
+	assert_eq(network.available_tracks_for(defense, tracks), [local, shared, unknown])
+	command.active = false
+	assert_eq(network.available_tracks_for(defense, tracks), [local])
+	command.active = true
+	assert_eq(network.available_tracks_for(defense, tracks), [local, shared, unknown])
+
 func _track_from_sensor(sensor_id: int) -> PlayerTrack:
 	var track := PlayerTrack.new()
 	track.track_id = 1

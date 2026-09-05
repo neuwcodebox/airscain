@@ -769,6 +769,50 @@ func test_common_purchase_flow_accepts_role_test_double() -> void:
 	assert_true(result.unit is RoleDefenseDouble)
 	assert_eq(session.budget, 50)
 
+func test_reservation_query_indexes_match_live_list_after_every_mutation() -> void:
+	var coordinator := autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 52913
+	for step: int in 250:
+		var track_id := rng.randi_range(1, 5)
+		var owner_id := rng.randi_range(1, 8)
+		match step % 7:
+			0: coordinator.try_reserve(track_id, owner_id, 0.8, 4)
+			1: coordinator.reserve_fire_support(track_id, owner_id, 0.4)
+			2: coordinator.release_one(track_id, owner_id)
+			3: coordinator.release(track_id, owner_id)
+			4: coordinator.release_fire_support(owner_id)
+			5: coordinator.gameplay_tick(0.1)
+			6: coordinator.restore_state(coordinator.capture_state())
+		for id: int in range(1, 6):
+			var owners: Array[int] = []
+			var count := 0
+			var interceptors := 0
+			for reservation: Dictionary in coordinator.reservations:
+				if int(reservation.track_id) != id:
+					continue
+				count += 1
+				interceptors += int(StringName(reservation.kind) == EngagementCoordinator.INTERCEPTOR)
+				if not owners.has(int(reservation.owner_defense_id)):
+					owners.append(int(reservation.owner_defense_id))
+			assert_eq(coordinator.reservation_count(id), count)
+			assert_eq(coordinator.reservation_count(id, EngagementCoordinator.INTERCEPTOR), interceptors)
+			assert_eq(coordinator.engagement_owner_ids(id), owners)
+			var copy := coordinator.engagement_owner_ids(id)
+			copy.clear()
+			assert_eq(coordinator.engagement_owner_ids(id), owners)
+		for id: int in range(1, 9):
+			var expected := 0
+			for reservation: Dictionary in coordinator.reservations:
+				if int(reservation.owner_defense_id) == id and StringName(reservation.kind) == EngagementCoordinator.FIRE_SUPPORT:
+					expected = int(reservation.track_id)
+					break
+			assert_eq(coordinator.fire_support_target(id), expected)
+	coordinator.reset()
+	assert_eq(coordinator.reservation_count(1), 0)
+	assert_true(coordinator.engagement_owner_ids(1).is_empty())
+	assert_eq(coordinator.fire_support_target(1), 0)
+
 func test_engagement_reservation_blocks_overkill_then_expires_or_releases() -> void:
 	var coordinator: EngagementCoordinator = autofree(EngagementCoordinator.new()) as EngagementCoordinator
 	assert_true(coordinator.try_reserve(7, 11, 0.5, 2))
