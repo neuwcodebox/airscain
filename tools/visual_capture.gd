@@ -651,6 +651,9 @@ func _capture_automatic_resupply() -> bool:
 	return true
 
 func _capture_selection_panel() -> bool:
+	AirscainApp.apply_global_font()
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	main.session.budget = 5000
 	main._on_pressure_changed(5)
 	_place_asset(main.scenario.available_defenses[0], -1.0)
@@ -680,6 +683,25 @@ func _capture_selection_panel() -> bool:
 	for index: int in 4:
 		await process_frame
 	_save_capture("/tmp/airscain_asset_selection.png")
+	var selection_panel := main.hud.selected_asset_panel
+	var resting_height := selection_panel.size.y
+	var selected_magazine := (battery as MissileBattery).magazines.values()[0] as WeaponMagazine
+	selected_magazine.reload_remaining = 5.0
+	main.hud.refresh_selected_asset()
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_asset_selection_reloading.png")
+	if selection_panel.size.y <= resting_height:
+		push_error("Selection panel did not grow for the reload row")
+		return false
+	selected_magazine.reload_remaining = 0.0
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_asset_selection_reload_finished.png")
+	if not is_equal_approx(selection_panel.size.y, resting_height):
+		push_error("Selection panel retained empty space after the reload row disappeared")
+		return false
+	print("VISUAL_CAPTURE_OK selection_panel_live_shrink")
 	var threat := main.director.spawn_one()
 	threat.global_position = radar.global_position + Vector3(180.0, 70.0, 0.0)
 	radar.gameplay_tick(0.8)

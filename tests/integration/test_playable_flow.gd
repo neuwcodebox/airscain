@@ -22,6 +22,32 @@ func before_each() -> void:
 	main = add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
 	await get_tree().process_frame
 
+func test_selected_asset_panel_shrinks_when_live_status_rows_disappear() -> void:
+	main.set_process(false)
+	var definition := preload("res://defense/close_in_gun/close_in_gun.tres")
+	var gun := add_child_autofree(definition.scene.instantiate()) as CloseInGun
+	gun.setup(9001, definition)
+	main.hud.set_selected_asset(gun, 0)
+	for frame: int in 4:
+		await get_tree().process_frame
+	var panel := main.hud.selected_asset_panel
+	var resting_height := panel.size.y
+	var bottom := panel.get_global_rect().end.y
+	for cycle: int in 2:
+		gun.magazine.reload_remaining = 5.0
+		# Opening or explicitly refreshing while the extra row is present pins
+		# the larger panel size; subsequent live updates must still shrink it.
+		main.hud.set_selected_asset(gun, 0)
+		for frame: int in 4:
+			await get_tree().process_frame
+		assert_gt(panel.size.y, resting_height, "재장전 행이 나타나면 패널도 커집니다")
+		assert_almost_eq(panel.get_global_rect().end.y, bottom, 1.0)
+		gun.magazine.reload_remaining = 0.0
+		for frame: int in 4:
+			await get_tree().process_frame
+		assert_almost_eq(panel.size.y, resting_height, 1.0, "추가 조작 없이 사라진 행의 여백을 회수합니다")
+		assert_almost_eq(panel.get_global_rect().end.y, bottom, 1.0)
+
 func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 1600)
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 900)

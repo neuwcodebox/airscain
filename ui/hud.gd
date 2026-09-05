@@ -486,6 +486,8 @@ func _set_state_color(positive: bool) -> void:
 	selection_state_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.66) if positive else Color(1.0, 0.62, 0.3))
 
 func _fit_selection_panel() -> void:
+	if not selected_asset_panel.visible:
+		return
 	selected_asset_panel.reset_size()
 	var panel_size := selected_asset_panel.get_combined_minimum_size()
 	selected_asset_panel.size = panel_size

@@ -964,6 +964,7 @@ text = "메인 메뉴"
 [connection signal="pressed" from="ThreatMenu/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
 [connection signal="item_selected" from="ThreatMenu/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
+[connection signal="minimum_size_changed" from="SelectedAssetPanel" to="." method="_fit_selection_panel" flags=3]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionModeButton" to="." method="_on_munition_mode_pressed"]
