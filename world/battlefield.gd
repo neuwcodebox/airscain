@@ -28,6 +28,7 @@ const BUILDING_CELL_SIZE := 64.0
 var _building_bounds: Array[AABB] = []
 var _building_cells: Dictionary[Vector2i, Array] = {}
 var _city_bounds := AABB()
+var _city_boxes := CityBoxBatch.new()
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -64,6 +65,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
+	_city_boxes.build(city_visuals)
 	var landscape := LandscapeDetails.new()
 	landscape.name = "LandscapeDetails"
 	city_visuals.add_child(landscape)
@@ -289,17 +291,10 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 	var palette: Array[Color] = [Color("8f7868"), Color("b8ad99"), Color("78838b"), Color("aa9274"), Color("c4c0b5"), Color("6f7a80")]
 	var facade_bands: Array[Transform3D] = []
 	for index: int in transforms.size():
-		var building := MeshInstance3D.new()
-		building.name = "Building%d" % index
-		var box := BoxMesh.new()
-		box.size = Vector3.ONE
-		building.mesh = box
-		building.transform = transforms[index]
 		var material := StandardMaterial3D.new()
 		material.albedo_color = palette[index % palette.size()]
 		material.roughness = 0.85
-		building.material_override = material
-		city_visuals.add_child(building)
+		_city_boxes.add_box(transforms[index], material)
 		_add_building_architecture(index, transforms[index], material, index % rooftop_spacing == 0)
 		_append_facade_bands(transforms[index], facade_bands)
 		if index % rooftop_spacing == 0:
@@ -521,7 +516,11 @@ func _build_road_markings(city_blocks: Array[Dictionary], block_step: float) -> 
 			var z := position.z + block_step * 0.5
 			_add_city_box("LaneX%d_%d" % [grid.x, grid.y], Vector3(block_step, 0.06, 0.38), Vector3(position.x, generator.height_at(position.x, z) + 0.31, z), marking_material)
 
-func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, material: Material) -> MeshInstance3D:
+func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, material: StandardMaterial3D) -> void:
+	if not material.emission_enabled:
+		_city_boxes.add_box(Transform3D(Basis.from_scale(box_size), position), material)
+		return
+	# Street-lamp emission changes with night_amount on the original material.
 	var visual := MeshInstance3D.new()
 	visual.name = node_name
 	var mesh := BoxMesh.new()
@@ -530,7 +529,6 @@ func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, mate
 	visual.position = position
 	visual.material_override = material
 	city_visuals.add_child(visual)
-	return visual
 
 func _build_rooftop_pad(index: int, building_transform: Transform3D) -> void:
 	var building_size := building_transform.basis.get_scale()

@@ -60,6 +60,11 @@ func run() -> void:
 		samples.append((Time.get_ticks_usec() - start) / 1000.0)
 	_report("smoke_24_puffs_19200", samples)
 	if OS.get_cmdline_user_args().has("--render"):
+		if OS.get_cmdline_user_args().has("--no-city"):
+			world.city_visuals.hide()
+		if OS.get_cmdline_user_args().has("--no-smoke"):
+			for trail: LingeringSmokeTrail in trails:
+				trail.hide()
 		var camera := Camera3D.new()
 		world.add_child(camera)
 		camera.position = Vector3(0, 300, 450)

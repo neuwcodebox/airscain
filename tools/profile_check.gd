@@ -1,4 +1,6 @@
 extends SceneTree
+## Fixed mixed raid CPU workload. --breakdown attributes simulation costs;
+## --render also measures full frames in an actual window; --night starts at midnight.
 
 const MAIN_SCENE := preload("res://main/main.tscn")
 const STEP := 0.05
@@ -57,6 +59,7 @@ var samples_usec: Array[int] = []
 var peak_contacts: int = 0
 var peak_tracks: int = 0
 var peak_projectiles: int = 0
+var frame_samples_usec: Array[int] = []
 
 func _init() -> void:
 	AudioServer.set_bus_mute(0, true)
@@ -67,8 +70,11 @@ func run() -> void:
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	if OS.get_cmdline_user_args().has("--breakdown"):
 		main.set_script(ProfiledMain)
+	main.set_process(false)
 	root.add_child(main)
 	await process_frame
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	main.set_process(false)
 	main.combat_audio.call("stop_all")
@@ -82,6 +88,10 @@ func run() -> void:
 		_fail("representative defense network could not be created: %d %s" % [main.session.defense_count, deployed])
 		return
 	_spawn_representative_attack()
+	if OS.get_cmdline_user_args().has("--night"):
+		main.session.survival_time = 450.0
+		main.session.next_support_at += 450.0
+	var render := OS.get_cmdline_user_args().has("--render")
 	var steps := int(PROFILE_DURATION / STEP)
 	for index: int in steps:
 		var started_at := Time.get_ticks_usec()
@@ -90,7 +100,12 @@ func run() -> void:
 		peak_contacts = maxi(peak_contacts, main.registry.count())
 		peak_tracks = maxi(peak_tracks, (main.player_knowledge.get("tracks") as Array).size())
 		peak_projectiles = maxi(peak_projectiles, main.projectile_parent.get_child_count())
-		if index % 10 == 0:
+		if render:
+			await process_frame
+			await RenderingServer.frame_post_draw
+			if index >= 20:
+				frame_samples_usec.append(Time.get_ticks_usec() - started_at)
+		elif index % 10 == 0:
 			await process_frame
 	samples_usec.sort()
 	var total_usec := 0
@@ -104,6 +119,15 @@ func run() -> void:
 	if main is ProfiledMain:
 		for label: String in main.costs:
 			print("PROFILE_COST %s avg_ms=%.3f" % [label, float(main.costs[label]) / samples_usec.size() / 1000.0])
+	if render:
+		frame_samples_usec.sort()
+		var total_frames := 0
+		for sample: int in frame_samples_usec:
+			total_frames += sample
+		print("PROFILE_RENDER avg_ms=%.3f p95_ms=%.3f" % [float(total_frames) / frame_samples_usec.size() / 1000.0, frame_samples_usec[int(frame_samples_usec.size() * 0.95)] / 1000.0])
+		root.get_texture().get_image().save_png("/tmp/airscain_profile_combat.png")
+	if OS.get_cmdline_user_args().has("--render-probe"):
+		await _render_probe()
 	main.combat_audio.call("stop_all")
 	main.free()
 	main = null
@@ -145,3 +169,55 @@ func _spawn_representative_attack() -> void:
 func _fail(message: String) -> void:
 	push_error("PROFILE_FAILED: %s" % message)
 	quit(1)
+
+func _render_probe() -> void:
+	_freeze(main)
+	await _sample_render("all")
+	var sun := main.get_node("Sun") as DirectionalLight3D
+	sun.shadow_enabled = false
+	await _sample_render("no_sun_shadows")
+	sun.shadow_enabled = true
+	var trails: Array[Node3D] = []
+	var particles: Array[Node3D] = []
+	var lights: Array[Node3D] = []
+	var models: Array[Node3D] = []
+	for node: Node in main.find_children("*", "Node3D", true, false):
+		if not (node as Node3D).visible:
+			continue
+		if node is LingeringSmokeTrail:
+			trails.append(node)
+		elif node is GPUParticles3D:
+			particles.append(node)
+		elif node is OmniLight3D:
+			lights.append(node)
+		elif node is MeshInstance3D and main.threat_parent.is_ancestor_of(node):
+			models.append(node)
+	for group: Array[Node3D] in [trails, particles, lights, models]:
+		for node: Node3D in group:
+			node.hide()
+		await _sample_render(["no_trails", "no_particles", "no_omnis", "no_threat_meshes"][[trails, particles, lights, models].find(group)])
+		for node: Node3D in group:
+			node.show()
+	main.battlefield.city_visuals.hide()
+	await _sample_render("no_city")
+	main.battlefield.city_visuals.show()
+
+func _freeze(node: Node) -> void:
+	node.set_process(false)
+	if node is GPUParticles3D:
+		(node as GPUParticles3D).speed_scale = 0.0
+	for child: Node in node.get_children():
+		_freeze(child)
+
+func _sample_render(label: String) -> void:
+	var samples: Array[int] = []
+	for index: int in 50:
+		var start := Time.get_ticks_usec()
+		await process_frame
+		await RenderingServer.frame_post_draw
+		if index >= 10:
+			samples.append(Time.get_ticks_usec() - start)
+	var total := 0
+	for sample: int in samples:
+		total += sample
+	print("PROFILE_PROBE %s avg_ms=%.3f draws=%d primitives=%d" % [label, float(total) / samples.size() / 1000.0, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)])

@@ -67,6 +67,8 @@ func run() -> void:
 		await process_frame
 	await capture("combat")
 	main.free()
+	for frame: int in 3:
+		await process_frame
 	quit()
 
 func capture(label: String) -> void:

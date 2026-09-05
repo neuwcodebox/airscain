@@ -245,9 +245,6 @@ func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 	assert_eq(battlefield.city_building_footprints.size(), buildings.size())
 	assert_lt(battlefield.city_block_surface_count, SCENARIO.battlefield_layout().city_blocks ** 2)
 	assert_null(battlefield.city_visuals.get_node_or_null("RoadNetwork"))
-	assert_not_null(battlefield.city_visuals.get_node_or_null("RoadTile0_0"))
-	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneX0_0"))
-	assert_not_null(battlefield.city_visuals.get_node_or_null("LaneZ0_0"))
 	assert_gt(battlefield.city_window_band_count, 300)
 	assert_gt(battlefield.city_rooftop_detail_count, 20)
 	assert_gt(battlefield.city_amenity_count, 0)
@@ -259,6 +256,41 @@ func test_battlefield_builds_only_the_irregular_city_footprint() -> void:
 	for pad: MeshInstance3D in battlefield.rooftop_pad_visuals:
 		assert_true(pad.visible)
 	battlefield.set_rooftop_pads_visible(false)
+
+func test_city_batches_preserve_each_box_surface_bounds_and_locality() -> void:
+	var batch := CityBoxBatch.new()
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("aa9274")
+	material.roughness = 0.85
+	var poses: Array[Transform3D] = []
+	for index: int in 24:
+		var pose := Transform3D(Basis(Vector3.UP, index * 0.1).scaled(Vector3(8, 20, 12)), Vector3(index * 30 - 360, 40, 10))
+		poses.append(pose)
+		batch.add_box(pose, material.duplicate())
+	batch.build(parent)
+	assert_lt(parent.get_child_count(), poses.size(), "동일 표면의 인접 건물을 함께 렌더합니다")
+	var instance_count := 0
+	var batch_bounds: Array[AABB] = []
+	for child: MultiMeshInstance3D in parent.get_children():
+		var surface := child.material_override as StandardMaterial3D
+		assert_eq(surface.albedo_color, material.albedo_color)
+		assert_eq(surface.roughness, material.roughness)
+		assert_eq(child.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+		var instances := child.multimesh
+		instance_count += instances.instance_count
+		batch_bounds.append(instances.custom_aabb)
+		assert_lt(instances.custom_aabb.size.x, 160.0, "국소 조명과 컬링을 위해 멀리 떨어진 건물을 묶지 않습니다")
+	assert_eq(instance_count, poses.size())
+	for pose: Transform3D in poses:
+		var found := false
+		var bounds := pose * AABB(-Vector3.ONE * 0.5, Vector3.ONE)
+		for candidate: AABB in batch_bounds:
+			found = found or candidate.grow(0.001).encloses(bounds)
+		assert_true(found, "회전·크기를 포함한 원래 형상이 컬링 경계 안에 있습니다")
+	var count := parent.get_child_count()
+	batch.build(parent)
+	assert_eq(parent.get_child_count(), count, "이미 빌드한 형상을 중복 생성하지 않습니다")
 
 func test_city_building_targets_use_seeded_ranges_and_segments_hit_the_first_surface() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
