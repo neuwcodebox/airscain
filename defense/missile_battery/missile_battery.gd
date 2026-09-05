@@ -7,6 +7,7 @@ const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 @export var turret_turn_speed_degrees: float = 75.0
 @export var launcher_elevation_speed_degrees: float = 55.0
 @export var launch_sector_degrees: float = 30.0
+const MINIMUM_LAUNCH_ELEVATION_DEGREES := 20.0
 
 var registry: ThreatRegistry
 var projectile_parent: Node3D
@@ -68,9 +69,12 @@ func gameplay_tick(delta: float) -> void:
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	var target_direction := launch_point.global_position.direction_to(target_position)
-	if target_direction.length_squared() <= 0.001 or launcher_forward().angle_to(target_direction) <= deg_to_rad(launch_sector_degrees):
+	var minimum_pitch := deg_to_rad(MINIMUM_LAUNCH_ELEVATION_DEGREES)
+	if elevation.rotation.x >= minimum_pitch - 0.00001 and (target_direction.length_squared() <= 0.001 or launcher_forward().angle_to(target_direction) <= deg_to_rad(launch_sector_degrees)):
 		return true
-	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, launcher_elevation_speed_degrees, launch_sector_degrees, delta, 4.0, 75.0)
+	var aligned := TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, launcher_elevation_speed_degrees, launch_sector_degrees, delta, MINIMUM_LAUNCH_ELEVATION_DEGREES, 75.0)
+	# The broad launch sector must not bypass the minimum upward departure angle.
+	return aligned and elevation.rotation.x >= minimum_pitch - 0.00001
 
 func launcher_forward() -> Vector3:
 	return -launch_point.global_basis.z.normalized()

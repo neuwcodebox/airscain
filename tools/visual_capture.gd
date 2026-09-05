@@ -1271,6 +1271,8 @@ func _capture_retarget_and_cruise_terminal_guidance() -> void:
 	_save_capture("/tmp/airscain_cruise_terminal_impact.png")
 
 func _capture_curved_missile_launch() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	main.registry.clear()
 	main.hud.visible = false
 	main.altitude_profile.visible = false
@@ -1297,9 +1299,33 @@ func _capture_curved_missile_launch() -> void:
 	track.classification = &"aircraft"
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	track.affiliation_confidence = 1.0
+	if OS.get_cmdline_user_args().has("--low-launch"):
+		battery.elevation.rotation.x = 0.0
+		target_position = battery.global_position + Vector3(0, -40, -250)
+		if battery._aim_turret(target_position, 0.01) or not battery._aim_turret(target_position, 1.0):
+			push_error("Low target must wait for upward launch alignment")
+			quit(1)
+			return
+		launch_origin = battery.launch_point.global_position
+		launch_direction = battery.launcher_forward()
 	track.estimated_position = target_position
 	battery._spawn_interceptor(track, definition.munitions[0], 0, 0.0)
 	var interceptor := battery.interceptors[0]
+	if OS.get_cmdline_user_args().has("--low-launch"):
+		if rad_to_deg(asin(interceptor.velocity.normalized().y)) < MissileBattery.MINIMUM_LAUNCH_ELEVATION_DEGREES - 0.001:
+			push_error("Missile departed below the minimum elevation")
+			quit(1)
+			return
+		for index: int in 8:
+			interceptor.gameplay_tick(0.02)
+			await process_frame
+		main.camera_rig.set_process(false)
+		main.camera_rig.camera.global_position = launch_origin + Vector3(45, 20, 20)
+		main.camera_rig.camera.look_at(launch_origin + launch_direction * 8, Vector3.UP)
+		await process_frame
+		await RenderingServer.frame_post_draw
+		_save_capture("/tmp/airscain_low_target_launch.png")
+		return
 	if interceptor.velocity.normalized().angle_to(target_direction) < deg_to_rad(10.0):
 		push_error("Interceptor did not depart along the physical launcher direction")
 		quit(1)

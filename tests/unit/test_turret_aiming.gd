@@ -2,6 +2,20 @@ extends GutTest
 
 const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 
+func test_missile_launch_waits_for_minimum_upward_pitch_even_inside_sector() -> void:
+	var definition := preload("res://defense/missile_battery/missile_battery.tres")
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(1, definition)
+	battery.elevation.rotation.x = 0.0
+	var low_target := battery.global_position + Vector3(0, -30, -200)
+	assert_false(battery._aim_turret(low_target, 0.01))
+	assert_gt(battery.elevation.rotation.x, 0.0)
+	assert_true(battery._aim_turret(low_target, 1.0))
+	assert_gte(rad_to_deg(asin(battery.launcher_forward().y)), MissileBattery.MINIMUM_LAUNCH_ELEVATION_DEGREES - 0.001)
+	var high_target := battery.global_position + Vector3(0, 400, -100)
+	assert_true(battery._aim_turret(high_target, 2.0))
+	assert_gt(rad_to_deg(asin(battery.launcher_forward().y)), 60.0)
+
 func test_shared_turret_aiming_traverses_yaw_and_elevation_before_alignment() -> void:
 	var root := add_child_autofree(Node3D.new()) as Node3D
 	var yaw := Node3D.new()
