@@ -15,6 +15,13 @@ func run() -> void:
 	main.camera_rig.set_process(false)
 	main.camera_rig.camera.position = Vector3(360, 260, 430)
 	main.camera_rig.camera.look_at(Vector3(0, 15, 0))
+	if OS.get_cmdline_user_args().has("--transition"):
+		for elapsed: float in [263.0, 265.3, 265.6, 268.0, 632.0, 634.4, 634.7, 637.0]:
+			main.day_night.apply_time(elapsed, true)
+			await capture("transition_%05.1f" % elapsed)
+		main.free()
+		quit()
+		return
 	var trail := LingeringSmokeTrail.new()
 	trail.puff_mesh = QuadMesh.new()
 	trail.puff_mesh.size = Vector2(2, 2)

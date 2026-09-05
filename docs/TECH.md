@@ -820,7 +820,7 @@ Compatibility의 glow bright pass는 낮과 밤에 맞춘 threshold·intensity�
 
 ## 21. 저장과 복원
 
-`DayNightCycle`은 저장된 `GameSession.survival_time`에서 오전 9시 시작·720초 주기의 조명을 계산한다. 별도 시계나 저장 필드를 추가하지 않는다. 각 전장의 Environment·Sky·창문 재질은 독립 소유하며 복원 직후 강제 갱신한다. 조명은 최대 게임 시간 0.1초 간격으로 갱신하고 정지 중에는 재계산하지 않는다. ProceduralSkyMaterial과 기존 태양, 그림자 없는 약한 달빛을 사용한다. 창문은 기존 MultiMesh의 INSTANCE_ID 기반 고정 점등 분포를 셰이더에서 계산하며 모든 창문에 개별 광원을 추가하지 않는다. 가로등의 발광 재질과 최대 6개의 그림자 없는 구역 광원이 도로 주변을 비춘다. 탐지/AI/피해 로직과 VFX 광량은 변경하지 않는다.
+`DayNightCycle`은 저장된 `GameSession.survival_time`에서 오전 9시 시작·720초 주기의 조명을 계산한다. 별도 시계나 저장 필드를 추가하지 않는다. 각 전장의 Environment·Sky·창문 재질은 독립 소유하며 복원 직후 강제 갱신한다. 조명은 최대 게임 시간 0.1초 간격으로 갱신하고 정지 중에는 재계산하지 않는다. ProceduralSkyMaterial과 기존 태양, 그림자 없는 약한 달빛을 사용한다. 태양 그림자는 낮밤 경계에서 활성 상태를 바꾸지 않고, 태양 고도에 따른 `shadow_opacity`를 0–1로 연속 보간한다. 창문은 기존 MultiMesh의 INSTANCE_ID 기반 고정 점등 분포를 셰이더에서 계산하며 모든 창문에 개별 광원을 추가하지 않는다. 가로등의 발광 재질과 최대 6개의 그림자 없는 구역 광원이 도로 주변을 비춘다. 탐지/AI/피해 로직과 VFX 광량은 변경하지 않는다.
 
 저장은 버전이 있는 plain-data 문서로 관리한다. scene tree 자체나 공유 resource를 그대로 저장 포맷으로 사용하지 않는다.
 

@@ -15,6 +15,7 @@ var _last_elapsed: float = -INF
 
 func configure(sun: DirectionalLight3D, world_environment: WorldEnvironment, battlefield: Battlefield) -> void:
 	_sun = sun
+	_sun.shadow_enabled = true
 	_environment = world_environment.environment.duplicate() as Environment
 	world_environment.environment = _environment
 	_battlefield = battlefield
@@ -53,7 +54,8 @@ func apply_time(elapsed: float, force: bool = false) -> void:
 	_sun.rotation_degrees = Vector3(-rad_to_deg(asin(elevation)) * 0.72, -38.0 + (hour - 9.0) * 15.0, 0.0)
 	_sun.light_color = Color(1.0, 0.91, 0.76).lerp(Color(1.0, 0.43, 0.19), warmth)
 	_sun.light_energy = 1.2 * daylight
-	_sun.shadow_enabled = elevation > 0.04
+	# Fade long horizon shadows before twilight; never switch a visible shadow off.
+	_sun.shadow_opacity = smoothstep(0.02, 0.20, elevation)
 	_environment.ambient_light_color = Color("60769e").lerp(Color(0.62, 0.73, 0.82), daylight)
 	_environment.ambient_light_energy = lerpf(0.22, 0.55, daylight)
 	_moon.light_energy = 0.16 * night_amount
