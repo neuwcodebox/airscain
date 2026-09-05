@@ -10,17 +10,12 @@ const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 
 var registry: ThreatRegistry
 var projectile_parent: Node3D
-var cooldown: float = 0.0
+var launch_cooldown: float = 0.0
 var _definition: MissileBatteryDefinition
 var interceptors: Array[HomingInterceptor] = []
 var magazines: Dictionary[StringName, WeaponMagazine] = {}
 var munition_mode: StringName = &"auto"
-var pending_salvo_track: PlayerTrack
-var pending_salvo_track_id: int = -1
-var pending_salvo_munition_id: StringName
-var pending_salvo_remaining_rounds: int = 0
-var pending_salvo_next_sequence: int = 0
-var pending_salvo_delay_remaining: float = 0.0
+var next_launch_sequence: int = 0
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
@@ -29,7 +24,7 @@ var pending_salvo_delay_remaining: float = 0.0
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
 	_definition = definition_value as MissileBatteryDefinition
-	_clear_pending_salvo()
+	next_launch_sequence = 0
 	magazines.clear()
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		var munition_magazine := WeaponMagazine.new()
@@ -52,26 +47,24 @@ func gameplay_tick(delta: float) -> void:
 		var interceptor := interceptors[index]
 		if not is_instance_valid(interceptor) or interceptor.is_queued_for_deletion():
 			if engagement_coordinator != null and is_instance_valid(interceptor) and interceptor.target_track != null:
-				engagement_coordinator.release(interceptor.target_track.track_id, runtime_id)
+				engagement_coordinator.release_one(interceptor.target_track.track_id, runtime_id)
 			interceptors.remove_at(index)
 		else:
 			interceptor.gameplay_tick(delta)
 	for munition_magazine: WeaponMagazine in magazines.values():
 		munition_magazine.gameplay_tick(delta)
 	_refresh_launcher_cells()
-	cooldown = maxf(0.0, cooldown - delta)
-	if pending_salvo_remaining_rounds > 0:
-		_tick_pending_salvo(delta)
-		return
+	launch_cooldown = maxf(0.0, launch_cooldown - delta)
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	if track == null:
 		return
 	var is_aimed := _aim_turret(track.estimated_position, delta)
 	var munition := munition_for_track(track)
-	var volley_size := mini(munition.salvo_size, magazines[munition.id].rounds) if munition != null else 0
-	if is_aimed and munition != null and volley_size > 0 and cooldown <= 0.0 and _active_interceptor_count() + volley_size <= _definition.engagement_channels and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, munition.interceptor_lifetime, engagement_limit_for(munition)):
-		_launch_salvo(track, munition, volley_size)
-		cooldown = _definition.fire_interval
+	if is_aimed and munition != null and launch_cooldown <= 0.0 and _active_interceptor_count() < _definition.engagement_channels and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, munition.interceptor_lifetime, engagement_limit()):
+		if _fire_round(track, munition):
+			launch_cooldown = _definition.launch_interval
+		else:
+			engagement_coordinator.release_one(track.track_id, runtime_id)
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	var target_direction := launch_point.global_position.direction_to(target_position)
@@ -97,7 +90,7 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		if not doctrine.allows(track):
 			continue
 		var munition := munition_for_track(track)
-		if munition == null or not is_track_available_for_engagement(track, engagement_limit_for(munition)):
+		if munition == null or not is_track_available_for_engagement(track, engagement_limit()):
 			continue
 		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range * operational_efficiency():
@@ -114,8 +107,8 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 			selected_distance = distance
 	return selected
 
-func engagement_limit_for(munition: MissileMunitionDefinition) -> int:
-	return maxi(_definition.maximum_interceptors_per_track, munition.salvo_size)
+func engagement_limit() -> int:
+	return _definition.maximum_interceptors_per_track
 
 func weapon_match(track: PlayerTrack) -> float:
 	var munition := munition_for_track(track)
@@ -219,15 +212,6 @@ func selection_status_rows() -> Array[Dictionary]:
 	rows.append_array(_selection_task_rows())
 	return rows
 
-func _launch(track: PlayerTrack, munition: MissileMunitionDefinition = null) -> void:
-	if enemy_knowledge != null:
-		enemy_knowledge.record_engagement(self, &"missile")
-	if munition == null:
-		munition = _definition.munitions[0]
-	weapon_fired.emit(self, combat_resource_low())
-	_spawn_interceptor(track, munition, 0, 0.0)
-	_show_muzzle_flash()
-
 func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition, launch_sequence: int, lateral_offset: float) -> void:
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
@@ -241,7 +225,7 @@ func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition,
 func _on_interceptor_target_changed(previous_track_id: int, new_track_id: int, remaining_lifetime: float) -> void:
 	if engagement_coordinator == null:
 		return
-	engagement_coordinator.release(previous_track_id, runtime_id)
+	engagement_coordinator.release_one(previous_track_id, runtime_id)
 	engagement_coordinator.try_reserve(new_track_id, runtime_id, remaining_lifetime, 99)
 
 func _show_muzzle_flash() -> void:
@@ -249,64 +233,21 @@ func _show_muzzle_flash() -> void:
 	$MuzzleFlash.visible = true
 	get_tree().create_timer(0.08).timeout.connect(func() -> void: $MuzzleFlash.visible = false)
 
-func _launch_salvo(track: PlayerTrack, munition: MissileMunitionDefinition, volley_size: int) -> void:
-	if track == null or munition == null or volley_size <= 0 or pending_salvo_remaining_rounds > 0:
-		return
-	pending_salvo_track = track
-	pending_salvo_track_id = track.track_id
-	pending_salvo_munition_id = munition.id
-	pending_salvo_remaining_rounds = volley_size
-	pending_salvo_next_sequence = 0
-	pending_salvo_delay_remaining = 0.0
-	_launch_pending_salvo_round()
-
-func _tick_pending_salvo(delta: float) -> void:
-	pending_salvo_delay_remaining = maxf(0.0, pending_salvo_delay_remaining - delta)
-	if pending_salvo_delay_remaining > 0.0:
-		return
-	_launch_pending_salvo_round()
-
-func _launch_pending_salvo_round() -> void:
-	if pending_salvo_remaining_rounds <= 0:
-		_clear_pending_salvo()
-		return
-	if pending_salvo_track == null and player_knowledge != null:
-		pending_salvo_track = player_knowledge.call("find_track", pending_salvo_track_id) as PlayerTrack
-	var munition := _munition_by_id(pending_salvo_munition_id)
-	if pending_salvo_track == null or munition == null:
-		_clear_pending_salvo()
-		return
+func _fire_round(track: PlayerTrack, munition: MissileMunitionDefinition) -> bool:
+	if track == null or munition == null:
+		return false
 	var cell_index := maxi(0, _launcher_caps().size() - mini(_ready_round_count(), _launcher_caps().size()))
 	if not magazines[munition.id].consume():
-		_clear_pending_salvo()
-		return
+		return false
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"missile")
 	weapon_fired.emit(self, combat_resource_low())
 	var lateral_offset := _cell_lateral_offset(cell_index) if not _launcher_caps().is_empty() else 0.0
-	_spawn_interceptor(pending_salvo_track, munition, pending_salvo_next_sequence, lateral_offset)
+	_spawn_interceptor(track, munition, next_launch_sequence, lateral_offset)
+	next_launch_sequence += 1
 	_show_muzzle_flash()
 	_refresh_launcher_cells()
-	pending_salvo_remaining_rounds -= 1
-	pending_salvo_next_sequence += 1
-	if pending_salvo_remaining_rounds <= 0:
-		_clear_pending_salvo()
-	else:
-		pending_salvo_delay_remaining = _definition.salvo_interval
-
-func _munition_by_id(munition_id: StringName) -> MissileMunitionDefinition:
-	for munition: MissileMunitionDefinition in _definition.munitions:
-		if munition.id == munition_id:
-			return munition
-	return null
-
-func _clear_pending_salvo() -> void:
-	pending_salvo_track = null
-	pending_salvo_track_id = -1
-	pending_salvo_munition_id = &""
-	pending_salvo_remaining_rounds = 0
-	pending_salvo_next_sequence = 0
-	pending_salvo_delay_remaining = 0.0
+	return true
 
 func _launcher_caps() -> Array[Node3D]:
 	var result: Array[Node3D] = []
@@ -341,36 +282,21 @@ func capture_content_state() -> Dictionary:
 	var magazine_states: Dictionary = {}
 	for munition_id: StringName in magazines:
 		magazine_states[String(munition_id)] = magazines[munition_id].capture_state()
-	var pending_salvo := {}
-	if pending_salvo_remaining_rounds > 0:
-		pending_salvo = {
-			"track_id": pending_salvo_track_id,
-			"munition_id": String(pending_salvo_munition_id),
-			"remaining_rounds": pending_salvo_remaining_rounds,
-			"next_sequence": pending_salvo_next_sequence,
-			"delay_remaining": pending_salvo_delay_remaining,
-		}
 	return {
-		"cooldown": cooldown,
+		"launch_cooldown": launch_cooldown,
+		"next_launch_sequence": next_launch_sequence,
 		"munition_mode": String(munition_mode),
 		"munition_magazines": magazine_states,
-		"pending_salvo": pending_salvo,
 		"doctrine": capture_doctrine_state(),
 	}
 
 func restore_content_state(state: Dictionary) -> void:
-	cooldown = float(state.get("cooldown", 0.0))
+	var saved_cooldown := float(state.get("launch_cooldown", state.get("cooldown", 0.0)))
+	launch_cooldown = clampf(saved_cooldown, 0.0, _definition.launch_interval)
+	next_launch_sequence = int(state.get("next_launch_sequence", 0))
 	munition_mode = StringName(String(state.get("munition_mode", "auto")))
 	var magazine_states: Dictionary = state.get("munition_magazines", {})
 	for munition_id: StringName in magazines:
 		magazines[munition_id].restore_state(magazine_states.get(String(munition_id), {}))
-	_clear_pending_salvo()
-	var pending_salvo: Dictionary = state.get("pending_salvo", {})
-	if not pending_salvo.is_empty():
-		pending_salvo_track_id = int(pending_salvo.get("track_id", -1))
-		pending_salvo_munition_id = StringName(String(pending_salvo.get("munition_id", "")))
-		pending_salvo_remaining_rounds = int(pending_salvo.get("remaining_rounds", 0))
-		pending_salvo_next_sequence = int(pending_salvo.get("next_sequence", 0))
-		pending_salvo_delay_remaining = float(pending_salvo.get("delay_remaining", 0.0))
 	_refresh_launcher_cells()
 	restore_doctrine_state(state.get("doctrine", {}))

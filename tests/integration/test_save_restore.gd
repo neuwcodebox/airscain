@@ -38,7 +38,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	var support_price := support.definition.price
 	assert_true(support.supports_position(battery.global_position))
 	battery.doctrine.hold_fire = true
-	battery.cooldown = 1.25
+	battery.launch_cooldown = 0.125
 	battery.receive_damage(20.0)
 	battery.magazine.reserve = 0
 	assert_true(battery.request_resupply())
@@ -80,7 +80,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(restored_battery.runtime_id, battery_runtime_id)
 	assert_eq(restored_battery.global_position, placement_position)
 	assert_true(restored_battery.doctrine.hold_fire)
-	assert_eq(restored_battery.cooldown, 1.25)
+	assert_eq(restored_battery.launch_cooldown, 0.125)
 	assert_eq(restored_battery.integrity, 80.0)
 	assert_eq(restored_battery.magazine.reserve, 0)
 	assert_eq(main.support_manager.task_status(restored_battery), "재보급 진행")
@@ -200,7 +200,7 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	assert_eq(track.state, PlayerTrack.State.CONFIRMED)
 	var track_id := track.track_id
 	radar.scan_cooldown = 0.23
-	battery._launch(track)
+	assert_true(battery._fire_round(track, battery.munition_for_track(track)))
 	battery.doctrine.hold_fire = true
 	var interceptor := battery.interceptors[0]
 	interceptor.gameplay_tick(0.2)

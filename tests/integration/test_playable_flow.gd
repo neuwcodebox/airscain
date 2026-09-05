@@ -1195,7 +1195,7 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	assert_gt(maximum_altitude, 900.0)
 	assert_eq(main.objective.current_integrity, starting_integrity - roundi(definition.mission.damage))
 
-func test_long_range_layer_intercepts_a_live_ballistic_attack_with_specialized_salvo() -> void:
+func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_rounds() -> void:
 	main.registry.clear()
 	main._on_pressure_changed(4)
 	var radar_result := _place_for(main, main.scenario.available_defenses[3])

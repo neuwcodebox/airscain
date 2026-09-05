@@ -41,6 +41,20 @@ class CapabilityConsumerDouble:
 	func complete_resupply() -> void:
 		replenished = true
 
+class TrackProviderDouble:
+	extends Node
+
+	var tracks: Array[PlayerTrack] = []
+
+	func get_active_tracks() -> Array[PlayerTrack]:
+		return tracks
+
+class C2NetworkDouble:
+	extends Node
+
+	func available_tracks_for(_defense: DefenseUnit, tracks: Array[PlayerTrack]) -> Array[PlayerTrack]:
+		return tracks
+
 var battlefield: Battlefield
 var objective: ProtectedObjective
 
@@ -427,9 +441,9 @@ func test_two_batteries_can_engage_the_same_cruise_track_without_global_single_s
 	var cruise := _confirmed_track(Vector3(180.0, 45.0, 0.0))
 	cruise.classification = &"cruise_missile"
 	var munition := first.munition_for_track(cruise)
-	assert_true(coordinator.try_reserve(cruise.track_id, first.runtime_id, munition.interceptor_lifetime, first.engagement_limit_for(munition)))
+	assert_true(coordinator.try_reserve(cruise.track_id, first.runtime_id, munition.interceptor_lifetime, first.engagement_limit()))
 	assert_same(second.select_track([cruise], Vector3.ZERO), cruise)
-	assert_true(coordinator.try_reserve(cruise.track_id, second.runtime_id, munition.interceptor_lifetime, second.engagement_limit_for(munition)))
+	assert_true(coordinator.try_reserve(cruise.track_id, second.runtime_id, munition.interceptor_lifetime, second.engagement_limit()))
 	assert_null(first.select_track([cruise], Vector3.ZERO))
 	coordinator.free()
 
@@ -443,13 +457,49 @@ func test_missile_rack_empties_visible_cells_then_shows_reload_and_ammunition() 
 	var munition := definition.munitions[0]
 	assert_eq(battery._launcher_caps().size(), munition.magazine_capacity)
 	for expected_rounds: int in range(munition.magazine_capacity - 1, -1, -1):
-		battery._launch_salvo(track, munition, 1)
+		assert_true(battery._fire_round(track, munition))
 		assert_eq(battery.magazines[munition.id].rounds, expected_rounds)
 		assert_eq(battery._launcher_caps().filter(func(cap: Node3D) -> bool: return cap.visible).size(), expected_rounds)
 	battery._process(0.0)
 	assert_false(battery.status_marker.visible)
 	assert_string_contains(battery.resource_status_text(), "재장전 9.0초")
-	assert_eq(definition.fire_interval, 2.8)
+	assert_eq(definition.launch_interval, 0.28)
+
+func test_missile_rack_launches_one_ready_round_per_interval() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	var definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	battery.setup(34, definition)
+	battery.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	var track_provider := add_child_autofree(TrackProviderDouble.new()) as TrackProviderDouble
+	var c2_network := add_child_autofree(C2NetworkDouble.new()) as C2NetworkDouble
+	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	var target_position := battery.launch_point.global_position + battery.launcher_forward() * 220.0 + Vector3.UP * 40.0
+	var registry := ThreatRegistry.new()
+	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	var threat_definition := ThreatDefinition.new()
+	threat_definition.affiliation = ThreatDefinition.Affiliation.HOSTILE
+	threat.setup(3401, threat_definition)
+	threat.global_position = target_position
+	registry.add(threat)
+	var track := _confirmed_track(target_position)
+	track.track_id = threat.runtime_id
+	track.classification = &"cruise_missile"
+	track_provider.tracks = [track]
+	battery.configure_combat(registry, projectiles)
+	battery.configure_player_knowledge(battlefield, track_provider)
+	battery.configure_c2(c2_network)
+	battery.configure_engagements(coordinator)
+	battery.gameplay_tick(0.01)
+	assert_eq(battery.interceptors.size(), 1)
+	assert_eq(coordinator.reservation_count(track.track_id), 1)
+	battery.gameplay_tick(definition.launch_interval - 0.02)
+	assert_eq(battery.interceptors.size(), 1)
+	battery.gameplay_tick(0.021)
+	assert_eq(battery.interceptors.size(), 2)
+	assert_eq(coordinator.reservation_count(track.track_id), 2)
+	battery.gameplay_tick(definition.launch_interval)
+	assert_eq(battery.interceptors.size(), 2, "per-track allocation must stop the rack from dumping every ready round at one threat")
 
 func test_missile_battery_launches_within_a_broad_sector_without_exact_alignment() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
@@ -502,7 +552,7 @@ func test_long_range_launcher_selects_and_preserves_specialized_munition() -> vo
 	battery.set_munition_mode(&"area_defense")
 	assert_eq(battery.munition_for_track(ballistic).id, &"area_defense")
 
-func test_high_speed_interceptor_leads_moving_track_and_launches_configured_salvo() -> void:
+func test_high_speed_interceptor_leads_moving_track_and_launches_individual_rack_rounds() -> void:
 	var target_position := Vector3(500.0, 600.0, 0.0)
 	var target_velocity := Vector3(-120.0, -180.0, 70.0)
 	var lead := INTERCEPT_GUIDANCE.lead_point(Vector3.ZERO, 520.0, target_position, target_velocity, 1.8)
@@ -519,21 +569,17 @@ func test_high_speed_interceptor_leads_moving_track_and_launches_configured_salv
 	ballistic.estimated_velocity = target_velocity
 	var munition := battery.munition_for_track(ballistic)
 	var rounds_before := battery.magazines[munition.id].rounds
-	battery._launch_salvo(ballistic, munition, munition.salvo_size)
+	assert_true(battery._fire_round(ballistic, munition))
 	assert_eq(projectiles.get_child_count(), 1)
 	assert_eq(battery.interceptors.size(), 1)
 	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 1)
-	assert_eq(battery.pending_salvo_remaining_rounds, 1)
-	battery._tick_pending_salvo(definition.salvo_interval - 0.01)
-	assert_eq(projectiles.get_child_count(), 1)
-	battery._tick_pending_salvo(0.011)
+	assert_true(battery._fire_round(ballistic, munition))
 	assert_eq(projectiles.get_child_count(), 2)
 	assert_eq(battery.interceptors.size(), 2)
 	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 2)
 	assert_ne(battery.interceptors[0].global_position, battery.interceptors[1].global_position)
-	assert_eq(battery.pending_salvo_remaining_rounds, 0)
 
-func test_pending_missile_salvo_round_trips_through_content_state() -> void:
+func test_missile_launch_sequence_and_interval_round_trip() -> void:
 	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	battery.setup(72, definition)
@@ -542,18 +588,21 @@ func test_pending_missile_salvo_round_trips_through_content_state() -> void:
 	var track := _confirmed_track(Vector3(500.0, 600.0, 0.0))
 	track.classification = &"ballistic_missile"
 	var munition := battery.munition_for_track(track)
-	battery._launch_salvo(track, munition, 2)
-	battery._tick_pending_salvo(0.1)
+	assert_true(battery._fire_round(track, munition))
+	battery.launch_cooldown = definition.launch_interval
 	var state := battery.capture_content_state()
-	assert_eq(state.pending_salvo.remaining_rounds, 1)
-	assert_almost_eq(float(state.pending_salvo.delay_remaining), 0.25, 0.001)
+	assert_eq(int(state.next_launch_sequence), 1)
 	assert_eq(definition.runtime_state_validation_error(state), "")
 	var restored := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	restored.setup(72, definition)
 	restored.restore_content_state(state)
-	assert_eq(restored.pending_salvo_track_id, track.track_id)
-	assert_eq(restored.pending_salvo_remaining_rounds, 1)
-	assert_almost_eq(restored.pending_salvo_delay_remaining, 0.25, 0.001)
+	assert_eq(restored.next_launch_sequence, 1)
+	assert_almost_eq(restored.launch_cooldown, definition.launch_interval, 0.001)
+	var legacy_state := state.duplicate(true)
+	legacy_state.erase("launch_cooldown")
+	legacy_state["cooldown"] = 3.5
+	restored.restore_content_state(legacy_state)
+	assert_almost_eq(restored.launch_cooldown, definition.launch_interval, 0.001)
 
 func test_doctrine_rejects_neutral_low_quality_and_hold_fire_tracks() -> void:
 	var doctrine := EngagementDoctrine.new()
@@ -612,6 +661,12 @@ func test_engagement_reservation_blocks_overkill_then_expires_or_releases() -> v
 	assert_true(coordinator.try_reserve(8, 11, 2.0))
 	coordinator.release(8, 11)
 	assert_false(coordinator.has_reservation(8))
+	assert_true(coordinator.try_reserve(9, 11, 2.0, 2))
+	assert_true(coordinator.try_reserve(9, 11, 2.0, 2))
+	coordinator.release_one(9, 11)
+	assert_eq(coordinator.reservation_count(9), 1)
+	coordinator.release(9, 11)
+	assert_false(coordinator.has_reservation(9))
 
 func test_weapon_magazine_consumes_reloads_and_restores_finite_ammunition() -> void:
 	var magazine := WeaponMagazine.new()

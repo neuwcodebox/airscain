@@ -163,7 +163,7 @@ func run() -> void:
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-missile-rack-only"):
-		await _capture_missile_rack_salvo()
+		await _capture_missile_rack_rapid_fire()
 		print("VISUAL_CAPTURE_OK six_cell_rack rapid_launch uncluttered_world_marker")
 		quit(0)
 		return
@@ -1304,7 +1304,7 @@ func _capture_hpm_bird_fall() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_hpm_bird_fall.png")
 
-func _capture_missile_rack_salvo() -> void:
+func _capture_missile_rack_rapid_fire() -> void:
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	var definition := main.scenario.available_defenses[0] as MissileBatteryDefinition
@@ -1322,25 +1322,24 @@ func _capture_missile_rack_salvo() -> void:
 	track.affiliation_confidence = 1.0
 	track.estimated_position = target_position
 	var munition := definition.munitions[0]
-	battery._launch_salvo(track, munition, 2)
+	battery._fire_round(track, munition)
 	if battery.interceptors.size() != 1:
-		push_error("Missile salvo launched multiple rounds in the same frame")
+		push_error("Missile rack did not launch exactly one ready round")
 		quit(1)
 		return
-	battery._tick_pending_salvo(definition.salvo_interval * 0.5)
-	if battery.interceptors.size() != 1:
-		push_error("Missile salvo ignored its configured launch interval")
-		quit(1)
-		return
-	battery._tick_pending_salvo(definition.salvo_interval * 0.5 + 0.001)
+	for frame_index: int in ceili(definition.launch_interval / 0.05):
+		for interceptor: HomingInterceptor in battery.interceptors:
+			interceptor.gameplay_tick(0.05)
+		await process_frame
+	battery._fire_round(track, munition)
 	if battery.interceptors.size() != 2:
-		push_error("Missile salvo did not launch its queued second round")
+		push_error("Missile rack did not launch the next ready round")
 		quit(1)
 		return
 	for interceptor: HomingInterceptor in battery.interceptors:
-		interceptor.gameplay_tick(definition.salvo_interval)
+		interceptor.gameplay_tick(definition.launch_interval)
 	for launch_index: int in munition.magazine_capacity - 2:
-		battery._launch_salvo(track, munition, 1)
+		battery._fire_round(track, munition)
 		for frame_index: int in 4:
 			for interceptor: HomingInterceptor in battery.interceptors:
 				if is_instance_valid(interceptor) and not interceptor.is_queued_for_deletion():
@@ -1356,7 +1355,7 @@ func _capture_missile_rack_salvo() -> void:
 	main.camera_rig.camera.look_at(camera_target, Vector3.UP)
 	for frame_index: int in 8:
 		await process_frame
-	_save_capture("/tmp/airscain_missile_rack_salvo.png")
+	_save_capture("/tmp/airscain_missile_rack_rapid_fire.png")
 
 func _capture_time_control_buttons() -> void:
 	var fast_button := main.hud.get_node("%FastButton") as Button

@@ -28,6 +28,13 @@ func release(track_id: int, owner_defense_id: int) -> void:
 		if int(reservation.track_id) == track_id and int(reservation.owner_defense_id) == owner_defense_id:
 			reservations.remove_at(index)
 
+func release_one(track_id: int, owner_defense_id: int) -> void:
+	for index: int in reservations.size():
+		var reservation := reservations[index]
+		if int(reservation.track_id) == track_id and int(reservation.owner_defense_id) == owner_defense_id:
+			reservations.remove_at(index)
+			return
+
 func has_reservation(track_id: int) -> bool:
 	return reservation_count(track_id) > 0
 
