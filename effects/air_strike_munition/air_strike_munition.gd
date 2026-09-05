@@ -58,8 +58,5 @@ func _impact() -> void:
 	if parent != null:
 		var smoke := $SmokeTrail as LingeringSmokeTrail
 		smoke.release_to(parent)
-		var explosion := EXPLOSION_SCENE.instantiate() as ExplosionEffect
-		parent.add_child(explosion)
-		explosion.global_position = target_position
-		explosion.setup(Color("ffb02e"), 8.0)
+		ExplosionEffect.spawn(parent as Node3D, target_position, Color("ffb02e"), 8.0)
 	queue_free()

@@ -40,6 +40,7 @@ func _ready() -> void:
 	ui_audio.connect_buttons(pause_menu)
 	_style_menu_buttons()
 	_refresh_main_load_button()
+	_set_preparation_ui(false)
 	get_tree().process_frame.connect(_start_combat_vfx_warmup, CONNECT_ONE_SHOT)
 
 func _style_menu_buttons() -> void:
@@ -74,11 +75,21 @@ func _start_combat_vfx_warmup() -> void:
 		return
 	combat_vfx_warmup_started = true
 	var warmup := CombatVfxWarmup.new()
+	warmup.progress_changed.connect(func(fraction: float) -> void: menu_feedback_label.text = "전장·전투 효과 준비 중 · %d%%" % roundi(fraction * 100.0))
 	warmup.completed.connect(_on_combat_vfx_warmup_completed)
 	add_child(warmup)
 
 func _on_combat_vfx_warmup_completed() -> void:
 	combat_vfx_warmup_completed = true
+	_set_preparation_ui(true)
+	menu_feedback_label.text = ""
+
+func _set_preparation_ui(ready: bool) -> void:
+	for path: String in ["Panel/VBox/SustainedButton", "Panel/VBox/TrainingButton", "Panel/VBox/SandboxButton"]:
+		(main_menu.get_node(path) as Button).disabled = not ready
+	main_load_button.disabled = not ready or not FileAccess.file_exists(save_path)
+	if not ready:
+		menu_feedback_label.text = "전장·전투 효과 준비 중…"
 
 func _unhandled_input(event: InputEvent) -> void:
 	if gameplay != null and gameplay.session.phase != GameSession.Phase.GAME_OVER and event.is_action_pressed("ui_cancel"):

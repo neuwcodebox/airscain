@@ -34,6 +34,7 @@ var selected_track: PlayerTrack
 var save_path: String = SaveStore.DEFAULT_PATH
 var tactical_ui_refresh_remaining: float = 0.0
 var game_mode: GameMode = GameMode.SUSTAINED
+var combat_effect_pool: CombatEffectPool
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -108,8 +109,33 @@ func _ready() -> void:
 		hud.set_feedback("방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요.", false)
 	else:
 		hud.set_feedback("방공 자산을 배치한 뒤 방어를 시작하세요.", false)
+	combat_effect_pool = CombatEffectPool.new()
+	effects_parent.add_child(combat_effect_pool)
+	_prepare_combat_visuals()
+
+func _prepare_combat_visuals() -> void:
+	var blocker: CanvasLayer
+	if DisplayServer.get_name() != "headless":
+		blocker = CanvasLayer.new()
+		blocker.layer = 100
+		add_child(blocker)
+		var panel := ColorRect.new()
+		panel.color = Color("0b1b23")
+		panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		blocker.add_child(panel)
+		var label := Label.new()
+		label.text = "전장 효과 준비 중…"
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		panel.add_child(label)
+	await combat_effect_pool.prepare(objective.prepared_smoke_effects)
+	if blocker != null:
+		blocker.queue_free()
 
 func _process(delta: float) -> void:
+	if combat_effect_pool != null and not combat_effect_pool.prepared:
+		return
 	tactical_ui_refresh_remaining -= delta
 	if tactical_ui_refresh_remaining <= 0.0:
 		tactical_ui_refresh_remaining += 0.2
@@ -340,10 +366,7 @@ func _on_objective_damage_audio(_amount: int) -> void:
 	combat_audio.play_event(CombatAudio.BIG_EXPLOSION)
 
 func _spawn_explosion(position: Vector3, color: Color, radius: float) -> void:
-	var effect := EXPLOSION_SCENE.instantiate() as ExplosionEffect
-	effects_parent.add_child(effect)
-	effect.global_position = position
-	effect.setup(color, radius)
+	ExplosionEffect.spawn(effects_parent, position, color, radius)
 
 func _final_statistics() -> Dictionary:
 	var neutralized_parts: Array[String] = []
@@ -696,7 +719,13 @@ func _find_defense(runtime_id: int) -> DefenseUnit:
 func _clear_runtime_objects() -> void:
 	for parent: Node in [defense_parent, threat_parent, projectile_parent, effects_parent]:
 		for child: Node in parent.get_children():
-			child.free()
+			if child == combat_effect_pool:
+				continue
+			if child is ExplosionEffect and (child as ExplosionEffect).reusable:
+				(child as ExplosionEffect).deactivate()
+				combat_effect_pool._recycle(child as ExplosionEffect)
+			else:
+				child.free()
 	defenses.clear()
 	registry.clear()
 	battlefield.clear_occupancy()

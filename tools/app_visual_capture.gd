@@ -13,6 +13,8 @@ func run() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_main_menu.png")
 	app.call("start_game", AirscainMain.GameMode.SUSTAINED)
+	while not (app as AirscainApp).gameplay.combat_effect_pool.prepared:
+		await process_frame
 	for index: int in 20:
 		await process_frame
 	app.call("set_pause_menu", true)

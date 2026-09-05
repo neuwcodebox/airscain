@@ -214,10 +214,7 @@ func _spawn_detonation(color: Color, radius: float) -> void:
 	var parent := get_parent()
 	if parent == null:
 		return
-	var detonation := DETONATION_SCENE.instantiate() as ExplosionEffect
-	parent.add_child(detonation)
-	detonation.global_position = global_position
-	detonation.setup(color, radius)
+	ExplosionEffect.spawn(parent as Node3D, global_position, color, radius)
 
 func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName) -> void:
 	var parent := get_parent()

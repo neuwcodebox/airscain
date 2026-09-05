@@ -13,6 +13,8 @@ func run() -> void:
 	AirscainMain.requested_seed = 73129
 	main = MAIN.instantiate() as AirscainMain
 	root.add_child(main)
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	main.camera_rig.set_process(false)

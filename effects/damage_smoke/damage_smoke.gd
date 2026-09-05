@@ -8,14 +8,32 @@ const CITY_LIFETIME := 18.0
 @onready var smoke: ShadowedSmokeParticles = $Smoke
 @onready var fire: GPUParticles3D = $Fire
 
+func deactivate() -> void:
+	if smoke == null:
+		smoke = get_node("Smoke") as ShadowedSmokeParticles
+		fire = get_node("Fire") as GPUParticles3D
+	smoke.emitting = false
+	fire.emitting = false
+	smoke._sync_shadow_state()
+	visible = false
+	process_mode = Node.PROCESS_MODE_DISABLED
+
+func restart_at_source() -> void:
+	smoke.restart()
+	fire.restart()
+	if smoke.shadow_particles != null:
+		smoke.shadow_particles.restart()
+
 func set_damage_ratio(damage_ratio: float) -> void:
+	visible = damage_ratio > 0.0
+	process_mode = Node.PROCESS_MODE_INHERIT
 	var intensity := clampf(damage_ratio, 0.0, 1.0)
 	smoke.amount = CITY_PARTICLE_COUNT
 	smoke.amount_ratio = lerpf(0.17, 0.47, intensity)
 	smoke.lifetime = lerpf(9.0, 13.0, intensity)
 	smoke.scale = Vector3.ONE * lerpf(0.75, 1.25, intensity)
 	smoke.emitting = intensity > 0.0
-	fire.amount = maxi(8, roundi(8.0 + intensity * 24.0))
+	fire.amount_ratio = (8.0 + intensity * 24.0) / 32.0
 	fire.scale = Vector3.ONE * lerpf(0.8, 1.7, intensity)
 	fire.emitting = intensity >= 0.35
 

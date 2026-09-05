@@ -14,6 +14,8 @@ func run() -> void:
 	AirscainMain.requested_mode = AirscainMain.GameMode.TRAINING
 	main = MAIN.instantiate() as AirscainMain
 	root.add_child(main)
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	main.set_process(false)
 	main.camera_rig.set_process(false)
 	await capture("start")

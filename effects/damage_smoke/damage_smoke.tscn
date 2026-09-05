@@ -102,9 +102,9 @@ script = ExtResource("2")
 
 [node name="Fire" type="GPUParticles3D" parent="."]
 position = Vector3(0, 0.45, 0)
-amount = 10
+emitting = false
+amount = 32
 lifetime = 1.4
-preprocess = 0.6
 visibility_aabb = AABB(-14, -4, -14, 28, 34, 28)
 process_material = SubResource("FireProcess")
 draw_pass_1 = SubResource("FireMesh")

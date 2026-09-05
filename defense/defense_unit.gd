@@ -20,6 +20,7 @@ var support_manager: SupportManager
 var relocation_manager: RelocationManager
 var enemy_knowledge: EnemyKnowledge
 var damage_smoke: DamageSmokeEffect
+var prepared_damage_smoke: DamageSmokeEffect
 var status_marker: Node3D
 var identity_marker: Node3D
 
@@ -29,6 +30,10 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	definition = definition_value
 	integrity = definition.maximum_integrity
 	active = true
+	if prepared_damage_smoke == null:
+		prepared_damage_smoke = DAMAGE_SMOKE_SCENE.instantiate() as DamageSmokeEffect
+		add_child(prepared_damage_smoke)
+		prepared_damage_smoke.deactivate()
 	_ensure_identity_marker()
 	_ensure_status_marker()
 	_refresh_damage_visual()
@@ -249,12 +254,12 @@ func _refresh_damage_visual() -> void:
 	var damage_ratio := 1.0 - operational_ratio()
 	if damage_ratio < 0.25:
 		if damage_smoke != null and is_instance_valid(damage_smoke):
-			damage_smoke.free()
+			damage_smoke.deactivate()
 		damage_smoke = null
 		return
 	if damage_smoke == null or not is_instance_valid(damage_smoke):
-		damage_smoke = DAMAGE_SMOKE_SCENE.instantiate() as DamageSmokeEffect
-		add_child(damage_smoke)
+		damage_smoke = prepared_damage_smoke
+		damage_smoke.restart_at_source()
 	damage_smoke.set_damage_ratio(damage_ratio)
 
 func _ensure_status_marker() -> void:

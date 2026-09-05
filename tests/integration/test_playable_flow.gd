@@ -1,5 +1,18 @@
 extends GutTest
 
+func _first_visible_explosion(parent: Node) -> ExplosionEffect:
+	for child: Node in parent.get_children():
+		if child is ExplosionEffect and (child as ExplosionEffect).visible:
+			return child as ExplosionEffect
+	return null
+
+func _visible_explosion_count(parent: Node) -> int:
+	var count := 0
+	for child: Node in parent.get_children():
+		if child is ExplosionEffect and (child as ExplosionEffect).visible:
+			count += 1
+	return count
+
 const MAIN_SCENE := preload("res://main/main.tscn")
 
 var main: AirscainMain
@@ -1003,7 +1016,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 			break
 	assert_true(threat.resolved_state)
 	var falling_wreck := main.effects_parent.get_node_or_null("FallingWreck")
-	var explosion := main.effects_parent.get_node_or_null("Explosion")
+	var explosion := _first_visible_explosion(main.effects_parent)
 	assert_not_null(falling_wreck)
 	assert_not_null(explosion)
 	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
@@ -1166,7 +1179,7 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 			break
 	assert_true(threat.resolved_state)
 	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
-	var explosion := main.effects_parent.get_node_or_null("Explosion") as ExplosionEffect
+	var explosion := _first_visible_explosion(main.effects_parent)
 	assert_not_null(explosion)
 	assert_gt(explosion.global_position.distance_to(impact_target), 0.01)
 	assert_false(main.objective.damage_smoke_effects.is_empty())
@@ -1241,7 +1254,7 @@ func test_strike_aircraft_releases_above_the_city_and_climbs_out_over_the_sea() 
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, exit_point)
 	main.registry.add(threat)
 	main._on_threat_spawned(threat)
-	var explosion_count := main.effects_parent.find_children("Explosion", "ExplosionEffect").size()
+	var explosion_count := _visible_explosion_count(main.effects_parent)
 	threat.gameplay_tick(0.1)
 	assert_true(threat.mission_runtime.effect_applied)
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
@@ -1256,7 +1269,7 @@ func test_strike_aircraft_releases_above_the_city_and_climbs_out_over_the_sea() 
 	assert_gt(threat.global_position.y, definition.movement.terminal_altitude + 20.0)
 	assert_true(threat.resolved_state)
 	assert_false(main.registry.get_active().has(threat))
-	assert_eq(main.effects_parent.find_children("Explosion", "ExplosionEffect").size(), explosion_count)
+	assert_eq(_visible_explosion_count(main.effects_parent), explosion_count)
 
 func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	var definition := main.scenario.threat_entries[9].threat_definition as AttackUavDefinition
@@ -1535,7 +1548,7 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	assert_true((miss_effect.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_eq((miss_effect.get_node("Reason") as Label3D).text, "유도 상실")
 	assert_eq(miss_effect.global_position, interceptor.global_position)
-	var self_destruct := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
+	var self_destruct := _first_visible_explosion(main.projectile_parent)
 	assert_not_null(self_destruct)
 	assert_eq(self_destruct.effect_radius, 7.0)
 	assert_true((self_destruct.get_node("Sparks") as GPUParticles3D).emitting)
@@ -1613,7 +1626,8 @@ func test_interceptor_detonation_remains_visible_when_strike_aircraft_survives_h
 	assert_false(threat.resolved_state)
 	assert_eq(threat.health, definition.maximum_health - area_defense.interceptor_damage)
 	assert_true(interceptor.is_queued_for_deletion())
-	var detonation := main.projectile_parent.get_node_or_null("Explosion") as ExplosionEffect
+	var detonation := _first_visible_explosion(main.projectile_parent)
+
 	assert_not_null(detonation)
 	assert_eq(detonation.effect_radius, 6.0)
 	var smoke_process := (detonation.get_node("Smoke") as GPUParticles3D).process_material as ParticleProcessMaterial

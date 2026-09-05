@@ -21,7 +21,7 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	var expected_prepared_combat_streams := CombatAudio.all_streams().size() if OS.has_feature("web") else 0
 	assert_eq(app.get("prepared_combat_stream_count"), expected_prepared_combat_streams)
 	assert_true((app as AirscainApp).combat_vfx_warmup_started)
-	for frame_index: int in 10:
+	for frame_index: int in 160:
 		await get_tree().process_frame
 		if (app as AirscainApp).combat_vfx_warmup_completed and app.get_node_or_null("CombatVfxWarmup") == null:
 			break

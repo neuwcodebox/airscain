@@ -772,6 +772,42 @@ func test_recon_and_strike_missions_act_then_egress() -> void:
 	assert_eq(recon.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_eq(objective.current_integrity, objective.definition.maximum_integrity)
 
+func test_city_impact_reuses_prepared_emitters_through_repair_and_restore() -> void:
+	var objective := add_child_autofree(SCENARIO.objective_definition.scene.instantiate()) as ProtectedObjective
+	objective.setup(1, SCENARIO.objective_definition)
+	var prepared := objective.prepared_smoke_effects.duplicate()
+	assert_eq(prepared.size(), ProtectedObjective.MAX_DAMAGE_SMOKE_SITES)
+	var node_count := objective.get_child_count()
+	for index: int in 7:
+		objective.apply_building_impact(1, Vector3(index * 10, 20, 0), 40)
+		assert_true(prepared.has(objective.damage_smoke_effects.back()))
+		assert_eq(objective.get_child_count(), node_count, "피격 때 새 연기 노드를 만들지 않습니다")
+	var saved := objective.capture_damage_smoke_state()
+	objective.restore_integrity(objective.definition.maximum_integrity)
+	assert_eq(objective.prepared_smoke_effects.size(), prepared.size())
+	objective.restore_damage_smoke_state(saved)
+	objective.restore_integrity(90)
+	for effect: DamageSmokeEffect in objective.damage_smoke_effects:
+		assert_true(prepared.has(effect))
+		assert_eq(effect.fire.amount, 32)
+		assert_eq(effect.fire.preprocess, 0.0)
+
+func test_explosion_pool_reuses_instances_and_materials_without_reviving_other_effects() -> void:
+	var pool := add_child_autofree(CombatEffectPool.new()) as CombatEffectPool
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var first := pool.spawn_explosion(parent, Vector3.ZERO, Color.ORANGE, 8)
+	var second := pool.spawn_explosion(parent, Vector3.RIGHT, Color.CYAN, 6)
+	var material := first.flash_material
+	first._process(first.duration)
+	assert_false(first.visible)
+	var reused := pool.spawn_explosion(parent, Vector3.UP, Color.WHITE, 10)
+	assert_same(first, reused)
+	assert_same(material, reused.flash_material)
+	assert_eq(reused.elapsed, 0.0)
+	assert_true(reused.visible)
+	assert_eq(second.flash_material.emission, Color.CYAN)
+	assert_eq(pool.available.size(), CombatEffectPool.CAPACITY - 2)
+
 func test_street_details_rotate_local_length_with_the_road() -> void:
 	var details := add_child_autofree(LandscapeDetails.new()) as LandscapeDetails
 	for yaw: float in [0.0, PI * 0.5, -PI * 0.5]:
