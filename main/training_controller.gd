@@ -102,7 +102,7 @@ func asset_selected(unit: DefenseUnit) -> void:
 		_set_step(Step.PRIORITY)
 	elif step == Step.ENERGY_REVIEW and unit == energy_subject:
 		energy_reviewed = true
-		_lesson("전력과 열 확인", "선택 패널에서 전력 수요/공급, 충전과 열을 확인하세요. 전력은 전역 공급이고 보급·수리는 지역 지원입니다. 공급보다 수요가 크면 충전이 느려집니다.", true)
+		_lesson("전력과 열 확인", "선택 패널에서 전체 수요/공급과 이 자산의 전력 수요, 충전과 열을 확인하세요. 전력은 전역 공급이고 보급·수리는 지역 지원입니다. 전체 수요가 공급보다 크면 일부 자산의 충전이 느려집니다.", true)
 
 func priority_assigned(unit: DefenseUnit) -> void:
 	if step == Step.PRIORITY and unit == _training_battery():
@@ -230,7 +230,7 @@ func _set_step(next_step: Step) -> void:
 			_lesson("전력 기반 방어", "고출력 레이저를 배치하세요. 커서 옆 전력 수요·공급과 배치 후 수치를 확인하세요. 통합 지원기지의 전력은 거리 제한 없는 전역 공급입니다.")
 		Step.ENERGY_REVIEW:
 			hud.set_catalog_expanded(false)
-			_lesson("충전과 열 확인", "방금 배치한 에너지 무기를 선택하세요. 충전·열·전력 수요/공급을 확인하면 다음 단계로 진행할 수 있습니다.")
+			_lesson("충전과 열 확인", "방금 배치한 에너지 무기를 선택하세요. 충전·열·전체 수요/공급을 확인하면 다음 단계로 진행할 수 있습니다.")
 		Step.RELOCATE:
 			_lesson("센서 재배치", "배치한 고고도 추적 레이더를 선택하고 재배치 위치 지정을 누른 뒤 다른 빈 지점을 클릭하세요. 이동 중에는 센서가 가동하지 않습니다. 새 위치에서도 C2 연결을 유지하세요.")
 		Step.WAIT_RELOCATE:

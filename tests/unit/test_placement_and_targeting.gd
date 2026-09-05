@@ -908,6 +908,35 @@ func test_power_manager_allocates_finite_generation_capacity() -> void:
 	assert_eq(manager.request_power(12.0), 8.0)
 	assert_eq(manager.request_power(1.0), 0.0)
 
+func test_energy_selection_compares_total_demand_with_total_supply() -> void:
+	var manager: PowerManager = autofree(PowerManager.new()) as PowerManager
+	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, SCENARIO.available_defenses[5])
+	manager.register_asset(facility)
+	var laser: HighEnergyLaser = autofree((SCENARIO.available_defenses[6] as HighEnergyLaserDefinition).scene.instantiate()) as HighEnergyLaser
+	laser.setup(2, SCENARIO.available_defenses[6])
+	laser.configure_power(manager)
+	manager.register_asset(laser)
+	var microwave: HighPowerMicrowave = autofree((SCENARIO.available_defenses[9] as HighPowerMicrowaveDefinition).scene.instantiate()) as HighPowerMicrowave
+	microwave.setup(3, SCENARIO.available_defenses[9])
+	microwave.configure_power(manager)
+	manager.register_asset(microwave)
+	for unit: DefenseUnit in [laser, microwave]:
+		var rows := unit.selection_status_rows()
+		assert_true(rows.has({"label": "전체 수요 / 공급", "value": "30 / 20"}))
+		assert_true(rows.has({"label": "이 자산 전력 수요", "value": "%d" % roundi(unit.power_demand())}))
+		assert_true(rows.has({"label": "전력망 상태", "value": "부족", "warning": true}))
+		assert_string_contains(unit.resource_status_text(), "전체 전력 30 / 20")
+	microwave.active = false
+	var rows := laser.selection_status_rows()
+	assert_true(rows.has({"label": "전체 수요 / 공급", "value": "%d / 20" % roundi(laser.power_demand())}))
+	assert_true(rows.has({"label": "전력망 상태", "value": "정상", "warning": false}))
+	manager.reset()
+	manager.register_asset(laser)
+	assert_true(laser.selection_status_rows().has({"label": "전력망 상태", "value": "부족", "warning": true}))
+	laser.configure_power(null)
+	assert_true(laser.selection_status_rows().has({"label": "전력", "value": "공급 없음", "warning": true}))
+
 func test_support_and_power_managers_accept_capability_providers() -> void:
 	var support: SupportManager = autofree(SupportManager.new()) as SupportManager
 	var power: PowerManager = autofree(PowerManager.new()) as PowerManager

@@ -15,6 +15,13 @@ func run() -> void:
 	main.camera_rig.set_process(false)
 	main.camera_rig.camera.position = Vector3(360, 260, 430)
 	main.camera_rig.camera.look_at(Vector3(0, 15, 0))
+	if OS.get_cmdline_user_args().has("--smoke-lighting"):
+		await capture_smoke_lighting(main)
+		main.free()
+		for frame: int in 3:
+			await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--transition"):
 		for elapsed: float in [263.0, 265.3, 265.6, 268.0, 632.0, 634.4, 634.7, 637.0]:
 			main.day_night.apply_time(elapsed, true)
@@ -76,3 +83,21 @@ func capture(label: String) -> void:
 		await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("/tmp/airscain_day_night_%s.png" % label)
+
+func capture_smoke_lighting(main: AirscainMain) -> void:
+	var missile := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate()
+	var trail := missile.get_node("SmokeTrail") as LingeringSmokeTrail
+	missile.remove_child(trail)
+	missile.free()
+	main.effects_parent.add_child(trail)
+	trail.sample_world_segment(Vector3(-100, 100, 80), Vector3(100, 130, 80))
+	trail._process(6.0)
+	trail.set_process(false)
+	main.camera_rig.camera.position = Vector3(30, 180, 290)
+	main.camera_rig.camera.look_at(Vector3(0, 110, 80))
+	for entry: Vector2 in [Vector2(0, 9), Vector2(450, 0)]:
+		main.day_night.apply_time(entry.x, true)
+		await capture("smoke_%02d" % int(entry.y))
+		trail.shadow_particles.visible = false
+		await capture("smoke_%02d_no_proxy" % int(entry.y))
+		trail.shadow_particles.visible = true

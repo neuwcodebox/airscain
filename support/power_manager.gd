@@ -42,7 +42,18 @@ func total_demand() -> float:
 
 func consumer_status(demand: float) -> String:
 	var capacity := generation_capacity()
-	var status := "전력 수요 %d / 총 공급 %d" % [roundi(demand), roundi(capacity)]
-	if total_demand() > capacity:
+	var total := total_demand()
+	var status := "전체 전력 %d / %d · 이 자산 수요 %d" % [roundi(total), roundi(capacity), roundi(demand)]
+	if total > capacity:
 		status += "  공급 부족"
 	return status
+
+func consumer_status_rows(demand: float) -> Array[Dictionary]:
+	var capacity := generation_capacity()
+	var total := total_demand()
+	var shortage := total > capacity
+	return [
+		{"label": "전체 수요 / 공급", "value": "%d / %d" % [roundi(total), roundi(capacity)]},
+		{"label": "이 자산 전력 수요", "value": "%d" % roundi(demand)},
+		{"label": "전력망 상태", "value": "부족" if shortage else "정상", "warning": shortage},
+	]

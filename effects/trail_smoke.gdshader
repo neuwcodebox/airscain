@@ -1,5 +1,8 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_never, cull_disabled, diffuse_lambert_wrap, specular_disabled;
+render_mode blend_mix, depth_draw_never, cull_disabled, diffuse_lambert_wrap, specular_disabled, shadows_disabled;
+
+// Opaque shadow proxies shade the ground, not the translucent smoke body.
+// Keep environmental and direct lighting for night darkness and nearby flashes.
 
 #include "res://effects/trail_motion.gdshaderinc"
 uniform sampler2D puff_texture : source_color, filter_linear_mipmap;
