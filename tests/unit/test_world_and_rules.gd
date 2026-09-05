@@ -334,7 +334,7 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 			var mesh := particles.draw_pass_1 as Mesh
 			assert_true(mesh is QuadMesh, "%s visible smoke must use a soft radial card" % path)
 			var material := mesh.surface_get_material(0) as StandardMaterial3D
-			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS, "%s must keep smooth visible transparency" % path)
+			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "%s must blend smoothly without Compatibility depth-prepass centers" % path)
 			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % path)
 			var shadow := particles.get_node("SmokeShadow") as GPUParticles3D
 			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY, "%s shadow proxy must remain outside the camera color pass" % path)
@@ -427,16 +427,42 @@ func test_sampled_smoke_uses_irregular_variation_and_retires_expired_slots() -> 
 
 func test_transient_glows_use_soft_cards_without_realtime_light_shadows() -> void:
 	var explosion := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect
-	for path: String in ["Flash", "FlashHalo", "Shockwave"]:
+	for path: String in ["Flash", "FlashHalo", "PressureRing", "Shockwave"]:
 		var mesh_instance := explosion.get_node(path) as MeshInstance3D
 		assert_true(mesh_instance.mesh is QuadMesh, "%s must not expose a faceted glow mesh" % path)
 		var material := mesh_instance.material_override as StandardMaterial3D
 		assert_not_null(material.albedo_texture, "%s must have a soft radial mask" % path)
+	var fireball := explosion.get_node("Fireball") as GPUParticles3D
+	assert_true(fireball.draw_pass_1 is QuadMesh)
+	assert_true(((fireball.draw_pass_1 as QuadMesh).material as StandardMaterial3D).albedo_texture == preload("res://effects/glow_card_texture.tres"))
+	var explosion_smoke := explosion.get_node("Smoke") as ShadowedSmokeParticles
+	var smoke_material := (explosion_smoke.draw_pass_1 as QuadMesh).material as StandardMaterial3D
+	assert_eq(smoke_material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA)
+	assert_gte(smoke_material.albedo_color.r, 0.9, "smoke color must not be multiplied dark by both particle and mesh materials")
 	assert_false((explosion.get_node("BlastLight") as OmniLight3D).shadow_enabled)
 	var miss: Node = add_child_autofree(preload("res://effects/interceptor_miss/interceptor_miss.tscn").instantiate())
 	assert_true((miss.get_node("Flash") as MeshInstance3D).mesh is QuadMesh)
 	var countermeasure: Node = add_child_autofree(preload("res://effects/countermeasure_burst/countermeasure_burst.tscn").instantiate())
 	assert_true((countermeasure.get_node("Flares") as GPUParticles3D).draw_pass_1 is QuadMesh)
+
+func test_explosion_timeline_layers_expand_and_retire_in_order() -> void:
+	var initial := ExplosionTimeline.sample(0.0, 10.0)
+	var ignition := ExplosionTimeline.sample(0.2, 10.0)
+	var pressure_tail := ExplosionTimeline.sample(0.8, 10.0)
+	var ended := ExplosionTimeline.sample(ExplosionTimeline.TOTAL_DURATION, 10.0)
+	assert_gt(ignition.core_scale, initial.core_scale)
+	assert_lt(ignition.core_alpha, initial.core_alpha)
+	assert_gt(ignition.pressure_alpha, initial.pressure_alpha)
+	assert_gt(pressure_tail.pressure_scale, ignition.pressure_scale)
+	assert_lt(pressure_tail.light_energy, ignition.light_energy)
+	assert_eq(ended.core_alpha, 0.0)
+	assert_eq(ended.halo_alpha, 0.0)
+	assert_eq(ended.pressure_alpha, 0.0)
+	assert_eq(ended.ground_wave_alpha, 0.0)
+	assert_eq(ended.light_energy, 0.0)
+	var doubled := ExplosionTimeline.sample(0.2, 20.0)
+	assert_almost_eq(doubled.core_scale, ignition.core_scale * 2.0, 0.001)
+	assert_almost_eq(doubled.pressure_scale, ignition.pressure_scale * 2.0, 0.001)
 
 func test_falling_wreck_impact_flash_material_is_instance_local() -> void:
 	var scene := preload("res://effects/falling_wreck/falling_wreck.tscn")

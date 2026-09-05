@@ -8,8 +8,8 @@ var gameplay: AirscainMain
 var previous_simulation_speed: float = 1.0
 var save_path: String = SaveStore.DEFAULT_PATH
 var prepared_combat_stream_count: int = 0
-var missile_vfx_warmup_started: bool = false
-var missile_vfx_warmup_completed: bool = false
+var combat_vfx_warmup_started: bool = false
+var combat_vfx_warmup_completed: bool = false
 
 @onready var main_menu: Control = %MainMenu
 @onready var pause_menu: Control = %PauseMenu
@@ -39,18 +39,18 @@ func _ready() -> void:
 	ui_audio.connect_buttons(main_menu)
 	ui_audio.connect_buttons(pause_menu)
 	_refresh_main_load_button()
-	get_tree().process_frame.connect(_start_missile_vfx_warmup, CONNECT_ONE_SHOT)
+	get_tree().process_frame.connect(_start_combat_vfx_warmup, CONNECT_ONE_SHOT)
 
-func _start_missile_vfx_warmup() -> void:
-	if missile_vfx_warmup_started:
+func _start_combat_vfx_warmup() -> void:
+	if combat_vfx_warmup_started:
 		return
-	missile_vfx_warmup_started = true
-	var warmup := MissileVfxWarmup.new()
-	warmup.completed.connect(_on_missile_vfx_warmup_completed)
+	combat_vfx_warmup_started = true
+	var warmup := CombatVfxWarmup.new()
+	warmup.completed.connect(_on_combat_vfx_warmup_completed)
 	add_child(warmup)
 
-func _on_missile_vfx_warmup_completed() -> void:
-	missile_vfx_warmup_completed = true
+func _on_combat_vfx_warmup_completed() -> void:
+	combat_vfx_warmup_completed = true
 
 func _unhandled_input(event: InputEvent) -> void:
 	if gameplay != null and gameplay.session.phase != GameSession.Phase.GAME_OVER and event.is_action_pressed("ui_cancel"):

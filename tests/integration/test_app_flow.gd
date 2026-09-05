@@ -16,13 +16,13 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	assert_null(app.get("gameplay"))
 	var expected_prepared_combat_streams := CombatAudio.all_streams().size() if OS.has_feature("web") else 0
 	assert_eq(app.get("prepared_combat_stream_count"), expected_prepared_combat_streams)
-	assert_true((app as AirscainApp).missile_vfx_warmup_started)
+	assert_true((app as AirscainApp).combat_vfx_warmup_started)
 	for frame_index: int in 10:
 		await get_tree().process_frame
-		if (app as AirscainApp).missile_vfx_warmup_completed and app.get_node_or_null("MissileVfxWarmup") == null:
+		if (app as AirscainApp).combat_vfx_warmup_completed and app.get_node_or_null("CombatVfxWarmup") == null:
 			break
-	assert_true((app as AirscainApp).missile_vfx_warmup_completed)
-	assert_null(app.get_node_or_null("MissileVfxWarmup"))
+	assert_true((app as AirscainApp).combat_vfx_warmup_completed)
+	assert_null(app.get_node_or_null("CombatVfxWarmup"))
 	app.call("start_game", AirscainMain.GameMode.TRAINING)
 	await get_tree().process_frame
 	var gameplay := app.get("gameplay") as AirscainMain

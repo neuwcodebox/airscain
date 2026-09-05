@@ -147,8 +147,16 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK smoke_ground_shadow gradual_shadow_fade")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-explosion-only"):
+		await _capture_explosion_layers()
+		print("VISUAL_CAPTURE_OK explosion fireball pressure_waves residual_smoke")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-explosion-isolation-only"):
-		await _capture_explosion_instance_isolation()
+		var explosion_isolation_ok := await _capture_explosion_instance_isolation()
+		if not explosion_isolation_ok:
+			quit(1)
+			return
 		print("VISUAL_CAPTURE_OK explosion isolated_shockwave_material")
 		quit(0)
 		return
@@ -674,6 +682,38 @@ func _capture_hdr_light_vfx() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_explosion_close.png")
 
+func _capture_explosion_layers() -> void:
+	main.hud.visible = false
+	main.altitude_profile.visible = false
+	var center := main.objective.global_position + Vector3(-320.0, 105.0, -170.0)
+	main.camera_rig.set_process(false)
+	main.camera_rig.camera.global_position = center + Vector3(0.0, 18.0, 72.0)
+	main.camera_rig.camera.look_at(center, Vector3.UP)
+	var explosion := preload("res://effects/explosion/explosion.tscn").instantiate() as ExplosionEffect
+	main.effects_parent.add_child(explosion)
+	explosion.global_position = center
+	explosion.setup(Color(1.0, 0.32, 0.04), 10.0)
+	explosion.set_process(false)
+	await process_frame
+	_save_capture("/tmp/airscain_explosion_ignition.png")
+	explosion._apply_timeline(ExplosionTimeline.sample(0.2, explosion.effect_radius))
+	await _wait_seconds(0.18)
+	_save_capture("/tmp/airscain_explosion_fireball.png")
+	var pressure_material := explosion.pressure_ring.material_override as StandardMaterial3D
+	if pressure_material.albedo_color.a <= 0.0 or not explosion.fireball.draw_pass_1 is QuadMesh:
+		push_error("Explosion fireball and camera-facing pressure wave did not overlap")
+		quit(1)
+		return
+	explosion._apply_timeline(ExplosionTimeline.sample(0.75, explosion.effect_radius))
+	await _wait_seconds(0.55)
+	_save_capture("/tmp/airscain_explosion_pressure_wave.png")
+	explosion._apply_timeline(ExplosionTimeline.sample(1.6, explosion.effect_radius))
+	await _wait_seconds(0.85)
+	_save_capture("/tmp/airscain_explosion_residual_smoke.png")
+	if not is_instance_valid(explosion) or not explosion.smoke.emitting:
+		push_error("Explosion did not retain its smoke stage after the flash")
+		quit(1)
+
 func _capture_city_detail() -> void:
 	main.camera_rig.focus_on(main.objective.global_position)
 	main.camera_rig.yaw_radians = deg_to_rad(32.0)
@@ -1193,7 +1233,7 @@ func _capture_smoke_ground_shadow() -> void:
 	if smoke.current_shadow_opacity_ratio >= 0.1:
 		push_error("Smoke shadow opacity did not fade continuously with visible smoke")
 
-func _capture_explosion_instance_isolation() -> void:
+func _capture_explosion_instance_isolation() -> bool:
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	var center := main.objective.global_position + Vector3(-260.0, 55.0, -110.0)
@@ -1204,7 +1244,7 @@ func _capture_explosion_instance_isolation() -> void:
 	first.setup(Color(1.0, 0.3, 0.04), 12.0)
 	(first.get_node("Smoke") as GPUParticles3D).emitting = false
 	(first.get_node("Sparks") as GPUParticles3D).emitting = false
-	first._process(1.1)
+	first._process(ExplosionTimeline.GROUND_WAVE_DURATION + 0.01)
 	first.set_process(false)
 	var second := explosion_scene.instantiate() as ExplosionEffect
 	main.effects_parent.add_child(second)
@@ -1217,13 +1257,13 @@ func _capture_explosion_instance_isolation() -> void:
 	var first_material := first.get_node("Shockwave").get("material_override") as StandardMaterial3D
 	if first_material.albedo_color.a > 0.001:
 		push_error("A later explosion reactivated the faded shockwave")
-		quit(1)
-		return
+		return false
 	main.camera_rig.camera.global_position = center + Vector3(0.0, 70.0, 180.0)
 	main.camera_rig.camera.look_at(center, Vector3.UP)
 	for index: int in 4:
 		await process_frame
 	_save_capture("/tmp/airscain_explosion_instance_isolation.png")
+	return true
 
 func _capture_friendly_missile_terrain_impact() -> void:
 	main.hud.visible = false

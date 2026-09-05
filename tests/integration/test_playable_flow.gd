@@ -918,10 +918,12 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_not_null(falling_wreck)
 	assert_not_null(explosion)
 	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
+	assert_true((explosion.get_node("Fireball") as GPUParticles3D).emitting)
 	assert_true((explosion.get_node("Sparks") as GPUParticles3D).emitting)
 	assert_gt((explosion.get_node("BlastLight") as OmniLight3D).omni_range, 30.0)
 	assert_false((explosion.get_node("BlastLight") as OmniLight3D).shadow_enabled)
 	assert_not_null(explosion.get_node("Shockwave"))
+	assert_not_null(explosion.get_node("PressureRing"))
 	assert_gt(main.combat_audio.played_count(CombatAudio.MISSILE), 0)
 	assert_gt(main.combat_audio.played_count(CombatAudio.EXPLOSION), 0)
 	assert_eq(main.session.neutralized_count, 1)
@@ -1534,7 +1536,7 @@ func test_new_explosion_does_not_reactivate_a_faded_shockwave() -> void:
 	var first := explosion_scene.instantiate() as ExplosionEffect
 	main.effects_parent.add_child(first)
 	first.setup(Color(1.0, 0.3, 0.04), 10.0)
-	first._process(1.1)
+	first._process(ExplosionTimeline.GROUND_WAVE_DURATION + 0.01)
 	var first_material := first.get_node("Shockwave").get("material_override") as StandardMaterial3D
 	assert_eq(first_material.albedo_color.a, 0.0)
 	var second := explosion_scene.instantiate() as ExplosionEffect
