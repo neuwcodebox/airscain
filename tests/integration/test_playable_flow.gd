@@ -579,6 +579,9 @@ func test_long_range_launcher_exposes_munition_mode_control() -> void:
 	assert_eq(battery.munition_mode, &"area_defense")
 	assert_string_contains(main.hud.munition_mode_button.text, "광역방공탄")
 	assert_true(main.hud.automatic_resupply_button.visible)
+	assert_true(main.hud.doctrine_section.is_ancestor_of(main.hud.automatic_resupply_button))
+	assert_eq(main.hud.automatic_resupply_button.text, "자동 재보급")
+	assert_eq(main.hud.automatic_resupply_button.tooltip_text, "")
 	assert_false(main.hud.automatic_resupply_button.button_pressed)
 	var budget := main.session.budget
 	main.hud.automatic_resupply_button.button_pressed = true

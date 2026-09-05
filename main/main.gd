@@ -548,7 +548,7 @@ func _on_automatic_resupply_requested(enabled: bool) -> void:
 		return
 	selected_asset.set_automatic_resupply(enabled)
 	hud.refresh_selected_asset()
-	hud.set_feedback("자동 재보급을 켰습니다 · 예비탄 부족 시 보급 비용 사용" if enabled else "자동 재보급을 껐습니다 · 진행 중인 작업은 유지")
+	hud.set_feedback("자동 재보급 켜짐" if enabled else "자동 재보급 꺼짐")
 
 func _on_repair_requested() -> void:
 	var requested := selected_asset != null and selected_asset.request_repair()

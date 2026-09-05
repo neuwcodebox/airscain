@@ -767,6 +767,11 @@ visible = false
 layout_mode = 2
 text = "탄종  자동"
 
+[node name="AutomaticResupplyButton" type="CheckButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "자동 재보급"
+
 [node name="ActionSection" type="VBoxContainer" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -777,12 +782,6 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
 theme_override_font_sizes/font_size = 13
 text = "명령"
-
-[node name="AutomaticResupplyButton" type="CheckButton" parent="SelectedAssetPanel/VBox/ActionSection"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "어느 탄종이든 예비탄이 20% 이하이면 자동으로 재보급을 요청합니다.\n기존 보급 비용과 지원기지 범위가 적용되며 재배치 중에는 요청하지 않습니다.\n끄더라도 이미 결제한 지원 작업은 완료합니다."
-text = "자동 재보급 · 예비탄 부족 시"
 
 [node name="ActionGrid" type="GridContainer" parent="SelectedAssetPanel/VBox/ActionSection"]
 layout_mode = 2
@@ -970,7 +969,7 @@ text = "메인 메뉴"
 [connection signal="pressed" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionModeButton" to="." method="_on_munition_mode_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/ResupplyButton" to="." method="_on_resupply_pressed"]
-[connection signal="toggled" from="SelectedAssetPanel/VBox/ActionSection/AutomaticResupplyButton" to="." method="_on_automatic_resupply_toggled"]
+[connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/AutomaticResupplyButton" to="." method="_on_automatic_resupply_toggled"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/RepairButton" to="." method="_on_repair_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/RelocationButton" to="." method="_on_relocation_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/FocusButton" to="." method="_on_focus_pressed"]
