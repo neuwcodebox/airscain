@@ -1428,7 +1428,7 @@ func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	assert_not_null(pulse)
 	assert_true((main.get_node("WorldEnvironment") as WorldEnvironment).environment.glow_enabled)
 	assert_true((pulse.get_node("Beam") as MeshInstance3D).mesh is CylinderMesh)
-	assert_gt(((pulse.get_node("GlowBeam") as MeshInstance3D).mesh as CylinderMesh).top_radius, ((pulse.get_node("Beam") as MeshInstance3D).mesh as CylinderMesh).top_radius)
+	assert_gt(pulse.glow_beam.mesh.get_aabb().size.x, pulse.beam.mesh.get_aabb().size.x, "중심광보다 넓은 번짐을 표시합니다")
 	assert_gte(((pulse.get_node("Beam") as MeshInstance3D).material_override as StandardMaterial3D).emission_energy_multiplier, 20.0)
 	assert_gt((pulse.get_node("ImpactLight") as OmniLight3D).light_energy, 0.0)
 

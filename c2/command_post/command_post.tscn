@@ -1,4 +1,6 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
+
+[ext_resource path="res://c2/command_post/command_details.gd" type="Script" id="Details"]
 
 [ext_resource path="res://c2/command_post/command_post.gd" type="Script" id="1"]
 
@@ -40,6 +42,9 @@ script = ExtResource("1")
 position = Vector3(0, 3.5, 0)
 mesh = SubResource("BuildingMesh")
 material_override = SubResource("BaseMaterial")
+
+[node name="Details" type="Node3D" parent="."]
+script = ExtResource("Details")
 
 [node name="Windows" type="MeshInstance3D" parent="."]
 position = Vector3(0, 4.2, -7.1)

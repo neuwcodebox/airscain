@@ -15,7 +15,7 @@ var _definition: HighPowerMicrowaveDefinition
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
-@onready var pulse_visual: MeshInstance3D = $PulseVisual
+@onready var pulse_visual: FieldPulse = $PulseVisual
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -67,12 +67,7 @@ func _fire_pulse(track: PlayerTrack) -> int:
 		if threat.get_aim_position().distance_to(track.estimated_position) <= _definition.effect_radius and threat.receive_electronic_damage(_definition.electronic_damage):
 			affected += 1
 	pulse_visual.global_position = track.estimated_position
-	pulse_visual.scale = Vector3.ONE * (_definition.effect_radius / 10.0)
-	pulse_visual.visible = true
-	get_tree().create_timer(0.12).timeout.connect(func() -> void:
-		if is_instance_valid(pulse_visual):
-			pulse_visual.visible = false
-	)
+	pulse_visual.play(_definition.effect_radius)
 	return affected
 
 func resource_status_text() -> String:

@@ -5,6 +5,8 @@ signal completed
 
 const INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
 const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
+const LASER_SCENE := preload("res://effects/laser_pulse/laser_pulse.tscn")
+const FIELD_SHADER := preload("res://effects/field_pulse.gdshader")
 const WARMUP_POSITION := Vector3(0.0, 0.0, -8.0)
 
 func _init() -> void:
@@ -19,6 +21,7 @@ func _ready() -> void:
 	_add_shadow_receiver()
 	_add_interceptor_sample()
 	_add_explosion_sample()
+	_add_energy_samples()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	completed.emit()
@@ -54,3 +57,16 @@ func _add_explosion_sample() -> void:
 	add_child(explosion)
 	explosion.setup(Color(1.0, 0.35, 0.06), 2.0)
 	explosion._process(0.18)
+
+func _add_energy_samples() -> void:
+	var laser := LASER_SCENE.instantiate() as LaserPulse
+	add_child(laser)
+	laser.setup(WARMUP_POSITION + Vector3.LEFT * 2.0, WARMUP_POSITION + Vector3.RIGHT * 2.0)
+	laser.set_process(false)
+	var field := MeshInstance3D.new()
+	field.mesh = SphereMesh.new()
+	var material := ShaderMaterial.new()
+	material.shader = FIELD_SHADER
+	field.material_override = material
+	field.position = WARMUP_POSITION
+	add_child(field)

@@ -1,4 +1,6 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
+
+[ext_resource path="res://support/support_facility/support_details.gd" type="Script" id="Details"]
 
 [ext_resource path="res://support/support_facility/support_facility.gd" type="Script" id="1"]
 
@@ -50,6 +52,9 @@ script = ExtResource("1")
 position = Vector3(0, 1, 0)
 mesh = SubResource("BaseMesh")
 material_override = SubResource("BaseMaterial")
+
+[node name="Details" type="Node3D" parent="."]
+script = ExtResource("Details")
 
 [node name="Depot" type="MeshInstance3D" parent="."]
 position = Vector3(-2, 4.5, 1.5)

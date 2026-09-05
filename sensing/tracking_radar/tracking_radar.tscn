@@ -1,4 +1,6 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
+
+[ext_resource path="res://sensing/search_radar/radar_details.gd" type="Script" id="Details"]
 
 [ext_resource path="res://sensing/tracking_radar/tracking_radar.gd" type="Script" id="1"]
 
@@ -44,6 +46,10 @@ size = Vector3(6.4, 4.4, 0.16)
 [node name="TrackingRadar" type="Node3D"]
 script = ExtResource("1")
 rotation_speed_degrees = 72.0
+
+[node name="Details" type="Node3D" parent="."]
+script = ExtResource("Details")
+tracking_panel = true
 
 [node name="Base" type="MeshInstance3D" parent="."]
 position = Vector3(0, 1.2, 0)

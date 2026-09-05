@@ -464,6 +464,27 @@ func test_explosion_timeline_layers_expand_and_retire_in_order() -> void:
 	assert_almost_eq(doubled.core_scale, ignition.core_scale * 2.0, 0.001)
 	assert_almost_eq(doubled.pressure_scale, ignition.pressure_scale * 2.0, 0.001)
 
+func test_energy_effects_retire_independently_and_can_be_replayed() -> void:
+	var laser_scene := preload("res://effects/laser_pulse/laser_pulse.tscn")
+	var first := add_child_autofree(laser_scene.instantiate()) as LaserPulse
+	var second := add_child_autofree(laser_scene.instantiate()) as LaserPulse
+	first.setup(Vector3.ZERO, Vector3(30, 12, 0))
+	second.setup(Vector3.ZERO, Vector3(0, 20, 50))
+	assert_not_same(first.glow_beam.material_override, second.glow_beam.material_override)
+	first._process(first.lifetime)
+	assert_true(first.is_queued_for_deletion())
+	assert_false(second.is_queued_for_deletion())
+	assert_gt(second.impact_light.light_energy, 0.0)
+	var weapon := add_child_autofree(preload("res://defense/high_power_microwave/high_power_microwave.tscn").instantiate()) as HighPowerMicrowave
+	weapon.scale = Vector3.ONE * 0.9
+	weapon.pulse_visual.play(40.0)
+	assert_true(weapon.pulse_visual.visible)
+	weapon.pulse_visual._process(FieldPulse.DURATION)
+	assert_false(weapon.pulse_visual.visible)
+	assert_almost_eq(weapon.pulse_visual.global_basis.get_scale().x, 4.0, 0.001, "효과 반경은 장비의 표현 축척에 영향받지 않습니다")
+	weapon.pulse_visual.play(25.0)
+	assert_true(weapon.pulse_visual.visible)
+
 func test_falling_wreck_impact_flash_material_is_instance_local() -> void:
 	var scene := preload("res://effects/falling_wreck/falling_wreck.tscn")
 	var first := add_child_autofree(scene.instantiate()) as FallingWreckEffect

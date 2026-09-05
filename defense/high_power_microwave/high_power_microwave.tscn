@@ -1,4 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
+
+[ext_resource path="res://defense/high_power_microwave/dish_details.gd" type="Script" id="Details"]
+
+[ext_resource path="res://effects/field_pulse.gdshader" type="Shader" id="PulseShader"]
+[ext_resource path="res://effects/field_pulse.gd" type="Script" id="PulseScript"]
 
 [ext_resource path="res://defense/high_power_microwave/high_power_microwave.gd" type="Script" id="1"]
 
@@ -6,20 +11,13 @@
 albedo_color = Color(0.22, 0.25, 0.3, 1)
 metallic = 0.5
 
-[sub_resource type="StandardMaterial3D" id="PulseMaterial"]
-transparency = 1
-albedo_color = Color(0.45, 0.35, 1, 0.22)
-emission_enabled = true
-emission = Color(0.25, 0.12, 0.8, 1)
-
 [sub_resource type="CylinderMesh" id="BaseMesh"]
 top_radius = 6.0
 bottom_radius = 7.0
 height = 3.0
 
-[sub_resource type="SphereMesh" id="DishMesh"]
-radius = 4.0
-height = 5.0
+[sub_resource type="ShaderMaterial" id="FieldMaterial"]
+shader = ExtResource("PulseShader")
 
 [sub_resource type="SphereMesh" id="PulseMesh"]
 radius = 10.0
@@ -38,12 +36,12 @@ position = Vector3(0, 6, 0)
 
 [node name="Elevation" type="Node3D" parent="Turret"]
 
-[node name="Dish" type="MeshInstance3D" parent="Turret/Elevation"]
-scale = Vector3(1.4, 0.45, 1.4)
-mesh = SubResource("DishMesh")
-material_override = SubResource("PulseMaterial")
+[node name="Details" type="Node3D" parent="Turret/Elevation"]
+script = ExtResource("Details")
 
 [node name="PulseVisual" type="MeshInstance3D" parent="."]
 visible = false
+cast_shadow = 0
 mesh = SubResource("PulseMesh")
-material_override = SubResource("PulseMaterial")
+material_override = SubResource("FieldMaterial")
+script = ExtResource("PulseScript")

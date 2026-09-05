@@ -1,4 +1,6 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
+
+[ext_resource path="res://sensing/search_radar/radar_details.gd" type="Script" id="Details"]
 
 [ext_resource path="res://sensing/search_radar/search_radar.gd" type="Script" id="1"]
 
@@ -43,6 +45,10 @@ radial_segments = 10
 
 [node name="SearchRadar" type="Node3D"]
 script = ExtResource("1")
+
+[node name="Details" type="Node3D" parent="."]
+script = ExtResource("Details")
+
 
 [node name="Base" type="MeshInstance3D" parent="."]
 position = Vector3(0, 1.25, 0)
