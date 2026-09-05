@@ -28,6 +28,24 @@ func before_each() -> void:
 func after_each() -> void:
 	_cleanup_save_files()
 
+func test_restore_clears_old_airburst_audio_and_reconnects_restored_guns() -> void:
+	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
+	var id := gun.runtime_id
+	var document := main.capture_save_document()
+	main.combat_audio.simulation_paused = false
+	gun.gunfire.round_detonated.emit(Vector3.ZERO, &"timeout")
+	assert_true(main.combat_audio.gun_airbursts.playing)
+	var invalid := document.duplicate(true)
+	invalid.version = -1
+	assert_ne(main.restore_from_document(invalid), "")
+	assert_true(main.combat_audio.gun_airbursts.playing, "실패한 로드는 재생 중인 작전을 변경하지 않습니다")
+	assert_eq(main.restore_from_document(document), "")
+	assert_false(main.combat_audio.gun_airbursts.playing)
+	for unit: DefenseUnit in main.defenses:
+		if unit.runtime_id == id:
+			(unit as CloseInGun).gunfire.round_detonated.emit(Vector3.ZERO, &"timeout")
+	assert_true(main.combat_audio.gun_airbursts.playing, "복원된 포대도 공통 자폭음에 연결됩니다")
+
 func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	var battery_definition := main.scenario.available_defenses[0]
 	var placement_position := _find_valid_position(battery_definition.placement_profile)

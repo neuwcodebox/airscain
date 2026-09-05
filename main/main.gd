@@ -725,6 +725,7 @@ func _find_defense(runtime_id: int) -> DefenseUnit:
 	return null
 
 func _clear_runtime_objects() -> void:
+	combat_audio.stop_all()
 	for parent: Node in [defense_parent, threat_parent, projectile_parent, effects_parent]:
 		for child: Node in parent.get_children():
 			if child == combat_effect_pool:

@@ -71,11 +71,16 @@ var rng := RandomNumberGenerator.new()
 var prepared_stream_count: int = 0
 @export var enabled: bool = true
 var simulation_paused: bool = false
+var gun_airbursts: GunAirburstAudio
 
 func _ready() -> void:
 	if not enabled:
 		return
 	prepared_stream_count = prepare_samples()
+	gun_airbursts = GunAirburstAudio.new()
+	gun_airbursts.name = "GunAirbursts"
+	gun_airbursts.context = self
+	add_child(gun_airbursts)
 	rng.randomize()
 	for index: int in 8:
 		var player := AudioStreamPlayer.new()
@@ -113,12 +118,18 @@ func _exit_tree() -> void:
 	stop_all()
 
 func stop_all() -> void:
+	if is_instance_valid(gun_airbursts):
+		gun_airbursts.reset()
 	for player: AudioStreamPlayer in players:
 		_cancel_player_fade(player)
 		player.stop()
 		player.stream = null
 	source_players.clear()
 	player_source_ids.clear()
+
+func on_gun_round_detonated(position: Vector3, reason: StringName) -> void:
+	if is_instance_valid(gun_airbursts):
+		gun_airbursts.notify_detonation(position, reason)
 
 func play_event(event_id: StringName, intensity: float = 1.0) -> bool:
 	if event_id in MISSILE_EVENTS or not enabled or not STREAM_GROUPS.has(event_id) or float(cooldowns.get(event_id, 0.0)) > 0.0 or players.is_empty():

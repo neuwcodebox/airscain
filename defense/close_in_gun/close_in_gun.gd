@@ -38,7 +38,10 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	add_child(firing_audio)
 
 func configure_audio(audio: CombatAudio) -> void:
+	if firing_audio.context != null and gunfire.round_detonated.is_connected(firing_audio.context.on_gun_round_detonated):
+		gunfire.round_detonated.disconnect(firing_audio.context.on_gun_round_detonated)
 	firing_audio.context = audio
+	gunfire.round_detonated.connect(audio.on_gun_round_detonated)
 
 func configure_combat(registry_value: ThreatRegistry, _projectile_parent_value: Node3D) -> void:
 	registry = registry_value

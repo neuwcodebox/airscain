@@ -6,6 +6,9 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	if OS.get_cmdline_user_args().has("--airbursts"):
+		await _check_airbursts()
+		return
 	var capture := AudioEffectCapture.new()
 	capture.buffer_length = 1.0
 	AudioServer.add_bus()
@@ -48,4 +51,32 @@ func run() -> void:
 	context.queue_free()
 	await process_frame
 	AudioServer.remove_bus(bus_index)
+	quit(0 if ok else 1)
+
+func _check_airbursts() -> void:
+	var context := CombatAudio.new()
+	root.add_child(context)
+	var voice := context.gun_airbursts
+	var capture := AudioEffectCapture.new()
+	AudioServer.add_bus_effect(0, capture)
+	var started := Time.get_ticks_msec()
+	var prior_position := 0.0
+	var wraps := 0
+	var peak := 0.0
+	while Time.get_ticks_msec() - started < 11000:
+		if Time.get_ticks_msec() - started < 10000:
+			for gun: int in 3:
+				context.on_gun_round_detonated(Vector3.ZERO, &"timeout")
+		var position := voice.get_playback_position()
+		if voice.playing and position < prior_position - 1.0:
+			wraps += 1
+		prior_position = position
+		await process_frame
+		for sample: Vector2 in capture.get_buffer(capture.get_frames_available()):
+			peak = maxf(peak, maxf(absf(sample.x), absf(sample.y)))
+	var ok := wraps >= 2 and voice.starts == 1 and not voice.playing and peak > 0.01
+	print("GUN_AIRBURST_CHECK ok=%s starts=%d wraps=%d peak=%.4f stopped=%s" % [ok, voice.starts, wraps, peak, not voice.playing])
+	context.queue_free()
+	await process_frame
+	AudioServer.remove_bus_effect(0, AudioServer.get_bus_effect_count(0) - 1)
 	quit(0 if ok else 1)
