@@ -4,10 +4,12 @@ extends Node
 
 const SPAWN_INTERVAL := 16.0
 const MAX_HOSTILES := 2
+const CITY_RECOVERY_DELAY := 12.0
 var main: AirscainMain
 var elapsed: float = 0.0
 var until_spawn: float = 3.0
 var spawn_count: int = 0
+var city_recovery_remaining: float = 0.0
 
 func configure(value: AirscainMain) -> void:
 	main = value
@@ -22,15 +24,15 @@ func configure(value: AirscainMain) -> void:
 	main.track_display.visible = false
 	main.c2_overlay.visible = false
 	(main.tactical_range_overlay as Node3D).visible = false
-	_place(&"search_radar", Vector3(330, 0, 50))
-	_place(&"command_post", Vector3(240, 0, 170))
-	_place(&"missile_battery", Vector3(360, 0, 200))
-	_place(&"short_range_missile", Vector3(160, 0, 300))
-	_place(&"close_in_gun", Vector3(280, 0, 320))
-	_place(&"support_facility", Vector3(180, 0, 190))
+	_place(&"search_radar", Vector3(450, 0, -130))
+	_place(&"command_post", Vector3(300, 0, 90))
+	_place(&"missile_battery", Vector3(450, 0, 10))
+	_place(&"short_range_missile", Vector3(300, 0, -180))
+	_place(&"close_in_gun", Vector3(330, 0, -60))
+	_place(&"support_facility", Vector3(380, 0, 30))
 	main.session.start_defense()
 	main.director.enabled = false
-	main.objective.damage_received.connect(_restore_city)
+	main.objective.damage_received.connect(_schedule_city_recovery)
 
 func _place(id: StringName, desired: Vector3) -> void:
 	for definition: DefenseDefinition in main.scenario.available_defenses:
@@ -56,6 +58,10 @@ func _process(delta: float) -> void:
 
 func tick(delta: float) -> void:
 	elapsed += delta
+	if city_recovery_remaining > 0:
+		city_recovery_remaining = maxf(0, city_recovery_remaining - delta)
+		if city_recovery_remaining <= 0:
+			main.objective.restore_integrity(main.objective.definition.maximum_integrity)
 	until_spawn -= delta
 	for unit: DefenseUnit in main.defenses:
 		if unit.uses_ammunition() and unit.ammunition_needs_resupply():
@@ -83,8 +89,8 @@ func _spawn_small_attack() -> void:
 	var position := Vector3(cos(angle), 0, sin(angle)) * 700.0
 	position.y = main.battlefield.flight_surface_height(position.x, position.z) + 90.0
 	threat.global_position = position
-	threat.speed_multiplier = 0.55
+	threat.configure_mission(main.objective, main.battlefield, threat.target_point, 0.55, null, position)
 	spawn_count += 1
 
-func _restore_city(_damage: int) -> void:
-	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
+func _schedule_city_recovery(_damage: int) -> void:
+	city_recovery_remaining = CITY_RECOVERY_DELAY

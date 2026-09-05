@@ -31,7 +31,7 @@ func _ready() -> void:
 	add_child(controller)
 	controller.configure(demo)
 	_camera = demo.camera_rig.camera
-	_camera.fov = 42.0
+	_camera.fov = 44.0
 	_camera.far = 18000.0
 	_update_camera()
 	visibility_changed.connect(_update_visibility)
@@ -44,7 +44,7 @@ func _process(delta: float) -> void:
 func _update_camera() -> void:
 	var angle := 0.58 + sin(_elapsed * 0.025) * 0.06
 	_camera.global_position = Vector3(sin(angle) * 1020.0, 535.0, cos(angle) * 1020.0)
-	_camera.look_at(Vector3(-130, 0, 80))
+	_camera.look_at(Vector3(0, 0, 80))
 
 func _update_visibility() -> void:
 	var active := is_visible_in_tree()

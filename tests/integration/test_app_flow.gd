@@ -13,27 +13,55 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 	var demo := backdrop.get("demo") as AirscainMain
 	var controller := backdrop.get("controller") as MenuDefenseDemo
 	controller.set_process(false)
+	assert_null(app.main_menu.get_node_or_null("WorldCaption"))
+	watch_signals(demo.objective)
 	assert_eq(demo.defenses.size(), 6)
 	assert_false(demo.director.enabled)
 	assert_false(demo.combat_audio.enabled)
 	assert_true(demo.session.unlimited_budget)
-	for index: int in 1200:
+	for index: int in 3000:
 		controller.tick(0.1)
 		assert_lte(controller.hostile_count(), MenuDefenseDemo.MAX_HOSTILES)
 		if index % 20 == 0:
 			await get_tree().process_frame
 	assert_gt(demo.session.weapon_fire_count, 0, "실제 센서·C2·무장이 발사합니다")
 	assert_gt(demo.session.neutralized_count, 0, "실제 요격체로 시연 위협을 격추합니다")
-	assert_gt(controller.spawn_count, 3)
+	assert_gte(controller.spawn_count, 15)
+	assert_gte(demo.session.neutralized_count, controller.spawn_count - MenuDefenseDemo.MAX_HOSTILES)
+	assert_signal_not_emitted(demo.objective, "damage_received", "모든 진입 방향을 실제 방공망으로 막습니다")
 	assert_eq(demo.objective.current_integrity, demo.objective.definition.maximum_integrity)
 	for unit: DefenseUnit in demo.defenses:
 		assert_false(unit.combat_resource_depleted())
+		if unit.uses_ammunition():
+			assert_true(demo.support_manager.can_service(unit))
+			for sensor: DefenseUnit in demo.defenses:
+				if sensor.c2_roles() & DefenseUnit.C2Role.SENSOR:
+					assert_true(demo.c2_network.has_command_path(unit, sensor.runtime_id))
 	app.start_game(AirscainMain.GameMode.SUSTAINED)
 	assert_ne(demo.get_world_3d(), app.gameplay.get_world_3d())
 	assert_eq(app.gameplay.session.weapon_fire_count, 0)
 	assert_eq(app.gameplay.defenses.size(), 0)
 	assert_false(backdrop.can_process())
 	assert_false(controller.can_process())
+
+func test_menu_city_impact_keeps_smoke_until_delayed_recovery() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	await get_tree().process_frame
+	var backdrop := app.main_menu.get_node("Background")
+	var demo := backdrop.get("demo") as AirscainMain
+	var controller := backdrop.get("controller") as MenuDefenseDemo
+	controller.set_process(false)
+	controller.until_spawn = 1000
+	var bounds := demo.battlefield.city_building_bounds(0)
+	var roof := Vector3(bounds.get_center().x, bounds.end.y, bounds.get_center().z)
+	demo.objective.apply_building_impact(10, roof, bounds.size.y)
+	assert_eq(demo.objective.current_integrity, 90)
+	assert_eq(demo.objective.damage_smoke_effects.size(), 1)
+	controller.tick(MenuDefenseDemo.CITY_RECOVERY_DELAY * 0.5)
+	assert_eq(demo.objective.damage_smoke_effects.size(), 1)
+	controller.tick(MenuDefenseDemo.CITY_RECOVERY_DELAY * 0.5 + 0.1)
+	assert_eq(demo.objective.current_integrity, 100)
+	assert_eq(demo.objective.damage_smoke_effects.size(), 0)
 
 func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	var app: Node = add_child_autofree(APP_SCENE.instantiate())

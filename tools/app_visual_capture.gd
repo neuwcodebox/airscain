@@ -18,8 +18,11 @@ func run() -> void:
 		while demo.session.weapon_fire_count < 2 and Time.get_ticks_msec() - started < 60000:
 			await process_frame
 		_save_capture("/tmp/airscain_menu_live_defense.png")
+		while demo.session.neutralized_count == 0 and Time.get_ticks_msec() - started < 60000:
+			await process_frame
+		_save_capture("/tmp/airscain_menu_intercept.png")
 		print("MENU_DEMO_CAPTURE shots=%d neutralized=%d" % [demo.session.weapon_fire_count, demo.session.neutralized_count])
-		var succeeded := demo.session.weapon_fire_count > 0
+		var succeeded := demo.session.weapon_fire_count > 0 and demo.session.neutralized_count > 0
 		app.queue_free()
 		await process_frame
 		quit(0 if succeeded else 1)
