@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, blend_mix, depth_draw_never, cull_disabled;
+render_mode blend_mix, depth_draw_never, cull_disabled, diffuse_lambert_wrap, specular_disabled;
 
 #include "res://effects/trail_motion.gdshaderinc"
 uniform sampler2D puff_texture : source_color, filter_linear_mipmap;
@@ -19,5 +19,6 @@ void vertex() {
 void fragment() {
 	vec4 puff = texture(puff_texture, UV);
 	ALBEDO = tint.rgb * puff.rgb;
+	ROUGHNESS = 1.0;
 	ALPHA = tint.a * puff.a * puff_alpha * opacity_ratio;
 }

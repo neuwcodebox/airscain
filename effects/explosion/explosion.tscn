@@ -1,10 +1,11 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource path="res://effects/explosion/explosion.gd" type="Script" id="1"]
 [ext_resource path="res://effects/shadowed_smoke_particles.gd" type="Script" id="2"]
 [ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="3"]
 [ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="4"]
 [ext_resource path="res://effects/shockwave_card_texture.tres" type="Texture2D" id="5"]
+[ext_resource path="res://effects/light_glare.svg" type="Texture2D" id="6"]
 
 [sub_resource type="Gradient" id="SmokeLifetimeGradient"]
 offsets = PackedFloat32Array(0, 0.08, 0.58, 1)
@@ -62,7 +63,7 @@ transparency = 1
 blend_mode = 1
 shading_mode = 0
 albedo_color = Color(1, 0.43, 0.12, 0.3)
-albedo_texture = ExtResource("4")
+albedo_texture = ExtResource("6")
 emission_enabled = true
 emission = Color(1, 0.43, 0.12, 1)
 emission_energy_multiplier = 16.0

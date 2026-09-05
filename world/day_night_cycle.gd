@@ -27,6 +27,9 @@ func configure(sun: DirectionalLight3D, world_environment: WorldEnvironment, bat
 	_environment.sky = sky
 	_environment.background_mode = Environment.BG_SKY
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	# Compatibility glow uses an LDR bright pass; avoid washing out the whole scene.
+	_environment.glow_bloom = 0.0
+	_environment.glow_hdr_scale = 1.4
 	_moon = DirectionalLight3D.new()
 	_moon.rotation_degrees = Vector3(-48, 115, 0)
 	_moon.light_color = Color("839ac0")
@@ -54,6 +57,8 @@ func apply_time(elapsed: float, force: bool = false) -> void:
 	_environment.ambient_light_color = Color("60769e").lerp(Color(0.62, 0.73, 0.82), daylight)
 	_environment.ambient_light_energy = lerpf(0.22, 0.55, daylight)
 	_moon.light_energy = 0.16 * night_amount
+	_environment.glow_hdr_threshold = lerpf(0.9, 0.22, night_amount)
+	_environment.glow_intensity = lerpf(0.65, 1.15, night_amount)
 	_sky_material.sky_top_color = Color("010207").lerp(Color("294960"), daylight)
 	_sky_material.sky_horizon_color = Color("03050b").lerp(Color("9f6451").lerp(Color("8196a1"), daylight), smoothstep(-0.25, 0.15, elevation))
 	_sky_material.ground_horizon_color = _sky_material.sky_horizon_color

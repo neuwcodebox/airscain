@@ -9,6 +9,7 @@ var generator := WorldGenerator.new()
 var window_material: ShaderMaterial
 var street_lights: Array[OmniLight3D] = []
 var lamp_material: StandardMaterial3D
+var lamp_glare_material: StandardMaterial3D
 
 var objective: ProtectedObjective
 var occupied_positions: Array[Vector3] = []
@@ -37,6 +38,8 @@ func set_night_amount(amount: float) -> void:
 		window_material.set_shader_parameter("night_amount", amount)
 	if lamp_material != null:
 		lamp_material.emission_energy_multiplier = amount * 2.5
+	if lamp_glare_material != null:
+		lamp_glare_material.albedo_color.a = amount * 0.55
 	for light: OmniLight3D in street_lights:
 		light.light_energy = amount * 2.0
 
@@ -168,7 +171,28 @@ func _building_cell(position: Vector3) -> Vector2i:
 	return Vector2i(floori(position.x / BUILDING_CELL_SIZE), floori(position.z / BUILDING_CELL_SIZE))
 
 func set_objective(objective_value: ProtectedObjective) -> void:
+	if is_instance_valid(objective) and objective.integrity_changed.is_connected(_sync_city_power):
+		objective.integrity_changed.disconnect(_sync_city_power)
 	objective = objective_value
+	objective.integrity_changed.connect(_sync_city_power)
+	_sync_city_power()
+
+func _sync_city_power(_current: int = 0, _maximum: int = 0) -> void:
+	if window_material == null or not is_instance_valid(objective):
+		return
+	var damaged := PackedVector4Array()
+	for site: Dictionary in objective.damage_smoke_sites:
+		var impact := objective.to_global(SaveDocument.vector3_from_data(site.offset))
+		for building: Transform3D in city_buildings:
+			var size := building.basis.get_scale()
+			if absf(impact.x - building.origin.x) <= size.x * 0.5 + 0.5 and absf(impact.z - building.origin.z) <= size.z * 0.5 + 0.5:
+				var bounds := Vector4(building.origin.x, building.origin.z, size.x * 0.5 + 0.2, size.z * 0.5 + 0.2)
+				if not damaged.has(bounds):
+					damaged.append(bounds)
+				break
+	window_material.set_shader_parameter("damaged_building_count", damaged.size())
+	damaged.resize(ProtectedObjective.MAX_DAMAGE_SMOKE_SITES)
+	window_material.set_shader_parameter("damaged_buildings", damaged)
 
 func placement_result(position: Vector3, profile: PlacementProfile) -> Dictionary:
 	var half := battlefield_size * 0.5
@@ -283,6 +307,7 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 	_build_facade_multimesh(facade_bands)
 	_build_city_amenities(transforms, city_blocks, city_size, block_count)
 	_build_street_lights(city_blocks, city_size / float(block_count))
+	_sync_city_power()
 
 func _build_street_lights(blocks: Array[Dictionary], spacing: float) -> void:
 	lamp_material = StandardMaterial3D.new()
@@ -292,12 +317,35 @@ func _build_street_lights(blocks: Array[Dictionary], spacing: float) -> void:
 	lamp_material.emission_energy_multiplier = 0.0
 	var pole_material := StandardMaterial3D.new()
 	pole_material.albedo_color = Color("41484c")
+	lamp_glare_material = StandardMaterial3D.new()
+	lamp_glare_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lamp_glare_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	lamp_glare_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	lamp_glare_material.albedo_color = Color(1.0, 0.65, 0.28, 0.0)
+	lamp_glare_material.albedo_texture = preload("res://effects/light_glare.svg")
+	lamp_glare_material.emission_enabled = true
+	lamp_glare_material.emission = Color(1.0, 0.65, 0.28)
+	lamp_glare_material.emission_energy_multiplier = 2.0
+	lamp_glare_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	lamp_glare_material.billboard_keep_scale = true
+	var glare_mesh := QuadMesh.new()
+	glare_mesh.size = Vector2(18.0, 18.0)
+	glare_mesh.material = lamp_glare_material
+	var glares := MultiMeshInstance3D.new()
+	glares.name = "StreetLightGlare"
+	glares.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	glares.multimesh = MultiMesh.new()
+	glares.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	glares.multimesh.mesh = glare_mesh
+	glares.multimesh.instance_count = blocks.size()
+	city_visuals.add_child(glares)
 	for index: int in blocks.size():
 		var center: Vector3 = blocks[index].position
 		var p := center + Vector3(spacing * 0.43, 0, spacing * 0.32)
 		p.y = terrain_height(p.x, p.z)
 		_add_city_box("LampPole%d" % index, Vector3(0.25, 6.0, 0.25), p + Vector3.UP * 3.0, pole_material)
 		_add_city_box("Lamp%d" % index, Vector3(1.5, 0.25, 0.8), p + Vector3.UP * 6.0, lamp_material)
+		glares.multimesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, p + Vector3.UP * 6.2))
 		# Bounded district lights leave the positional-light budget for combat flashes.
 		if index % maxi(1, ceili(float(blocks.size()) / 6.0)) == 0 and street_lights.size() < 6:
 			var light := OmniLight3D.new()

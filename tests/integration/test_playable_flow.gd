@@ -40,6 +40,24 @@ func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	assert_lte(main.battlefield.street_lights.size(), 6)
 	assert_eq(main.battlefield.window_material.get_shader_parameter("night_amount"), 1.0)
 
+func test_smoking_buildings_lose_window_power_until_their_smoke_is_repaired() -> void:
+	main.set_process(false)
+	for index: int in [0, main.battlefield.city_buildings.size() - 1]:
+		var building := main.battlefield.city_buildings[index]
+		var size := building.basis.get_scale()
+		assert_true(main.objective.apply_building_impact(10, building.origin + Vector3.UP * size.y * 0.5, size.y))
+	var windows := main.battlefield.window_material
+	assert_eq(windows.get_shader_parameter("damaged_building_count"), 2)
+	var document := main.capture_save_document()
+	main.objective.restore_integrity(int(main.objective.damage_smoke_sites[0].repair_at))
+	assert_eq(windows.get_shader_parameter("damaged_building_count"), 1)
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(windows.get_shader_parameter("damaged_building_count"), 2)
+	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
+	assert_eq(windows.get_shader_parameter("damaged_building_count"), 0)
+	assert_true(main.objective.apply_surface_impact(10, Vector3(1000, 0, 1000)))
+	assert_eq(windows.get_shader_parameter("damaged_building_count"), 0)
+
 func test_selected_asset_panel_shrinks_when_live_status_rows_disappear() -> void:
 	main.set_process(false)
 	var definition := preload("res://defense/close_in_gun/close_in_gun.tres")

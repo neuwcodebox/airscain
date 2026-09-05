@@ -15,10 +15,33 @@ func run() -> void:
 	main.camera_rig.set_process(false)
 	main.camera_rig.camera.position = Vector3(360, 260, 430)
 	main.camera_rig.camera.look_at(Vector3(0, 15, 0))
+	var trail := LingeringSmokeTrail.new()
+	trail.puff_mesh = QuadMesh.new()
+	trail.puff_mesh.size = Vector2(2, 2)
+	trail.puff_mesh.material = preload("res://effects/missile_smoke_material.tres")
+	main.effects_parent.add_child(trail)
+	trail.sample_world_segment(Vector3(-180, 110, 80), Vector3(180, 180, 80))
+	trail._process(1.0)
+	trail.set_process(false)
 	for entry: Vector2 in [Vector2(0, 9), Vector2(260, 17), Vector2(450, 0), Vector2(630, 6)]:
 		main.day_night.apply_time(entry.x)
 		await capture("%02d" % int(entry.y))
 	main.day_night.apply_time(450.0)
+	if OS.get_cmdline_user_args().has("--glow-check"):
+		var environment := (main.get_node("WorldEnvironment") as WorldEnvironment).environment
+		environment.glow_enabled = false
+		await capture("glow_off")
+		environment.glow_enabled = true
+		await capture("glow_probe")
+		main.free()
+		quit()
+		return
+	var building := main.battlefield.city_buildings[-1]
+	var size := building.basis.get_scale()
+	main.objective.apply_building_impact(10, building.origin + Vector3.UP * size.y * 0.5, size.y)
+	await capture("blackout")
+	main.objective.restore_integrity(main.objective.definition.maximum_integrity)
+	await capture("repaired")
 	var explosion := load("res://effects/explosion/explosion.tscn").instantiate() as ExplosionEffect
 	main.effects_parent.add_child(explosion)
 	explosion.position = Vector3(0, main.battlefield.terrain_height(0, 0) + 95, 0)
