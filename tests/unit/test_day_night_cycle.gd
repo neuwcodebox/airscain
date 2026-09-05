@@ -19,10 +19,12 @@ func test_night_lighting_is_local_and_environment_is_not_shared() -> void:
 	cycle.apply_time(450.0)
 	assert_eq(cycle.night_amount, 1.0)
 	assert_eq(sun.light_energy, 0.0)
+	assert_false(sun.visible, "광량 0인 한밤중에는 태양과 그림자 pass를 제출하지 않습니다")
 	assert_gt(world.environment.ambient_light_energy, 0.0)
 	assert_lt(world.environment.ambient_light_energy, day_energy)
 	cycle.apply_time(720.0)
 	assert_eq(cycle.night_amount, 0.0)
+	assert_true(sun.visible)
 	assert_almost_eq(world.environment.ambient_light_energy, day_energy, 0.001)
 	cycle.free()
 	sun.free()
@@ -44,6 +46,7 @@ func test_twilight_shadows_fade_continuously_in_both_directions() -> void:
 			cycle.apply_time(interval.x + (index + 1) * 0.1, true)
 			var opacity := sun.shadow_opacity
 			assert_true(sun.shadow_enabled, "No shadow mode switch at twilight")
+			assert_true(sun.visible, "가시적인 황혼 구간에서는 태양을 숨기지 않습니다")
 			assert_lt(absf(opacity - previous), 0.01, "No opacity jump")
 			if interval.x < 300.0:
 				assert_lte(opacity, previous)

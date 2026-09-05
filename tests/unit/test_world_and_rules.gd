@@ -122,8 +122,8 @@ func test_falling_wreck_preserves_airframe_geometry_without_live_systems() -> vo
 	var wreck := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
 	wreck.setup(Color.GRAY, Vector3.ZERO, -100)
 	wreck.use_airframe(aircraft)
-	var original := aircraft.find_child("FacetedFuselage", true, false) as MeshInstance3D
-	var fallen := wreck.wreck.find_child("FacetedFuselage", true, false) as MeshInstance3D
+	var original := aircraft.find_child("Airframe", true, false) as MeshInstance3D
+	var fallen := wreck.wreck.find_child("Airframe", true, false) as MeshInstance3D
 	assert_not_null(fallen)
 	assert_same(fallen.mesh, original.mesh, "추락 시 원래 메시를 공유합니다")
 	assert_eq(wreck.wreck.basis, aircraft.global_basis)
@@ -132,8 +132,54 @@ func test_falling_wreck_preserves_airframe_geometry_without_live_systems() -> vo
 	assert_null(wreck.wreck.find_child("LeftEngineGlow", true, false))
 	assert_eq(wreck.wreck.find_children("*", "Light3D", true, false).size(), 0)
 	assert_null(wreck.wreck.get_child(0).get_script(), "잔해에 비행 AI나 모델 생성 스크립트를 복제하지 않습니다")
-	assert_not_null(wreck.wreck.find_child("SweptWing", true, false))
-	assert_not_null(wreck.wreck.find_child("TwinFin", true, false))
+	assert_eq(fallen.mesh.get_aabb(), original.mesh.get_aabb(), "날개·수직미익을 포함한 전체 기체 형상을 복제합니다")
+	assert_gt(original.mesh.get_aabb().size.x, 15.0)
+
+func test_airframe_geometry_is_shared_but_content_colors_remain_independent() -> void:
+	var definition := preload("res://enemy/strike_aircraft/strike_aircraft.tres")
+	var first := add_child_autofree(definition.scene.instantiate()) as AttackUav
+	var second := add_child_autofree(definition.scene.instantiate()) as AttackUav
+	var first_definition := definition.duplicate() as AttackUavDefinition
+	var second_definition := definition.duplicate() as AttackUavDefinition
+	first_definition.visual_color = Color.RED
+	second_definition.visual_color = Color.BLUE
+	first.setup(1, first_definition)
+	second.setup(2, second_definition)
+	for child: Node in first.body.get_children():
+		if not child.name.begins_with("Airframe"):
+			continue
+		var first_mesh := child as MeshInstance3D
+		var second_mesh := second.body.get_node(NodePath(child.name)) as MeshInstance3D
+		assert_same(first_mesh.mesh, second_mesh.mesh)
+		assert_eq((first_mesh.get_active_material(0) as StandardMaterial3D).albedo_color, Color.RED)
+		assert_eq((second_mesh.get_active_material(0) as StandardMaterial3D).albedo_color, Color.BLUE)
+		assert_ne((first_mesh.mesh.surface_get_material(0) as StandardMaterial3D).albedo_color, Color.RED)
+
+func test_static_model_merge_preserves_mirrored_winding_normals_and_surface() -> void:
+	var part := add_child_autofree(MeshInstance3D.new()) as MeshInstance3D
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([Vector3.ZERO, Vector3.RIGHT, Vector3.UP])
+	arrays[Mesh.ARRAY_NORMAL] = PackedVector3Array([Vector3.BACK, Vector3.BACK, Vector3.BACK])
+	var source := ArrayMesh.new()
+	source.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	part.mesh = source
+	part.material_override = ModelGeometry.material(Color.ORANGE, 0.3, 0.6)
+	part.transform = Transform3D(Basis.from_scale(Vector3(-2, 3, 0.5)), Vector3(5, 8, 2))
+	var combined := ModelGeometry.combine_static_parts([part])[0]
+	assert_same(combined.surface_get_material(0), part.material_override)
+	var expected_bounds := part.transform * source.get_aabb()
+	assert_almost_eq(combined.get_aabb().position, expected_bounds.position, Vector3.ONE * 0.0001)
+	assert_almost_eq(combined.get_aabb().size, expected_bounds.size, Vector3.ONE * 0.0001)
+	var result := combined.surface_get_arrays(0)
+	var vertices: PackedVector3Array = result[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = result[Mesh.ARRAY_NORMAL]
+	var indices: PackedInt32Array = result[Mesh.ARRAY_INDEX]
+	assert_eq(indices.size(), 3, "삼각형을 줄이거나 추가하지 않습니다")
+	var face_normal := (vertices[indices[1]] - vertices[indices[0]]).cross(vertices[indices[2]] - vertices[indices[0]]).normalized()
+	for normal: Vector3 in normals:
+		assert_almost_eq(normal, Vector3.BACK, Vector3.ONE * 0.0001)
+		assert_gt(face_normal.dot(normal), 0.99, "거울 복제된 날개도 같은 앞면과 명암을 유지합니다")
 
 func test_falling_wreck_timeout_is_ten_seconds_and_releases_trail() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D

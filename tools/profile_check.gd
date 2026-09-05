@@ -1,5 +1,6 @@
 extends SceneTree
-## Fixed mixed raid CPU workload. --breakdown attributes simulation costs;
+## Fixed mixed raid CPU/render workload, without combat audio playback.
+## --breakdown attributes simulation costs;
 ## --render also measures full frames in an actual window; --night starts at midnight.
 
 const MAIN_SCENE := preload("res://main/main.tscn")
@@ -69,9 +70,12 @@ func run() -> void:
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	if OS.get_cmdline_user_args().has("--breakdown"):
+		# Replacing the root script recreates its unparented composition nodes.
+		main.day_night.free()
 		main.set_script(ProfiledMain)
 	main.set_process(false)
 	root.add_child(main)
+	main.combat_audio.enabled = false
 	await process_frame
 	while not main.combat_effect_pool.prepared:
 		await process_frame

@@ -54,6 +54,9 @@ func apply_time(elapsed: float, force: bool = false) -> void:
 	_sun.rotation_degrees = Vector3(-rad_to_deg(asin(elevation)) * 0.72, -38.0 + (hour - 9.0) * 15.0, 0.0)
 	_sun.light_color = Color(1.0, 0.91, 0.76).lerp(Color(1.0, 0.43, 0.19), warmth)
 	_sun.light_energy = 1.2 * daylight
+	# A zero-energy sun contributes no light, but still submits shadow passes.
+	# Only retire it after the existing twilight light and shadow fades finish.
+	_sun.visible = _sun.light_energy > 0.0
 	# Fade long horizon shadows before twilight; never switch a visible shadow off.
 	_sun.shadow_opacity = smoothstep(0.02, 0.20, elevation)
 	_environment.ambient_light_color = Color("60769e").lerp(Color(0.62, 0.73, 0.82), daylight)

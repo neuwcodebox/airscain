@@ -28,6 +28,39 @@ static func strut(parent: Node3D, name_value: String, from: Vector3, to: Vector3
 	visual.basis = Basis(Quaternion(Vector3.UP, from.direction_to(to)))
 	return visual
 
+static func combine_static_parts(parts: Array[MeshInstance3D]) -> Array[ArrayMesh]:
+	# For the opaque, untextured, unskinned primitives used by authored models.
+	# Bake transforms while preserving normals and mirrored triangle winding.
+	var surfaces: Dictionary[Material, SurfaceTool] = {}
+	for part: MeshInstance3D in parts:
+		var normal_basis := part.basis.inverse().transposed()
+		var order := PackedInt32Array([0, 2, 1]) if part.basis.determinant() < 0.0 else PackedInt32Array([0, 1, 2])
+		for surface_index: int in part.mesh.get_surface_count():
+			var finish := part.get_active_material(surface_index)
+			if not surfaces.has(finish):
+				var builder := SurfaceTool.new()
+				builder.begin(Mesh.PRIMITIVE_TRIANGLES)
+				builder.set_material(finish)
+				surfaces[finish] = builder
+			var builder := surfaces[finish]
+			var arrays := part.mesh.surface_get_arrays(surface_index)
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+			var indices := PackedInt32Array() if arrays[Mesh.ARRAY_INDEX] == null else arrays[Mesh.ARRAY_INDEX] as PackedInt32Array
+			var uvs := PackedVector2Array() if arrays[Mesh.ARRAY_TEX_UV] == null else arrays[Mesh.ARRAY_TEX_UV] as PackedVector2Array
+			var count := vertices.size() if indices.is_empty() else indices.size()
+			for triangle: int in range(0, count, 3):
+				for corner: int in order:
+					var index := triangle + corner if indices.is_empty() else indices[triangle + corner]
+					builder.set_normal((normal_basis * normals[index]).normalized())
+					builder.set_uv(Vector2.ZERO if uvs.is_empty() else uvs[index])
+					builder.add_vertex(part.transform * vertices[index])
+	var result: Array[ArrayMesh] = []
+	for builder: SurfaceTool in surfaces.values():
+		builder.index()
+		result.append(builder.commit())
+	return result
+
 static func cylinder(parent: Node3D, name_value: String, radius: float, height: float, position: Vector3, finish: Material) -> MeshInstance3D:
 	var shape := CylinderMesh.new()
 	shape.top_radius = radius

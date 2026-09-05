@@ -2,8 +2,12 @@ extends Node3D
 ## Airframe proportions are authored by each content scene, independent of AI.
 
 @export var jet: bool = false
+static var _geometry: Dictionary[bool, Array] = {}
 
 func _ready() -> void:
+	if _geometry.has(jet):
+		_install_geometry(_geometry[jet])
+		return
 	var skin := ModelGeometry.material(Color("8b9384") if not jet else Color("687a80"), 0.35, 0.55)
 	var underside := ModelGeometry.material(Color("414b48"), 0.3)
 	var glass := ModelGeometry.material(Color("203d49"), 0.6, 0.18)
@@ -41,3 +45,20 @@ func _ready() -> void:
 		sensor.rings = 4
 		ModelGeometry.mesh(self, "OpticalTurret", sensor, Vector3(0, -0.8, -3), glass)
 		ModelGeometry.box(self, "PusherPropeller", Vector3(0.15, 3.4, 0.12), Vector3(0, 0, 5.3), underside)
+	var parts: Array[MeshInstance3D] = []
+	for child: Node in get_children():
+		if child is MeshInstance3D:
+			var part := child as MeshInstance3D
+			var finish := part.get_active_material(0) as StandardMaterial3D
+			if finish != null and not finish.emission_enabled:
+				parts.append(part)
+	var combined := ModelGeometry.combine_static_parts(parts)
+	_geometry[jet] = combined
+	for part: MeshInstance3D in parts:
+		part.free()
+	_install_geometry(combined)
+
+func _install_geometry(shapes: Array) -> void:
+	for index: int in shapes.size():
+		var shape := shapes[index] as ArrayMesh
+		ModelGeometry.mesh(self, "Airframe" if index == 0 else "Airframe%d" % index, shape, Vector3.ZERO, shape.surface_get_material(0))
