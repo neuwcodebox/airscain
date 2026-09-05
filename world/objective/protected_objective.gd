@@ -35,6 +35,8 @@ func apply_mission_damage(amount: int) -> bool:
 		return false
 	var previous_integrity := current_integrity
 	current_integrity = maxi(0, current_integrity - amount)
+	for index: int in damage_smoke_sites.size():
+		damage_smoke_sites[index].repair_at = smoke_repair_threshold(current_integrity, definition.maximum_integrity, index, damage_smoke_sites.size())
 	_sync_damage_visuals()
 	integrity_changed.emit(current_integrity, definition.maximum_integrity)
 	damage_received.emit(previous_integrity - current_integrity)
@@ -68,6 +70,7 @@ func restore_damage_smoke_state(states: Array) -> void:
 		damage_smoke_sites.append({
 			"offset": site.offset,
 			"building_height": float(site.building_height),
+			"repair_at": int(site.get("repair_at", definition.maximum_integrity)),
 		})
 
 func _append_damage_smoke_site(global_impact_position: Vector3, building_height: float) -> void:
@@ -92,8 +95,18 @@ func excludes_placement(world_position: Vector3, radius: float) -> bool:
 
 func restore_integrity(value: int) -> void:
 	current_integrity = clampi(value, 0, definition.maximum_integrity)
+	for index: int in range(damage_smoke_sites.size() - 1, -1, -1):
+		if current_integrity >= int(damage_smoke_sites[index].get("repair_at", definition.maximum_integrity)):
+			damage_smoke_sites.remove_at(index)
+			if index < damage_smoke_effects.size():
+				var effect := damage_smoke_effects[index]
+				damage_smoke_effects.remove_at(index)
+				_recycle_smoke(effect)
 	_sync_damage_visuals()
 	integrity_changed.emit(current_integrity, definition.maximum_integrity)
+
+static func smoke_repair_threshold(integrity: int, maximum: int, index: int, count: int) -> int:
+	return integrity + ceili(float(maximum - integrity) * float(index + 1) / float(count))
 
 func _sync_damage_visuals() -> void:
 	for index: int in range(damage_smoke_effects.size() - 1, -1, -1):

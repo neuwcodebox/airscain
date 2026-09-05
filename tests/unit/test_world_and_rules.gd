@@ -293,7 +293,43 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_eq(objective.damage_smoke_effects.size(), 4)
 	assert_signal_emit_count(objective, "depleted", 1)
 	objective.restore_integrity(75)
-	assert_eq(objective.damage_smoke_effects.size(), 4)
+	assert_eq(objective.damage_smoke_effects.size(), 1)
+
+func test_city_repair_removes_smoke_in_steps_and_preserves_the_last_site() -> void:
+	var objective := add_child_autofree(SCENARIO.objective_definition.scene.instantiate()) as ProtectedObjective
+	objective.setup(1, SCENARIO.objective_definition)
+	var emitters := objective.prepared_smoke_effects.duplicate()
+	for index: int in 4:
+		objective.apply_building_impact(10, Vector3(index * 20, 20, 0), 20)
+	var last_effect := objective.damage_smoke_effects.back() as DamageSmokeEffect
+	var last_position := last_effect.position
+	for integrity: int in range(61, 101):
+		objective.restore_integrity(integrity)
+		assert_eq(objective.damage_smoke_effects.size(), ceili(float(100 - integrity) / 10.0))
+		assert_eq(objective.damage_smoke_effects.size() + objective.prepared_smoke_effects.size(), emitters.size())
+		if integrity < 100:
+			assert_same(objective.damage_smoke_effects.back(), last_effect)
+			assert_eq(last_effect.position, last_position, "남은 연기는 다른 건물로 옮겨지지 않습니다")
+	assert_true(objective.capture_damage_smoke_state().is_empty())
+	objective.apply_building_impact(1, Vector3(100, 30, 0), 30)
+	assert_eq(objective.damage_smoke_effects.size(), 1, "완료한 옛 피해 연기는 다시 나타나지 않습니다")
+	assert_eq(objective.damage_smoke_effects[0].position, Vector3(100, 30, 0))
+
+func test_city_repair_after_new_damage_never_clears_all_smoke_early() -> void:
+	var objective := add_child_autofree(SCENARIO.objective_definition.scene.instantiate()) as ProtectedObjective
+	objective.setup(1, SCENARIO.objective_definition)
+	for index: int in 4:
+		objective.apply_building_impact(10, Vector3(index * 10, 20, 0), 20)
+	objective.restore_integrity(80)
+	assert_eq(objective.damage_smoke_effects.size(), 2)
+	objective.apply_building_impact(10, Vector3(60, 30, 0), 30)
+	assert_eq(objective.damage_smoke_effects.size(), 3)
+	objective.restore_integrity(99)
+	assert_eq(objective.damage_smoke_effects.size(), 1)
+	objective.restore_integrity(99)
+	assert_eq(objective.damage_smoke_effects.size(), 1)
+	objective.restore_integrity(100)
+	assert_true(objective.damage_smoke_effects.is_empty())
 
 func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield

@@ -4,9 +4,19 @@ extends RefCounted
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
-	if version >= 19:
+	if version >= 20:
 		return payload
 	var result := payload.duplicate(true)
+	var smoke_sites: Variant = result.world.get("objective_damage_smoke", [])
+	if smoke_sites is Array:
+		var integrity := int(result.world.get("objective_integrity", 0))
+		var maximum := scenario.objective_definition.maximum_integrity
+		if integrity >= maximum:
+			result.world.objective_damage_smoke = []
+		else:
+			for index: int in smoke_sites.size():
+				if smoke_sites[index] is Dictionary:
+					smoke_sites[index].repair_at = ProtectedObjective.smoke_repair_threshold(integrity, maximum, index, smoke_sites.size())
 	var definitions := defense_definition_map(scenario)
 	var owner_kinds: Dictionary[int, StringName] = {}
 	if result.world.get("defenses") is Array:
@@ -99,6 +109,11 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	for smoke_state: Variant in damage_smoke_states:
 		if not smoke_state is Dictionary or not _valid_vector_data(smoke_state.get("offset")) or float(smoke_state.get("building_height", 0.0)) <= 0.0:
 			return "도시 손상 연기 위치가 올바르지 않습니다"
+		var repair_at: Variant = smoke_state.get("repair_at")
+		if not (repair_at is int or repair_at is float) or not is_finite(float(repair_at)) or float(repair_at) != floorf(float(repair_at)) or float(repair_at) <= float(world_state.objective_integrity) or float(repair_at) > scenario.objective_definition.maximum_integrity:
+			return "도시 연기 수리 단계가 올바르지 않습니다"
+	if not damage_smoke_states.is_empty() and int(damage_smoke_states.back().repair_at) != scenario.objective_definition.maximum_integrity:
+		return "완전 복구까지 남을 도시 연기가 없습니다"
 	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary or not world_state.get("support", null) is Dictionary or not world_state.get("relocations", null) is Dictionary or not world_state.get("enemy_knowledge", null) is Dictionary:
 		return "월드 객체 목록이 올바르지 않습니다"
 	var defense_definitions := defense_definition_map(scenario)

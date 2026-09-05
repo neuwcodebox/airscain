@@ -46,6 +46,31 @@ func test_restore_clears_old_airburst_audio_and_reconnects_restored_guns() -> vo
 			(unit as CloseInGun).gunfire.round_detonated.emit(Vector3.ZERO, &"timeout")
 	assert_true(main.combat_audio.gun_airbursts.playing, "복원된 포대도 공통 자폭음에 연결됩니다")
 
+func test_partial_city_repair_progress_round_trips_and_migrates_version_19() -> void:
+	for index: int in 4:
+		main.objective.apply_building_impact(10, Vector3(index * 10, 20, 0), 20)
+	main.objective.restore_integrity(75)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(main.objective.damage_smoke_effects.size(), 3)
+	main.objective.restore_integrity(80)
+	assert_eq(main.objective.damage_smoke_effects.size(), 2, "복원해도 다음 수리 단계가 뒤로 밀리지 않습니다")
+	var invalid := document.duplicate(true)
+	invalid.payload.world.objective_damage_smoke.back().repair_at = 99
+	assert_ne(main.restore_from_document(invalid), "")
+	assert_eq(main.objective.current_integrity, 80)
+	var legacy := document.duplicate(true)
+	legacy.version = 19
+	for site: Dictionary in legacy.payload.world.objective_damage_smoke:
+		site.erase("repair_at")
+	assert_eq(main.restore_from_document(legacy), "")
+	main.objective.restore_integrity(99)
+	assert_eq(main.objective.damage_smoke_effects.size(), 1)
+	assert_false(legacy.payload.world.objective_damage_smoke[0].has("repair_at"))
+	legacy.payload.world.objective_integrity = 100
+	assert_eq(main.restore_from_document(legacy), "")
+	assert_true(main.objective.capture_damage_smoke_state().is_empty(), "구버전의 완전 복구 후 잔류 기록은 제거합니다")
+
 func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	var battery_definition := main.scenario.available_defenses[0]
 	var placement_position := _find_valid_position(battery_definition.placement_profile)

@@ -15,6 +15,9 @@ func run() -> void:
 	main.set_process(false)
 	(main.get_node("UI") as CanvasLayer).visible = false
 	main.camera_rig.set_process(false)
+	if OS.get_cmdline_user_args().has("--repair-stages"):
+		await _capture_repair_stages(main)
+		return
 	var index := 0
 	for candidate: int in main.battlefield.city_buildings.size():
 		if main.battlefield.city_buildings[candidate].basis.get_scale().y < main.battlefield.city_buildings[index].basis.get_scale().y:
@@ -60,3 +63,26 @@ func run() -> void:
 	main.queue_free()
 	await process_frame
 	quit(0 if changed > 1000 else 1)
+
+func _capture_repair_stages(main: AirscainMain) -> void:
+	for index: int in [0, 8, 16, 24]:
+		var bounds := main.battlefield.city_building_bounds(index)
+		var roof := bounds.get_center()
+		roof.y = bounds.end.y
+		main.objective.apply_building_impact(10, roof, bounds.size.y)
+	main.camera_rig.camera.global_position = Vector3(350, 280, 430)
+	main.camera_rig.camera.look_at(Vector3(0, 25, 0))
+	await create_timer(5.0).timeout
+	var ok := true
+	for integrity: int in [60, 70, 80, 99, 100]:
+		main.objective.restore_integrity(integrity)
+		for frame: int in 4:
+			await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("/tmp/airscain_city_repair_%d.png" % integrity)
+		var count := main.objective.damage_smoke_effects.size()
+		ok = ok and count == ceili(float(100 - integrity) / 10.0)
+		print("CITY_REPAIR integrity=%d smoke=%d pooled=%d" % [integrity, count, main.objective.prepared_smoke_effects.size()])
+	main.queue_free()
+	await process_frame
+	quit(0 if ok else 1)
