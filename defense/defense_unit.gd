@@ -143,6 +143,13 @@ func can_request_resupply() -> bool:
 func request_resupply() -> bool:
 	return support_manager != null and support_manager.request_resupply(self)
 
+func set_automatic_resupply(enabled: bool) -> void:
+	if support_manager != null:
+		support_manager.set_automatic_resupply(self, enabled)
+
+func automatic_resupply_enabled() -> bool:
+	return support_manager != null and support_manager.automatic_resupply_enabled(self)
+
 func complete_resupply() -> void:
 	pass
 

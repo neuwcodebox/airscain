@@ -197,6 +197,7 @@ func _connect_flow() -> void:
 	session.defense_placed.connect(_on_defense_placed)
 	session.support_received.connect(_on_support_received)
 	support_manager.task_completed.connect(_on_support_task_completed)
+	support_manager.task_requested.connect(training_controller.support_requested)
 	relocation_manager.relocation_started.connect(training_controller.relocation_started)
 	relocation_manager.relocation_completed.connect(training_controller.relocation_completed)
 	hud.defense_selected.connect(placement.select)
@@ -216,6 +217,7 @@ func _connect_flow() -> void:
 	hud.priority_target_requested.connect(_on_priority_target_requested)
 	hud.munition_mode_requested.connect(_on_munition_mode_requested)
 	hud.resupply_requested.connect(_on_resupply_requested)
+	hud.automatic_resupply_requested.connect(_on_automatic_resupply_requested)
 	hud.repair_requested.connect(_on_repair_requested)
 	hud.city_restoration_requested.connect(_on_city_restoration_requested)
 	hud.relocation_requested.connect(_on_relocation_requested)
@@ -538,8 +540,13 @@ func _on_resupply_requested() -> void:
 	else:
 		hud.set_feedback("현재 재보급을 요청할 수 없습니다")
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
-	if game_mode == GameMode.TRAINING:
-		training_controller.resupply_requested(requested, selected_asset)
+
+func _on_automatic_resupply_requested(enabled: bool) -> void:
+	if not is_instance_valid(selected_asset) or not selected_asset.uses_ammunition():
+		return
+	selected_asset.set_automatic_resupply(enabled)
+	hud.refresh_selected_asset()
+	hud.set_feedback("자동 재보급을 켰습니다 · 예비탄 부족 시 보급 비용 사용" if enabled else "자동 재보급을 껐습니다 · 진행 중인 작업은 유지")
 
 func _on_repair_requested() -> void:
 	var requested := selected_asset != null and selected_asset.request_repair()
@@ -548,8 +555,6 @@ func _on_repair_requested() -> void:
 	else:
 		hud.set_feedback("현재 수리를 요청할 수 없습니다")
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
-	if game_mode == GameMode.TRAINING:
-		training_controller.repair_requested(requested, selected_asset)
 
 func _on_city_restoration_requested() -> void:
 	var definition := objective.definition
@@ -637,10 +642,11 @@ func _set_selected_asset(unit: DefenseUnit) -> void:
 		selected_asset.set_selected(true)
 
 func restore_from_document(document: Dictionary) -> String:
-	var document_error := SaveDocument.validation_error(document)
+	var current_document := SaveDocument.migrate(document)
+	var document_error := SaveDocument.validation_error(current_document)
 	if not document_error.is_empty():
 		return document_error
-	var payload: Dictionary = document.payload
+	var payload: Dictionary = current_document.payload
 	var snapshot_error := SessionSnapshot.validation_error(payload, scenario)
 	if not snapshot_error.is_empty():
 		return snapshot_error

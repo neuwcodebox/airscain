@@ -119,13 +119,13 @@ func threat_resolved(threat: ThreatUnit) -> void:
 	session.set_simulation_speed(0.0)
 	_set_step(Step.SUPPORT)
 
-func resupply_requested(succeeded: bool, unit: DefenseUnit) -> void:
-	if succeeded and step == Step.RESUPPLY and unit == _training_battery():
+func support_requested(kind: StringName, unit: DefenseUnit) -> void:
+	if unit != _training_battery():
+		return
+	if kind == &"resupply" and step == Step.RESUPPLY:
 		session.set_simulation_speed(1.0)
 		_set_step(Step.WAIT_RESUPPLY)
-
-func repair_requested(succeeded: bool, unit: DefenseUnit) -> void:
-	if succeeded and step == Step.REPAIR and unit == _training_battery():
+	elif kind == &"repair" and step == Step.REPAIR:
 		session.set_simulation_speed(1.0)
 		_set_step(Step.WAIT_REPAIR)
 

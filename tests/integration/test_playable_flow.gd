@@ -578,6 +578,31 @@ func test_long_range_launcher_exposes_munition_mode_control() -> void:
 	main.hud._on_munition_mode_pressed()
 	assert_eq(battery.munition_mode, &"area_defense")
 	assert_string_contains(main.hud.munition_mode_button.text, "광역방공탄")
+	assert_true(main.hud.automatic_resupply_button.visible)
+	assert_false(main.hud.automatic_resupply_button.button_pressed)
+	var budget := main.session.budget
+	main.hud.automatic_resupply_button.button_pressed = true
+	assert_true(battery.automatic_resupply_enabled())
+	assert_eq(main.session.budget, budget, "스위치를 켜는 것만으로 보급 비용을 쓰지 않습니다")
+	main.hud.set_selected_asset(null, 0)
+	main.hud.set_selected_asset(battery, 0)
+	assert_true(main.hud.automatic_resupply_button.button_pressed)
+	main.hud.automatic_resupply_button.button_pressed = false
+	assert_false(battery.automatic_resupply_enabled())
+
+func test_automatic_resupply_also_advances_the_training_supply_lesson() -> void:
+	var battery := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
+	assert_true(_place_for(main, main.scenario.available_defenses[5]).success)
+	main.game_mode = AirscainMain.GameMode.TRAINING
+	main.training_controller.training_battery = battery
+	main.training_controller.step = TrainingController.Step.RESUPPLY
+	battery.magazine.reserve = 0
+	battery.set_automatic_resupply(true)
+	main.support_manager.gameplay_tick(0.1)
+	assert_eq(main.training_controller.step, TrainingController.Step.WAIT_RESUPPLY)
+	assert_eq(main.support_manager.tasks.size(), 1)
+	main.support_manager.gameplay_tick(100.0)
+	assert_eq(main.training_controller.step, TrainingController.Step.REPAIR)
 
 func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	main.registry.clear()

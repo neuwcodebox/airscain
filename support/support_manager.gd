@@ -2,6 +2,7 @@ class_name SupportManager
 extends Node
 
 signal task_completed(kind: StringName, unit: DefenseUnit)
+signal task_requested(kind: StringName, unit: DefenseUnit)
 
 var facilities: Array[DefenseUnit] = []
 const RESUPPLY := "resupply"
@@ -10,6 +11,8 @@ const REPAIR := "repair"
 var consumers: Dictionary[int, DefenseUnit] = {}
 var tasks: Array[Dictionary] = []
 var session: GameSession
+var automatic_resupply_ids: Dictionary[int, bool] = {}
+var _automatic_check_remaining: float = 0.0
 
 func configure(session_value: GameSession) -> void:
 	session = session_value
@@ -18,6 +21,8 @@ func reset() -> void:
 	facilities.clear()
 	consumers.clear()
 	tasks.clear()
+	automatic_resupply_ids.clear()
+	_automatic_check_remaining = 0.0
 
 func register_asset(unit: DefenseUnit) -> void:
 	consumers[unit.runtime_id] = unit
@@ -29,6 +34,33 @@ func request_resupply(unit: DefenseUnit) -> bool:
 		return false
 	return _request_task(unit, RESUPPLY, unit.resupply_cost(), unit.resupply_work())
 
+func set_automatic_resupply(unit: DefenseUnit, enabled: bool) -> void:
+	if not is_instance_valid(unit) or not unit.uses_ammunition() or not consumers.has(unit.runtime_id):
+		return
+	if enabled:
+		automatic_resupply_ids[unit.runtime_id] = true
+	else:
+		automatic_resupply_ids.erase(unit.runtime_id)
+
+func automatic_resupply_enabled(unit: DefenseUnit) -> bool:
+	return is_instance_valid(unit) and automatic_resupply_ids.has(unit.runtime_id)
+
+func _check_automatic_resupply(delta: float) -> void:
+	if automatic_resupply_ids.is_empty() or delta <= 0.0:
+		return
+	_automatic_check_remaining -= delta
+	if _automatic_check_remaining > 0.0:
+		return
+	_automatic_check_remaining = 1.0
+	var ids := automatic_resupply_ids.keys()
+	ids.sort()
+	for runtime_id: int in ids:
+		var unit: DefenseUnit = consumers.get(runtime_id)
+		if not is_instance_valid(unit) or not unit.active or unit.integrity <= 0.0 or not unit.combat_resource_low():
+			continue
+		# Share the manual request's cost, coverage, queue and relocation guards.
+		request_resupply(unit)
+
 func request_repair(unit: DefenseUnit) -> bool:
 	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false
@@ -38,9 +70,11 @@ func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float) -> b
 	if session == null or not session.try_spend(cost):
 		return false
 	tasks.append({"kind": kind, "target_defense_id": unit.runtime_id, "remaining_work": work})
+	task_requested.emit(StringName(kind), unit)
 	return true
 
 func gameplay_tick(delta: float) -> void:
+	_check_automatic_resupply(delta)
 	var assignments: Dictionary = {}
 	for index: int in tasks.size():
 		var target := _task_target(index)
@@ -142,10 +176,17 @@ func _task_is_active(task_index: int) -> bool:
 	return earlier_assignments < facility.support_slots()
 
 func capture_state() -> Dictionary:
-	return {"tasks": tasks.duplicate(true)}
+	var ids := automatic_resupply_ids.keys()
+	ids.sort()
+	return {"tasks": tasks.duplicate(true), "automatic_resupply_ids": ids}
 
 func restore_state(state: Dictionary) -> void:
 	tasks.clear()
+	automatic_resupply_ids.clear()
+	_automatic_check_remaining = 0.0
+	for runtime_id: Variant in state.get("automatic_resupply_ids", []):
+		var unit: DefenseUnit = consumers.get(int(runtime_id))
+		set_automatic_resupply(unit, true)
 	for task: Dictionary in state.get("tasks", []):
 		tasks.append({
 			"kind": String(task.kind),

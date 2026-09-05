@@ -2,8 +2,8 @@ class_name SaveDocument
 extends RefCounted
 
 const FORMAT_ID := "airscain-save"
-const CURRENT_VERSION := 16
-const MIN_SUPPORTED_VERSION := CURRENT_VERSION
+const CURRENT_VERSION := 17
+const MIN_SUPPORTED_VERSION := 16
 const REQUIRED_SECTIONS: Array[String] = ["scenario", "session", "world", "player_knowledge", "director"]
 
 static func create(payload: Dictionary) -> Dictionary:
@@ -31,12 +31,24 @@ static func validation_error(document: Dictionary) -> String:
 static func encode(document: Dictionary) -> String:
 	return JSON.stringify(document)
 
+static func migrate(document: Dictionary) -> Dictionary:
+	if int(document.get("version", -1)) != 16 or not validation_error(document).is_empty():
+		return document
+	var upgraded := document.duplicate(true)
+	var world: Dictionary = upgraded.payload.world
+	if not world.get("support") is Dictionary:
+		return document
+	# Version 16 has no automatic policy; never opt existing saves into spending.
+	upgraded.version = CURRENT_VERSION
+	upgraded.payload.world.support.automatic_resupply_ids = []
+	return upgraded
+
 static func decode(text: String) -> Dictionary:
 	var parser := JSON.new()
 	if parser.parse(text) != OK:
 		return {}
 	var parsed: Variant = parser.data
-	return parsed as Dictionary if parsed is Dictionary else {}
+	return migrate(parsed as Dictionary) if parsed is Dictionary else {}
 
 static func vector3_to_data(value: Vector3) -> Array[float]:
 	return [value.x, value.y, value.z]

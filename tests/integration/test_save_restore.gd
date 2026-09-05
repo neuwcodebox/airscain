@@ -41,6 +41,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	battery.launch_cooldown = 0.125
 	battery.receive_damage(20.0)
 	battery.magazine.reserve = 0
+	battery.set_automatic_resupply(true)
 	assert_true(battery.request_resupply())
 	assert_true(main.session.start_defense())
 	main.session.gameplay_delta(7.5)
@@ -83,6 +84,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(restored_battery.launch_cooldown, 0.125)
 	assert_eq(restored_battery.integrity, 80.0)
 	assert_eq(restored_battery.magazine.reserve, 0)
+	assert_true(restored_battery.automatic_resupply_enabled())
 	assert_eq(main.support_manager.task_status(restored_battery), "재보급 진행")
 	assert_eq(main.registry.count(), saved_contact_count)
 	var restored_threat := _find_contact(threat_runtime_id)
@@ -376,6 +378,37 @@ func _find_contact(runtime_id: int) -> ThreatUnit:
 		if contact.runtime_id == runtime_id:
 			return contact
 	return null
+
+func test_automatic_resupply_save_rejects_invalid_targets_before_changing_runtime() -> void:
+	var battery := _place_defense(main.scenario.available_defenses[0])
+	var facility := _place_defense(main.scenario.available_defenses[5])
+	battery.set_automatic_resupply(true)
+	var original := main.capture_save_document()
+	for invalid: Variant in [null, "bad", [999999], [facility.runtime_id], [battery.runtime_id, battery.runtime_id], [1.5], ["1"]]:
+		var document := original.duplicate(true)
+		document.payload.world.support.automatic_resupply_ids = invalid
+		assert_ne(main.restore_from_document(document), "")
+		assert_true(battery.automatic_resupply_enabled())
+		assert_eq(main.defenses.size(), 2)
+	var missing := original.duplicate(true)
+	missing.payload.world.support.erase("automatic_resupply_ids")
+	assert_ne(main.restore_from_document(missing), "")
+
+func test_version_16_operation_restores_with_automatic_resupply_disabled() -> void:
+	var battery := _place_defense(main.scenario.available_defenses[0])
+	var runtime_id := battery.runtime_id
+	var document := main.capture_save_document()
+	document.version = 16
+	document.payload.world.support.erase("automatic_resupply_ids")
+	battery.set_automatic_resupply(true)
+	var saved_budget := main.session.budget
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_defense(runtime_id)
+	assert_not_null(restored)
+	assert_false(restored.automatic_resupply_enabled())
+	assert_eq(main.session.budget, saved_budget)
+	assert_eq(document.version, 16)
+	assert_false(document.payload.world.support.has("automatic_resupply_ids"))
 
 func _find_defense(runtime_id: int) -> DefenseUnit:
 	for unit: DefenseUnit in main.defenses:

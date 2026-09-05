@@ -155,6 +155,16 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var support_state: Dictionary = world_state.support
 	if not support_state.get("tasks", null) is Array:
 		return "지원 작업 목록이 올바르지 않습니다"
+	if not support_state.get("automatic_resupply_ids") is Array:
+		return "자동 재보급 목록이 올바르지 않습니다"
+	var automatic_targets: Dictionary[int, bool] = {}
+	for value: Variant in support_state.automatic_resupply_ids:
+		if not (value is int or value is float) or not is_finite(float(value)) or float(value) != floorf(float(value)):
+			return "자동 재보급 대상 ID가 올바르지 않습니다"
+		var target_id := int(value)
+		if not armed_ids.has(target_id) or automatic_targets.has(target_id):
+			return "자동 재보급 대상이 올바르지 않습니다"
+		automatic_targets[target_id] = true
 	var support_targets: Dictionary[int, bool] = {}
 	for task: Dictionary in support_state.tasks:
 		var kind := String(task.get("kind", ""))

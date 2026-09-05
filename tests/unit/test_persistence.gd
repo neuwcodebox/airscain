@@ -12,7 +12,7 @@ func after_each() -> void:
 	_cleanup_save_files()
 
 func test_versioned_save_document_round_trips_plain_data() -> void:
-	assert_eq(SaveDocument.MIN_SUPPORTED_VERSION, SaveDocument.CURRENT_VERSION)
+	assert_eq(SaveDocument.MIN_SUPPORTED_VERSION, 16)
 	var payload := _valid_payload()
 	payload.scenario.world_seed = 73129
 	payload.world.defenses = [{"definition_id": "missile_battery", "position": [1.0, 2.0, 3.0]}]
@@ -40,6 +40,18 @@ func test_vector_conversion_uses_json_safe_arrays() -> void:
 	assert_eq(data, [12.5, -3.0, 99.25])
 	assert_eq(SaveDocument.vector3_from_data(data), source)
 	assert_eq(SaveDocument.vector3_from_data([1.0]), Vector3.ZERO)
+
+func test_version_16_migration_disables_automatic_spending_without_mutating_source() -> void:
+	var document := SaveDocument.create(_valid_payload())
+	document.version = 16
+	document.payload.world.support = {"tasks": []}
+	var migrated := SaveDocument.decode(SaveDocument.encode(document))
+	assert_eq(int(migrated.version), SaveDocument.CURRENT_VERSION)
+	assert_eq(migrated.payload.world.support.automatic_resupply_ids, [])
+	assert_eq(document.version, 16)
+	assert_false(document.payload.world.support.has("automatic_resupply_ids"))
+	document.version = 15
+	assert_ne(SaveDocument.validation_error(SaveDocument.migrate(document)), "")
 
 func test_save_store_round_trips_and_preserves_previous_file_on_invalid_write() -> void:
 	var document := SaveDocument.create(_valid_payload())

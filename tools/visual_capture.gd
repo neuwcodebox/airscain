@@ -17,6 +17,14 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-automatic-resupply-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		var automatic_ok := await _capture_automatic_resupply()
+		main.queue_free()
+		await process_frame
+		quit(0 if automatic_ok else 1)
+		return
 	for index: int in 20:
 		await process_frame
 	_save_capture("/tmp/airscain_initial.png")
@@ -535,6 +543,55 @@ func _place_initial_assets() -> void:
 	_place_asset(main.scenario.available_defenses[10], 1.0)
 	var rooftop_position: Vector3 = main.battlefield.rooftop_pads[0].position
 	main.session.request_placement(main.scenario.available_defenses[1], rooftop_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+
+func _capture_automatic_resupply() -> bool:
+	AirscainApp.apply_global_font()
+	main.set_process(false)
+	main.session.budget = 5000
+	main._on_pressure_changed(5)
+	_place_asset(main.scenario.available_defenses[7], 1.0)
+	_place_asset(main.scenario.available_defenses[5], 1.0)
+	if main.defenses.size() != 2:
+		push_error("Automatic resupply capture could not place its assets")
+		return false
+	var battery := main.defenses[0] as MissileBattery
+	if not main.support_manager.can_service(battery):
+		push_error("Automatic resupply capture needs local support")
+		return false
+	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
+	specialized.reserve = 0
+	main._on_asset_selected(battery)
+	main.camera_rig.focus_on(battery.global_position)
+	main.camera_rig.zoom_distance = 430.0
+	main.camera_rig._update_camera()
+	main.hud.set_catalog_expanded(false)
+	for frame: int in 5:
+		await process_frame
+	await _click_control(main.hud.automatic_resupply_button)
+	if not battery.automatic_resupply_enabled():
+		push_error("Actual checkbox click did not enable automatic resupply")
+		return false
+	var budget := main.session.budget
+	var cost := battery.resupply_cost()
+	main.support_manager.gameplay_tick(0.1)
+	main.hud.refresh_selected_asset()
+	for frame: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_automatic_resupply.png")
+	if main.support_manager.tasks.size() != 1 or main.session.budget != budget - cost:
+		push_error("Automatic resupply did not enqueue exactly one paid task")
+		return false
+	await _click_control(main.hud.automatic_resupply_button)
+	main.support_manager.gameplay_tick(100.0)
+	main.hud.refresh_selected_asset()
+	for frame: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_automatic_resupply_completed.png")
+	if battery.automatic_resupply_enabled() or specialized.reserve != specialized.reserve_capacity or main.session.budget != budget - cost:
+		push_error("Disabling automatic policy must preserve the paid task without another charge")
+		return false
+	print("VISUAL_CAPTURE_OK automatic_resupply actual_click paid_once completed_after_disable")
+	return true
 
 func _capture_selection_panel() -> bool:
 	main.session.budget = 5000

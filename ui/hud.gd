@@ -12,6 +12,7 @@ signal engage_unknown_requested(enabled: bool)
 signal priority_target_requested
 signal munition_mode_requested
 signal resupply_requested
+signal automatic_resupply_requested(enabled: bool)
 signal repair_requested
 signal relocation_requested
 signal focus_requested
@@ -124,6 +125,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var priority_target_button: Button = %PriorityTargetButton
 @onready var munition_mode_button: Button = %MunitionModeButton
 @onready var resupply_button: Button = %ResupplyButton
+@onready var automatic_resupply_button: CheckButton = %AutomaticResupplyButton
 @onready var repair_button: Button = %RepairButton
 @onready var relocation_button: Button = %RelocationButton
 @onready var focus_button: Button = %FocusButton
@@ -335,6 +337,7 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	_refresh_asset_metrics()
 	if selected_asset.uses_ammunition():
 		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost()
+		automatic_resupply_button.set_pressed_no_signal(selected_asset.automatic_resupply_enabled())
 	if selected_asset.supports_munition_selection():
 		munition_mode_button.text = "탄종  %s" % selected_asset.munition_mode_text()
 	resupply_button.disabled = not selected_asset.uses_ammunition() or not selected_asset.can_request_resupply()
@@ -369,6 +372,7 @@ func _refresh_selection_view(fit_panel: bool = true) -> void:
 	priority_target_button.visible = engagement_review
 	priority_target_button.disabled = not selected_track_can_prioritize
 	resupply_button.visible = has_asset and not has_track and selected_asset.uses_ammunition()
+	automatic_resupply_button.visible = resupply_button.visible
 	repair_button.visible = has_asset and not has_track
 	relocation_button.visible = has_asset and not has_track and selected_asset.definition.mobile
 	focus_button.visible = has_asset or has_track
@@ -723,6 +727,9 @@ func _on_munition_mode_pressed() -> void:
 
 func _on_resupply_pressed() -> void:
 	resupply_requested.emit()
+
+func _on_automatic_resupply_toggled(enabled: bool) -> void:
+	automatic_resupply_requested.emit(enabled)
 
 func _on_repair_pressed() -> void:
 	repair_requested.emit()

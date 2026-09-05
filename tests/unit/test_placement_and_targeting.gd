@@ -812,6 +812,103 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	assert_eq(gun.magazine.rounds, gun.magazine.capacity)
 	assert_eq(manager.task_status(gun), "")
 
+func _automatic_resupply_fixture() -> Dictionary:
+	var manager := autofree(SupportManager.new()) as SupportManager
+	var support_session := autofree(GameSession.new()) as GameSession
+	support_session.reset(100)
+	manager.configure(support_session)
+	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, SCENARIO.available_defenses[5])
+	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(2, definition)
+	battery.configure_support(manager)
+	manager.register_asset(facility)
+	manager.register_asset(battery)
+	return {"manager": manager, "session": support_session, "facility": facility, "battery": battery}
+
+func test_automatic_resupply_detects_one_low_munition_and_never_double_charges() -> void:
+	var fixture := _automatic_resupply_fixture()
+	var manager: SupportManager = fixture.manager
+	var battery: MissileBattery = fixture.battery
+	var support_session: GameSession = fixture.session
+	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
+	specialized.reserve = 0
+	assert_false(battery.automatic_resupply_enabled())
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.tasks.size(), 0)
+	battery.set_automatic_resupply(true)
+	manager.gameplay_tick(0.0)
+	assert_eq(support_session.budget, 100, "일시정지 중에는 자동 결제하지 않습니다")
+	var cost := battery.resupply_cost()
+	manager.gameplay_tick(0.1)
+	assert_eq(manager.tasks.size(), 1)
+	assert_eq(support_session.budget, 100 - cost)
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.tasks.size(), 1)
+	assert_eq(support_session.budget, 100 - cost, "진행 중인 작업에 중복 결제하지 않습니다")
+	battery.set_automatic_resupply(false)
+	assert_eq(manager.tasks.size(), 1, "자동 요청 해제는 이미 결제한 작업을 취소하지 않습니다")
+	manager.gameplay_tick(100.0)
+	assert_eq(specialized.reserve, specialized.reserve_capacity)
+	assert_eq(manager.tasks.size(), 0)
+	battery.set_automatic_resupply(true)
+	manager.gameplay_tick(1.0)
+	assert_eq(support_session.budget, 100 - cost, "가득 찬 예비탄에는 지출하지 않습니다")
+
+func test_automatic_resupply_retries_only_when_budget_coverage_and_relocation_allow() -> void:
+	var fixture := _automatic_resupply_fixture()
+	var manager: SupportManager = fixture.manager
+	var battery: MissileBattery = fixture.battery
+	var support_session: GameSession = fixture.session
+	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
+	specialized.reserve = 0
+	battery.set_automatic_resupply(true)
+	battery.position.x = 1000.0
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.tasks.size(), 0)
+	assert_eq(support_session.budget, 100)
+	battery.position.x = 0.0
+	support_session.budget = 0
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.tasks.size(), 0)
+	support_session.budget = 100
+	var relocation := autofree(RelocationManager.new()) as RelocationManager
+	battery.relocation_manager = relocation
+	relocation.tasks.append({"target_defense_id": battery.runtime_id, "remaining": 10.0})
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.tasks.size(), 0)
+	relocation.tasks.clear()
+	battery.active = false
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.tasks.size(), 0)
+	battery.active = true
+	manager.gameplay_tick(0.1)
+	assert_eq(manager.tasks.size(), 0, "자동 요청 검사는 초당 한 번으로 제한합니다")
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.tasks.size(), 1)
+	assert_eq(support_session.budget, 100 - battery.resupply_cost())
+
+func test_automatic_resupply_policy_restores_without_spending_and_rejects_non_ammo_assets() -> void:
+	var fixture := _automatic_resupply_fixture()
+	var manager: SupportManager = fixture.manager
+	var battery: MissileBattery = fixture.battery
+	var facility: DefenseUnit = fixture.facility
+	var support_session: GameSession = fixture.session
+	battery.set_automatic_resupply(true)
+	manager.set_automatic_resupply(facility, true)
+	var saved := manager.capture_state()
+	assert_eq(saved.automatic_resupply_ids, [battery.runtime_id])
+	manager.reset()
+	assert_false(battery.automatic_resupply_enabled())
+	manager.register_asset(battery)
+	manager.register_asset(facility)
+	manager.restore_state(saved)
+	assert_true(battery.automatic_resupply_enabled())
+	assert_false(facility.automatic_resupply_enabled())
+	assert_eq(support_session.budget, 100)
+	assert_eq(manager.tasks.size(), 0)
+
 func test_support_tasks_require_a_nearby_operational_facility() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
 	var support_session: GameSession = autofree(GameSession.new()) as GameSession
