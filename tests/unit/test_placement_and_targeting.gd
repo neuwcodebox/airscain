@@ -923,17 +923,15 @@ func test_energy_selection_compares_total_demand_with_total_supply() -> void:
 	manager.register_asset(microwave)
 	for unit: DefenseUnit in [laser, microwave]:
 		var rows := unit.selection_status_rows()
-		assert_true(rows.has({"label": "전체 수요 / 공급", "value": "30 / 20"}))
-		assert_true(rows.has({"label": "이 자산 전력 수요", "value": "%d" % roundi(unit.power_demand())}))
-		assert_true(rows.has({"label": "전력망 상태", "value": "부족", "warning": true}))
-		assert_string_contains(unit.resource_status_text(), "전체 전력 30 / 20")
+		assert_true(rows.has({"label": "전력 수요 / 공급", "value": "30 / 20 · 부족", "warning": true}))
+		assert_eq(rows.filter(func(row: Dictionary) -> bool: return str(row.label).contains("전력")).size(), 1)
+		assert_string_contains(unit.resource_status_text(), "전력 수요 / 공급  30 / 20 · 부족")
 	microwave.active = false
 	var rows := laser.selection_status_rows()
-	assert_true(rows.has({"label": "전체 수요 / 공급", "value": "%d / 20" % roundi(laser.power_demand())}))
-	assert_true(rows.has({"label": "전력망 상태", "value": "정상", "warning": false}))
+	assert_true(rows.has({"label": "전력 수요 / 공급", "value": "%d / 20" % roundi(laser.power_demand()), "warning": false}))
 	manager.reset()
 	manager.register_asset(laser)
-	assert_true(laser.selection_status_rows().has({"label": "전력망 상태", "value": "부족", "warning": true}))
+	assert_true(laser.selection_status_rows().has({"label": "전력 수요 / 공급", "value": "%d / 0 · 부족" % roundi(laser.power_demand()), "warning": true}))
 	laser.configure_power(null)
 	assert_true(laser.selection_status_rows().has({"label": "전력", "value": "공급 없음", "warning": true}))
 

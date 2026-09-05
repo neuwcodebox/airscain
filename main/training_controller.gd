@@ -102,7 +102,7 @@ func asset_selected(unit: DefenseUnit) -> void:
 		_set_step(Step.PRIORITY)
 	elif step == Step.ENERGY_REVIEW and unit == energy_subject:
 		energy_reviewed = true
-		_lesson("전력과 열 확인", "선택 패널에서 전체 수요/공급과 이 자산의 전력 수요, 충전과 열을 확인하세요. 전력은 전역 공급이고 보급·수리는 지역 지원입니다. 전체 수요가 공급보다 크면 일부 자산의 충전이 느려집니다.", true)
+		_lesson("전력과 열 확인", "선택 패널에서 전력 수요/공급, 충전과 열을 확인하세요. 전력은 전체 자산의 합계이고 보급·수리는 지역 지원입니다. 수요가 공급보다 크면 일부 자산의 충전이 느려집니다.", true)
 
 func priority_assigned(unit: DefenseUnit) -> void:
 	if step == Step.PRIORITY and unit == _training_battery():
