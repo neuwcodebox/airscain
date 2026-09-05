@@ -38,8 +38,36 @@ func _ready() -> void:
 	pause_menu.visible = false
 	ui_audio.connect_buttons(main_menu)
 	ui_audio.connect_buttons(pause_menu)
+	_style_menu_buttons()
 	_refresh_main_load_button()
 	get_tree().process_frame.connect(_start_combat_vfx_warmup, CONNECT_ONE_SHOT)
+
+func _style_menu_buttons() -> void:
+	for menu: Control in [main_menu, pause_menu]:
+		for node: Node in menu.find_children("*", "Button"):
+			var button := node as Button
+			for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
+				var style := StyleBoxFlat.new()
+				style.bg_color = Color(0.08, 0.14, 0.16, 0.9)
+				style.border_color = Color("3b6668")
+				style.border_width_bottom = 1
+				style.content_margin_left = 22
+				style.content_margin_right = 22
+				if state in ["hover", "focus"]:
+					style.bg_color = Color("254b50")
+					style.border_color = Color("a8d7c3")
+					style.border_width_left = 3
+				elif state == "pressed":
+					style.bg_color = Color("34625f")
+				elif state == "disabled":
+					style.bg_color = Color(0.05, 0.09, 0.10, 0.7)
+				if button.name == "SustainedButton" and state == "normal":
+					style.bg_color = Color("32645e")
+					style.border_color = Color("8fb6a0")
+				button.add_theme_stylebox_override(state, style)
+			button.add_theme_color_override("font_color", Color("e0e8dd"))
+			if menu == main_menu:
+				button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 
 func _start_combat_vfx_warmup() -> void:
 	if combat_vfx_warmup_started:

@@ -1,17 +1,15 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource path="res://world/battlefield.gd" type="Script" id="1"]
-
-[sub_resource type="Shader" id="TerrainShader"]
-code = "shader_type spatial;\nrender_mode diffuse_burley;\n\nvarying float terrain_height;\n\nvoid vertex() {\n\tterrain_height = VERTEX.y;\n}\n\nvoid fragment() {\n\tvec3 shore = vec3(0.45, 0.43, 0.29);\n\tvec3 lowland = vec3(0.30, 0.40, 0.28);\n\tvec3 highland = vec3(0.40, 0.41, 0.29);\n\tvec3 summit = vec3(0.44, 0.40, 0.31);\n\tfloat above_sea = smoothstep(1.0, 10.0, terrain_height);\n\tvec3 base = mix(shore, lowland, above_sea);\n\tbase = mix(base, highland, smoothstep(18.0, 48.0, terrain_height));\n\tbase = mix(base, summit, smoothstep(48.0, 78.0, terrain_height));\n\tfloat slope = 1.0 - clamp(NORMAL.y, 0.0, 1.0);\n\tbase = mix(base, base * 0.62, smoothstep(0.12, 0.55, slope));\n\tfloat contour_distance = abs(fract((terrain_height + 0.5) / 10.0) - 0.5) * 2.0;\n\tfloat contour = 1.0 - smoothstep(0.08, 0.22, contour_distance);\n\tALBEDO = mix(base, base * 0.62, contour * above_sea * 0.5);\n\tROUGHNESS = 0.96;\n}\n"
+[ext_resource path="res://world/terrain.gdshader" type="Shader" id="2"]
+[ext_resource path="res://world/ocean.gdshader" type="Shader" id="3"]
 
 [sub_resource type="ShaderMaterial" id="TerrainMaterial"]
-shader = SubResource("TerrainShader")
+shader = ExtResource("2")
 
-[sub_resource type="StandardMaterial3D" id="OceanMaterial"]
-albedo_color = Color(0.035, 0.28, 0.48, 1)
-metallic = 0.15
-roughness = 0.28
+[sub_resource type="ShaderMaterial" id="OceanMaterial"]
+resource_local_to_scene = true
+shader = ExtResource("3")
 
 [sub_resource type="PlaneMesh" id="OceanMesh"]
 material = SubResource("OceanMaterial")

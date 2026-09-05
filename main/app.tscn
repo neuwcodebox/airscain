@@ -1,7 +1,14 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource path="res://main/app.gd" type="Script" id="1"]
 [ext_resource path="res://ui/audio/ui_audio.gd" type="Script" id="2"]
+[ext_resource path="res://main/menu_backdrop.gd" type="Script" id="3"]
+[ext_resource path="res://main/menu_shade.gdshader" type="Shader" id="4"]
+
+[sub_resource type="ShaderMaterial" id="MenuShade"]
+shader = ExtResource("4")
+
+[sub_resource type="StyleBoxEmpty" id="ClearPanel"]
 
 [sub_resource type="StyleBoxFlat" id="MenuPanel"]
 bg_color = Color(0.025, 0.045, 0.065, 0.97)
@@ -34,47 +41,78 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Background" type="ColorRect" parent="MainMenu"]
+[node name="Background" type="SubViewportContainer" parent="MainMenu"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.025, 0.12, 0.18, 1)
+mouse_filter = 2
+script = ExtResource("3")
+
+[node name="Shade" type="ColorRect" parent="MainMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("MenuShade")
+
+[node name="WorldCaption" type="Label" parent="MainMenu"]
+layout_mode = 1
+anchor_left = 0.58
+anchor_top = 0.80
+anchor_right = 0.96
+anchor_bottom = 0.94
+theme_override_colors/font_color = Color(0.86, 0.9, 0.82, 1)
+theme_override_colors/font_shadow_color = Color(0.02, 0.04, 0.05, 0.9)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 21
+text = "하나의 도시. 연결된 방공망.\n탐지하고, 판단하고, 지켜내세요."
+mouse_filter = 2
 
 [node name="Panel" type="PanelContainer" parent="MainMenu"]
 layout_mode = 1
 anchors_preset = 8
-anchor_left = 0.5
+anchor_left = 0.055
 anchor_top = 0.5
-anchor_right = 0.5
+anchor_right = 0.055
 anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -310.0
-offset_right = 260.0
-offset_bottom = 310.0
+offset_left = 0.0
+offset_top = -340.0
+offset_right = 500.0
+offset_bottom = 340.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("MenuPanel")
+theme_override_styles/panel = SubResource("ClearPanel")
 
 [node name="VBox" type="VBoxContainer" parent="MainMenu/Panel"]
 layout_mode = 2
 theme_override_constants/separation = 16
 
+[node name="Eyebrow" type="Label" parent="MainMenu/Panel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.48, 0.76, 0.73, 1)
+theme_override_font_sizes/font_size = 15
+text = "통합방공 작전실  /  AIR DEFENSE COMMAND"
+
 [node name="Title" type="Label" parent="MainMenu/Panel/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.42, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 52
+theme_override_colors/font_color = Color(0.91, 0.94, 0.87, 1)
+theme_override_font_sizes/font_size = 64
 text = "AIR SCAIN"
-horizontal_alignment = 1
+horizontal_alignment = 0
 
 [node name="Subtitle" type="Label" parent="MainMenu/Panel/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.72, 0.82, 0.86, 1)
 theme_override_font_sizes/font_size = 18
-text = "불완전한 정보 속 통합방공망 운용"
-horizontal_alignment = 1
+text = "불완전한 정보 속에서 도시를 지키는 전략"
+horizontal_alignment = 0
 
 [node name="Spacer" type="Control" parent="MainMenu/Panel/VBox"]
 custom_minimum_size = Vector2(0, 24)
@@ -84,26 +122,29 @@ layout_mode = 2
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "지속 작전"
+text = "지속 작전 시작"
+tooltip_text = "예산과 방공망을 관리하며 복합 공습으로부터 도시를 지킵니다."
 
 [node name="MainLoadButton" type="Button" parent="MainMenu/Panel/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "불러오기"
+text = "저장한 작전 계속"
 
 [node name="TrainingButton" type="Button" parent="MainMenu/Panel/VBox"]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "훈련"
+text = "훈련 · 방공망 운용 배우기"
+tooltip_text = "처음이라면 여기서 시작하세요. 배치부터 탐지, 교전, 군수까지 직접 익힙니다."
 
 [node name="SandboxButton" type="Button" parent="MainMenu/Panel/VBox"]
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "샌드박스"
+text = "샌드박스 · 자유 실험"
+tooltip_text = "자산과 위협을 직접 배치해 방어 조합을 시험합니다."
 
 [node name="MenuFeedbackLabel" type="Label" parent="MainMenu/Panel/VBox"]
 unique_name_in_owner = true

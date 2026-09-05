@@ -28,7 +28,7 @@ background_mode = 1
 background_color = Color(0.36, 0.57, 0.72, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.62, 0.73, 0.82, 1)
-ambient_light_energy = 0.72
+ambient_light_energy = 0.55
 tonemap_mode = 2
 glow_enabled = true
 glow_normalized = true
@@ -109,7 +109,7 @@ script = ExtResource("6")
 environment = SubResource("Environment")
 
 [node name="Sun" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-52, -38, 0)
+rotation_degrees = Vector3(-40, -38, 0)
 light_color = Color(1, 0.91, 0.76, 1)
 light_energy = 1.2
 shadow_enabled = true

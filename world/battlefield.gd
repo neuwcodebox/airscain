@@ -35,12 +35,20 @@ func build(scenario: ScenarioDefinition) -> void:
 	var ocean_mesh := ocean.mesh as PlaneMesh
 	ocean_mesh.size = Vector2.ONE * scenario.battlefield_size * OCEAN_SIZE_MULTIPLIER
 	ocean.position.y = generator.sea_level
+	var height_image := Image.create_from_data(generator.resolution, generator.resolution, false, Image.FORMAT_RF, generator.heights.to_byte_array())
+	var water_material := ocean_mesh.material as ShaderMaterial
+	water_material.set_shader_parameter("terrain_heights", ImageTexture.create_from_image(height_image))
+	water_material.set_shader_parameter("battlefield_size", battlefield_size)
 	var city_blocks := generator.city_block_layout()
 	var building_transforms := generator.building_transforms()
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
+	var landscape := LandscapeDetails.new()
+	landscape.name = "LandscapeDetails"
+	city_visuals.add_child(landscape)
+	landscape.build(generator, city_blocks, building_transforms, city_road_width)
 
 func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 	city_building_footprints.clear()
@@ -253,13 +261,18 @@ func _add_building_architecture(index: int, building_transform: Transform3D, fac
 func _append_facade_bands(building_transform: Transform3D, bands: Array[Transform3D]) -> void:
 	var building_size := building_transform.basis.get_scale()
 	var ground_y := building_transform.origin.y - building_size.y * 0.5
-	var floor_count := clampi(floori(building_size.y / 6.0), 2, 12)
+	var floor_count := maxi(1, floori(building_size.y / 4.5))
 	for floor_index: int in floor_count:
-		var y := ground_y + minf(building_size.y - 2.0, 3.5 + float(floor_index) * 5.5)
-		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(building_size.x * 0.72, 0.72, 0.12)), Vector3(building_transform.origin.x, y, building_transform.origin.z + building_size.z * 0.5 + 0.07)))
-		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(building_size.x * 0.72, 0.72, 0.12)), Vector3(building_transform.origin.x, y, building_transform.origin.z - building_size.z * 0.5 - 0.07)))
-		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.12, 0.72, building_size.z * 0.72)), Vector3(building_transform.origin.x + building_size.x * 0.5 + 0.07, y, building_transform.origin.z)))
-		bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.12, 0.72, building_size.z * 0.72)), Vector3(building_transform.origin.x - building_size.x * 0.5 - 0.07, y, building_transform.origin.z)))
+		var y := ground_y + minf(building_size.y - 1.6, 3.0 + float(floor_index) * 4.5)
+		for side: float in [-1.0, 1.0]:
+			var columns_x := maxi(2, floori(building_size.x / 4.0))
+			var columns_z := maxi(2, floori(building_size.z / 4.0))
+			for column: int in columns_x:
+				var x := building_transform.origin.x + (float(column) + 0.5 - float(columns_x) * 0.5) * building_size.x / float(columns_x)
+				bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(building_size.x / float(columns_x) * 0.52, 1.65, 0.12)), Vector3(x, y, building_transform.origin.z + side * (building_size.z * 0.5 + 0.07))))
+			for column: int in columns_z:
+				var z := building_transform.origin.z + (float(column) + 0.5 - float(columns_z) * 0.5) * building_size.z / float(columns_z)
+				bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.12, 1.65, building_size.z / float(columns_z) * 0.52)), Vector3(building_transform.origin.x + side * (building_size.x * 0.5 + 0.07), y, z)))
 
 func _build_facade_multimesh(bands: Array[Transform3D]) -> void:
 	if bands.is_empty():

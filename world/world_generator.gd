@@ -33,6 +33,10 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 	coast_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	coast_noise.frequency = 0.0014
 	coast_noise.fractal_octaves = 3
+	var ridge_noise := FastNoiseLite.new()
+	ridge_noise.seed = seed_value ^ 0x1729
+	ridge_noise.frequency = layout.noise_frequency * 0.46
+	ridge_noise.fractal_octaves = 2
 	var coast_phase_a := float(posmod(seed_value * 3, 997)) / 997.0 * TAU
 	var coast_phase_b := float(posmod(seed_value * 11, 991)) / 991.0 * TAU
 	for z_index: int in resolution:
@@ -42,7 +46,8 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 			var raw := noise.get_noise_2d(x, z) * layout.terrain_height_scale
 			var distance_from_city := Vector2(x, z).length()
 			var flatten := smoothstep(city_size * 0.27, city_size * 0.62, distance_from_city)
-			var land_height := maxf(raw * flatten + CITY_GROUND_HEIGHT, sea_level + 6.0)
+			var ridge := pow(maxf(0.0, ridge_noise.get_noise_2d(x, z) + 0.18), 1.5) * layout.terrain_height_scale * 2.4
+			var land_height := maxf((raw + ridge) * flatten + CITY_GROUND_HEIGHT, sea_level + 6.0)
 			var radial_distance := Vector2(x, z).length() / (size * 0.5)
 			var coast_angle := atan2(z, x)
 			var coast_radius_scale := 1.0 + sin(coast_angle * 3.0 + coast_phase_a) * 0.11 + sin(coast_angle * 5.0 + coast_phase_b) * 0.065 + coast_noise.get_noise_2d(x, z) * 0.075

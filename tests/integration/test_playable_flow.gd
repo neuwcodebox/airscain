@@ -19,7 +19,11 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_gt(main.battlefield.terrain.mesh.get_surface_count(), 0)
 	var terrain_material := main.battlefield.terrain.material_override as ShaderMaterial
 	assert_not_null(terrain_material)
-	assert_true(terrain_material.shader.code.contains("contour_distance"))
+	var water_material := (main.battlefield.ocean.mesh as PlaneMesh).material as ShaderMaterial
+	var height_texture := water_material.get_shader_parameter("terrain_heights") as Texture2D
+	assert_eq(height_texture.get_width(), main.scenario.terrain_resolution)
+	assert_eq(height_texture.get_height(), main.scenario.terrain_resolution)
+	assert_eq(water_material.get_shader_parameter("battlefield_size"), main.scenario.battlefield_size)
 	assert_eq(main.battlefield.battlefield_size, 2400.0)
 	assert_eq((main.battlefield.ocean.mesh as PlaneMesh).size.x, 19200.0)
 	assert_eq(main.camera_rig.camera.far, 14400.0)

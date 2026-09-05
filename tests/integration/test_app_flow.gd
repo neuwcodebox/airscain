@@ -14,6 +14,10 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	assert_true(main_menu.visible)
 	assert_false(pause_menu.visible)
 	assert_null(app.get("gameplay"))
+	var backdrop := main_menu.get_node("Background") as SubViewportContainer
+	var preview := backdrop.get_child(0) as SubViewport
+	assert_true(preview.own_world_3d, "메뉴 배경의 월드는 실제 작전과 분리됩니다")
+	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
 	var expected_prepared_combat_streams := CombatAudio.all_streams().size() if OS.has_feature("web") else 0
 	assert_eq(app.get("prepared_combat_stream_count"), expected_prepared_combat_streams)
 	assert_true((app as AirscainApp).combat_vfx_warmup_started)
@@ -30,6 +34,8 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	var first_seed := gameplay.scenario.world_seed
 	assert_eq(gameplay.game_mode, AirscainMain.GameMode.TRAINING)
 	assert_false(main_menu.visible)
+	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_DISABLED, "작전 중 메뉴 배경을 렌더하지 않습니다")
+	assert_false(backdrop.can_process())
 	assert_null(gameplay.hud.get_node_or_null("%ModeOption"))
 	app.call("set_pause_menu", true)
 	assert_true(pause_menu.visible)
@@ -40,6 +46,7 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	assert_eq(gameplay.session.simulation_speed, 1.0)
 	app.call("return_to_main_menu")
 	assert_true(main_menu.visible)
+	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
 	assert_null(app.get("gameplay"))
 	await get_tree().process_frame
 	app.call("start_game", AirscainMain.GameMode.SANDBOX)
