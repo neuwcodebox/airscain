@@ -1,6 +1,9 @@
 class_name EngagementCoordinator
 extends Node
 
+const INTERCEPTOR := &"interceptor"
+const FIRE_SUPPORT := &"fire_support"
+
 var reservations: Array[Dictionary] = []
 
 func reset() -> void:
@@ -13,14 +16,37 @@ func gameplay_tick(delta: float) -> void:
 			reservations.remove_at(index)
 
 func try_reserve(track_id: int, owner_defense_id: int, duration: float, maximum_concurrent: int = 1) -> bool:
-	if track_id <= 0 or owner_defense_id <= 0 or duration <= 0.0 or maximum_concurrent < 1 or reservation_count(track_id) >= maximum_concurrent:
+	if track_id <= 0 or owner_defense_id <= 0 or duration <= 0.0 or maximum_concurrent < 1 or reservation_count(track_id, INTERCEPTOR) >= maximum_concurrent:
 		return false
 	reservations.append({
 		"track_id": track_id,
 		"owner_defense_id": owner_defense_id,
 		"remaining": duration,
+		"kind": String(INTERCEPTOR),
 	})
 	return true
+
+func reserve_fire_support(track_id: int, owner_defense_id: int, duration: float = 0.5) -> bool:
+	if track_id <= 0 or owner_defense_id <= 0 or duration <= 0:
+		return false
+	for reservation: Dictionary in reservations:
+		if StringName(reservation.get("kind", INTERCEPTOR)) == FIRE_SUPPORT and int(reservation.owner_defense_id) == owner_defense_id:
+			reservation.track_id = track_id
+			reservation.remaining = duration
+			return true
+	reservations.append({"track_id": track_id, "owner_defense_id": owner_defense_id, "remaining": duration, "kind": String(FIRE_SUPPORT)})
+	return true
+
+func release_fire_support(owner_defense_id: int) -> void:
+	for index: int in range(reservations.size() - 1, -1, -1):
+		if StringName(reservations[index].get("kind", INTERCEPTOR)) == FIRE_SUPPORT and int(reservations[index].owner_defense_id) == owner_defense_id:
+			reservations.remove_at(index)
+
+func fire_support_target(owner_defense_id: int) -> int:
+	for reservation: Dictionary in reservations:
+		if StringName(reservation.get("kind", INTERCEPTOR)) == FIRE_SUPPORT and int(reservation.owner_defense_id) == owner_defense_id:
+			return int(reservation.track_id)
+	return 0
 
 func release(track_id: int, owner_defense_id: int) -> void:
 	for index: int in range(reservations.size() - 1, -1, -1):
@@ -38,10 +64,10 @@ func release_one(track_id: int, owner_defense_id: int) -> void:
 func has_reservation(track_id: int) -> bool:
 	return reservation_count(track_id) > 0
 
-func reservation_count(track_id: int) -> int:
+func reservation_count(track_id: int, kind: StringName = &"") -> int:
 	var count := 0
 	for reservation: Dictionary in reservations:
-		if int(reservation.track_id) == track_id:
+		if int(reservation.track_id) == track_id and (kind.is_empty() or StringName(reservation.get("kind", INTERCEPTOR)) == kind):
 			count += 1
 	return count
 
@@ -65,4 +91,5 @@ func restore_state(state: Dictionary) -> void:
 			"track_id": int(reservation.track_id),
 			"owner_defense_id": int(reservation.owner_defense_id),
 			"remaining": float(reservation.remaining),
+			"kind": String(reservation.get("kind", INTERCEPTOR)),
 		})

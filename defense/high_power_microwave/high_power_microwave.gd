@@ -36,15 +36,18 @@ func power_demand() -> float:
 
 func gameplay_tick(delta: float) -> void:
 	if not active:
+		maintain_fire_support(null, false)
 		return
 	var supplied: float = power_manager.request_power(_definition.power_demand) if power_manager != null else 0.0
 	energy_state.gameplay_tick(delta, supplied / _definition.power_demand)
 	cooldown = maxf(0.0, cooldown - delta)
 	if registry == null or engagement_coordinator == null:
+		maintain_fire_support(null, false)
 		return
 	var track := _select_track()
+	var has_assignment := maintain_fire_support(track, energy_state.can_fire(_definition.energy_per_pulse))
 	var is_aimed := track != null and _aim_turret(track.estimated_position, delta)
-	if track != null and is_aimed and cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.pulse_interval):
+	if track != null and is_aimed and cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and has_assignment:
 		energy_state.consume(_definition.energy_per_pulse)
 		_fire_pulse(track)
 		cooldown = _definition.pulse_interval
@@ -53,10 +56,17 @@ func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, dish_elevation_speed_degrees, firing_alignment_degrees, delta, -5.0, 80.0)
 
 func _select_track() -> PlayerTrack:
+	var selected: PlayerTrack
+	var best_score := -INF
 	for track: PlayerTrack in available_tracks():
 		if doctrine.allows(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency():
-			return track
-	return null
+			if track.track_id == doctrine.priority_track_id:
+				return track
+			var score := cooperative_target_score(track, battlefield.objective.global_position, 1.0)
+			if score > best_score:
+				selected = track
+				best_score = score
+	return selected
 
 func _fire_pulse(track: PlayerTrack) -> int:
 	weapon_fired.emit(self, false)

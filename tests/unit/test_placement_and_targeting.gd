@@ -401,6 +401,104 @@ func test_insufficient_budget_does_not_change_world_state() -> void:
 	assert_eq(session.defense_count, 0)
 	assert_eq(battlefield.occupied_positions.size(), 0)
 
+func test_fire_support_assignments_do_not_consume_interceptor_slots() -> void:
+	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	for owner: int in [1, 2, 3]:
+		assert_true(coordinator.reserve_fire_support(7, owner))
+	assert_true(coordinator.try_reserve(7, 4, 2.0, 2))
+	assert_true(coordinator.try_reserve(7, 5, 2.0, 2))
+	assert_false(coordinator.try_reserve(7, 6, 2.0, 2))
+	assert_true(coordinator.reserve_fire_support(7, 6))
+	assert_eq(coordinator.reservation_count(7), 6)
+	assert_true(coordinator.reserve_fire_support(8, 1))
+	assert_eq(coordinator.fire_support_target(1), 8)
+	assert_false(coordinator.engagement_owner_ids(7).has(1))
+	var saved := coordinator.capture_state()
+	coordinator.restore_state(saved)
+	assert_eq(coordinator.capture_state(), saved)
+	coordinator.release_fire_support(2)
+	assert_eq(coordinator.fire_support_target(2), 0)
+	coordinator.gameplay_tick(0.6)
+	assert_eq(coordinator.reservation_count(7), 2)
+	assert_eq(coordinator.reservation_count(8), 0)
+
+func test_three_ciws_fire_together_and_release_assignments_on_hold_fire() -> void:
+	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	var provider := add_child_autofree(TrackProviderDouble.new()) as TrackProviderDouble
+	var network := add_child_autofree(C2NetworkDouble.new()) as C2NetworkDouble
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	var track := _confirmed_track(Vector3(600, 90, -150))
+	track.classification = &"uav"
+	provider.tracks = [track]
+	assert_true(coordinator.try_reserve(track.track_id, 90, 10, 2))
+	assert_true(coordinator.try_reserve(track.track_id, 91, 10, 2))
+	for index: int in 3:
+		var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
+		gun.setup(index + 1, SCENARIO.available_defenses[4])
+		gun.global_position = Vector3(580 + index * 20, 50, 0)
+		gun.configure_combat(ThreatRegistry.new(), projectiles)
+		gun.configure_player_knowledge(battlefield, provider)
+		gun.configure_c2(network)
+		gun.configure_engagements(coordinator)
+		gun._aim_turret(track.estimated_position, 10)
+		var initial_rounds := gun.magazine.rounds
+		gun.gameplay_tick(0.02)
+		assert_eq(gun.magazine.rounds, initial_rounds - 1, "다른 근접포와 미사일이 교전 중이어도 발사해야 합니다")
+		assert_false(gun.gunfire.rounds.is_empty())
+		assert_eq(coordinator.fire_support_target(gun.runtime_id), track.track_id)
+	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.FIRE_SUPPORT), 3)
+	for child: Node in get_children():
+		if child is CloseInGun:
+			var gun := child as CloseInGun
+			gun.doctrine.hold_fire = true
+			gun.gameplay_tick(0.02)
+			assert_eq(coordinator.fire_support_target(gun.runtime_id), 0)
+
+func test_gun_laser_and_microwave_can_fire_on_the_same_reserved_track() -> void:
+	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	var provider := add_child_autofree(TrackProviderDouble.new()) as TrackProviderDouble
+	var network := add_child_autofree(C2NetworkDouble.new()) as C2NetworkDouble
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	var track := _confirmed_track(Vector3(600, 75, -90))
+	provider.tracks = [track]
+	coordinator.try_reserve(track.track_id, 90, 10, 2)
+	coordinator.try_reserve(track.track_id, 91, 10, 2)
+	var fired: Array[int] = []
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		if definition.engagement_reservation_kind() != EngagementCoordinator.FIRE_SUPPORT:
+			continue
+		var unit := add_child_autofree(definition.scene.instantiate()) as ArmedDefenseUnit
+		unit.setup(fired.size() + 1, definition)
+		unit.global_position = Vector3(600, 50, 0)
+		unit.configure_combat(ThreatRegistry.new(), projectiles)
+		unit.configure_player_knowledge(battlefield, provider)
+		unit.configure_c2(network)
+		unit.configure_engagements(coordinator)
+		unit.weapon_fired.connect(func(owner: DefenseUnit, _low: bool) -> void: fired.append(owner.runtime_id))
+		unit.call("_aim_turret", track.estimated_position, 10.0)
+		unit.gameplay_tick(0.02)
+	assert_eq(fired.size(), 3, "기관포·레이저·HPM이 서로의 화력을 잠그지 않습니다")
+	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.INTERCEPTOR), 2)
+	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.FIRE_SUPPORT), 3)
+
+func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_or_priority_tracks() -> void:
+	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
+	gun.setup(2, SCENARIO.available_defenses[4])
+	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	gun.configure_engagements(coordinator)
+	var first := _confirmed_track(Vector3(100, 50, 0))
+	var second := _confirmed_track(Vector3(-100, 50, 0))
+	second.track_id = first.track_id + 1
+	var tracks: Array[PlayerTrack] = [first, second]
+	coordinator.reserve_fire_support(first.track_id, 1)
+	assert_same(gun.select_track(tracks, Vector3.ZERO), second)
+	coordinator.reserve_fire_support(second.track_id, gun.runtime_id)
+	assert_same(gun.select_track(tracks, Vector3.ZERO), second, "현재 배정을 유지해 매 프레임 조준 표적을 바꾸지 않습니다")
+	first.estimated_velocity = -first.estimated_position.normalized() * 160
+	assert_same(gun.select_track(tracks, Vector3.ZERO), first, "빠르게 접근하는 긴급 표적에는 집중 사격을 허용합니다")
+	gun.set_priority_track(second.track_id)
+	assert_same(gun.select_track(tracks, Vector3.ZERO), second)
+
 func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
 	battery.setup(1, SCENARIO.available_defenses[0])

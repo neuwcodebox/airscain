@@ -71,5 +71,8 @@ func runtime_state_validation_error(_content_state: Dictionary) -> String:
 func migrate_runtime_state(content_state: Dictionary, _version: int) -> Dictionary:
 	return content_state.duplicate(true)
 
+func engagement_reservation_kind() -> StringName:
+	return EngagementCoordinator.INTERCEPTOR
+
 func persistent_projectile_state_validation_error(_projectile_type: StringName, _state: Dictionary) -> String:
 	return "지원하지 않는 방어 발사체 형식입니다"

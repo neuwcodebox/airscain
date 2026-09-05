@@ -49,7 +49,30 @@ func available_tracks() -> Array[PlayerTrack]:
 	return c2_network.call("available_tracks_for", self, known_tracks)
 
 func is_track_available_for_engagement(track: PlayerTrack, maximum_concurrent: int = 1) -> bool:
-	return engagement_coordinator == null or engagement_coordinator.reservation_count(track.track_id) < maximum_concurrent
+	return engagement_coordinator == null or definition.engagement_reservation_kind() == EngagementCoordinator.FIRE_SUPPORT or engagement_coordinator.reservation_count(track.track_id, EngagementCoordinator.INTERCEPTOR) < maximum_concurrent
+
+func cooperative_target_score(track: PlayerTrack, protected_position: Vector3, target_match: float) -> float:
+	var offset := track.estimated_position - protected_position
+	var distance := maxf(1.0, offset.length())
+	var closing_speed := maxf(0.0, -offset.dot(track.estimated_velocity) / distance)
+	var score := track.track_quality * target_match * (1.0 + minf(closing_speed / 80.0, 2.0)) / distance
+	if engagement_coordinator != null:
+		var owners := engagement_coordinator.engagement_owner_ids(track.track_id)
+		owners.erase(runtime_id)
+		# Assignment is a preference, not an exclusive lock. A lone or urgent
+		# threat can receive supporting fire from every eligible local weapon.
+		score /= 1.0 + float(owners.size()) * 0.65
+		if engagement_coordinator.fire_support_target(runtime_id) == track.track_id:
+			score *= 1.25
+	return score
+
+func maintain_fire_support(track: PlayerTrack, can_supply: bool) -> bool:
+	if engagement_coordinator == null:
+		return false
+	if track == null or not can_supply:
+		engagement_coordinator.release_fire_support(runtime_id)
+		return false
+	return engagement_coordinator.reserve_fire_support(track.track_id, runtime_id)
 
 func resource_status_text() -> String:
 	if magazine.is_reloading():

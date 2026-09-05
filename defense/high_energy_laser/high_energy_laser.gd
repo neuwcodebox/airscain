@@ -39,17 +39,20 @@ func power_demand() -> float:
 
 func gameplay_tick(delta: float) -> void:
 	if not active:
+		maintain_fire_support(null, false)
 		return
 	var supplied_power := power_manager.request_power(_definition.power_demand) if power_manager != null else 0.0
 	energy_state.gameplay_tick(delta, supplied_power / _definition.power_demand)
 	cooldown = maxf(0.0, cooldown - delta)
 	if registry == null or player_knowledge == null or c2_network == null:
+		maintain_fire_support(null, false)
 		return
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
+	var has_assignment := maintain_fire_support(track, energy_state.can_fire(_definition.energy_per_pulse))
 	if track == null:
 		return
 	var is_aimed := _aim_turret(track.estimated_position, delta)
-	if is_aimed and cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.pulse_interval):
+	if is_aimed and cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and has_assignment:
 		energy_state.consume(_definition.energy_per_pulse)
 		_fire_pulse(track)
 		cooldown = _definition.pulse_interval
@@ -61,15 +64,14 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 	var selected: PlayerTrack
 	var selected_score := -INF
 	for track: PlayerTrack in tracks:
-		if not doctrine.allows(track) or not is_track_available_for_engagement(track):
+		if not doctrine.allows(track):
 			continue
 		if global_position.distance_to(track.estimated_position) > _definition.attack_range * operational_efficiency():
 			continue
 		if track.track_id == doctrine.priority_track_id:
 			return track
-		var urgency := 1.0 / maxf(1.0, track.estimated_position.distance_to(protected_position))
 		var target_match := 1.0 if track.classification == &"small_uav" else 0.65
-		var score := urgency * track.track_quality * target_match
+		var score := cooperative_target_score(track, protected_position, target_match)
 		if score > selected_score:
 			selected = track
 			selected_score = score

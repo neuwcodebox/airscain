@@ -4,10 +4,11 @@ extends RefCounted
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
-	if version >= 18:
+	if version >= 19:
 		return payload
 	var result := payload.duplicate(true)
 	var definitions := defense_definition_map(scenario)
+	var owner_kinds: Dictionary[int, StringName] = {}
 	if result.world.get("defenses") is Array:
 		for state: Variant in result.world.defenses:
 			if not state is Dictionary or not state.get("content_state") is Dictionary:
@@ -15,6 +16,25 @@ static func migrate_content(payload: Dictionary, version: int, scenario: Scenari
 			var id := StringName(String(state.get("definition_id", "")))
 			if definitions.has(id):
 				state.content_state = (definitions[id] as DefenseDefinition).migrate_runtime_state(state.content_state, version)
+				owner_kinds[int(state.get("runtime_id", 0))] = (definitions[id] as DefenseDefinition).engagement_reservation_kind()
+	if result.world.get("engagements") is Dictionary and result.world.engagements.get("reservations") is Array:
+		var upgraded: Array = []
+		var support_by_owner: Dictionary[int, Dictionary] = {}
+		for reservation: Variant in result.world.engagements.reservations:
+			if not reservation is Dictionary:
+				upgraded.append(reservation)
+				continue
+			var owner_id := int(reservation.get("owner_defense_id", 0))
+			reservation.kind = String(owner_kinds.get(owner_id, EngagementCoordinator.INTERCEPTOR))
+			if StringName(reservation.kind) == EngagementCoordinator.FIRE_SUPPORT:
+				if support_by_owner.has(owner_id):
+					var prior := support_by_owner[owner_id]
+					if float(reservation.get("remaining", 0)) > float(prior.get("remaining", 0)):
+						prior.merge(reservation, true)
+					continue
+				support_by_owner[owner_id] = reservation
+			upgraded.append(reservation)
+		result.world.engagements.reservations = upgraded
 	return result
 
 static func capture_payload(main: AirscainMain) -> Dictionary:
@@ -88,6 +108,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var armed_ids: Dictionary[int, bool] = {}
 	var mobile_ids: Dictionary[int, bool] = {}
 	var projectile_owner_definitions: Dictionary[int, DefenseDefinition] = {}
+	var reservation_kinds: Dictionary[int, StringName] = {}
 	for state: Dictionary in world_state.defenses:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not defense_definitions.has(definition_id):
@@ -97,6 +118,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "방공망 runtime ID가 올바르지 않습니다"
 		defense_ids[runtime_id] = true
 		var definition: DefenseDefinition = defense_definitions[definition_id]
+		reservation_kinds[runtime_id] = definition.engagement_reservation_kind()
 		if definition.mobile:
 			mobile_ids[runtime_id] = true
 		if definition.has_ammunition_state():
@@ -158,11 +180,26 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	if not engagement_state.get("reservations", null) is Array:
 		return "교전 예약 목록이 올바르지 않습니다"
 	var reservation_counts: Dictionary[int, int] = {}
-	for reservation: Dictionary in engagement_state.reservations:
+	var fire_support_owners: Dictionary[int, bool] = {}
+	for reservation: Variant in engagement_state.reservations:
+		if not reservation is Dictionary:
+			return "교전 예약 상태가 올바르지 않습니다"
 		var reserved_track_id := int(reservation.get("track_id", 0))
 		var owner_defense_id := int(reservation.get("owner_defense_id", 0))
-		reservation_counts[reserved_track_id] = reservation_counts.get(reserved_track_id, 0) + 1
-		if not track_ids.has(reserved_track_id) or reservation_counts[reserved_track_id] > 2:
+		var kind := StringName(String(reservation.get("kind", "")))
+		if not reservation_kinds.has(owner_defense_id) or kind != reservation_kinds[owner_defense_id]:
+			return "교전 예약 정책이 올바르지 않습니다"
+		if kind == EngagementCoordinator.INTERCEPTOR:
+			reservation_counts[reserved_track_id] = reservation_counts.get(reserved_track_id, 0) + 1
+			if reservation_counts[reserved_track_id] > 2:
+				return "요격탄 예약 상한을 초과했습니다"
+		elif kind == EngagementCoordinator.FIRE_SUPPORT:
+			if fire_support_owners.has(owner_defense_id):
+				return "근접방어 할당이 중복되었습니다"
+			fire_support_owners[owner_defense_id] = true
+		else:
+			return "지원하지 않는 교전 예약 정책입니다"
+		if not track_ids.has(reserved_track_id):
 			return "교전 예약 항적 참조가 올바르지 않습니다"
 		if not defense_ids.has(owner_defense_id) or float(reservation.get("remaining", 0.0)) <= 0.0:
 			return "교전 예약 방어체계 또는 시간이 올바르지 않습니다"

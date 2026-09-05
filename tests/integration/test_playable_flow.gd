@@ -1417,13 +1417,15 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
 	assert_gt(gun.weapon_match(track), 0.9)
 	var starting_turret_yaw := gun.turret.rotation.y
+	var starting_rounds := gun.magazine.rounds
 	gun.gameplay_tick(0.01)
-	assert_false(main.engagement_coordinator.has_reservation(track.track_id), "포탑은 정렬되기 전에 발사하면 안 됩니다")
+	assert_eq(gun.magazine.rounds, starting_rounds, "조준 배정은 발사가 아니며 정렬 전에 탄약을 소비하지 않습니다")
+	assert_true(gun.gunfire.rounds.is_empty())
 	assert_ne(gun.turret.rotation.y, starting_turret_yaw)
 	assert_gt(gun.elevation.rotation.x, 0.0)
 	for frame: int in 100:
 		gun.gameplay_tick(0.02)
-		if main.engagement_coordinator.has_reservation(track.track_id):
+		if not gun.gunfire.rounds.is_empty():
 			break
 	assert_true(main.engagement_coordinator.has_reservation(track.track_id))
 	assert_eq(gun.gunfire.rounds.size(), (gun.definition as CloseInGunDefinition).rounds_per_burst)
@@ -1459,6 +1461,40 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	assert_true(restored_threat.resolved_state)
 	assert_eq(main.session.neutralized_count, 1)
 	assert_eq(main.session.budget, budget_before_kill + swarm_definition.neutralization_reward)
+
+func test_cooperative_assignments_round_trip_and_upgrade_legacy_reservations() -> void:
+	main.session.unlimited_budget = true
+	var guns: Array[CloseInGun] = []
+	for index: int in 3:
+		var placed := main.session.request_placement(main.scenario.available_defenses[4], _find_valid_position_for(main.scenario.available_defenses[4].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+		assert_true(placed.success)
+		guns.append(placed.unit as CloseInGun)
+	var radar_result := main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(radar_result.success)
+	var observation := SensorObservation.new()
+	observation.setup((radar_result.unit as DefenseUnit).runtime_id, 0.0, guns[0].global_position + Vector3(100, 50, 0), 0.98, 2, 1, &"uav", ThreatDefinition.Affiliation.HOSTILE, 5)
+	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	for gun: CloseInGun in guns:
+		main.engagement_coordinator.reserve_fire_support(track.track_id, gun.runtime_id)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(main.engagement_coordinator.reservation_count(track.track_id), 3)
+	var duplicate := document.duplicate(true)
+	duplicate.payload.world.engagements.reservations.append(duplicate.payload.world.engagements.reservations[0].duplicate(true))
+	assert_ne(main.restore_from_document(duplicate), "", "현재 버전은 자산별 중복 배정을 거절합니다")
+	assert_eq(main.engagement_coordinator.reservation_count(track.track_id), 3, "잘못된 저장이 현재 상태를 변경하지 않습니다")
+	var invalid := document.duplicate(true)
+	invalid.payload.world.engagements.reservations[0].kind = "interceptor"
+	assert_ne(main.restore_from_document(invalid), "", "콘텐츠의 교전 방식과 다른 예약은 거절합니다")
+	var legacy := document.duplicate(true)
+	legacy.version = 18
+	legacy.payload.world.engagements.reservations.resize(2)
+	legacy.payload.world.engagements.reservations[1] = legacy.payload.world.engagements.reservations[0].duplicate(true)
+	for reservation: Dictionary in legacy.payload.world.engagements.reservations:
+		reservation.erase("kind")
+	assert_eq(main.restore_from_document(legacy), "")
+	assert_eq(main.engagement_coordinator.reservation_count(track.track_id, EngagementCoordinator.FIRE_SUPPORT), 1)
+	assert_false(legacy.payload.world.engagements.reservations[0].has("kind"), "마이그레이션은 원본 문서를 변경하지 않습니다")
 
 func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> void:
 	var gun_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[4], _find_valid_position_for(main.scenario.available_defenses[4].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)

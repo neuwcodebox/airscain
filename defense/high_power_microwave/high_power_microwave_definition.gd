@@ -14,6 +14,9 @@ extends DefenseDefinition
 func placement_c2_roles() -> int:
 	return DefenseUnit.C2Role.DEFENSE
 
+func engagement_reservation_kind() -> StringName:
+	return EngagementCoordinator.FIRE_SUPPORT
+
 func placement_c2_range() -> float:
 	return c2_range
 
