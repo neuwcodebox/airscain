@@ -19,14 +19,23 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 	assert_false(demo.director.enabled)
 	assert_false(demo.combat_audio.enabled)
 	assert_true(demo.session.unlimited_budget)
+	var visible_seconds: Dictionary[int, float] = {}
 	for index: int in 3000:
 		controller.tick(0.1)
+		for threat: ThreatUnit in demo.registry.get_active():
+			if threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE and demo.camera_rig.camera.is_position_in_frustum(threat.global_position):
+				visible_seconds[threat.runtime_id] = visible_seconds.get(threat.runtime_id, 0.0) + 0.1
 		assert_lte(controller.hostile_count(), MenuDefenseDemo.MAX_HOSTILES)
 		if index % 20 == 0:
 			await get_tree().process_frame
 	assert_gt(demo.session.weapon_fire_count, 0, "실제 센서·C2·무장이 발사합니다")
 	assert_gt(demo.session.neutralized_count, 0, "실제 요격체로 시연 위협을 격추합니다")
 	assert_gte(controller.spawn_count, 15)
+	var readable_approaches := 0
+	for duration: float in visible_seconds.values():
+		if duration >= 2.0:
+			readable_approaches += 1
+	assert_gte(readable_approaches, controller.spawn_count - MenuDefenseDemo.MAX_HOSTILES, "적기는 화면 안에서 접근을 볼 시간이 확보된 뒤 요격됩니다")
 	assert_gte(demo.session.neutralized_count, controller.spawn_count - MenuDefenseDemo.MAX_HOSTILES)
 	assert_signal_not_emitted(demo.objective, "damage_received", "모든 진입 방향을 실제 방공망으로 막습니다")
 	assert_eq(demo.objective.current_integrity, demo.objective.definition.maximum_integrity)

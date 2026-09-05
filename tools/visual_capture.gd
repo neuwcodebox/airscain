@@ -10,6 +10,9 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	if OS.get_cmdline_user_args().has("--capture-menu-combat-only"):
+		await _capture_menu_combat()
+		return
 	if OS.get_cmdline_user_args().has("--capture-operation-menus-only"):
 		await _capture_operation_menus()
 		quit(0)
@@ -444,6 +447,30 @@ func run() -> void:
 	_save_capture("/tmp/airscain_game_over.png")
 	print("VISUAL_CAPTURE_OK initial catalog_wheel camera_rotation placement missile_battery_variants missile_smoke_trail combat_vfx strike_vfx altitude_profile layered_defense sensor_overlay electronic_overlay tactical_selection engagement_review combat coasting city_damage game_over")
 	quit(0)
+
+func _capture_menu_combat() -> void:
+	var app := APP_SCENE.instantiate() as AirscainApp
+	root.add_child(app)
+	var backdrop := app.main_menu.get_node("Background")
+	var demo := backdrop.get("demo") as AirscainMain
+	var controller := backdrop.get("controller") as MenuDefenseDemo
+	controller.set_process(false)
+	while not demo.combat_effect_pool.prepared:
+		await process_frame
+	for unit: DefenseUnit in demo.defenses:
+		print("MENU_ASSET %s %s" % [unit.definition.id, unit.global_position])
+	var captured := false
+	for frame: int in 500:
+		controller.tick(0.1)
+		await process_frame
+		if not captured and demo.session.weapon_fire_count > 0 and controller.hostile_count() > 0:
+			await RenderingServer.frame_post_draw
+			_save_capture("/tmp/airscain_menu_combat.png")
+			captured = true
+	print("MENU_COMBAT_CAPTURE captured=%s fired=%d neutralized=%d integrity=%d" % [captured, demo.session.weapon_fire_count, demo.session.neutralized_count, demo.objective.current_integrity])
+	app.queue_free()
+	await process_frame
+	quit(0 if captured else 1)
 
 func _capture_operation_menus() -> void:
 	var capture_save_path := "/tmp/airscain_operation_menu_save.json"

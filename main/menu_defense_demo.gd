@@ -24,12 +24,12 @@ func configure(value: AirscainMain) -> void:
 	main.track_display.visible = false
 	main.c2_overlay.visible = false
 	(main.tactical_range_overlay as Node3D).visible = false
-	_place(&"search_radar", Vector3(450, 0, -130))
-	_place(&"command_post", Vector3(300, 0, 90))
-	_place(&"missile_battery", Vector3(450, 0, 10))
-	_place(&"short_range_missile", Vector3(300, 0, -180))
-	_place(&"close_in_gun", Vector3(330, 0, -60))
-	_place(&"support_facility", Vector3(380, 0, 30))
+	_place(&"search_radar", Vector3(230, 0, -110))
+	_place(&"command_post", Vector3(180, 0, 90))
+	_place(&"missile_battery", Vector3(230, 0, 10))
+	_place(&"short_range_missile", Vector3(220, 0, -160))
+	_place(&"close_in_gun", Vector3(220, 0, -50))
+	_place(&"support_facility", Vector3(230, 0, 90))
 	main.session.start_defense()
 	main.director.enabled = false
 	main.objective.damage_received.connect(_schedule_city_recovery)
