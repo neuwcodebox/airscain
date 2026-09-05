@@ -6,6 +6,9 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	if OS.get_cmdline_user_args().has("--stress"):
+		await _check_stress()
+		return
 	if OS.get_cmdline_user_args().has("--airbursts"):
 		await _check_airbursts()
 		return
@@ -28,10 +31,8 @@ func run() -> void:
 		var elapsed := float(Time.get_ticks_msec() - started) / 1000.0
 		if elapsed < 7.0 or (elapsed >= 7.35 and elapsed < 9.0):
 			voice.notify_shot()
-		if voice.playing:
-			var clip := (voice.get_stream_playback() as AudioStreamPlaybackInteractive).get_current_clip_index()
-			seen_loop = seen_loop or clip == GunAudio.LOOP
-			seen_end = seen_end or clip == GunAudio.END
+		seen_loop = seen_loop or voice.get_playback_position() > GunAudio.LOOP_START_SECONDS
+		seen_end = seen_end or voice.ending_player.playing
 		await process_frame
 		samples.append_array(capture.get_buffer(capture.get_frames_available()))
 	var wav := AudioStreamWAV.new()
@@ -52,6 +53,14 @@ func run() -> void:
 	await process_frame
 	AudioServer.remove_bus(bus_index)
 	quit(0 if ok else 1)
+
+func _check_stress() -> void:
+	var check := preload("res://tools/gun_audio_stress.tscn").instantiate()
+	root.add_child(check)
+	var result: Dictionary = await check.completed
+	check.queue_free()
+	await process_frame
+	quit(0 if result.starts == 24 and result.endings == 24 and result.stopped and result.voices_left == 0 else 1)
 
 func _check_airbursts() -> void:
 	var context := CombatAudio.new()

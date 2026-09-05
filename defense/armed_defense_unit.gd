@@ -124,6 +124,10 @@ func critical_status_text() -> String:
 	var operational_status := super.critical_status_text()
 	if not operational_status.is_empty():
 		return operational_status
+	if support_manager != null:
+		var resupply_status := support_manager.automatic_resupply_status(self)
+		if not resupply_status.is_empty():
+			return resupply_status
 	if combat_resource_depleted():
 		return "탄약 고갈"
 	return ""

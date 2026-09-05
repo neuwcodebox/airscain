@@ -76,17 +76,63 @@ func test_airburst_pause_mute_reset_and_slow_frames() -> void:
 	disabled.on_gun_round_detonated(Vector3.ZERO, &"timeout")
 	assert_null(disabled.gun_airbursts, "메뉴처럼 비활성 상태로 시작하면 재생기를 만들지 않습니다")
 
-func test_sequence_uses_mixer_transitions_and_a_native_loop() -> void:
+func test_sequence_uses_one_shared_ogg_sample_with_a_native_loop_region() -> void:
 	var voice := add_child_autofree(GunAudio.new()) as GunAudio
-	var sequence := voice.stream as AudioStreamInteractive
-	assert_eq(sequence.get_clip_auto_advance_next_clip(GunAudio.START), GunAudio.LOOP)
-	assert_eq(sequence.get_clip_auto_advance(GunAudio.START), AudioStreamInteractive.AUTO_ADVANCE_ENABLED)
-	assert_true((sequence.get_clip_stream(GunAudio.LOOP) as AudioStreamOggVorbis).loop)
-	assert_false((sequence.get_clip_stream(GunAudio.START) as AudioStreamOggVorbis).loop)
-	assert_false((sequence.get_clip_stream(GunAudio.END) as AudioStreamOggVorbis).loop)
-	assert_eq(sequence.get_transition_from_time(GunAudio.START, GunAudio.LOOP), AudioStreamInteractive.TRANSITION_FROM_TIME_END)
-	for pair: Vector2i in [Vector2i(0, 1), Vector2i(0, 2), Vector2i(1, 2), Vector2i(2, 0)]:
-		assert_eq(sequence.get_transition_fade_mode(pair.x, pair.y), AudioStreamInteractive.FADE_CROSS)
+	var sound := voice.stream as AudioStreamOggVorbis
+	assert_true(sound.loop)
+	assert_almost_eq(sound.loop_offset, GunAudio.LOOP_START_SECONDS, 0.00001)
+	assert_gt(sound.get_length(), sound.loop_offset)
+	assert_same(sound, GunAudio.sustain_stream())
+	assert_same(voice.ending_player.stream, GunAudio.END_SOUND)
+	assert_has(CombatAudio.all_streams(), sound)
+	assert_has(CombatAudio.all_streams(), GunAirburstAudio.loop_stream())
+
+func test_many_guns_share_a_bounded_mix_budget_without_restarting() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var voices: Array[GunAudio] = []
+	for index: int in 24:
+		var voice := add_child_autofree(GunAudio.new()) as GunAudio
+		voice.context = context
+		voice.notify_shot()
+		voice._process(0.06)
+		voices.append(voice)
+	var total := 0.0
+	var audible_count := 0
+	for voice: GunAudio in voices:
+		total += voice.volume_linear
+		audible_count += int(voice.audible)
+		assert_eq(voice.starts, 1)
+	assert_eq(audible_count, CombatAudio.MAX_AUDIBLE_GUNS)
+	assert_almost_eq(total, CombatAudio.GUN_MIX_BUDGET, 0.0001)
+	for voice: GunAudio in voices:
+		voice._process(0.2)
+		voice._process(6.0)
+	assert_true(context.gun_voices.is_empty())
+
+func test_audible_guns_stay_stable_and_virtual_guns_take_over_a_finished_slot() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var voices: Array[GunAudio] = []
+	for index: int in 6:
+		var voice := add_child_autofree(GunAudio.new()) as GunAudio
+		voice.context = context
+		voice.set_process(false)
+		voice.notify_shot()
+		voice._process(0.06)
+		voices.append(voice)
+	assert_false(voices[4].playing)
+	for frame: int in 10:
+		for voice: GunAudio in voices:
+			voice.notify_shot()
+			voice._process(0.06)
+		context.refresh_gun_mix()
+	assert_true(voices[0].audible)
+	assert_false(voices[4].audible)
+	voices[0]._process(0.2)
+	voices[4]._process(0.06)
+	assert_false(voices[0].audible)
+	assert_true(voices[4].audible)
+	assert_true(voices[4].playing)
+	assert_eq(voices[4].starts, 1, "대표 교체는 새로운 사격 사건이 아닙니다")
 
 func test_shots_bridge_burst_gaps_and_resume_during_the_end_tail() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
@@ -111,6 +157,26 @@ func test_shots_bridge_burst_gaps_and_resume_during_the_end_tail() -> void:
 	voice._process(0.2)
 	voice._process(6.0)
 	assert_false(voice.playing)
+
+func test_virtual_guns_preserve_firing_during_pause() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var voices: Array[GunAudio] = []
+	for index: int in CombatAudio.MAX_AUDIBLE_GUNS + 1:
+		var voice := add_child_autofree(GunAudio.new()) as GunAudio
+		voice.context = context
+		voice.set_process(false)
+		voice.notify_shot()
+		voice._process(0.06)
+		voices.append(voice)
+	var virtual_voice := voices.back() as GunAudio
+	assert_false(virtual_voice.playing)
+	context.simulation_paused = true
+	virtual_voice._process(2.0)
+	assert_true(virtual_voice.firing)
+	assert_eq(virtual_voice.endings, 0)
+	context.simulation_paused = false
+	virtual_voice.notify_shot()
+	assert_eq(virtual_voice.starts, 1)
 
 func test_pause_mute_and_independent_guns() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio

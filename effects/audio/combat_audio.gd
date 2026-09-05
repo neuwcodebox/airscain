@@ -72,6 +72,34 @@ var prepared_stream_count: int = 0
 @export var enabled: bool = true
 var simulation_paused: bool = false
 var gun_airbursts: GunAirburstAudio
+var gun_voices: Dictionary[int, GunAudio] = {}
+const GUN_MIX_BUDGET := 0.65
+const MAX_AUDIBLE_GUNS := 4
+
+func register_gun_voice(voice: GunAudio) -> void:
+	gun_voices[voice.get_instance_id()] = voice
+	refresh_gun_mix()
+
+func unregister_gun_voice(voice: GunAudio) -> void:
+	if gun_voices.erase(voice.get_instance_id()):
+		refresh_gun_mix()
+
+func refresh_gun_mix() -> void:
+	var selected: Array[GunAudio] = []
+	# Keep ongoing representatives stable; only fill vacancies or replace tails.
+	for voice: GunAudio in gun_voices.values():
+		if voice.audible and voice.firing and selected.size() < MAX_AUDIBLE_GUNS:
+			selected.append(voice)
+	for voice: GunAudio in gun_voices.values():
+		if voice.firing and not selected.has(voice) and selected.size() < MAX_AUDIBLE_GUNS:
+			selected.append(voice)
+	for voice: GunAudio in gun_voices.values():
+		if not selected.has(voice) and selected.size() < MAX_AUDIBLE_GUNS:
+			selected.append(voice)
+	var gain := minf(0.25, GUN_MIX_BUDGET / maxf(1.0, selected.size()))
+	for voice: GunAudio in gun_voices.values():
+		voice.set_mix_gain(gain)
+		voice.set_audible(selected.has(voice))
 
 func _ready() -> void:
 	if not enabled:
@@ -90,7 +118,8 @@ func _ready() -> void:
 		players.append(player)
 
 static func all_streams() -> Array[AudioStream]:
-	var streams: Array[AudioStream] = []
+	var streams: Array[AudioStream] = GunAudio.all_streams()
+	streams.append(GunAirburstAudio.loop_stream())
 	for group: Array in STREAM_GROUPS.values():
 		for candidate: Variant in group:
 			var stream := candidate as AudioStream

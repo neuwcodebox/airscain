@@ -7,6 +7,13 @@ const QUIET_GRACE := 0.25
 const FADE_IN := 0.06
 const FADE_OUT := 0.3
 const LEVEL := 0.25
+static var _loop_stream: AudioStreamOggVorbis
+
+static func loop_stream() -> AudioStreamOggVorbis:
+	if _loop_stream == null:
+		_loop_stream = SOUND.duplicate() as AudioStreamOggVorbis
+		_loop_stream.loop = true
+	return _loop_stream
 
 var context: CombatAudio
 var quiet_remaining: float = 0.0
@@ -15,10 +22,8 @@ var gain: float = 0.0
 var starts: int = 0
 
 func _ready() -> void:
-	var sound := SOUND.duplicate() as AudioStreamOggVorbis
-	sound.loop = true
-	stream = sound
-	playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	stream = loop_stream()
+	playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if CombatAudio.uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 	volume_linear = 0.0
 
 func notify_detonation(_position: Vector3, reason: StringName) -> void:
@@ -41,8 +46,9 @@ func _process(delta: float) -> void:
 	if context == null or not context.enabled:
 		reset()
 		return
-	stream_paused = context.simulation_paused
-	if stream_paused:
+	if stream_paused != context.simulation_paused:
+		stream_paused = context.simulation_paused
+	if context.simulation_paused:
 		return
 	if event_pending:
 		event_pending = false

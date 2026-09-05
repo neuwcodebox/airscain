@@ -164,6 +164,14 @@ func task_status(unit: DefenseUnit) -> String:
 			return "%s 진행" % label if _task_is_active(index) else "%s 대기" % label
 	return ""
 
+func automatic_resupply_status(unit: DefenseUnit) -> String:
+	if not automatic_resupply_enabled(unit):
+		return ""
+	for index: int in tasks.size():
+		if int(tasks[index].target_defense_id) == unit.runtime_id and String(tasks[index].kind) == RESUPPLY:
+			return "재보급 중" if _task_is_active(index) else "재보급 대기"
+	return "재보급 대기" if unit.combat_resource_low() else ""
+
 func _task_is_active(task_index: int) -> bool:
 	var target := _task_target(task_index)
 	var facility := service_facility_for(target)

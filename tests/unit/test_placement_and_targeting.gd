@@ -925,6 +925,31 @@ func _automatic_resupply_fixture() -> Dictionary:
 	manager.register_asset(battery)
 	return {"manager": manager, "session": support_session, "facility": facility, "battery": battery}
 
+func test_automatic_resupply_marker_reports_progress_or_waiting_instead_of_depletion() -> void:
+	var fixture := _automatic_resupply_fixture()
+	var manager: SupportManager = fixture.manager
+	var battery: MissileBattery = fixture.battery
+	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
+	specialized.rounds = 0
+	specialized.reserve = 0
+	assert_eq(battery.critical_status_text(), "일부 탄종 고갈")
+	battery.set_automatic_resupply(true)
+	assert_eq(battery.critical_status_text(), "재보급 대기")
+	manager.gameplay_tick(0.1)
+	assert_eq(battery.critical_status_text(), "재보급 중")
+	(fixture.facility as DefenseUnit).global_position = Vector3(10000, 0, 0)
+	assert_eq(battery.critical_status_text(), "재보급 대기")
+	(fixture.facility as DefenseUnit).global_position = Vector3.ZERO
+	for stock: WeaponMagazine in battery.magazines.values():
+		stock.rounds = 0
+		stock.reserve = 0
+	assert_eq(battery.critical_status_text(), "재보급 중")
+	battery.set_automatic_resupply(false)
+	assert_eq(battery.critical_status_text(), "탄약 고갈")
+	battery.set_automatic_resupply(true)
+	manager.gameplay_tick(100.0)
+	assert_eq(battery.critical_status_text(), "")
+
 func test_automatic_resupply_detects_one_low_munition_and_never_double_charges() -> void:
 	var fixture := _automatic_resupply_fixture()
 	var manager: SupportManager = fixture.manager
