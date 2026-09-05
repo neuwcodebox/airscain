@@ -101,9 +101,12 @@ func _step(delta: float) -> void:
 		targets = registry.get_active()
 	var target_positions := PackedVector3Array()
 	var target_steps := PackedVector3Array()
+	var target_reaches := PackedFloat32Array()
 	for target: ThreatUnit in targets:
 		target_positions.append(target.get_aim_position())
-		target_steps.append(target.presentation_velocity())
+		var target_velocity := target.presentation_velocity()
+		target_steps.append(target_velocity)
+		target_reaches.append(target_velocity.length() * delta)
 	for index: int in range(rounds.size() - 1, -1, -1):
 		var round := rounds[index]
 		var previous_age := float(round.age)
@@ -132,11 +135,16 @@ func _step(delta: float) -> void:
 		var victim: ThreatUnit
 		if float(round.age) >= ARM_TIME:
 			var armed_fraction := clampf((ARM_TIME - maxf(0, previous_age)) / maxf(0.00001, travel_time), 0, 1)
+			var round_reach := start.distance_to(end) + float(round.radius)
 			for target_index: int in targets.size():
+				var offset := start - target_positions[target_index]
+				# Conservative swept sphere: moving targets can enter the fuze this step.
+				var reach := round_reach + target_reaches[target_index] + 0.001
+				if offset.length_squared() > reach * reach:
+					continue
 				var target := targets[target_index]
 				if not is_instance_valid(target) or not target.is_targetable():
 					continue
-				var offset := start - target_positions[target_index]
 				var relative_step := end - start - target_steps[target_index] * travel_time
 				var along := clampf(-offset.dot(relative_step) / maxf(0.00001, relative_step.length_squared()), armed_fraction, 1)
 				if along <= stop and (offset + relative_step * along).length_squared() <= float(round.radius) * float(round.radius):

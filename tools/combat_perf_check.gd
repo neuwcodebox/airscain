@@ -1,7 +1,7 @@
 extends SceneTree
-## Fixed-seed CPU workload; --render also samples a live Compatibility window.
-## Run with --audio-driver Dummy. Frame results include GPU/driver and live ages,
-## so use the CPU stages, not a frame ratio, for repeatable before/after comparisons.
+## Fixed-seed CPU workload; --render samples a frozen Compatibility scene.
+## Run with --audio-driver Dummy. --faded fixes smoke age at 15s instead of 6s;
+## --no-smoke-shadows isolates shadow cost. Compare identical options/resolution.
 
 func _init() -> void:
 	call_deferred("run")
@@ -69,8 +69,13 @@ func run() -> void:
 		world.add_child(light)
 		light.rotation_degrees = Vector3(-55, -25, 0)
 		light.shadow_enabled = true
-		for trail: LingeringSmokeTrail in trails:
-			trail.set_process(true)
+		# Freeze simulation ages so identical geometry is measured every frame.
+		if OS.get_cmdline_user_args().has("--faded"):
+			for trail: LingeringSmokeTrail in trails:
+				trail._process(9.0)
+		if OS.get_cmdline_user_args().has("--no-smoke-shadows"):
+			for trail: LingeringSmokeTrail in trails:
+				trail.shadow_particles.hide()
 		samples.clear()
 		for frame: int in 120:
 			var start := Time.get_ticks_usec()

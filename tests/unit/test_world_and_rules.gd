@@ -3,6 +3,17 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+func test_expired_smoke_can_reuse_slots_without_restoring_old_puffs() -> void:
+	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	var trail := effect.smoke
+	trail.emitting = true
+	trail.sample_world_segment(Vector3.ZERO, Vector3(20, 0, 0))
+	trail._process(trail.lifetime + 0.1)
+	assert_eq(trail.multimesh.visible_instance_count, 0)
+	trail.sample_world_segment(Vector3(100, 0, 0), Vector3(120, 0, 0))
+	assert_gt(trail.active_puff_count(), 0)
+	assert_gt(trail.smoke_bounds().position.x, 50.0)
+
 func test_building_spatial_candidates_preserve_nearest_segment_impacts() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	field.build(SCENARIO)

@@ -261,3 +261,5 @@ func _hide_instance(target: MultiMesh, slot: int) -> void:
 	var zero_basis := Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO)
 	target.set_instance_transform(slot, Transform3D(zero_basis, Vector3.ZERO))
 	target.set_instance_color(slot, Color(1.0, 1.0, 1.0, 0.0))
+	# Billboard shaders reconstruct the basis; invalidate their birth data too.
+	target.set_instance_custom_data(slot, Color(0.0, 0.0, 0.0, 0.0))

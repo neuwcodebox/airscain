@@ -21,6 +21,22 @@ class MovingTarget:
 func _runtime() -> GunfireRuntime:
 	return add_child_autofree(GunfireRuntime.new()) as GunfireRuntime
 
+func test_fast_crossing_target_is_not_rejected_by_swept_broad_phase() -> void:
+	var runtime := _runtime()
+	var target := add_child_autofree(MovingTarget.new()) as MovingTarget
+	target.setup(9, THREAT.threat_entries[1].threat_definition)
+	target.health = 100
+	target.position = Vector3(6, 100, 100)
+	target.velocity = Vector3(0, 0, -10000)
+	runtime.registry = ThreatRegistry.new()
+	runtime.registry.add(target)
+	var round := _round(Vector3(0, 100, 0), Vector3(600, 0, 0))
+	round.age = 0.1
+	runtime.rounds.append(round)
+	runtime.gameplay_tick(0.02)
+	assert_eq(target.health, 98.0)
+	assert_true(runtime.rounds.is_empty())
+
 func _round(position: Vector3, velocity: Vector3, delay: float = 0) -> Dictionary:
 	return {"position": position, "velocity": velocity, "age": -delay, "lifetime": 1.05, "damage": 2.0, "radius": 3.5, "emitted": false}
 
