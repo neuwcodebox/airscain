@@ -136,6 +136,9 @@ const CATALOG_GROUP_LABELS := {
 @onready var training_body: Label = %TrainingBody
 @onready var training_next_button: Button = %TrainingNextButton
 
+var _catalog_state: Array = []
+var _restoration_state: Array = []
+
 func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition], threats: Array[ThreatDefinition] = [], game_mode: int = 0) -> void:
 	session = session_value
 	objective = objective_value
@@ -146,6 +149,8 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	_ensure_menu_row_styles()
 	_apply_menu_row_style(city_restoration_button)
 	_build_defense_catalog()
+	_catalog_state.clear()
+	_restoration_state.clear()
 	_build_mode_controls(game_mode)
 	session.budget_changed.connect(_on_state_changed.unbind(1))
 	session.phase_changed.connect(_on_phase_changed)
@@ -535,6 +540,11 @@ func _on_state_changed() -> void:
 	_refresh_city_restoration_button()
 	time_label.text = "생존  %02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 	_refresh_speed_buttons()
+	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
+	var catalog_state: Array = [session.budget, session.unlimited_budget, session.current_pressure, session.phase]
+	if catalog_state == _catalog_state:
+		return
+	_catalog_state = catalog_state
 	for index: int in defense_buttons.size():
 		var definition := defense_definitions[index]
 		var locked := definition.unlock_pressure_level > session.current_pressure
@@ -550,7 +560,6 @@ func _on_state_changed() -> void:
 		else:
 			defense_meta_labels[index].text = "$%d" % definition.price
 			defense_meta_labels[index].add_theme_color_override("font_color", Color(0.65, 0.48, 0.42) if unaffordable else Color(0.45, 0.92, 0.66))
-	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
 
 func _refresh_speed_buttons() -> void:
 	var buttons: Array[Button] = [pause_button, normal_button, fast_button, very_fast_button]
@@ -574,9 +583,14 @@ func _refresh_city_restoration_button() -> void:
 		return
 	var cost := objective.definition.restoration_cost
 	var amount := objective.definition.restoration_amount
+	var disabled := session.phase == GameSession.Phase.GAME_OVER or objective.current_integrity >= objective.definition.maximum_integrity or not session.unlimited_budget and session.budget < cost
+	var restoration_state: Array = [amount, cost, session.unlimited_budget, disabled]
+	if restoration_state == _restoration_state:
+		return
+	_restoration_state = restoration_state
 	city_action_label.text = "피해 복구"
 	city_action_meta_label.text = "+%d    무료" % amount if session.unlimited_budget else "+%d    $%d" % [amount, cost]
-	city_restoration_button.disabled = session.phase == GameSession.Phase.GAME_OVER or objective.current_integrity >= objective.definition.maximum_integrity or not session.unlimited_budget and session.budget < cost
+	city_restoration_button.disabled = disabled
 	city_action_label.add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if city_restoration_button.disabled else Color(0.86, 0.92, 0.95))
 	city_action_meta_label.add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if city_restoration_button.disabled else Color(0.45, 0.92, 0.66))
 

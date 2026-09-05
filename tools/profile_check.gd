@@ -5,6 +5,53 @@ const STEP := 0.05
 const PROFILE_DURATION := 20.0
 const THREATS_PER_TYPE := 10
 
+class ProfiledMain:
+	extends AirscainMain
+	var costs: Dictionary[String, int] = {}
+
+	func _process(delta: float) -> void:
+		if combat_effect_pool != null and not combat_effect_pool.prepared:
+			return
+		tactical_ui_refresh_remaining -= delta
+		if tactical_ui_refresh_remaining <= 0.0:
+			tactical_ui_refresh_remaining += 0.2
+			_refresh_tactical_ui()
+		var start := Time.get_ticks_usec()
+		var simulation_delta := session.gameplay_delta(delta)
+		costs["session"] = costs.get("session", 0) + Time.get_ticks_usec() - start
+		_measure("day_night", day_night.apply_time, session.survival_time)
+		combat_audio.simulation_paused = simulation_delta <= 0.0
+		if simulation_delta <= 0.0:
+			return
+		var step_count := ceili(simulation_delta / MAXIMUM_GAMEPLAY_STEP)
+		for index: int in step_count:
+			_gameplay_step(simulation_delta / float(step_count))
+
+	func _refresh_tactical_ui() -> void:
+		var start := Time.get_ticks_usec()
+		super._refresh_tactical_ui()
+		costs["tactical_ui"] = costs.get("tactical_ui", 0) + Time.get_ticks_usec() - start
+
+	func _measure(label: String, action: Callable, delta: float) -> void:
+		var start := Time.get_ticks_usec()
+		action.call(delta)
+		costs[label] = costs.get(label, 0) + Time.get_ticks_usec() - start
+
+	func _gameplay_step(delta: float) -> void:
+		_measure("director", director.gameplay_tick, delta)
+		_measure("tracking", player_knowledge.gameplay_tick, delta)
+		_measure("c2", c2_network.gameplay_tick, delta)
+		_measure("reservations", engagement_coordinator.gameplay_tick, delta)
+		_measure("support", support_manager.gameplay_tick, delta)
+		_measure("relocation", relocation_manager.gameplay_tick, delta)
+		_measure("enemy_knowledge", enemy_knowledge.gameplay_tick, delta)
+		power_manager.begin_tick()
+		for defense: DefenseUnit in defenses:
+			if is_instance_valid(defense):
+				_measure("defense/" + String(defense.definition.id), defense.gameplay_tick, delta)
+		for threat: ThreatUnit in registry.get_active():
+			_measure("threat/" + String(threat.definition.id), threat.gameplay_tick, delta)
+
 var main: AirscainMain
 var samples_usec: Array[int] = []
 var peak_contacts: int = 0
@@ -18,6 +65,8 @@ func _init() -> void:
 func run() -> void:
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
 	main = MAIN_SCENE.instantiate() as AirscainMain
+	if OS.get_cmdline_user_args().has("--breakdown"):
+		main.set_script(ProfiledMain)
 	root.add_child(main)
 	await process_frame
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
@@ -52,6 +101,9 @@ func run() -> void:
 	var p95_ms := float(samples_usec[p95_index]) / 1000.0
 	var maximum_ms := float(samples_usec.back()) / 1000.0
 	print("PROFILE_OK samples=%d avg_ms=%.3f p95_ms=%.3f max_ms=%.3f contacts=%d tracks=%d projectiles=%d defenses=%d" % [samples_usec.size(), average_ms, p95_ms, maximum_ms, peak_contacts, peak_tracks, peak_projectiles, main.session.defense_count])
+	if main is ProfiledMain:
+		for label: String in main.costs:
+			print("PROFILE_COST %s avg_ms=%.3f" % [label, float(main.costs[label]) / samples_usec.size() / 1000.0])
 	main.combat_audio.call("stop_all")
 	main.free()
 	main = null
