@@ -30,6 +30,7 @@ var dependency_refresh_remaining: float = 0.0
 var last_dependency_definition: DefenseDefinition
 var last_dependency_position: Vector3
 var dependency_preview_active: bool = false
+var elevation_label: Label3D
 
 func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
 	session = session_value
@@ -62,6 +63,7 @@ func select_relocation(unit: DefenseUnit) -> void:
 	feedback_changed.emit("새 위치를 선택하세요    우클릭 또는 Esc: 취소", false)
 
 func select_sandbox_threat(definition: ThreatDefinition) -> void:
+	battlefield.set_placement_contours(false)
 	selected = null
 	relocating_unit = null
 	selected_threat = definition
@@ -76,6 +78,7 @@ func cancel() -> void:
 	relocating_unit = null
 	if battlefield != null:
 		battlefield.set_rooftop_pads_visible(false)
+		battlefield.set_placement_contours(false)
 	if preview != null:
 		preview.queue_free()
 	preview = null
@@ -88,6 +91,7 @@ func _process(delta: float) -> void:
 	var mouse := get_viewport().get_mouse_position()
 	var hit := _terrain_hit(mouse)
 	if hit.is_empty():
+		battlefield.set_placement_contours(false)
 		preview.visible = false
 		candidate_valid = false
 		_publish_dependency_preview(null, Vector3.ZERO, false)
@@ -96,6 +100,7 @@ func _process(delta: float) -> void:
 	preview.visible = true
 	candidate_position = hit.position if selected_threat != null else battlefield.snap_placement_position(hit.position, selected.placement_profile)
 	preview.global_position = candidate_position
+	_update_elevation_guide()
 	var result := {"valid": true, "reason": "위협 투입 가능"} if selected_threat != null else _validation()
 	candidate_valid = result.valid
 	if selected != null and selected_threat == null and relocating_unit == null:
@@ -218,6 +223,36 @@ func _create_preview() -> void:
 	range_disc.position.y = 1.5
 	range_disc.material_override = preview_material
 	preview.add_child(range_disc)
+	elevation_label = Label3D.new()
+	elevation_label.name = "ElevationLabel"
+	elevation_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	elevation_label.font = preload("res://ui/fonts/NanumSquareB.ttf")
+	elevation_label.font_size = 28
+	elevation_label.pixel_size = 0.00065
+	elevation_label.outline_size = 6
+	elevation_label.no_depth_test = true
+	elevation_label.fixed_size = true
+	elevation_label.position.y = 22.0
+	preview.add_child(elevation_label)
+	var stem := MeshInstance3D.new()
+	var line := CylinderMesh.new()
+	line.top_radius = 0.12
+	line.bottom_radius = 0.12
+	line.height = 12.0
+	line.radial_segments = 4
+	stem.mesh = line
+	stem.position = Vector3(0, 7, 0)
+	stem.material_override = preview_material
+	stem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	preview.add_child(stem)
+
+func _update_elevation_guide() -> void:
+	if selected == null:
+		return
+	battlefield.set_placement_contours(true, candidate_position)
+	var altitude := candidate_position.y - battlefield.generator.sea_level
+	var slope := battlefield.generator.slope_degrees_at(candidate_position.x, candidate_position.z, 12.0)
+	elevation_label.text = "해발 %.0fm · 지형 경사 %.0f°" % [altitude, slope]
 
 func _copy_preview_geometry(source: Node3D, parent_transform: Transform3D) -> void:
 	if not source.visible:

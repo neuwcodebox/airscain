@@ -18,6 +18,25 @@ func run() -> void:
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	main.camera_rig.set_process(false)
+	if OS.get_cmdline_user_args().has("--terrain-only"):
+		var center := Vector3(-500, 0, -400)
+		center.y = main.battlefield.terrain_height(center.x, center.z)
+		main.camera_rig.camera.position = center + Vector3(300, 300, 420)
+		main.camera_rig.camera.look_at(center)
+		await capture("terrain_relief")
+		main.placement.select(main.scenario.available_defenses[0])
+		main.placement.set_process(false)
+		main.placement.candidate_position = center
+		main.placement.preview.position = center
+		main.placement.preview_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48)
+		main.placement._update_elevation_guide()
+		await capture("terrain_placement")
+		main.placement.cancel()
+		await capture("terrain_cancelled")
+		main.free()
+		await process_frame
+		quit()
+		return
 	main.camera_rig.camera.position = Vector3(90, 125, 155)
 	main.camera_rig.camera.look_at(Vector3(0, 10, 0))
 	await capture("streets")

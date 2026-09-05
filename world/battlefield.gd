@@ -222,6 +222,12 @@ func unregister_occupancy(position: Vector3, radius: float) -> void:
 			occupied_radii.remove_at(index)
 			return
 
+func set_placement_contours(enabled: bool, center: Vector3 = Vector3.ZERO) -> void:
+	var material := terrain.material_override as ShaderMaterial
+	material.set_shader_parameter("placement_contours", enabled)
+	if enabled:
+		material.set_shader_parameter("placement_center", center)
+
 func terrain_height(x: float, z: float) -> float:
 	return generator.height_at(x, z)
 

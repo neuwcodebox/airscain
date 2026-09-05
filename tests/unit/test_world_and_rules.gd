@@ -3,6 +3,30 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+func test_placement_contours_are_world_local_and_do_not_change_terrain() -> void:
+	var first := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	var second := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	first.build(SCENARIO)
+	second.build(SCENARIO)
+	var heights := first.generator.heights.duplicate()
+	first.set_placement_contours(true, Vector3(120, 30, 40))
+	var material := first.terrain.material_override as ShaderMaterial
+	assert_eq(material.get_shader_parameter("placement_contours"), true)
+	assert_ne(material, second.terrain.material_override)
+	assert_ne((second.terrain.material_override as ShaderMaterial).get_shader_parameter("placement_contours"), true)
+	first.set_placement_contours(false)
+	assert_eq(material.get_shader_parameter("placement_contours"), false)
+	assert_eq(first.generator.heights, heights)
+	var placement := add_child_autofree(PlacementController.new()) as PlacementController
+	placement.battlefield = first
+	placement.select(SCENARIO.available_defenses[0])
+	placement.candidate_position = Vector3(100, first.generator.sea_level + 45, 100)
+	placement._update_elevation_guide()
+	assert_true(placement.elevation_label.text.begins_with("해발 45m"))
+	assert_eq(material.get_shader_parameter("placement_contours"), true)
+	placement.cancel()
+	assert_eq(material.get_shader_parameter("placement_contours"), false)
+
 func test_expired_smoke_can_reuse_slots_without_restoring_old_puffs() -> void:
 	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
 	var trail := effect.smoke
