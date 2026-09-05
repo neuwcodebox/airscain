@@ -16,6 +16,12 @@ func run() -> void:
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	main.camera_rig.set_process(false)
+	main.camera_rig.camera.position = Vector3(90, 125, 155)
+	main.camera_rig.camera.look_at(Vector3(0, 10, 0))
+	await capture("streets")
+	main.camera_rig.camera.position = Vector3(1050, 400, 1250)
+	main.camera_rig.camera.look_at(Vector3(1350, 0, 1000))
+	await capture("ocean")
 	var center := Vector3(0, 0, 360)
 	var showcase := Node3D.new()
 	main.effects_parent.add_child(showcase)

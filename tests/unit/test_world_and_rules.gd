@@ -772,6 +772,18 @@ func test_recon_and_strike_missions_act_then_egress() -> void:
 	assert_eq(recon.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_eq(objective.current_integrity, objective.definition.maximum_integrity)
 
+func test_street_details_rotate_local_length_with_the_road() -> void:
+	var details := add_child_autofree(LandscapeDetails.new()) as LandscapeDetails
+	for yaw: float in [0.0, PI * 0.5, -PI * 0.5]:
+		details._append("car", Vector3.ZERO, Vector3(3.8, 1.2, 1.7), yaw)
+	var cars: Array = details._batches["car"]
+	for index: int in cars.size():
+		var transform: Transform3D = cars[index]
+		assert_almost_eq(transform.basis.x.length(), 3.8, 0.001, "차체 긴 축은 회전 후에도 차체 길이를 유지합니다")
+		assert_almost_eq(transform.basis.z.length(), 1.7, 0.001)
+	var northbound: Vector3 = cars[1].basis.x.normalized()
+	assert_almost_eq(absf(northbound.dot(Vector3.FORWARD)), 1.0, 0.001, "남북 도로 차량의 긴 축도 남북을 향합니다")
+
 func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
 	var session := autofree(GameSession.new()) as GameSession
 	session.reset(400)

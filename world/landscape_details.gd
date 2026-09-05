@@ -72,7 +72,7 @@ func _near_blocks(position: Vector2, blocks: Array[Dictionary], spacing: float) 
 func _append(key: String, position: Vector3, size: Vector3, yaw: float = 0.0) -> void:
 	if not _batches.has(key):
 		_batches[key] = []
-	_batches[key].append(Transform3D(Basis(Vector3.UP, yaw).scaled(size), position))
+	_batches[key].append(Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(size), position))
 
 func _flush(key: String) -> void:
 	var mesh: Mesh
