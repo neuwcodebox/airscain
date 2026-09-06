@@ -64,7 +64,7 @@ func _check_automatic_resupply(delta: float) -> void:
 		request_resupply(unit, false)
 
 func request_repair(unit: DefenseUnit) -> bool:
-	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity <= 0.0 or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "" or service_facility_for(unit) == null:
+	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false
 	return _request_task(unit, REPAIR, unit.repair_cost(), unit.repair_work())
 
@@ -130,7 +130,7 @@ func service_facility_for_position(position: Vector3) -> DefenseUnit:
 func serviceable_units_from(position: Vector3, service_range: float, excluded: DefenseUnit = null) -> Array[DefenseUnit]:
 	var result: Array[DefenseUnit] = []
 	for unit: DefenseUnit in consumers.values():
-		if not is_instance_valid(unit) or unit == excluded or unit.integrity <= 0.0:
+		if not is_instance_valid(unit) or unit == excluded:
 			continue
 		var offset := Vector2(unit.global_position.x - position.x, unit.global_position.z - position.z)
 		if offset.length() > 0.01 and offset.length() <= service_range:
@@ -154,7 +154,7 @@ func _complete_task(index: int) -> void:
 		if String(task.kind) == RESUPPLY and target.uses_ammunition():
 			target.complete_resupply()
 			completed = true
-		elif String(task.kind) == REPAIR and target.integrity > 0.0:
+		elif String(task.kind) == REPAIR:
 			target.complete_repair()
 			completed = true
 	tasks.remove_at(index)

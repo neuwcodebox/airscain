@@ -675,8 +675,9 @@ area_damage = max_damage × falloff(distance / radius)
 OPERATIONAL
 → DEGRADED
 → DISABLED
-→ DESTROYED
 ```
+
+방공 자산의 내구도 35% 미만은 기능 정지이며 0%도 수리 가능한 상태다. `DefenseUnit`은 객체·탄약·교전 설정을 유지하고 `SupportManager`의 동일한 수리 대기열로 완전 복구한다. 수리 도중 추가 피해로 0%가 되어도 작업을 취소하지 않으며 지원기지가 정지하면 대기한다. 재배치 중 피격은 자산을 조기 가동시키지 않는다. `MissileBattery`는 소유 발사체의 비행·종료를 가동 여부 검사보다 먼저 진행하고, 신규 사격·재장전은 비가동 중 정지한다. 기관포의 비행탄과 요격드론도 기존 독립 진행 경로를 유지한다. 저장 필드·버전은 변경하지 않는다.
 
 부분손상이 gameplay에 명확한 차이를 만드는 복합 장비에만 제한된 subsystem 상태를 추가한다. 모든 객체에 동일한 부품 트리를 강제하지 않는다.
 

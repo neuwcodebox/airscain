@@ -28,6 +28,44 @@ func before_each() -> void:
 func after_each() -> void:
 	_cleanup_save_files()
 
+func test_disabled_battery_and_pending_repair_survive_document_restore() -> void:
+	var battery := _place_defense(main.scenario.available_defenses[0]) as MissileBattery
+	var facility := _place_defense(main.scenario.available_defenses[5])
+	facility.global_position = battery.global_position
+	battery.set_automatic_resupply(false)
+	battery.set_hold_fire(true)
+	battery.magazine.rounds = 1
+	battery.magazine.reserve = 3
+	battery.receive_damage(50.0)
+	assert_true(battery.request_repair())
+	battery.receive_damage(1000.0)
+	var id := battery.runtime_id
+	var facility_id := facility.runtime_id
+	var budget := main.session.budget
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_defense(id) as MissileBattery
+	var restored_facility := _find_defense(facility_id)
+	assert_eq(restored.integrity, 0.0)
+	assert_false(restored.active)
+	assert_eq(main.hud._asset_state_text(restored), "기능 정지")
+	assert_eq(main.support_manager.task_status(restored), "수리 진행")
+	var remaining := float(main.support_manager.tasks[0].remaining_work)
+	restored_facility.receive_damage(1000.0)
+	main.support_manager.gameplay_tick(100.0)
+	assert_eq(main.support_manager.task_status(restored), "수리 대기")
+	assert_eq(float(main.support_manager.tasks[0].remaining_work), remaining)
+	assert_false(restored.active)
+	restored_facility.complete_repair()
+	main.support_manager.gameplay_tick(100.0)
+	assert_true(restored.active)
+	assert_eq(restored.integrity, restored.definition.maximum_integrity)
+	assert_eq(restored.magazine.rounds, 1)
+	assert_eq(restored.magazine.reserve, 3)
+	assert_true(restored.doctrine.hold_fire)
+	assert_false(restored.automatic_resupply_enabled())
+	assert_eq(main.session.budget, budget)
+
 func test_resupply_order_and_fractional_credit_survive_document_restore() -> void:
 	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
 	var facility := _place_defense(main.scenario.available_defenses[5])

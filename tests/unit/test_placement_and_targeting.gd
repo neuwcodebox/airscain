@@ -1392,6 +1392,76 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	gun._process(0.0)
 	assert_eq((gun.status_marker.get_node("Label") as Label3D).text, "×")
 
+func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() -> void:
+	var manager := autofree(SupportManager.new()) as SupportManager
+	var support_session := autofree(GameSession.new()) as GameSession
+	support_session.reset(10000)
+	manager.configure(support_session)
+	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1000, SCENARIO.available_defenses[5])
+	manager.register_asset(facility)
+	var id := 2000
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		var unit := add_child_autofree(definition.scene.instantiate()) as DefenseUnit
+		unit.setup(id, definition)
+		id += 1
+		unit.position = Vector3(20.0, 0.0, 0.0)
+		unit.configure_support(manager)
+		manager.register_asset(unit)
+		unit.set_automatic_resupply(false)
+		unit.set_hold_fire(true)
+		if unit is ArmedDefenseUnit and (unit as ArmedDefenseUnit).magazine != null:
+			(unit as ArmedDefenseUnit).magazine.consume()
+		var resources := unit.capture_content_state().duplicate(true)
+		assert_true(unit.receive_damage(definition.maximum_integrity * 2.0))
+		assert_eq(unit.integrity, 0.0)
+		assert_false(unit.active)
+		assert_false(unit.is_queued_for_deletion())
+		assert_true(unit.operational_status_text().contains("기능정지"))
+		assert_true(manager.serviceable_units_from(facility.position, facility.service_range()).has(unit))
+		assert_true(unit.can_request_repair())
+		var budget := support_session.budget
+		assert_true(unit.request_repair())
+		assert_false(unit.request_repair(), "동일 수리를 중복 결제하지 않습니다")
+		assert_eq(support_session.budget, budget - unit.repair_cost())
+		manager.gameplay_tick(0.01)
+		assert_false(unit.active, "수리가 완료되기 전에는 가동하지 않습니다")
+		manager.gameplay_tick(100.0)
+		assert_true(unit.active)
+		assert_eq(unit.integrity, definition.maximum_integrity)
+		assert_eq(unit.capture_content_state(), resources, "수리는 탄약·에너지·교전 설정을 바꾸지 않습니다")
+		assert_null(unit.damage_smoke)
+
+func test_disabled_battery_keeps_launched_missile_flying_without_reloading() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(2000, SCENARIO.available_defenses[0])
+	var interceptor := add_child_autofree(MissileBattery.INTERCEPTOR_SCENE.instantiate()) as HomingInterceptor
+	interceptor.position = Vector3(0.0, 500.0, 0.0)
+	interceptor.target_track = _confirmed_track(Vector3(0.0, 500.0, -200.0))
+	interceptor.velocity = Vector3.FORWARD * interceptor.speed
+	interceptor.maximum_lifetime = 10.0
+	interceptor.registry = autofree(ThreatRegistry.new()) as ThreatRegistry
+	battery.interceptors.append(interceptor)
+	battery.magazine.rounds = 0
+	battery.magazine.reload_remaining = 5.0
+	battery.receive_damage(1000.0)
+	var previous := interceptor.position
+	battery.gameplay_tick(0.1)
+	assert_gt(interceptor.position.distance_to(previous), 0.0)
+	assert_almost_eq(interceptor.age, 0.1, 0.0001)
+	assert_eq(battery.magazine.reload_remaining, 5.0)
+	assert_eq(battery.magazine.rounds, 0)
+	assert_eq(battery.interceptors.size(), 1)
+	battery.gameplay_tick(0.0)
+	assert_almost_eq(interceptor.age, 0.1, 0.0001)
+
+func test_damage_does_not_reactivate_a_relocating_asset() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(2000, SCENARIO.available_defenses[0])
+	battery.active = false
+	battery.receive_damage(10.0)
+	assert_false(battery.active)
+
 func _find_valid_position(profile: PlacementProfile) -> Vector3:
 	for z: int in range(-450, 451, 30):
 		for x: int in range(-450, 451, 30):

@@ -561,8 +561,6 @@ func _style_metric_grid(grid: GridContainer, value_width: float) -> void:
 			label.add_theme_color_override("font_color", METRIC_VALUE_COLOR)
 
 func _asset_state_text(unit: DefenseUnit) -> String:
-	if unit.integrity <= 0.0:
-		return "파괴"
 	if not unit.active:
 		return "기능 정지"
 	if unit.operational_ratio() < 0.75:

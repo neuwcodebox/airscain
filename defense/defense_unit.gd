@@ -211,7 +211,7 @@ func receive_damage(amount: float) -> bool:
 	if amount <= 0.0 or integrity <= 0.0:
 		return false
 	integrity = maxf(0.0, integrity - amount)
-	active = operational_ratio() >= 0.35
+	active = active and operational_ratio() >= 0.35
 	_refresh_damage_visual()
 	damage_received.emit(self, amount, operational_ratio())
 	return true
@@ -228,9 +228,7 @@ func operational_status_text() -> String:
 		return "상태 정상 · 내구도 %d%%" % roundi(ratio * 100.0)
 	if active:
 		return "상태 성능저하 · 내구도 %d%%" % roundi(ratio * 100.0)
-	if integrity > 0.0:
-		return "상태 기능정지 · 내구도 %d%%" % roundi(ratio * 100.0)
-	return "상태 파괴"
+	return "상태 기능정지 · 내구도 %d%%" % roundi(ratio * 100.0)
 
 func repair_cost() -> int:
 	return definition.repair_cost
@@ -239,7 +237,7 @@ func repair_work() -> float:
 	return definition.repair_work * (1.0 - operational_ratio())
 
 func can_request_repair() -> bool:
-	return support_manager != null and integrity > 0.0 and integrity < definition.maximum_integrity and support_manager.task_status(self).is_empty() and support_manager.can_service(self)
+	return support_manager != null and integrity < definition.maximum_integrity and support_manager.task_status(self).is_empty() and support_manager.can_service(self) and (relocation_manager == null or relocation_manager.task_status(self).is_empty())
 
 func request_repair() -> bool:
 	return support_manager != null and support_manager.request_repair(self)

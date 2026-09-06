@@ -47,7 +47,7 @@ func c2_link_range() -> float:
 	return _definition.c2_range * operational_efficiency()
 
 func gameplay_tick(delta: float) -> void:
-	if not active or registry == null or player_knowledge == null or c2_network == null:
+	if delta <= 0.0:
 		return
 	for index: int in range(interceptors.size() - 1, -1, -1):
 		var interceptor := interceptors[index]
@@ -57,6 +57,8 @@ func gameplay_tick(delta: float) -> void:
 			interceptors.remove_at(index)
 		else:
 			interceptor.gameplay_tick(delta)
+	if not active or registry == null or player_knowledge == null or c2_network == null:
+		return
 	for munition_magazine: WeaponMagazine in magazines.values():
 		munition_magazine.gameplay_tick(delta)
 	_refresh_launcher_cells()
