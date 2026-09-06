@@ -4,6 +4,7 @@ extends Node3D
 const DEPENDENCY_REFRESH_INTERVAL := 0.2
 
 signal feedback_changed(message: String, transient: bool)
+signal placement_status_changed(message: String, valid: bool, screen_position: Vector2, active: bool)
 signal asset_selected(unit: DefenseUnit)
 signal world_selected(position: Vector3, screen_position: Vector2)
 signal sandbox_threat_placement_requested(definition: ThreatDefinition, position: Vector3)
@@ -45,24 +46,27 @@ func configure(session_value: GameSession, battlefield_value: Battlefield, camer
 	preview_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 func select(definition: DefenseDefinition) -> void:
+	placement_status_changed.emit("", false, Vector2.ZERO, false)
 	relocating_unit = null
 	selected_threat = null
 	selected = definition
 	battlefield.set_rooftop_pads_visible(definition.placement_profile.rooftop_allowed)
 	_create_preview()
 	_publish_dependency_preview(definition, Vector3.ZERO, false, true)
-	feedback_changed.emit("지도에서 배치 위치를 선택하세요    우클릭 또는 Esc: 취소", false)
+	feedback_changed.emit("우클릭 / Esc: 배치 취소", false)
 
 func select_relocation(unit: DefenseUnit) -> void:
+	placement_status_changed.emit("", false, Vector2.ZERO, false)
 	selected_threat = null
 	relocating_unit = unit
 	selected = unit.definition
 	battlefield.set_rooftop_pads_visible(selected.placement_profile.rooftop_allowed)
 	_create_preview()
 	_publish_dependency_preview(null, Vector3.ZERO, false, true)
-	feedback_changed.emit("새 위치를 선택하세요    우클릭 또는 Esc: 취소", false)
+	feedback_changed.emit("우클릭 / Esc: 재배치 취소", false)
 
 func select_sandbox_threat(definition: ThreatDefinition) -> void:
+	placement_status_changed.emit("", false, Vector2.ZERO, false)
 	battlefield.set_placement_contours(false)
 	selected = null
 	relocating_unit = null
@@ -70,7 +74,7 @@ func select_sandbox_threat(definition: ThreatDefinition) -> void:
 	battlefield.set_rooftop_pads_visible(false)
 	_create_threat_preview()
 	_publish_dependency_preview(null, Vector3.ZERO, false, true)
-	feedback_changed.emit("지도에서 위협 투입 위치를 선택하세요    우클릭 또는 Esc: 취소", false)
+	feedback_changed.emit("우클릭 / Esc: 위협 투입 취소", false)
 
 func cancel() -> void:
 	selected = null
@@ -84,18 +88,24 @@ func cancel() -> void:
 	preview = null
 	_publish_dependency_preview(null, Vector3.ZERO, false, true)
 	feedback_changed.emit("", false)
+	placement_status_changed.emit("", false, Vector2.ZERO, false)
 
 func _process(delta: float) -> void:
 	if selected == null and selected_threat == null or preview == null:
 		return
 	var mouse := get_viewport().get_mouse_position()
+	if not get_viewport().get_visible_rect().has_point(mouse) or get_viewport().gui_get_hovered_control() != null:
+		preview.visible = false
+		_publish_dependency_preview(null, Vector3.ZERO, false)
+		placement_status_changed.emit("", false, mouse, false)
+		return
 	var hit := _terrain_hit(mouse)
 	if hit.is_empty():
 		battlefield.set_placement_contours(false)
 		preview.visible = false
 		candidate_valid = false
 		_publish_dependency_preview(null, Vector3.ZERO, false)
-		feedback_changed.emit("배치 위치를 지도 위에서 선택하세요", false)
+		placement_status_changed.emit("배치 불가\n지도 위에서 위치를 선택하세요", false, mouse, true)
 		return
 	preview.visible = true
 	candidate_position = hit.position if selected_threat != null else battlefield.snap_placement_position(hit.position, selected.placement_profile)
@@ -110,7 +120,12 @@ func _process(delta: float) -> void:
 		if refresh_due:
 			dependency_refresh_remaining = DEPENDENCY_REFRESH_INTERVAL
 	preview_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48) if candidate_valid else Color(1.0, 0.18, 0.12, 0.52)
-	feedback_changed.emit(String(result.reason), false)
+	var message := String(result.reason)
+	if not candidate_valid:
+		message = "배치 불가\n%s" % message
+	elif relocating_unit != null:
+		message = "재배치 가능"
+	placement_status_changed.emit(message, candidate_valid, mouse, true)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if selected == null and selected_threat == null:

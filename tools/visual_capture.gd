@@ -20,6 +20,14 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-placement-hint-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		await _capture_placement_hint()
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-wreck-only"):
 		await _capture_falling_wreck()
 		main.queue_free()
@@ -1096,7 +1104,7 @@ func _capture_placement_dependencies() -> void:
 		push_error("Placement preview did not show a ready C2 path")
 		quit(1)
 		return
-	if not main.hud.placement_power_panel.visible or not main.hud.placement_power_label.text.contains("배치 후  12 / 20"):
+	if not main.hud.placement_hint_panel.visible or not main.hud.placement_power_label.text.contains("배치 후  12 / 20"):
 		push_error("Placement preview did not show the energy power impact")
 		quit(1)
 		return
@@ -1156,6 +1164,35 @@ func _capture_offscreen_marker_full_edge() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_offscreen_marker_full_edge.png")
+
+func _capture_placement_hint() -> void:
+	AirscainApp.apply_global_font()
+	main.session.budget = 5000
+	main._on_pressure_changed(5)
+	var definition := main.scenario.available_defenses[6]
+	var positions := _visible_valid_placement_positions(definition.placement_profile, 1)
+	assert(not positions.is_empty())
+	main.placement.select(definition)
+	Input.warp_mouse(root.get_final_transform() * main.camera_rig.camera.unproject_position(positions[0]))
+	for index: int in 12:
+		await process_frame
+	_save_capture("/tmp/airscain_placement_hint_valid.png")
+	assert(main.hud.placement_status_label.text == "배치 가능", "hint=%s hover=%s mouse=%s" % [main.hud.placement_status_label.text, root.gui_get_hovered_control(), root.get_mouse_position()])
+	main.session.try_spend(main.session.budget)
+	for index: int in 4:
+		await process_frame
+	assert(main.hud.placement_status_label.text.contains("예산이 부족"))
+	_save_capture("/tmp/airscain_placement_hint_invalid.png")
+	Input.warp_mouse(root.get_final_transform() * Vector2(main.hud.size.x - 12, main.hud.size.y - 12))
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_placement_hint_edge.png")
+	Input.warp_mouse(root.get_final_transform() * main.hud.defense_menu_button.get_global_rect().get_center())
+	for index: int in 4:
+		await process_frame
+	assert(not main.hud.placement_hint_panel.visible)
+	main.placement.cancel()
+	print("VISUAL_CAPTURE_OK placement_hint_valid invalid edge ui_hide cancel")
 
 func _capture_open_city_ground_placement() -> void:
 	var definition := main.scenario.available_defenses[0]

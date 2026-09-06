@@ -212,6 +212,7 @@ func _connect_flow() -> void:
 	hud.restart_requested.connect(_on_restart_requested)
 	hud.main_menu_requested.connect(_on_main_menu_requested)
 	placement.feedback_changed.connect(hud.set_feedback)
+	placement.placement_status_changed.connect(hud.set_placement_status)
 	placement.asset_selected.connect(_on_asset_selected)
 	placement.world_selected.connect(_on_world_selected)
 	placement.placement_preview_changed.connect(_on_placement_preview_changed)

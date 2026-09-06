@@ -877,6 +877,30 @@ func test_right_click_cancels_placement_before_clearing_selection() -> void:
 	assert_null(main.selected_track)
 	assert_false(main.camera_rig.rotating)
 
+func test_placement_hint_groups_status_power_and_stays_inside_screen() -> void:
+	var hud := main.hud
+	var cursor := hud.size - Vector2(8, 8)
+	hud.set_placement_power_preview(10, 12, 20, 0, cursor, true)
+	hud.set_placement_status("배치 불가\n예산이 부족합니다", false, cursor, true)
+	await get_tree().process_frame
+	hud.set_placement_status("배치 불가\n예산이 부족합니다", false, cursor, true)
+	assert_true(hud.placement_hint_panel.visible)
+	assert_true(hud.placement_power_label.visible)
+	assert_same(hud.placement_status_label.get_parent(), hud.placement_power_label.get_parent())
+	assert_true(hud.placement_hint_panel.get_global_rect().end.x <= hud.size.x)
+	assert_true(hud.placement_hint_panel.get_global_rect().end.y <= hud.size.y)
+	assert_false(hud.placement_hint_panel.get_global_rect().has_point(cursor))
+	var previous_height := hud.placement_hint_panel.size.y
+	hud.set_placement_power_preview(0, 0, 0, 0, cursor, false)
+	hud.set_placement_status("배치 가능", true, Vector2(400, 300), true)
+	await get_tree().process_frame
+	hud.set_placement_status("배치 가능", true, Vector2(400, 300), true)
+	assert_false(hud.placement_power_label.visible)
+	assert_lt(hud.placement_hint_panel.size.y, previous_height)
+	assert_eq(hud.placement_hint_panel.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	main.placement.cancel()
+	assert_false(hud.placement_hint_panel.visible)
+
 func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main.session.unlimited_budget = true
 	main._on_pressure_changed(3)
@@ -890,14 +914,14 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_true(main.c2_overlay.placement_active)
 	assert_true(main.c2_overlay.placement_ready)
 	assert_gte(main.c2_overlay.visible_link_count, 1)
-	assert_false(main.hud.placement_power_panel.visible)
+	assert_false(main.hud.placement_hint_panel.visible)
 	var laser_definition := main.scenario.available_defenses[6]
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
-	assert_true(main.hud.placement_power_panel.visible)
-	assert_same(main.hud.placement_power_label.get_parent(), main.hud.placement_power_panel)
+	assert_true(main.hud.placement_hint_panel.visible)
+	assert_true(main.hud.placement_hint_panel.is_ancestor_of(main.hud.placement_power_label))
 	assert_string_contains(main.hud.placement_power_label.text, "전력 수요  0 / 0")
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 0")
-	assert_lt(main.hud.placement_power_panel.position.distance_to(main.camera_rig.camera.unproject_position(candidate)), 220.0)
+	assert_lt(main.hud.placement_hint_panel.position.distance_to(main.camera_rig.camera.unproject_position(candidate)), 220.0)
 	var support_result := _place_for(main, main.scenario.available_defenses[5])
 	assert_true(support_result.success)
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
@@ -936,7 +960,7 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_eq((main.c2_overlay.range_ring.mesh as TorusMesh).rings, 96)
 	main.placement.cancel()
 	assert_false(main.c2_overlay.placement_active)
-	assert_false(main.hud.placement_power_panel.visible)
+	assert_false(main.hud.placement_hint_panel.visible)
 
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()

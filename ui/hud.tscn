@@ -245,10 +245,10 @@ theme_override_font_sizes/font_size = 16
 text = "▲ 적성 항적 0    교전 0"
 horizontal_alignment = 1
 
-[node name="PlacementPowerPanel" type="PanelContainer" parent="."]
+[node name="PlacementHintPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(170, 58)
+custom_minimum_size = Vector2(170, 40)
 layout_mode = 1
 z_index = 30
 offset_left = 720.0
@@ -258,9 +258,23 @@ offset_bottom = 488.0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("CatalogPanel")
 
-[node name="PlacementPowerLabel" type="Label" parent="PlacementPowerPanel"]
+[node name="VBox" type="VBoxContainer" parent="PlacementHintPanel"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="PlacementStatusLabel" type="Label" parent="PlacementHintPanel/VBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 15
+text = "배치 가능"
+
+[node name="PlacementPowerLabel" type="Label" parent="PlacementHintPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 2
 theme_override_colors/font_color = Color(0.45, 0.92, 0.82, 1)
 theme_override_font_sizes/font_size = 13
 text = "전력 수요  0 / 20\n배치 후  12 / 20"

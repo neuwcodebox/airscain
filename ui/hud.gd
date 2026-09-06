@@ -70,8 +70,9 @@ const CATALOG_GROUP_LABELS := {
 @onready var threat_menu_button: Button = %ThreatMenuButton
 @onready var city_restoration_button: Button = %CityRestorationButton
 @onready var time_label: Label = %TimeLabel
-@onready var placement_power_panel: PanelContainer = %PlacementPowerPanel
+@onready var placement_hint_panel: PanelContainer = %PlacementHintPanel
 @onready var placement_power_label: Label = %PlacementPowerLabel
+@onready var placement_status_label: Label = %PlacementStatusLabel
 @onready var pressure_label: Label = %PressureLabel
 @onready var pause_button: Button = %PauseButton
 @onready var normal_button: Button = %NormalButton
@@ -310,18 +311,36 @@ func _set_feedback_text(message: String) -> void:
 	feedback_label.visible = not message.is_empty()
 
 func set_placement_power_preview(current_demand: float, added_demand: float, capacity: float, added_capacity: float, screen_position: Vector2, active: bool) -> void:
-	placement_power_panel.visible = active and (added_demand > 0.0 or added_capacity > 0.0)
-	if not placement_power_panel.visible:
+	placement_power_label.visible = active and (added_demand > 0.0 or added_capacity > 0.0)
+	placement_hint_panel.visible = placement_power_label.visible or placement_status_label.visible
+	if not placement_power_label.visible:
 		return
 	var expected_demand := current_demand + added_demand
 	var expected_capacity := capacity + added_capacity
 	placement_power_label.text = "전력 수요  %d / %d\n배치 후  %d / %d" % [roundi(current_demand), roundi(capacity), roundi(expected_demand), roundi(expected_capacity)]
 	var color := Color(1.0, 0.48, 0.3) if expected_demand > expected_capacity else Color(0.45, 0.92, 0.82)
 	placement_power_label.add_theme_color_override("font_color", color)
+	_position_placement_hint(screen_position)
+
+func set_placement_status(message: String, valid: bool, screen_position: Vector2, active: bool) -> void:
+	placement_status_label.visible = active
+	placement_hint_panel.visible = active
+	if not active:
+		return
+	placement_status_label.text = message
+	placement_status_label.modulate = Color(0.45, 0.92, 0.66) if valid else Color(1.0, 0.55, 0.4)
+	_position_placement_hint(screen_position)
+
+func _position_placement_hint(screen_position: Vector2) -> void:
+	placement_hint_panel.size = placement_hint_panel.get_combined_minimum_size()
 	var viewport_size := get_viewport_rect().size
-	var panel_size := placement_power_panel.size
-	var preferred := screen_position + Vector2(22.0, -panel_size.y * 0.5)
-	placement_power_panel.position = Vector2(clampf(preferred.x, 12.0, viewport_size.x - panel_size.x - 12.0), clampf(preferred.y, 66.0, viewport_size.y - panel_size.y - 12.0))
+	var panel_size := placement_hint_panel.size
+	var preferred := screen_position + Vector2(24.0, 24.0)
+	if preferred.x + panel_size.x > viewport_size.x - 12.0:
+		preferred.x = screen_position.x - panel_size.x - 24.0
+	if preferred.y + panel_size.y > viewport_size.y - 12.0:
+		preferred.y = screen_position.y - panel_size.y - 24.0
+	placement_hint_panel.position = Vector2(clampf(preferred.x, 12.0, maxf(12.0, viewport_size.x - panel_size.x - 12.0)), clampf(preferred.y, 72.0, maxf(72.0, viewport_size.y - panel_size.y - 12.0)))
 
 func set_final_stats(stats: Dictionary) -> void:
 	final_stats.text = String(stats.get("summary", ""))
