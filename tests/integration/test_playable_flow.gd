@@ -726,8 +726,10 @@ func test_long_range_launcher_exposes_munition_mode_control() -> void:
 	assert_true(main.hud.doctrine_section.is_ancestor_of(main.hud.automatic_resupply_button))
 	assert_eq(main.hud.automatic_resupply_button.text, "자동 재보급")
 	assert_eq(main.hud.automatic_resupply_button.tooltip_text, "")
-	assert_false(main.hud.automatic_resupply_button.button_pressed)
+	assert_true(main.hud.automatic_resupply_button.button_pressed)
 	var budget := main.session.budget
+	main.hud.automatic_resupply_button.button_pressed = false
+	assert_false(battery.automatic_resupply_enabled())
 	main.hud.automatic_resupply_button.button_pressed = true
 	assert_true(battery.automatic_resupply_enabled())
 	assert_eq(main.session.budget, budget, "스위치를 켜는 것만으로 보급 비용을 쓰지 않습니다")

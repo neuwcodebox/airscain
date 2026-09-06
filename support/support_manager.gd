@@ -25,6 +25,8 @@ func reset() -> void:
 	_automatic_check_remaining = 0.0
 
 func register_asset(unit: DefenseUnit) -> void:
+	if not consumers.has(unit.runtime_id) and unit.uses_ammunition():
+		automatic_resupply_ids[unit.runtime_id] = true
 	consumers[unit.runtime_id] = unit
 	if unit.service_range() > 0.0 and unit.support_slots() > 0:
 		facilities.append(unit)

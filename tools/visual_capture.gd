@@ -737,9 +737,8 @@ func _capture_automatic_resupply() -> bool:
 	main.hud.set_catalog_expanded(false)
 	for frame: int in 5:
 		await process_frame
-	await _click_control(main.hud.automatic_resupply_button)
-	if not battery.automatic_resupply_enabled():
-		push_error("Actual checkbox click did not enable automatic resupply")
+	if not battery.automatic_resupply_enabled() or not main.hud.automatic_resupply_button.button_pressed:
+		push_error("New ammunition asset must default to automatic resupply enabled")
 		return false
 	var budget := main.session.budget
 	var cost := battery.resupply_cost()
@@ -1962,7 +1961,7 @@ func _visible_valid_placement_positions(profile: PlacementProfile, count: int) -
 	return result
 
 func _click_control(control: Control) -> void:
-	var screen_position := control.get_global_rect().get_center()
+	var screen_position := root.get_final_transform() * control.get_global_rect().get_center()
 	Input.warp_mouse(screen_position)
 	for frame_index: int in 3:
 		await process_frame

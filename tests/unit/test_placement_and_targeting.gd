@@ -1085,6 +1085,7 @@ func test_automatic_resupply_marker_reports_progress_or_waiting_instead_of_deple
 	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
 	specialized.rounds = 0
 	specialized.reserve = 0
+	battery.set_automatic_resupply(false)
 	assert_eq(battery.critical_status_text(), "일부 탄종 고갈")
 	battery.set_automatic_resupply(true)
 	assert_eq(battery.critical_status_text(), "재보급 대기")
@@ -1110,10 +1111,7 @@ func test_automatic_resupply_detects_one_low_munition_and_never_double_charges()
 	var support_session: GameSession = fixture.session
 	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
 	specialized.reserve = 0
-	assert_false(battery.automatic_resupply_enabled())
-	manager.gameplay_tick(1.0)
-	assert_eq(manager.tasks.size(), 0)
-	battery.set_automatic_resupply(true)
+	assert_true(battery.automatic_resupply_enabled())
 	manager.gameplay_tick(0.0)
 	assert_eq(support_session.budget, 100, "일시정지 중에는 자동 결제하지 않습니다")
 	var cost := battery.resupply_cost()
@@ -1124,6 +1122,8 @@ func test_automatic_resupply_detects_one_low_munition_and_never_double_charges()
 	assert_eq(manager.tasks.size(), 1)
 	assert_eq(support_session.budget, 100 - cost, "진행 중인 작업에 중복 결제하지 않습니다")
 	battery.set_automatic_resupply(false)
+	manager.register_asset(battery)
+	assert_false(battery.automatic_resupply_enabled(), "재등록해도 사용자가 해제한 설정을 유지합니다")
 	assert_eq(manager.tasks.size(), 1, "자동 요청 해제는 이미 결제한 작업을 취소하지 않습니다")
 	manager.gameplay_tick(100.0)
 	assert_eq(specialized.reserve, specialized.reserve_capacity)
@@ -1184,6 +1184,8 @@ func test_automatic_resupply_policy_restores_without_spending_and_rejects_non_am
 	assert_false(facility.automatic_resupply_enabled())
 	assert_eq(support_session.budget, 100)
 	assert_eq(manager.tasks.size(), 0)
+	manager.restore_state({"tasks": [], "automatic_resupply_ids": []})
+	assert_false(battery.automatic_resupply_enabled(), "저장된 꺼짐은 새 자산의 기본값보다 우선합니다")
 
 func test_support_tasks_require_a_nearby_operational_facility() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
@@ -1272,7 +1274,7 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	gun._process(0.0)
 	assert_true(gun.status_marker.visible)
 	var depleted_label := gun.status_marker.get_node("Label") as Label3D
-	assert_eq(depleted_label.text, "탄약 고갈")
+	assert_eq(depleted_label.text, "재보급 대기")
 	assert_almost_eq(depleted_label.pixel_size, 0.001, 0.00001)
 	gun.receive_damage(70.0)
 	gun._process(0.0)
