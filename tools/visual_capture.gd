@@ -20,6 +20,10 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	main.combat_audio.enabled = false
+	main.ui_audio.enabled = false
+	main.combat_audio.stop_all()
+	main.ui_audio.stop_all()
 	if OS.get_cmdline_user_args().has("--capture-click-priority-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
@@ -991,7 +995,7 @@ func _capture_falling_wreck() -> void:
 		await process_frame
 	await RenderingServer.frame_post_draw
 	_save_capture("/tmp/airscain_wreck_before.png")
-	main._spawn_falling_wreck(aircraft)
+	main.resolution_effects.spawn_wreck(aircraft)
 	var wreck := main.effects_parent.get_node("FallingWreck") as FallingWreckEffect
 	wreck.set_process(false)
 	aircraft.queue_free()
@@ -2353,8 +2357,9 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	var unit_smoke: GPUParticles3D = gun.damage_smoke.get_node("Smoke") as GPUParticles3D if gun.damage_smoke != null else null
 	var unit_process: ParticleProcessMaterial = unit_smoke.process_material as ParticleProcessMaterial if unit_smoke != null else null
 	var unit_growth: CurveTexture = unit_process.scale_curve as CurveTexture if unit_process != null else null
-	var identity_icon := gun.identity_marker.get_node("Icon") as Label3D
-	if gun.damage_smoke == null or label.text != "손상" or not label.no_depth_test or label.render_priority < 100 or not identity_icon.no_depth_test or identity_icon.render_priority < 100 or unit_growth == null or unit_growth.curve.sample(0.0) >= unit_growth.curve.sample(1.0):
+	var identity_icon := gun.identity_marker.get_node("Icon") as Sprite3D
+	var condition := gun.identity_marker.get_node("ConditionFrame") as Sprite3D
+	if gun.damage_smoke == null or not condition.visible or not condition.no_depth_test or condition.render_priority < 100 or not identity_icon.no_depth_test or identity_icon.render_priority < 100 or unit_growth == null or unit_growth.curve.sample(0.0) >= unit_growth.curve.sample(1.0):
 		push_error("Damaged unit did not expose smoke and a damage status marker")
 		quit(1)
 		return

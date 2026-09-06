@@ -177,14 +177,18 @@ HUD 상단바는 왼쪽의 예산·도시 수치와 관리 버튼, 중앙의 생
 | 영역 | 확인한 결합/변경 부담 | 정리 방향 |
 | --- | --- | --- |
 | 항공 투발 | VFX scene script가 운동·충돌·피해·저장을 소유하고 미사일이 문자열로 내부 필드를 조작 | StrikeFlight는 운동/충돌, StrikePayload는 실제 탄착 피해, AirStrikeMunition은 scene 조합과 표현을 담당한다. 기존 저장 문서 구조는 유지한다. |
-| 기체 임무 | AttackUav에 비행·관측·투발 계산·무장 생성이 집중 | 투발 정책/생성은 전용 컴포넌트로 분리하고 임무 단계는 ThreatMissionRuntime 한 곳에서 소유한다. |
-| 위협 종료 | main이 AttackUav와 센서 분류 문자열을 보고 이탈·잔해·폭발을 결정 | 임무 완료 질의와 콘텐츠의 종료 표현 정책을 소비하는 표현 컴포넌트로 분리한다. |
+| 기체 임무 | AttackUav에 비행·관측·투발 계산·무장 생성이 집중 | AircraftStrikeRelease가 정렬/낙하지점과 무장 생성을 담당하고 임무 단계는 ThreatMissionRuntime 한 곳에서 소유한다. |
+| 위협 종료 | main이 AttackUav와 센서 분류 문자열을 보고 이탈·잔해·폭발을 결정 | ThreatUnit의 완료 질의와 ThreatResolutionProfile을 소비하는 ThreatResolutionEffects가 종료 표현을 담당한다. |
 | HUD/자산 표시 | hud의 카탈로그·선택 정보·명령 연결이 한 파일에 있고 상태 행 Dictionary 계약이 넓음 | 현재 자산 capability와 표시/툴팁의 공개 상태 경계는 유지한다. 향후 선택 패널 또는 카탈로그 변경 시 실제 view 단위로 분리하고 범용 UI 프레임워크는 도입하지 않는다. |
 | 저장/복원 | Snapshot 검증과 main의 재구성이 별도 목록을 알아야 하는 확장 부담 | 고유 검증의 Definition 위임은 유지한다. 다음 저장 콘텐츠 확장 시 world 재구성 단위를 추출하되 main을 그대로 받는 전달용 클래스는 만들지 않는다. |
 | 공습/난이도 | Director가 시간 압력·관측 가중치·스폰을 조율하지만 절차 편성은 RaidPlanner로 분리됨 | 기존 조합은 유지한다. 후반 난이도 개편 때 압력 곡선을 데이터 정책으로 분리하며 이번 구조 정리에서 수치는 변경하지 않는다. |
 | 교전/지원 | ArmedDefenseUnit의 capability, EngagementCoordinator, Magazine/Energy, Support/Power의 소유권이 이미 분리됨 | 현재 확장 경계를 유지하고 중복 추상 계층을 추가하지 않는다. |
 
 gameplay scene root는 모듈 참조를 조립하고 상위 사건 흐름을 연결한다. 모드 전용 상태 머신은 root에 두지 않는다. 훈련 진행은 `TrainingController`가 소유하며 배치·선택·교전·지원 사건을 입력받아 단계와 안내를 갱신하고, 공통 선택 상태 변경이 필요하면 signal로 scene root에 요청한다.
+
+위협 종료 시 root는 registry 제거·통계·훈련 통지만 담당하고 이탈 여부는 `ThreatUnit.exits_without_impact()`로 질의한다. `ThreatResolutionEffects` child는 잔해·섬광·종료음을 표현하며 피해나 보상을 변경하지 않는다. Definition의 `resolution_profile`은 잔해 여부·폭발·축척·연기·착지 섬광을 명시하고, `wreck_tint()`는 콘텐츠 외형 색을 제공한다. 기본 항공체와 조류의 기존 외형 설정은 각각 공유 Resource로 유지한다. 센서 `signature_class`를 바꾸어도 파괴 연출은 바뀌지 않는다.
+
+항공 투발의 상태 소유권은 `ThreatMissionRuntime`의 임무 단계, `StrikeFlight`의 비행 방식/속도/경과 시간/충돌 결과, `StrikePayload`의 대상/피해/1회 적용으로 나눈다. 두 규칙 객체는 RefCounted이며 시각 노드를 생성하거나 탐색하지 않는다. `AirStrikeMunition`은 규칙을 진행하고 위치·빛·궤적·종료를 scene에 반영하는 adapter다. `AirLaunchedMissile`은 typed adapter API로 이를 조합한다. `AircraftStrikeRelease`는 상태를 중복 보관하지 않고 기체의 실제 transform과 속도로 투발 조건·생성을 계산한다. `ThreatMissionRuntime.ReleaseDecision`으로 거리 기준/대기/투발 가능을 명시해 nullable Variant 플래그를 사용하지 않는다. 저장 문서는 각 규칙 상태를 기존 키로 합성하므로 포맷 변경이나 별도 마이그레이션을 요구하지 않는다.
 
 훈련은 실습용 포대·고고도 센서·에너지 무기 참조를 보존해 다른 자산의 조작으로 완료되지 않게 한다. `SupportManager.task_completed`와 `RelocationManager.relocation_started/relocation_completed`를 통해 요청·완료를 분리하고 작업 구간만 자동 재생한다. C2 경로가 연결되어야 방어를 시작하며, 지원기지가 실습 포대를 지원할 수 있어야 보급 단계로 진입한다. 고급 실습 진입 시 훈련에서만 단계 3 장비를 해금하고, 실제 게임과 같은 예산·지원·피해·전력 판정을 사용한다.
 

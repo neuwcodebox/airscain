@@ -1,6 +1,7 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
+[ext_resource path="res://effects/threat_resolution_effects.gd" type="Script" id="Resolution"]
 [ext_resource path="res://world/battlefield.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://main/game_session.gd" type="Script" id="3"]
 [ext_resource path="res://enemy/threat_director.gd" type="Script" id="4"]
@@ -72,6 +73,9 @@ script = ExtResource("19")
 
 [node name="UiAudio" type="Node" parent="."]
 script = ExtResource("22")
+
+[node name="ThreatResolutionEffects" type="Node" parent="."]
+script = ExtResource("Resolution")
 
 [node name="ThreatDirector" type="Node" parent="."]
 script = ExtResource("4")

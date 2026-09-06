@@ -7,11 +7,9 @@ signal restart_game_requested(mode: GameMode, world_seed: int)
 signal main_menu_requested
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
-const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
 const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
 const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
 const AIR_STRIKE_MUNITION_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
-const FALLING_WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
 const MAXIMUM_GAMEPLAY_STEP := 1.0 / 30.0
 
 static var requested_seed: int = -1
@@ -46,6 +44,7 @@ var combat_effect_pool: CombatEffectPool
 @onready var relocation_manager: RelocationManager = $RelocationManager
 @onready var enemy_knowledge: EnemyKnowledge = $EnemyKnowledge
 @onready var combat_audio: CombatAudio = $CombatAudio
+@onready var resolution_effects: ThreatResolutionEffects = $ThreatResolutionEffects
 @onready var ui_audio: UiAudio = $UiAudio
 @onready var track_display: TrackDisplay = $WorldObjects/TacticalTracks
 @onready var c2_overlay: C2Overlay = $WorldObjects/C2Overlay
@@ -78,6 +77,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	battlefield.build(scenario)
+	resolution_effects.configure(battlefield, effects_parent, combat_audio)
 	add_child(day_night)
 	day_night.configure($Sun, $WorldEnvironment, battlefield)
 	camera_rig.configure_for_battlefield(scenario.battlefield_size, battlefield.terrain_height)
@@ -298,54 +298,14 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	enemy_knowledge.record_outcome(neutralized, threat.global_position, threat.definition.id)
 	registry.remove(threat)
 	session.register_threat_resolution(threat, neutralized, reward)
-	if not neutralized and threat is AttackUav:
-		var aircraft := threat as AttackUav
-		if aircraft.mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS:
-			threat.queue_free()
-			return
-	if neutralized and _leaves_falling_wreck(threat):
-		_spawn_falling_wreck(threat)
-	if _resolves_without_explosion(threat):
+	if not neutralized and threat.exits_without_impact():
 		threat.queue_free()
 		return
-	if not _is_city_impact(threat, neutralized):
-		combat_audio.play_event(CombatAudio.EXPLOSION, 0.8 if neutralized else 1.0)
-	_spawn_explosion(threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
-	if game_mode == GameMode.TRAINING:
+	resolution_effects.present(threat, neutralized)
+	if game_mode == GameMode.TRAINING and threat.definition.has_resolution_explosion():
 		training_controller.threat_resolved(threat)
 	threat.queue_free()
 
-func _leaves_falling_wreck(threat: ThreatUnit) -> bool:
-	return threat.definition.signature_class in [&"uav", &"small_uav", &"aircraft", &"air_contact", &"bird"]
-
-func _resolves_without_explosion(threat: ThreatUnit) -> bool:
-	return threat.definition.signature_class == &"bird"
-
-func _is_city_impact(threat: ThreatUnit, neutralized: bool) -> bool:
-	if neutralized or not threat is AttackUav:
-		return false
-	var mission := (threat as AttackUav).mission_runtime.profile
-	return mission != null and mission.type == ThreatMissionDefinition.Type.IMPACT and mission.target_role == ThreatMissionDefinition.TargetRole.CITY
-
-func _spawn_falling_wreck(threat: ThreatUnit) -> void:
-	var effect := FALLING_WRECK_SCENE.instantiate() as FallingWreckEffect
-	effect.battlefield = battlefield
-	effects_parent.add_child(effect)
-	effect.global_position = threat.global_position
-	var color := Color(0.45, 0.16, 0.1)
-	var wreck_scale := 1.0
-	var smoke_enabled := true
-	var flash_enabled := true
-	if threat.definition is AttackUavDefinition:
-		color = (threat.definition as AttackUavDefinition).visual_color
-	elif threat.definition.signature_class == &"bird":
-		color = Color(0.23, 0.27, 0.29)
-		wreck_scale = 0.42
-		smoke_enabled = false
-		flash_enabled = false
-	var ground_height := battlefield.terrain_height(threat.global_position.x, threat.global_position.z)
-	effect.setup(color, threat.presentation_velocity(), ground_height, wreck_scale, smoke_enabled, flash_enabled)
-	effect.use_airframe(threat)
 
 func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 	if not _objective.definition.required_for_survival:
@@ -396,9 +356,6 @@ func _on_projectile_launched_audio(unit: DefenseUnit, projectile: Node) -> void:
 
 func _on_objective_damage_audio(_amount: int) -> void:
 	combat_audio.play_event(CombatAudio.BIG_EXPLOSION)
-
-func _spawn_explosion(position: Vector3, color: Color, radius: float) -> void:
-	ExplosionEffect.spawn(effects_parent, position, color, radius)
 
 func _final_statistics() -> Dictionary:
 	var neutralized_parts: Array[String] = []

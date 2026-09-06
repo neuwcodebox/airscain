@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ThreatResolutionProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://effects/threat_resolution_profile.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+explosion = false
+wreck_color = Color(0.23, 0.27, 0.29, 1)
+wreck_scale = 0.42
+wreck_smoke = false
+landing_flash = false

@@ -44,6 +44,12 @@ func get_urgency() -> float:
 func presentation_velocity() -> Vector3:
 	return Vector3.ZERO
 
+func exits_without_impact() -> bool:
+	return false
+
+func impact_uses_objective_audio() -> bool:
+	return false
+
 func get_sensor_signature() -> Dictionary:
 	return {
 		"classification_hint": definition.signature_class,

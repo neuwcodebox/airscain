@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=8 format=3]
 
 [ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
 [ext_resource path="res://enemy/attack_uav/attack_uav.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
 [ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[ext_resource type="Resource" path="res://effects/aircraft_resolution.tres" id="Resolution"]
 
 [sub_resource type="Resource" id="Movement"]
 script = ExtResource("3")
@@ -26,6 +28,7 @@ script = ExtResource("1")
 id = &"attack_uav"
 display_name = "자폭형 공격 UAV"
 scene = ExtResource("2")
+resolution_profile = ExtResource("Resolution")
 neutralization_reward = 12
 signature_class = &"uav"
 radar_signature = 0.72

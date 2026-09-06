@@ -36,7 +36,7 @@ func run() -> void:
 		if not OS.get_cmdline_user_args().has("--explosion-only"):
 			main.objective.apply_building_impact(1, point, 40)
 		if not OS.get_cmdline_user_args().has("--smoke-only"):
-			main._spawn_explosion(point, Color(1, 0.35, 0.06), 12)
+			ExplosionEffect.spawn(main.effects_parent, point, Color(1, 0.35, 0.06), 12)
 		var cpu := (Time.get_ticks_usec() - started) / 1000.0
 		var peak := 0.0
 		for frame: int in 8:

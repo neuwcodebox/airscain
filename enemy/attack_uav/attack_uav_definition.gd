@@ -9,6 +9,9 @@ extends ThreatDefinition
 func spawn_radius_multiplier() -> float:
 	return movement.spawn_radius_multiplier
 
+func wreck_tint() -> Color:
+	return visual_color
+
 func spawn_altitude() -> float:
 	return movement.cruise_altitude
 

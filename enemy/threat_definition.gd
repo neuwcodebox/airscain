@@ -22,10 +22,17 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export var adaptive_knowledge_role: StringName
 @export_range(0.0, 4.0, 0.1) var adaptive_knowledge_weight: float = 1.0
 @export var requires_role_knowledge: bool = false
+@export var resolution_profile: ThreatResolutionProfile
 @export_range(1.0, 4.0, 0.1) var high_neutralization_weight: float = 1.0
 
 func spawn_radius_multiplier() -> float:
 	return 0.68
+
+func has_resolution_explosion() -> bool:
+	return resolution_profile == null or resolution_profile.explosion
+
+func wreck_tint() -> Color:
+	return resolution_profile.wreck_color if resolution_profile != null else Color(0.45, 0.16, 0.1)
 
 func spawn_altitude() -> float:
 	return 70.0
@@ -46,6 +53,10 @@ func runtime_state_validation_error(_content_state: Dictionary, _defense_ids: Di
 	return ""
 
 func validation_error() -> String:
+	if resolution_profile != null:
+		var effect_error := resolution_profile.validation_error()
+		if not effect_error.is_empty():
+			return effect_error
 	if not is_finite(missile_fuze_response) or missile_fuze_response < 0.1 or missile_fuze_response > 1.0:
 		return "미사일 신관 반응 설정이 올바르지 않습니다"
 	if id.is_empty() or display_name.is_empty() or scene == null:

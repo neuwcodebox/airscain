@@ -3,6 +3,12 @@ extends GutTest
 const IDS: Array[StringName] = [&"battery_strike_cruise", &"support_strike_cruise", &"battery_strike_aircraft", &"radar_strike_aircraft", &"command_strike_aircraft"]
 var main: AirscainMain
 
+class RetiringThreat:
+	extends ThreatUnit
+
+	func exits_without_impact() -> bool:
+		return true
+
 func before_each() -> void:
 	AirscainMain.requested_seed = 73129
 	main = add_child_autofree(load("res://main/main.tscn").instantiate()) as AirscainMain
@@ -42,6 +48,31 @@ func test_payload_damage_is_independent_of_visuals_and_idempotent() -> void:
 	payload.setup(main.objective, 30, target, false)
 	payload.apply_impact(target.global_position + Vector3(1000, 0, 0))
 	assert_eq(target.integrity, 70.0)
+
+func test_resolution_policy_is_independent_of_sensor_classification() -> void:
+	var aircraft := entry_for(&"battery_strike_aircraft").threat_definition.duplicate(true) as ThreatDefinition
+	assert_true(aircraft.resolution_profile.leave_wreck)
+	assert_true(aircraft.has_resolution_explosion())
+	aircraft.signature_class = &"bird"
+	assert_true(aircraft.has_resolution_explosion(), "센서 분류 변경은 파괴 연출을 변경하지 않습니다")
+	var bird := main.scenario.ambient_contacts[0].duplicate(true) as ThreatDefinition
+	bird.signature_class = &"aircraft"
+	assert_false(bird.has_resolution_explosion())
+	assert_false(bird.resolution_profile.wreck_smoke)
+	assert_false(bird.resolution_profile.landing_flash)
+	assert_eq(bird.validation_error(), "")
+	assert_eq(aircraft.validation_error(), "")
+
+func test_root_accepts_impact_free_retirement_without_concrete_aircraft_type() -> void:
+	var threat := RetiringThreat.new()
+	main.threat_parent.add_child(threat)
+	threat.setup(801, entry_for(&"battery_strike_aircraft").threat_definition)
+	main.registry.add(threat)
+	main._on_threat_spawned(threat)
+	var effects_before := main.effects_parent.get_child_count()
+	threat.resolve_once(false)
+	assert_false(main.registry.get_active().has(threat))
+	assert_eq(main.effects_parent.get_child_count(), effects_before)
 
 func entry_for(id: StringName) -> ThreatSpawnEntry:
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
@@ -197,11 +228,11 @@ func test_release_alignment_rejects_sideways_and_backward_missile_shots() -> voi
 	var aircraft := main.director._spawn_entry(entry_for(&"battery_strike_aircraft"), 0.0, 0.0) as AttackUav
 	aircraft.global_position = target.global_position + Vector3(300, 100, 0)
 	aircraft.mover.velocity = Vector3(100, 0, 0)
-	assert_false(aircraft._release_ready(target.global_position, 0.03))
+	assert_false(AircraftStrikeRelease.ready(aircraft.mission_runtime.profile, aircraft.body.global_transform, target.global_position, aircraft.mover.velocity, 0.03))
 	aircraft.mover.velocity = Vector3(0, 0, 100)
-	assert_false(aircraft._release_ready(target.global_position, 0.03))
+	assert_false(AircraftStrikeRelease.ready(aircraft.mission_runtime.profile, aircraft.body.global_transform, target.global_position, aircraft.mover.velocity, 0.03))
 	aircraft.mover.velocity = Vector3(-100, 0, 0)
-	assert_true(aircraft._release_ready(target.global_position, 0.03))
+	assert_true(AircraftStrikeRelease.ready(aircraft.mission_runtime.profile, aircraft.body.global_transform, target.global_position, aircraft.mover.velocity, 0.03))
 
 func target_for(role: StringName) -> DefenseUnit:
 	var index := {&"weapon": 0, &"sensor": 1, &"command": 2, &"support": 5}[role] as int

@@ -86,9 +86,6 @@ func run() -> void:
 			wave += 1
 		main.session.gameplay_delta(STEP)
 		main._gameplay_step(STEP)
-		for effect: Node in main.threat_parent.get_children():
-			if not effect.is_queued_for_deletion() and effect.get_script() != null and effect.get_script().resource_path == "res://effects/air_strike_munition/air_strike_munition.gd":
-				effect.call("_process", STEP)
 		for unit: DefenseUnit in weapons:
 			var label := String(unit.definition.id)
 			if unit.reload_display_magazine() != null:
