@@ -685,6 +685,8 @@ OPERATIONAL
 
 재보급과 수리는 queue로 관리할 수 있다.
 
+재배치는 `RelocationManager`가 공통으로 처리한다. 모든 배포 자산 Definition은 `mobile = true`와 장비별 `relocation_duration`을 지정한다. 목적지는 `Battlefield.snap_placement_position()`으로 지면 또는 허용 옥상에 맞춘 뒤 예약하며, 완료 시 기존 점유를 해제한다. 도시 기본 지휘통제소도 일반 재배치 경로를 사용한다. 작업 중 자산은 비가동이고 진행 중 보급·수리가 있는 자산은 새 재배치를 요청할 수 없다. 저장된 작업의 잔여 시간은 그대로 복원하며 현재 Definition의 전체 시간으로 다시 시작하지 않는다. 선택 패널은 시작 전 소요 시간과 실제 진행 상태를 구분한다.
+
 ```text
 operation_duration =
     base_work

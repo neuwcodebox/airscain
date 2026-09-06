@@ -402,7 +402,8 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	resupply_button.disabled = not selected_asset.uses_ammunition() or not selected_asset.can_request_resupply()
 	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost()
 	repair_button.disabled = not selected_asset.can_request_repair()
-	relocation_button.text = "재배치 위치 지정" if selected_asset.can_request_relocation() else "재배치 중"
+	var relocating := selected_asset.relocation_manager != null and not selected_asset.relocation_manager.task_status(selected_asset).is_empty()
+	relocation_button.text = "재배치 중" if relocating else "재배치  %d초" % roundi(selected_asset.definition.relocation_duration)
 	relocation_button.disabled = not selected_asset.can_request_relocation()
 	_refresh_selection_view(fit_panel)
 

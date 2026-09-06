@@ -12,6 +12,8 @@ boundary_margin = 15.0
 
 [resource]
 script = ExtResource("1")
+mobile = true
+relocation_duration = 20.0
 id = &"support_facility"
 display_name = "통합 지원기지"
 purchase_tooltip = "근처 방공 자산을 재보급하고 수리합니다.\n에너지 무기에 전력을 공급합니다."

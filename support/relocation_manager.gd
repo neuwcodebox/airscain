@@ -24,7 +24,7 @@ func request_relocation(unit: DefenseUnit, destination: Vector3) -> bool:
 	var result := battlefield.placement_result(destination, unit.definition.placement_profile)
 	if not result.valid:
 		return false
-	var target := Vector3(destination.x, battlefield.terrain_height(destination.x, destination.z), destination.z)
+	var target := battlefield.snap_placement_position(destination, unit.definition.placement_profile)
 	battlefield.register_occupancy(target, unit.definition.placement_profile.footprint_radius)
 	unit.active = false
 	tasks.append({"target_defense_id": unit.runtime_id, "origin": SaveDocument.vector3_to_data(unit.global_position), "destination": SaveDocument.vector3_to_data(target), "remaining": unit.definition.relocation_duration})

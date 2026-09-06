@@ -30,4 +30,4 @@ c2_range = 900.0
 minimum_detection_altitude = 120.0
 maximum_detection_altitude = 1500.0
 mobile = true
-relocation_duration = 6.0
+relocation_duration = 8.0

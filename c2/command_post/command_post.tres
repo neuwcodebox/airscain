@@ -12,6 +12,8 @@ boundary_margin = 15.0
 
 [resource]
 script = ExtResource("1")
+mobile = true
+relocation_duration = 15.0
 id = &"command_post"
 display_name = "지휘통제소"
 purchase_tooltip = "센서 항적을 연결된 방어 자산에 전달합니다.\n센서와 방어 자산 양쪽에 C2 연결이 필요합니다."

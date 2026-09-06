@@ -12,6 +12,8 @@ boundary_margin = 15.0
 
 [resource]
 script = ExtResource("1")
+mobile = true
+relocation_duration = 12.0
 id = &"high_energy_laser"
 display_name = "고출력 레이저"
 purchase_tooltip = "소형 위협을 정밀한 에너지 펄스로 요격합니다.\n통합 지원기지의 전력 용량을 사용합니다."

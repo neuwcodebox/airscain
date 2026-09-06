@@ -20,6 +20,37 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-all-relocation-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		AirscainApp.apply_global_font()
+		main.set_process(false)
+		main.session.budget = 10000
+		main._on_pressure_changed(5)
+		_place_asset(main.scenario.available_defenses[7], 1.0)
+		var battery := main.defenses.back() as DefenseUnit
+		main._on_asset_selected(battery)
+		for frame: int in 6:
+			await process_frame
+		assert(main.hud.relocation_button.visible and not main.hud.relocation_button.disabled)
+		_save_capture("/tmp/airscain_relocation_available.png")
+		var positions := _visible_valid_placement_positions(battery.definition.placement_profile, 1)
+		assert(not positions.is_empty())
+		assert(main.relocation_manager.request_relocation(battery, positions[0]))
+		main.hud.refresh_selected_asset()
+		for frame: int in 6:
+			await process_frame
+		_save_capture("/tmp/airscain_relocation_running.png")
+		main.relocation_manager.gameplay_tick(battery.definition.relocation_duration + 0.1)
+		assert(battery.global_position.is_equal_approx(positions[0]))
+		main._on_asset_selected(main.defenses[0])
+		for frame: int in 6:
+			await process_frame
+		assert(main.hud.relocation_button.visible and not main.hud.relocation_button.disabled)
+		_save_capture("/tmp/airscain_relocation_city_command.png")
+		print("ALL_RELOCATION_CAPTURE_OK long_range duration running completed city_command")
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-identity-icons-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

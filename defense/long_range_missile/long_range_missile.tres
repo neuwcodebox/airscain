@@ -70,4 +70,5 @@ minimum_engagement_altitude = 100.0
 maximum_engagement_altitude = 1500.0
 launch_audio_event = &"long_missile"
 munitions = Array[ExtResource("4")]([SubResource("AreaDefenseMunition"), SubResource("BallisticDefenseMunition")])
-mobile = false
+mobile = true
+relocation_duration = 12.0

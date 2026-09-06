@@ -25,4 +25,5 @@ drone_turn_rate_degrees = 180.0
 drone_endurance = 16.0
 drone_damage = 110.0
 proximity_radius = 16.0
-mobile = false
+mobile = true
+relocation_duration = 18.0
