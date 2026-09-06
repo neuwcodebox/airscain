@@ -31,7 +31,7 @@ func set_range(value: float, title: String) -> void:
 		return
 	radius = value
 	refresh_surface()
-	caption.text = "%s · %dm" % [title, roundi(radius)]
+	caption.text = title
 
 func refresh_surface() -> void:
 	if radius <= 0.0 or not is_inside_tree():

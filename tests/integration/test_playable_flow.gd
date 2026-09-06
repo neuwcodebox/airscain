@@ -150,14 +150,14 @@ func test_placement_and_selection_share_labeled_operation_and_command_ranges() -
 	var definition := main.scenario.available_defenses[0]
 	main.placement.select(definition)
 	var placement_title := main.placement.range_disc.caption.text
-	assert_string_contains(placement_title, "교전 범위")
+	assert_eq(placement_title, "교전 범위")
 	assert_eq(main.placement.range_disc.radius, definition.tactical_range())
 	main.placement.cancel()
 	var unit := _place_for(main, definition).unit as DefenseUnit
 	main._on_asset_selected(unit)
 	assert_true(main.c2_overlay.operation_ring.visible)
 	assert_eq(main.c2_overlay.operation_ring.caption.text, placement_title)
-	assert_string_contains(main.c2_overlay.range_ring.caption.text, "지휘 연결")
+	assert_eq(main.c2_overlay.range_ring.caption.text, "지휘 연결")
 	var mesh := main.c2_overlay.operation_ring.mesh
 	main.c2_overlay._rebuild_range()
 	assert_same(main.c2_overlay.operation_ring.mesh, mesh, "같은 반경의 메시를 다시 만들지 않습니다")
@@ -178,7 +178,7 @@ func test_sensor_support_and_command_ranges_have_distinct_names() -> void:
 	for index: int in [1, 5]:
 		var definition := main.scenario.available_defenses[index]
 		main.placement.select(definition)
-		assert_string_contains(main.placement.range_disc.caption.text, "탐지 범위" if index == 1 else "지원 범위")
+		assert_eq(main.placement.range_disc.caption.text, "탐지 범위" if index == 1 else "지원 범위")
 	main.placement.select(main.scenario.available_defenses[2])
 	assert_false(main.placement.range_disc.visible, "지휘시설에 같은 반경의 원을 중복 표시하지 않습니다")
 	main.placement.cancel()
