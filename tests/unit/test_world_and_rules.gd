@@ -168,6 +168,38 @@ func test_airframe_geometry_is_shared_but_content_colors_remain_independent() ->
 		assert_eq((second_mesh.get_active_material(0) as StandardMaterial3D).albedo_color, Color.BLUE)
 		assert_ne((first_mesh.mesh.surface_get_material(0) as StandardMaterial3D).albedo_color, Color.RED)
 
+func test_airframe_palette_preserves_triangles_and_surface_finishes() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var finishes: Array[StandardMaterial3D] = [ModelGeometry.material(Color.RED, 0.2, 0.7), ModelGeometry.material(Color.BLUE, 0.8, 0.3)]
+	var parts: Array[MeshInstance3D] = []
+	for index: int in finishes.size():
+		parts.append(ModelGeometry.box(parent, "Part%d" % index, Vector3.ONE, Vector3(index * 3, 0, 0), finishes[index]))
+	var sources := ModelGeometry.combine_static_parts(parts)
+	var merged := TintedMeshPalette.combine(sources)
+	assert_eq(merged.get_surface_count(), 1)
+	var finish := merged.surface_get_material(0) as StandardMaterial3D
+	assert_true(finish.vertex_color_use_as_albedo)
+	assert_same(finish.metallic_texture, finish.roughness_texture)
+	var palette := finish.metallic_texture.get_image()
+	var arrays := merged.surface_get_arrays(0)
+	var positions: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var uvs: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var offset := 0
+	for slot: int in sources.size():
+		var original := sources[slot].surface_get_arrays(0)
+		var original_indices: PackedInt32Array = original[Mesh.ARRAY_INDEX]
+		assert_almost_eq(palette.get_pixel(slot, 0).r, finishes[slot].metallic, 0.00001)
+		assert_almost_eq(palette.get_pixel(slot, 0).g, finishes[slot].roughness, 0.00001)
+		for index: int in original_indices:
+			var merged_index := indices[offset]
+			assert_eq(positions[merged_index], original[Mesh.ARRAY_VERTEX][index])
+			assert_almost_eq(normals[merged_index], original[Mesh.ARRAY_NORMAL][index], Vector3.ONE * 0.0001)
+			assert_almost_eq(uvs[merged_index].x, (slot + 0.5) / sources.size(), 0.0001)
+			offset += 1
+	assert_eq(indices.size(), offset, "Every original triangle remains in the same winding")
+
 func test_static_detail_batches_share_geometry_and_keep_attachment_transforms() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D
 	parent.position = Vector3(30, 10, -20)
@@ -822,6 +854,25 @@ func test_sampled_smoke_uses_irregular_variation_and_retires_expired_slots() -> 
 	trail._process(trail.lifetime + 0.1)
 	assert_eq(trail.active_puff_count(), 0, "expired smoke must leave the per-frame update set")
 	assert_eq(trail.multimesh.visible_instance_count, 0)
+
+func test_transparent_trails_retire_gpu_work_and_resume_emission() -> void:
+	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	var trail := effect.get_node("SmokeTrail") as LingeringSmokeTrail
+	trail.emitting = true
+	trail.sample_world_segment(Vector3.ZERO, Vector3(12, 0, 0))
+	var count := trail.active_puff_count()
+	var fade_end: float = trail.smoke_material.get_shader_parameter("trail_fade_end")
+	assert_eq(trail.shadow_material.get_shader_parameter("trail_fade_end"), fade_end)
+	trail._process(trail.lifetime * fade_end - 0.1)
+	assert_eq(trail.active_puff_count(), count, "No puff retires while its shader can still produce alpha")
+	trail._process(0.11)
+	assert_eq(trail.active_puff_count(), 0)
+	assert_eq(trail.multimesh.visible_instance_count, 0)
+	assert_eq(trail.shadow_particles.multimesh.visible_instance_count, 0)
+	trail.sample_world_segment(Vector3(12, 0, 0), Vector3(24, 0, 0))
+	assert_gt(trail.active_puff_count(), 0)
+	assert_gt(trail.multimesh.visible_instance_count, 0)
+	assert_gt(trail.shadow_particles.multimesh.visible_instance_count, 0)
 
 func test_transient_glows_use_soft_cards_without_realtime_light_shadows() -> void:
 	var explosion := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect

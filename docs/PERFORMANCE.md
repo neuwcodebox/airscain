@@ -30,9 +30,32 @@ CPU 평균 약 13%, p95 약 15%, 정지 전장 프레임 약 19%, 실제 진행 
 
 무장 검색 공간 인덱스는 실험에서 전체 CPU 개선이 뚜렷하지 않아 채택하지 않았다. 일반화된 캐시나 낮은 갱신 빈도로 전투의 신선도를 바꾸지 않는다.
 
+## 기체·궤적 렌더 후속
+
+동일 환경에서 `render_load_check.gd`는 UAV/전투기 각 96대, 고정 카메라·조명, 파티클/광원 제외로 기체 제출만 분리한다. 40프레임 준비 후 100프레임을 측정한다. 기준 코드는 `9339306`이며 AI를 실행하지 않는 분리 부하다.
+
+| 192대 기체 | 재질별 메시 | 단일 surface 팔레트 |
+| --- | ---: | ---: |
+| 평균 프레임 | 86.352ms | 51.968ms |
+| p95 | 106.549ms | 55.396ms |
+| 드로 콜 | 1,152 | 576 |
+| 렌더 프리미티브 | 113,664 | 113,664 |
+
+형상 단순화 없이 기체 surface의 금속성·거칠기를 공유 데이터 텍스처에 담고 개별 기체 도색을 유지했다. 이 분리 부하에서 평균 약 40% 감소이며 전체 게임이나 웹에서 같은 개선율을 보장하지 않는다. 최종 재실행도 평균 52.033ms/p95 55.357ms, 동일 제출 개수를 기록했다(`/tmp/airscain_aircraft_final.log`). 근접 UAV·타격기와 투발 흐름을 실제 게임 창에서 검증했다.
+
+연기 24줄·19,200표본을 15초로 고정한 `combat_perf_check --render --faded`에서는 이미 알파가 0인 표본의 CPU 회수 시점을 셰이더 감쇠 끝점에 맞췄다. 드로 콜 399→351, 프리미티브 751,082→251,930으로 투명 궤적 제출은 제거됐다. 평균 프레임은 33.954→37.737ms, p95는 41.195→41.131ms로 **프레임 시간 개선은 확인되지 않았다**. 이 변경을 파티클 합성 병목 해결로 간주하지 않는다. 보이는 표본의 수·크기·감쇠·그림자는 그대로다.
+
+투명 카드 코너를 fragment discard로 제외하는 별도 실험은 6초 연기 부하에서 평균 40.120→43.791ms로 개선되지 않아 제거했다. 렌더 카드 모양 축소나 낮은 해상도 합성은 채택하지 않았다.
+
+후속 원본 로그: `/tmp/airscain_aircraft_before.log`, `/tmp/airscain_aircraft_palette.log`, `/tmp/airscain_smoke_faded_before.log`, `/tmp/airscain_smoke_faded_after.log`, `/tmp/airscain_smoke_baseline.log`, `/tmp/airscain_smoke_discard.log`. 캡처: `/tmp/airscain_aircraft_load_before.png`, `/tmp/airscain_aircraft_load.png`, `/tmp/airscain_radar_strike_aircraft_model.png`.
+
+실제 창 추가 확인: `/tmp/airscain_aircraft_closeup.png`, `/tmp/airscain_wreck_falling.png`, `/tmp/airscain_wreck_impact.png`. 추락 기체 형상·그림자·충돌 섬광을 확인했고 진단기가 `VISUAL_CAPTURE_OK falling_airframe composite_impact`로 종료했다.
+
+전체 확대 교전 후속 실행은 평균 402.051→392.256ms, p95 723.342→706.974ms였다. 정지 전장 평균은 180.213→166.520ms, 드로 콜은 2,223→1,876이다. 기체 단독 개선율보다 전체 개선 폭은 작고, 시간 기반 VFX가 완전히 같지 않아 순수 기체 비용 차이라고 단정하지 않는다. 최대 기관포 비행탄은 이전 185발·이번 188발, 발사체 부모의 최대 child 수는 77·78이다. 로그: `/tmp/airscain_large_palette_render.log`. 실제 최종 도시 기능 8,532·적성 항적 119를 유지했다.
+
 ## 남은 큰 비용
 
-개선 후 정지 전장에서 파티클 제외 시 180.2→147.5ms, 적 메시 제외 시 180.2→129.1ms, 도시 제외 시 180.2→152.8ms였다. 각 차이는 별도 실험이며 더해서 총 비용으로 간주하지 않는다. 다음 렌더 조사 대상은 다수 기체·파티클 제출/합성 비용이다. 입자 수·수명·그림자·광원을 줄이는 품질 절충은 적용하지 않았다.
+후속 개선 후 정지 전장에서 파티클 제외 시 166.5→117.8ms, 적 메시 제외 시 166.5→132.5ms, 도시 제외 시 166.5→125.8ms였다. 각 차이는 별도 실험이며 더해서 총 비용으로 간주하지 않는다. 다음 큰 렌더 조사 대상은 보이는 파티클의 합성·광원 비용과 도시 제출 비용이다. 입자 수·보이는 수명·그림자·광원을 줄이는 품질 절충은 적용하지 않았다.
 
 단독 기준선에서 기관포 12문·표적 60개는 평균 1.264ms, 연기 24줄·19,200개 CPU 갱신은 0.771ms였다. 작은 단독 부하 결과만으로 복합 교전이나 투명 입자 렌더 비용을 판단하지 않는다. 웹 배포의 실제 프레임과 낮/밤·다른 배치·여러 seed의 분포는 추가 측정 대상이다.
 
@@ -42,6 +65,8 @@ CPU 평균 약 13%, p95 약 15%, 정지 전장 프레임 약 19%, 실제 진행 
 godot --headless --audio-driver Dummy --path . --script res://tools/profile_check.gd -- --breakdown --large
 godot --audio-driver Dummy --path . --script res://tools/profile_check.gd -- --breakdown --large --render --render-probe
 godot --headless --audio-driver Dummy --path . --script res://tools/combat_perf_check.gd
+godot --audio-driver Dummy --path . --script res://tools/combat_perf_check.gd -- --render --faded
+godot --audio-driver Dummy --path . --script res://tools/render_load_check.gd
 godot --audio-driver Dummy --path . --script res://tools/visual_capture.gd -- --capture-static-details-only
 ```
 

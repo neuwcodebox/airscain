@@ -61,6 +61,7 @@ func _ready() -> void:
 			if finish != null and not finish.emission_enabled:
 				parts.append(part)
 	var combined := ModelGeometry.combine_static_parts(parts)
+	combined = [TintedMeshPalette.combine(combined)]
 	_geometry[variant] = combined
 	for part: MeshInstance3D in parts:
 		part.free()

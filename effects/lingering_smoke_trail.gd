@@ -3,6 +3,7 @@ extends MultiMeshInstance3D
 
 const VISUAL_UPDATE_INTERVAL := 1.0 / 15.0
 const TRAIL_SHADER := preload("res://effects/trail_smoke.gdshader")
+const FADE_END_RATIO := 0.88
 
 @export var puff_mesh: QuadMesh
 @export_range(32, 4096, 1) var amount: int = 1024
@@ -181,6 +182,7 @@ func _create_shadow_multimesh() -> void:
 
 func _configure_motion(material: ShaderMaterial) -> void:
 	material.set_shader_parameter("trail_lifetime", lifetime)
+	material.set_shader_parameter("trail_fade_end", FADE_END_RATIO)
 	material.set_shader_parameter("trail_initial_scale", initial_scale)
 	material.set_shader_parameter("trail_final_scale", final_scale)
 	material.set_shader_parameter("trail_drift_speed", drift_speed)
@@ -209,7 +211,8 @@ func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> v
 func _update_puffs() -> void:
 	for active_index: int in range(_active_slots.size() - 1, -1, -1):
 		var slot := _active_slots[active_index]
-		if _elapsed - _birth_times[slot] >= lifetime:
+		# Both visible and shadow shaders are exactly transparent at this age.
+		if _elapsed - _birth_times[slot] >= lifetime * FADE_END_RATIO:
 			_hide_puff_slot(slot)
 			_occupied_slots[slot] = 0
 			_active_slots[active_index] = _active_slots.back()

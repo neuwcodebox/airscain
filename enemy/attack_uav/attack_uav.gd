@@ -149,6 +149,7 @@ func _apply_visual_color() -> void:
 			var mesh_instance := child as MeshInstance3D
 			var material := mesh_instance.material_override.duplicate() as StandardMaterial3D
 			material.albedo_color = _definition.visual_color
+			material.vertex_color_use_as_albedo = false
 			mesh_instance.material_override = material
 
 func _sample_exhaust(from_position: Vector3, to_position: Vector3) -> void:
