@@ -78,7 +78,7 @@ func _start_combat_vfx_warmup() -> void:
 		return
 	combat_vfx_warmup_started = true
 	var warmup := CombatVfxWarmup.new()
-	warmup.progress_changed.connect(func(fraction: float) -> void: menu_feedback_label.text = "전장·전투 효과 준비 중 · %d%%" % roundi(fraction * 100.0))
+	warmup.progress_changed.connect(func(fraction: float) -> void: menu_feedback_label.text = "로딩 중 · %d%%" % roundi(fraction * 100.0))
 	warmup.completed.connect(_on_combat_vfx_warmup_completed)
 	add_child(warmup)
 
@@ -92,7 +92,7 @@ func _set_preparation_ui(ready: bool) -> void:
 		(main_menu.get_node(path) as Button).disabled = not ready
 	main_load_button.disabled = not ready or not FileAccess.file_exists(save_path)
 	if not ready:
-		menu_feedback_label.text = "전장·전투 효과 준비 중…"
+		menu_feedback_label.text = "로딩 중…"
 
 func _input(event: InputEvent) -> void:
 	if settings_menu != null and settings_menu.visible and event.is_action_pressed("ui_cancel"):
