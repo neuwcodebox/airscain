@@ -8,6 +8,23 @@ const STEP := 0.05
 const PROFILE_DURATION := 20.0
 const THREATS_PER_TYPE := 10
 
+class ProfiledKnowledge:
+	extends PlayerKnowledge
+	var association_usec: int = 0
+	var submission_usec: int = 0
+
+	func _associate(observation: SensorObservation) -> PlayerTrack:
+		var start := Time.get_ticks_usec()
+		var result := super._associate(observation)
+		association_usec += Time.get_ticks_usec() - start
+		return result
+
+	func submit_observation(observation: SensorObservation) -> PlayerTrack:
+		var start := Time.get_ticks_usec()
+		var result := super.submit_observation(observation)
+		submission_usec += Time.get_ticks_usec() - start
+		return result
+
 class ProfiledMain:
 	extends AirscainMain
 	var costs: Dictionary[String, int] = {}
@@ -54,6 +71,9 @@ class ProfiledMain:
 				_measure("defense/" + String(defense.definition.id), defense.gameplay_tick, delta)
 		for threat: ThreatUnit in registry.get_active():
 			_measure("threat/" + String(threat.definition.id), threat.gameplay_tick, delta)
+		for munition: AirStrikeMunition in get_tree().get_nodes_in_group(AirStrikeMunition.SIMULATION_GROUP):
+			if munition.get_parent() == threat_parent and not munition.is_queued_for_deletion():
+				_measure("strike_munitions", munition.gameplay_tick, delta)
 
 var main: AirscainMain
 var samples_usec: Array[int] = []
@@ -61,21 +81,25 @@ var peak_contacts: int = 0
 var peak_tracks: int = 0
 var peak_projectiles: int = 0
 var frame_samples_usec: Array[int] = []
+var peak_rounds: int = 0
 
 func _init() -> void:
 	AudioServer.set_bus_mute(0, true)
 	call_deferred("run")
 
 func run() -> void:
+	AirscainMain.requested_seed = 73129
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	if OS.get_cmdline_user_args().has("--breakdown"):
 		# Replacing the root script recreates its unparented composition nodes.
 		main.day_night.free()
 		main.set_script(ProfiledMain)
+		main.get_node("PlayerKnowledge").set_script(ProfiledKnowledge)
 	main.set_process(false)
 	root.add_child(main)
 	main.combat_audio.enabled = false
+	main.ui_audio.enabled = false
 	await process_frame
 	while not main.combat_effect_pool.prepared:
 		await process_frame
@@ -85,6 +109,9 @@ func run() -> void:
 	main.objective.definition.maximum_integrity = 10000
 	main.objective.current_integrity = 10000
 	_place_representative_network()
+	if OS.get_cmdline_user_args().has("--large"):
+		for copy: int in 3:
+			_place_representative_network()
 	if main.session.defense_count < main.scenario.available_defenses.size() or not main.session.start_defense():
 		var deployed: Array[String] = []
 		for defense: DefenseUnit in main.defenses:
@@ -104,6 +131,11 @@ func run() -> void:
 		peak_contacts = maxi(peak_contacts, main.registry.count())
 		peak_tracks = maxi(peak_tracks, (main.player_knowledge.get("tracks") as Array).size())
 		peak_projectiles = maxi(peak_projectiles, main.projectile_parent.get_child_count())
+		var rounds := 0
+		for defense: DefenseUnit in main.defenses:
+			if defense is CloseInGun:
+				rounds += (defense as CloseInGun).gunfire.rounds.size()
+		peak_rounds = maxi(peak_rounds, rounds)
 		if render:
 			await process_frame
 			await RenderingServer.frame_post_draw
@@ -120,7 +152,10 @@ func run() -> void:
 	var p95_ms := float(samples_usec[p95_index]) / 1000.0
 	var maximum_ms := float(samples_usec.back()) / 1000.0
 	print("PROFILE_OK samples=%d avg_ms=%.3f p95_ms=%.3f max_ms=%.3f contacts=%d tracks=%d projectiles=%d defenses=%d" % [samples_usec.size(), average_ms, p95_ms, maximum_ms, peak_contacts, peak_tracks, peak_projectiles, main.session.defense_count])
+	print("PROFILE_WORKLOAD peak_gun_rounds=%d" % peak_rounds)
 	if main is ProfiledMain:
+		var knowledge := main.player_knowledge as ProfiledKnowledge
+		print("PROFILE_NESTED association_ms=%.3f observation_ms=%.3f" % [float(knowledge.association_usec) / samples_usec.size() / 1000.0, float(knowledge.submission_usec) / samples_usec.size() / 1000.0])
 		for label: String in main.costs:
 			print("PROFILE_COST %s avg_ms=%.3f" % [label, float(main.costs[label]) / samples_usec.size() / 1000.0])
 	if render:
@@ -158,9 +193,10 @@ func _place_representative_network() -> void:
 
 func _spawn_representative_attack() -> void:
 	var spawn_index := 0
+	var per_type := THREATS_PER_TYPE * (2 if OS.get_cmdline_user_args().has("--large") else 1)
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
-		for type_index: int in THREATS_PER_TYPE:
-			var angle := TAU * float(spawn_index) / float(main.scenario.threat_entries.size() * THREATS_PER_TYPE)
+		for type_index: int in per_type:
+			var angle := TAU * float(spawn_index) / float(main.scenario.threat_entries.size() * per_type)
 			var threat := main.director._spawn_entry(entry, angle, 0.0)
 			if threat != null:
 				var radius := 780.0 + float(type_index % 4) * 28.0
