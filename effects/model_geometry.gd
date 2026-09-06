@@ -61,6 +61,23 @@ static func combine_static_parts(parts: Array[MeshInstance3D]) -> Array[ArrayMes
 		result.append(builder.commit())
 	return result
 
+static func replace_static_children(parent: Node3D, cached: Array[ArrayMesh]) -> Array[ArrayMesh]:
+	# Content opts in only for direct, opaque static detail meshes. Moving
+	# assemblies, attachment markers and independently styled parts stay outside.
+	var parts: Array[MeshInstance3D] = []
+	for child: Node in parent.get_children():
+		if child is MeshInstance3D:
+			parts.append(child)
+	var geometry := cached if not cached.is_empty() else combine_static_parts(parts)
+	for part: MeshInstance3D in parts:
+		part.free()
+	for index: int in geometry.size():
+		var visual := MeshInstance3D.new()
+		visual.name = "StaticDetail%d" % index
+		visual.mesh = geometry[index]
+		parent.add_child(visual)
+	return geometry
+
 static func cylinder(parent: Node3D, name_value: String, radius: float, height: float, position: Vector3, finish: Material) -> MeshInstance3D:
 	var shape := CylinderMesh.new()
 	shape.top_radius = radius

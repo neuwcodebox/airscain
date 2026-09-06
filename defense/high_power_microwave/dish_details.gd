@@ -1,4 +1,5 @@
 extends Node3D
+static var _geometry: Array[ArrayMesh] = []
 
 func _ready() -> void:
 	var shell := ModelGeometry.material(Color("8a9188"), 0.5, 0.45)
@@ -11,3 +12,4 @@ func _ready() -> void:
 		ModelGeometry.strut(self, "FeedSupport", Vector3(side * 4.3, 0, -1.6), Vector3(0, 0, -4.2), 0.22, frame)
 		ModelGeometry.box(self, "ElevationYoke", Vector3(0.7, 5.5, 1.1), Vector3(side * 4.9, -1.4, 0.5), frame)
 	ModelGeometry.box(self, "Emitter", Vector3(0.9, 0.9, 1.5), Vector3(0, 0, -3.8), feed)
+	_geometry = ModelGeometry.replace_static_children(self, _geometry)

@@ -168,6 +168,46 @@ func test_airframe_geometry_is_shared_but_content_colors_remain_independent() ->
 		assert_eq((second_mesh.get_active_material(0) as StandardMaterial3D).albedo_color, Color.BLUE)
 		assert_ne((first_mesh.mesh.surface_get_material(0) as StandardMaterial3D).albedo_color, Color.RED)
 
+func test_static_detail_batches_share_geometry_and_keep_attachment_transforms() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	parent.position = Vector3(30, 10, -20)
+	var marker := Marker3D.new()
+	marker.position = Vector3(1, 2, 3)
+	parent.add_child(marker)
+	var finish := ModelGeometry.material(Color.ORANGE)
+	var first := ModelGeometry.box(parent, "One", Vector3(2, 4, 6), Vector3(-5, 0, 0), finish)
+	var second := ModelGeometry.box(parent, "Two", Vector3(2, 4, 6), Vector3(5, 0, 0), finish)
+	var expected := (first.transform * first.mesh.get_aabb()).merge(second.transform * second.mesh.get_aabb())
+	var geometry := ModelGeometry.replace_static_children(parent, [])
+	assert_eq(geometry.size(), 1)
+	assert_eq(geometry[0].get_aabb(), expected)
+	assert_same(geometry[0].surface_get_material(0), finish)
+	assert_eq((geometry[0].surface_get_arrays(0)[Mesh.ARRAY_INDEX] as PackedInt32Array).size(), 72, "Both boxes retain all triangles")
+	assert_same(marker.get_parent(), parent)
+	var duplicate := add_child_autofree(Node3D.new()) as Node3D
+	var cached := ModelGeometry.replace_static_children(duplicate, geometry)
+	assert_same(cached[0], geometry[0])
+	parent.rotate_y(0.5)
+	assert_almost_eq(marker.global_position, parent.global_transform * marker.position, Vector3.ONE * 0.00001)
+	assert_same((parent.get_node("StaticDetail0") as MeshInstance3D).mesh, geometry[0])
+
+func test_batched_radar_panels_preserve_variants_and_rotate_with_the_antenna() -> void:
+	var search_definition := preload("res://sensing/search_radar/search_radar.tres")
+	var high_definition := preload("res://sensing/tracking_radar/tracking_radar.tres")
+	var search := add_child_autofree(search_definition.scene.instantiate()) as SearchRadar
+	var high := add_child_autofree(high_definition.scene.instantiate()) as SearchRadar
+	search.setup(11, search_definition)
+	high.setup(12, high_definition)
+	var search_panel := search.get_node("Antenna/PanelModules/StaticDetail0") as MeshInstance3D
+	var high_panel := high.get_node("Antenna/PanelModules/StaticDetail0") as MeshInstance3D
+	assert_gt(search_panel.mesh.get_aabb().size.x, high_panel.mesh.get_aabb().size.x)
+	var local_transform := search_panel.transform
+	var original_basis := search_panel.global_basis
+	search.gameplay_tick(0.5)
+	assert_eq(search_panel.transform, local_transform)
+	assert_ne(search_panel.global_basis, original_basis)
+	assert_eq((search.get_node("Details") as Node3D).rotation, Vector3.ZERO)
+
 func test_static_model_merge_preserves_mirrored_winding_normals_and_surface() -> void:
 	var part := add_child_autofree(MeshInstance3D.new()) as MeshInstance3D
 	var arrays: Array = []

@@ -1,6 +1,9 @@
 extends Node3D
 
 @export var tracking_panel: bool = false
+static var _base_geometry: Array[ArrayMesh] = []
+static var _search_panel_geometry: Array[ArrayMesh] = []
+static var _high_panel_geometry: Array[ArrayMesh] = []
 
 func _ready() -> void:
 	var frame := ModelGeometry.material(Color("53665c"), 0.35)
@@ -33,3 +36,8 @@ func _ready() -> void:
 			ModelGeometry.box(grid, "AntennaModule", Vector3(width / count * 0.80, height / 3.0 * 0.79, 0.12), position, frame)
 	ModelGeometry.strut(antenna, "RearBraceLeft", Vector3(-width * 0.44, -1.4, 0.6), Vector3(0, 1.8, 1.8), 0.28, metal)
 	ModelGeometry.strut(antenna, "RearBraceRight", Vector3(width * 0.44, -1.4, 0.6), Vector3(0, 1.8, 1.8), 0.28, metal)
+	_base_geometry = ModelGeometry.replace_static_children(self, _base_geometry)
+	if tracking_panel:
+		_high_panel_geometry = ModelGeometry.replace_static_children(grid, _high_panel_geometry)
+	else:
+		_search_panel_geometry = ModelGeometry.replace_static_children(grid, _search_panel_geometry)

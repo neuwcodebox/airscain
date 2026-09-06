@@ -24,6 +24,31 @@ func run() -> void:
 	main.ui_audio.enabled = false
 	main.combat_audio.stop_all()
 	main.ui_audio.stop_all()
+	if OS.get_cmdline_user_args().has("--capture-static-details-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		main.hud.hide()
+		main.altitude_profile.hide()
+		for index: int in [1, 3, 5]:
+			var definition := main.scenario.available_defenses[index]
+			var unit := definition.scene.instantiate() as DefenseUnit
+			main.defense_parent.add_child(unit)
+			unit.position = Vector3(-400, main.battlefield.terrain_height(-400, 100), 100)
+			unit.setup(100 + index, definition)
+			unit.identity_marker.hide()
+			unit.status_marker.hide()
+			main.camera_rig.camera.global_position = unit.global_position + Vector3(25, 20, -30)
+			main.camera_rig.camera.look_at(unit.global_position + Vector3.UP * 4)
+			for frame: int in 5:
+				await process_frame
+				await RenderingServer.frame_post_draw
+			_save_capture("/tmp/airscain_batched_%s.png" % definition.id)
+			unit.free()
+		main.free()
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-click-priority-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

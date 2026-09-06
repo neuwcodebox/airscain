@@ -1,4 +1,5 @@
 extends Node3D
+static var _geometry: Array[ArrayMesh] = []
 
 func _ready() -> void:
 	var metal := ModelGeometry.material(Color("8b978d"), 0.3)
@@ -20,3 +21,4 @@ func _ready() -> void:
 	dome.material_override = roof
 	ModelGeometry.strut(self, "WhipAntenna", Vector3(-6, 8, -4), Vector3(-6, 14.5, -4), 0.13, dark)
 	ModelGeometry.box(self, "RoofAccess", Vector3(3.2, 1.5, 2.8), Vector3(2, 8.8, 3), stone)
+	_geometry = ModelGeometry.replace_static_children(self, _geometry)
