@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=7 format=3]
 
+[ext_resource path="res://ui/icons/asset_missile_medium.svg" type="Texture2D" id="identity_icon"]
 [ext_resource path="res://defense/missile_battery/missile_battery_definition.gd" type="Script" id="1"]
 [ext_resource path="res://defense/missile_battery/missile_battery.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
@@ -29,7 +30,7 @@ resupply_work = 8.0
 
 [resource]
 script = ExtResource("1")
-identity_bar_count = 2
+identity_icon = ExtResource("identity_icon")
 id = &"missile_battery"
 display_name = "미사일 포대"
 purchase_tooltip = "중고도 항공 위협을 다수의 요격탄으로 방어합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."

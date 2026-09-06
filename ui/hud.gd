@@ -734,7 +734,7 @@ func _build_defense_catalog() -> void:
 			button.text = ""
 			button.tooltip_text = definition.purchase_tooltip
 			_apply_menu_row_style(button)
-			var row := _create_menu_row(definition.display_name)
+			var row := _create_menu_row(definition.display_name, definition.identity_icon)
 			button.add_child(row.container)
 			button.pressed.connect(_on_defense_pressed.bind(definition))
 			defense_list.add_child(button)
@@ -743,7 +743,7 @@ func _build_defense_catalog() -> void:
 			defense_name_labels[definition_index] = row.name_label
 			defense_meta_labels[definition_index] = row.meta_label
 
-func _create_menu_row(name: String) -> Dictionary:
+func _create_menu_row(name: String, icon: Texture2D = null) -> Dictionary:
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -754,6 +754,15 @@ func _create_menu_row(name: String) -> Dictionary:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(row)
+	if icon != null:
+		var image := TextureRect.new()
+		image.texture = icon
+		image.custom_minimum_size = Vector2(26, 26)
+		image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 8)
+		row.add_child(image)
 	var name_label := Label.new()
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

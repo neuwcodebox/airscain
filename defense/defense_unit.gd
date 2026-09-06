@@ -292,8 +292,7 @@ func _ensure_identity_marker() -> void:
 	identity_marker = IDENTITY_MARKER_SCENE.instantiate() as Node3D
 	add_child(identity_marker)
 	identity_marker.position = Vector3(0.0, 28.0, 0.0)
-	identity_marker.call("set_role", c2_roles())
-	identity_marker.call("set_detail", definition.identity_bar_count, definition.identity_detail_symbol)
+	identity_marker.call("configure", definition.identity_icon, c2_roles())
 
 func _refresh_status_marker() -> void:
 	if definition == null:

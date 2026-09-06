@@ -109,17 +109,19 @@ func run() -> void:
 		AirscainApp.apply_global_font()
 		main.set_process(false)
 		main.camera_rig.set_process(false)
-		var definitions: Array[DefenseDefinition] = [main.scenario.available_defenses[8], main.scenario.available_defenses[0], main.scenario.available_defenses[7], main.scenario.available_defenses[1], main.scenario.available_defenses[3]]
+		var definitions: Array[DefenseDefinition] = []
+		for index: int in [8, 0, 7, 1, 3, 4, 6, 9, 10, 2, 5]:
+			definitions.append(main.scenario.available_defenses[index])
 		var units: Array[DefenseUnit] = []
 		for index: int in definitions.size():
 			var definition := definitions[index]
 			var unit := definition.scene.instantiate() as DefenseUnit
 			main.add_child(unit)
 			unit.setup(900 + index, definition)
-			unit.global_position = Vector3(float(index) * 60.0 - 120.0, 0, 400)
+			unit.global_position = Vector3(float(index % 6) * 65.0 - 160.0, 0, 350.0 + float(index / 6) * 110.0)
 			unit.global_position.y = main.battlefield.terrain_height(unit.global_position.x, unit.global_position.z)
 			units.append(unit)
-		var center := units[2].global_position + Vector3(0, 15, 0)
+		var center := units[2].global_position + Vector3(0, 15, 50)
 		main.camera_rig.camera.global_position = center + Vector3(0, 190, 320)
 		main.camera_rig.camera.look_at(center)
 		for frame: int in 6:
@@ -130,7 +132,11 @@ func run() -> void:
 		for frame: int in 6:
 			await process_frame
 		_save_capture("/tmp/airscain_identity_icons_night.png")
-		print("IDENTITY_ICONS_CAPTURE_OK short medium long search tracking selected night")
+		main.hud.defense_menu_button.pressed.emit()
+		for frame: int in 6:
+			await process_frame
+		_save_capture("/tmp/airscain_identity_catalog.png")
+		print("IDENTITY_ICONS_CAPTURE_OK all_defenses selected night catalog")
 		quit()
 		return
 	if OS.get_cmdline_user_args().has("--capture-building-departure-only"):

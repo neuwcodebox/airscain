@@ -396,40 +396,28 @@ func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
 		defense.setup(1, definition)
 		assert_not_null(defense.identity_marker)
 		assert_true(defense.identity_marker.visible)
-		var icon := defense.identity_marker.get_node("Icon") as Label3D
+		var icon := defense.identity_marker.get_node("Icon") as Sprite3D
 		assert_true(icon.fixed_size)
 		assert_true(icon.no_depth_test)
 		assert_gte(icon.render_priority, 100)
-		assert_gt(icon.font_size, 12)
-		var detail := defense.identity_marker.get_node("Detail") as Label3D
-		assert_eq(detail.visible, definition.identity_bar_count > 0 or not definition.identity_detail_symbol.is_empty())
-		if not definition.identity_detail_symbol.is_empty():
-			assert_eq(detail.text, definition.identity_detail_symbol)
-		assert_eq(detail.text.count("|"), definition.identity_bar_count)
-		assert_true(detail.fixed_size)
-		assert_true(detail.no_depth_test)
+		assert_not_null(icon.texture)
+		assert_same(icon.texture, definition.identity_icon)
+		assert_true(icon.texture.resource_path.ends_with(".svg"))
 		assert_gt(defense.identity_marker.position.y, defense.status_marker.position.y)
-		role_icons[icon.text] = true
-	assert_true(role_icons.has("◎"))
-	assert_true(role_icons.has("◆"))
-	assert_true(role_icons.has("▲"))
-	assert_true(role_icons.has("■"))
-	assert_ne(SCENARIO.available_defenses[1].identity_detail_symbol, SCENARIO.available_defenses[3].identity_detail_symbol)
-	assert_false(SCENARIO.available_defenses[1].identity_detail_symbol.is_empty())
-	assert_false(SCENARIO.available_defenses[3].identity_detail_symbol.is_empty())
+		role_icons[icon.texture.resource_path] = true
+	assert_eq(role_icons.size(), SCENARIO.available_defenses.size(), "각 자산 종류의 아이콘을 구분할 수 있습니다")
 
 func test_friendly_installation_selection_highlights_icon_and_footprint() -> void:
 	var defense := add_child_autofree(SCENARIO.available_defenses[0].scene.instantiate()) as DefenseUnit
 	defense.setup(1, SCENARIO.available_defenses[0])
-	var icon := defense.identity_marker.get_node("Icon") as Label3D
+	var icon := defense.identity_marker.get_node("Icon") as Sprite3D
 	var selection_ring := defense.identity_marker.get_node("SelectionRing") as MeshInstance3D
 	assert_false(selection_ring.visible)
-	assert_eq(icon.outline_size, 4)
+	var texture := icon.texture
 	defense.set_selected(true)
 	assert_true(selection_ring.visible)
-	assert_eq(icon.outline_size, 8)
+	assert_same(icon.texture, texture)
 	assert_eq(icon.scale, Vector3.ONE * 1.2)
-	assert_eq((defense.identity_marker.get_node("Detail") as Label3D).scale, icon.scale)
 	assert_eq((selection_ring.mesh as TorusMesh).rings, 64)
 	defense.set_selected(false)
 	assert_false(selection_ring.visible)

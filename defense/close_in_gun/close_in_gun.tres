@@ -1,5 +1,6 @@
-[gd_resource type="Resource" script_class="CloseInGunDefinition" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CloseInGunDefinition" load_steps=5 format=3]
 
+[ext_resource path="res://ui/icons/asset_gun.svg" type="Texture2D" id="identity_icon"]
 [ext_resource path="res://defense/close_in_gun/close_in_gun_definition.gd" type="Script" id="1"]
 [ext_resource path="res://defense/close_in_gun/close_in_gun.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
@@ -13,6 +14,7 @@ rooftop_allowed = true
 
 [resource]
 script = ExtResource("1")
+identity_icon = ExtResource("identity_icon")
 id = &"close_in_gun"
 display_name = "근접방어기관포"
 purchase_tooltip = "접근한 소형 무인기와 순항 위협을 탄막으로 방어합니다.\n탄약 소진 후 통합 지원기지에서 재보급할 수 있습니다."

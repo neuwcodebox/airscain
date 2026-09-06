@@ -10,8 +10,7 @@ const DEFENSE_COLOR := Color("75e49a")
 const SUPPORT_COLOR := Color("f0c86a")
 const SELECTION_COLOR := Color(0.26, 0.9, 1.0, 0.92)
 
-@onready var icon: Label3D = $Icon
-@onready var detail: Label3D = $Detail
+@onready var icon: Sprite3D = $Icon
 @onready var selection_ring: MeshInstance3D = $SelectionRing
 
 var selected: bool = false
@@ -32,41 +31,20 @@ func _ready() -> void:
 	selection_ring.material_override = material
 	_apply_selection()
 
-func set_role(roles: int) -> void:
+func configure(texture: Texture2D, roles: int) -> void:
 	if icon == null:
-		icon = get_node("Icon") as Label3D
+		icon = get_node("Icon") as Sprite3D
+	icon.texture = texture
 	if roles & SENSOR_ROLE:
-		icon.text = "◎"
 		icon.modulate = SENSOR_COLOR
 	elif roles & (COMMAND_ROLE | RELAY_ROLE):
-		icon.text = "◆"
 		icon.modulate = COMMAND_COLOR
 	elif roles & DEFENSE_ROLE:
-		icon.text = "▲"
 		icon.modulate = DEFENSE_COLOR
 	else:
-		icon.text = "■"
 		icon.modulate = SUPPORT_COLOR
 	visible = true
 	_apply_selection()
-
-func set_detail(count: int, symbol: String = "") -> void:
-	if detail == null:
-		detail = get_node("Detail") as Label3D
-	detail.text = ""
-	for index: int in clampi(count, 0, 3):
-		detail.text += "|" if index == 0 else " |"
-	if not symbol.is_empty():
-		detail.text = symbol
-	detail.offset = Vector2(0, 12) if symbol.is_empty() else Vector2.ZERO
-	detail.font_size = 12 if symbol.is_empty() else 16
-	# A radial sweep ends at the center; a full diagonal would read as disabled.
-	if symbol == "/":
-		detail.font_size = 8
-		detail.offset = Vector2(2, 2)
-	detail.outline_size = 4 if symbol.is_empty() else 0
-	detail.modulate = icon.modulate
-	detail.visible = not detail.text.is_empty()
 
 func set_selected(enabled: bool) -> void:
 	selected = enabled
@@ -76,8 +54,4 @@ func _apply_selection() -> void:
 	if icon == null or selection_ring == null:
 		return
 	selection_ring.visible = selected
-	icon.outline_size = 8 if selected else 4
 	icon.scale = Vector3.ONE * (1.2 if selected else 1.0)
-	if detail.offset.y == 12.0:
-		detail.outline_size = icon.outline_size
-	detail.scale = icon.scale
