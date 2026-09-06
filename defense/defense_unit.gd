@@ -291,7 +291,8 @@ func _ensure_status_marker() -> void:
 		return
 	status_marker = STATUS_MARKER_SCENE.instantiate() as Node3D
 	add_child(status_marker)
-	status_marker.position = Vector3(0.0, 20.0, 0.0)
+	# Share the identity anchor; the marker owns screen-space clearance.
+	status_marker.position = Vector3(0.0, 28.0, 0.0)
 
 func _ensure_identity_marker() -> void:
 	if identity_marker != null and is_instance_valid(identity_marker):

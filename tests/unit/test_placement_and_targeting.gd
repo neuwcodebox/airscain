@@ -1387,10 +1387,43 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	assert_true(gun.status_marker.visible)
 	var depleted_label := gun.status_marker.get_node("Label") as Label3D
 	assert_eq(depleted_label.text, "재보급 대기")
+	assert_false(depleted_label.visible)
+	assert_true((gun.status_marker.get_node("Badge") as Sprite3D).visible)
 	assert_true(depleted_label.fixed_size)
 	gun.receive_damage(70.0)
 	gun._process(0.0)
 	assert_eq((gun.status_marker.get_node("Label") as Label3D).text, "×")
+
+func test_status_badges_replace_resupply_text_and_clear_above_identity() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(2000, SCENARIO.available_defenses[0])
+	var marker := battery.status_marker as UnitStatusMarker
+	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
+	assert_eq(marker.position, battery.identity_marker.position)
+	assert_gt(marker.label.render_priority, icon.render_priority)
+	assert_gt(marker.badge.render_priority, icon.render_priority)
+	assert_true(marker.badge.fixed_size)
+	assert_true(marker.badge.no_depth_test)
+	marker.set_status("재보급 대기", Color.ORANGE)
+	var waiting := marker.badge.texture
+	assert_not_null(waiting)
+	assert_true(marker.badge.visible)
+	assert_false(marker.label.visible)
+	marker.set_status("재보급 중", Color.ORANGE)
+	assert_ne(marker.badge.texture, waiting)
+	assert_false(marker.label.visible)
+	battery.set_selected(true)
+	var badge_bottom := (marker.badge.offset.y - marker.badge.texture.get_height() * 0.5) * marker.badge.pixel_size
+	var icon_top := icon.texture.get_height() * 0.5 * icon.pixel_size * icon.scale.y
+	assert_gt(badge_bottom, icon_top, "선택 확대 후에도 표식은 아이콘 위에 놓입니다")
+	marker.set_status("×", Color.RED)
+	assert_true(marker.label.visible)
+	assert_eq(marker.label.text, "×")
+	assert_false(marker.badge.visible)
+	marker.set_status("", Color.WHITE)
+	assert_false(marker.visible)
+	assert_false(marker.badge.visible)
+	assert_false(marker.label.visible)
 
 func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() -> void:
 	var manager := autofree(SupportManager.new()) as SupportManager

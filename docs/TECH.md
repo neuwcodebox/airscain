@@ -788,6 +788,8 @@ raid_budget =
 
 ## 20. UI와 표현 계층
 
+`UnitStatusMarker`는 기존 상태 문자열의 표시만 담당한다. 재보급 대기·진행은 서로 다른 SVG 배지로 표시하고 다른 상태는 Label3D로 유지한다. 상태와 자산 표식은 같은 월드 anchor를 사용하며 화면 고정 offset으로 위쪽 간격을 확보한다. Label3D·Sprite3D 모두 자산 아이콘보다 높은 render priority와 no-depth-test를 사용한다. 지원 작업 판정·선택 패널·저장 데이터는 바꾸지 않는다.
+
 메뉴 문구는 기능 중심의 짧은 이름을 사용한다. 메인 메뉴의 `새 게임`은 지속 작전을 시작하고 `이어하기`는 저장한 게임을 복원한다. `훈련`·`자유 모드`의 설명은 `합니다`체 툴팁으로 제공하며 버튼에 홍보 문구를 붙이지 않는다. 소개는 게임 장르만 표시하고 장식적인 작전실 표제는 사용하지 않는다. 공통 동작은 `설정`·`종료`·`메인 메뉴`로 통일한다.
 
 `project.godot`의 `gui/theme/custom_font`는 `res://ui/fonts/NanumSquareB.ttf`를 가리킨다. Control의 기본 theme font와 `ThemeDB.fallback_font`를 사용하는 CanvasItem 직접 그리기 및 기본 Label3D가 이 저장소 자산을 공유한다. NanumSquareB에 없는 펼치기 삼각형 등 기호는 깨진 글리프 대신 표시되도록 FontFile의 시스템 fallback을 허용한다.
