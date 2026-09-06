@@ -187,16 +187,24 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	if mission != null:
 		if targets_city:
 			target = battlefield.random_city_building_target(rng)
-		if entry.threat_definition.requires_role_knowledge:
+		if mission.acquisition_range > 0.0:
+			var estimate := enemy_knowledge.best_estimate_for_role(mission.knowledge_role()) if enemy_knowledge != null else {}
+			if not estimate.is_empty():
+				target = SaveDocument.vector3_from_data(estimate.estimated_position)
+				for child: Node in defense_parent.get_children():
+					var candidate := child as DefenseUnit
+					if candidate != null and candidate.runtime_id == int(estimate.asset_id):
+						target_asset = candidate
+		elif entry.threat_definition.requires_role_knowledge:
 			target_asset = _known_target_for_role(entry.threat_definition.adaptive_knowledge_role)
 		else:
 			target_asset = choose_target_for(mission)
 	if target_override is Vector3:
 		target = target_override
 		target_asset = null
-	elif target_asset != null:
+	elif target_asset != null and (mission == null or mission.acquisition_range <= 0.0):
 		target = target_asset.global_position
-	elif not targets_city:
+	elif not targets_city and (mission == null or mission.acquisition_range <= 0.0):
 		target.y = battlefield.terrain_height(target.x, target.z)
 	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed), target_asset, spawn_position)
 	registry.add(threat)
@@ -206,11 +214,7 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
 	if mission == null or mission.target_role == ThreatMissionDefinition.TargetRole.CITY or defense_parent == null:
 		return null
-	var role := &"sensor"
-	if mission.target_role == ThreatMissionDefinition.TargetRole.COMMAND:
-		role = &"command"
-	elif mission.target_role == ThreatMissionDefinition.TargetRole.SUPPORT:
-		role = &"support"
+	var role := mission.knowledge_role()
 	var candidates: Array[DefenseUnit] = []
 	for child: Node in defense_parent.get_children():
 		var unit := child as DefenseUnit

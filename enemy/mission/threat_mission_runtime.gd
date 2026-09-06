@@ -27,9 +27,20 @@ func setup(profile_value: ThreatMissionDefinition, objective_value: ProtectedObj
 func navigation_target() -> Vector3:
 	if phase == Phase.EGRESS:
 		return exit_point
-	if target_asset != null and is_instance_valid(target_asset):
+	if profile.acquisition_range <= 0.0 and target_asset != null and is_instance_valid(target_asset):
 		return target_asset.global_position
 	return fixed_target
+
+func observe_target(unit_position: Vector3) -> bool:
+	if profile.acquisition_range <= 0.0 or phase == Phase.EGRESS:
+		return false
+	if unit_position.distance_to(fixed_target) > profile.acquisition_range:
+		return false
+	if not is_instance_valid(target_asset) or not target_asset.active or target_asset.global_position.distance_to(unit_position) > profile.acquisition_range:
+		phase = Phase.EGRESS
+		return true
+	fixed_target = target_asset.global_position
+	return false
 
 func gameplay_tick(unit_position: Vector3, delta: float) -> bool:
 	var target := navigation_target()
@@ -72,9 +83,9 @@ func _apply_effect(unit_position: Vector3) -> void:
 	if effect_applied:
 		return
 	effect_applied = true
+	if profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
+		return # The released munition owns impact damage.
 	if target_asset != null and is_instance_valid(target_asset):
 		target_asset.receive_damage(profile.damage)
-	elif profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
-		return
 	else:
 		objective.apply_surface_impact(roundi(profile.damage), unit_position)

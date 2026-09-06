@@ -153,7 +153,7 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
 	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
 	assert_eq(main.scenario.threat_entries[1].group_size, 4)
-	assert_eq(main.scenario.threat_entries.size(), 12)
+	assert_true(main.scenario.threat_entries.any(func(entry: ThreatSpawnEntry) -> bool: return entry.threat_definition.id == &"battery_strike_uav"))
 	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
 	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
 	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
@@ -1461,11 +1461,134 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 	assert_same(threat.mission_runtime.target_asset, support)
 	threat.global_position = support.global_position + Vector3(20.0, 2.0, 0.0)
 	threat.gameplay_tick(0.1)
-	assert_eq(support.integrity, 65.0)
+	assert_eq(support.integrity, support.definition.maximum_integrity, "투발 시점에는 아직 피해가 없습니다")
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_false(threat.resolved_state)
+	var city_before := main.objective.current_integrity
+	for child: Node in main.threat_parent.get_children():
+		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
+			child.call("_process", 1.0)
 	threat.gameplay_tick(0.1)
 	assert_eq(support.integrity, 65.0, "투발 피해는 한 번만 적용됩니다")
+	assert_eq(main.objective.current_integrity, city_before, "시설 타격은 도시 피해를 중복 발생시키지 않습니다")
+
+func _battery_strike_entry() -> ThreatSpawnEntry:
+	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+		if entry.threat_definition.id == &"battery_strike_uav":
+			return entry
+	return null
+
+func _place_hunter_target() -> DefenseUnit:
+	var definition := main.scenario.available_defenses[0]
+	var result := main.session.request_placement(definition, _find_valid_position_for(definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(result.success)
+	return result.unit as DefenseUnit
+
+func test_battery_strike_uses_observed_location_and_aborts_a_vacated_site() -> void:
+	var battery := _place_hunter_target()
+	var entry := _battery_strike_entry()
+	assert_not_null(entry)
+	assert_eq(main.director.adaptive_entry_weight(entry), 0.0)
+	main.enemy_knowledge.record_engagement(battery, &"missile")
+	assert_gt(main.director.adaptive_entry_weight(entry), 0.0)
+	var observed := SaveDocument.vector3_from_data(main.enemy_knowledge.best_estimate_for_role(&"weapon").estimated_position)
+	battery.global_position += Vector3(650, 0, 0)
+	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	assert_eq(threat.mission_runtime.navigation_target(), observed, "생성 시 실제 이동 위치를 읽지 않습니다")
+	threat.global_position = observed + Vector3.UP * 100.0
+	threat.gameplay_tick(0.1)
+	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_false(threat.mission_runtime.effect_applied)
+	assert_true(main.enemy_knowledge.best_estimate_for_role(&"weapon").is_empty())
+	assert_eq(battery.integrity, battery.definition.maximum_integrity)
+
+func test_battery_strike_flies_releases_once_and_damages_only_at_impact() -> void:
+	var battery := _place_hunter_target()
+	main.enemy_knowledge.record_recon(battery)
+	var threat := main.director._spawn_entry(_battery_strike_entry(), 0.4, 0.0) as AttackUav
+	for tick: int in 3600:
+		threat.gameplay_tick(1.0 / 30.0)
+		if threat.mission_runtime.effect_applied:
+			break
+	assert_true(threat.mission_runtime.effect_applied, "초기 진입점에서 실제 비행으로 투발 거리에 도달합니다")
+	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_eq(battery.integrity, battery.definition.maximum_integrity)
+	var munitions: Array[Node] = []
+	for child: Node in main.threat_parent.get_children():
+		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
+			munitions.append(child)
+	assert_eq(munitions.size(), 1)
+	if munitions.is_empty():
+		return
+	var city_before := main.objective.current_integrity
+	munitions[0].call("_process", 10.0)
+	var after := battery.integrity
+	assert_eq(after, battery.definition.maximum_integrity - threat.mission_runtime.profile.damage)
+	munitions[0].call("_process", 10.0)
+	assert_eq(battery.integrity, after)
+	assert_eq(main.objective.current_integrity, city_before)
+	for tick: int in 3600:
+		threat.gameplay_tick(1.0 / 30.0)
+		if threat.resolved_state:
+			break
+	assert_true(threat.resolved_state, "투발 후 전장 밖으로 이탈합니다")
+
+func test_battery_strike_skips_disabled_targets_and_never_chases_relocated_impact() -> void:
+	var battery := _place_hunter_target()
+	main.enemy_knowledge.record_recon(battery)
+	battery.receive_damage(80.0)
+	var threat := main.director._spawn_entry(_battery_strike_entry(), 0.0, 0.0) as AttackUav
+	threat.global_position = battery.global_position + Vector3.UP * 100.0
+	threat.gameplay_tick(0.1)
+	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_false(threat.mission_runtime.effect_applied)
+	assert_eq(battery.integrity, 20.0)
+	battery.complete_repair()
+	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as Node3D
+	main.threat_parent.add_child(munition)
+	munition.global_position = battery.global_position + Vector3.UP * 100.0
+	munition.call("setup", battery.global_position, main.objective, 40, battery, false)
+	var city_before := main.objective.current_integrity
+	battery.global_position += Vector3(300, 0, 0)
+	munition.call("_process", 1.0)
+	assert_eq(battery.integrity, battery.definition.maximum_integrity)
+	assert_eq(main.objective.current_integrity, city_before)
+
+func test_local_recon_reports_nearby_weapons_and_enables_suppression_planning() -> void:
+	var battery := _place_hunter_target()
+	var distant := _place_hunter_target()
+	distant.global_position = battery.global_position + Vector3(800, 0, 0)
+	var recon_definition := main.scenario.threat_entries[2].threat_definition as AttackUavDefinition
+	var recon := recon_definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(recon)
+	recon.setup(8000, recon_definition)
+	recon.configure_enemy_knowledge(main.enemy_knowledge)
+	recon.global_position = battery.global_position + Vector3.UP * 100.0
+	recon.configure_mission(main.objective, main.battlefield, battery.global_position, 1.0, battery, Vector3(1500, 150, 0))
+	recon._record_local_recon()
+	assert_true(main.enemy_knowledge.estimates.has(battery.runtime_id))
+	assert_false(main.enemy_knowledge.estimates.has(distant.runtime_id))
+	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").source, "reconnaissance")
+	var entry := _battery_strike_entry()
+	assert_eq(entry.raid_role, ThreatSpawnEntry.RaidRole.SUPPRESSION)
+	assert_gt(main.director.adaptive_entry_weight(entry), 0.0)
+	var weights: Dictionary[StringName, float] = {
+		entry.threat_definition.id: main.director.adaptive_entry_weight(entry),
+		main.scenario.threat_entries[0].threat_definition.id: 1.0,
+	}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 73129
+	var planner := RaidPlanner.new()
+	var included := false
+	for sample: int in 32:
+		var waves := planner.generate(main.scenario, weights, 8.0, 4, 0.0, 32.0, 1.0, rng)
+		for wave: Dictionary in waves:
+			included = included or StringName(wave.definition_id) == entry.threat_definition.id
+	assert_true(included, "공통 절차 생성기가 도시 타격과 포대 제압을 실제로 조합합니다")
+	weights[entry.threat_definition.id] = 0.0
+	for sample: int in 16:
+		for wave: Dictionary in planner.generate(main.scenario, weights, 8.0, 4, 0.0, 32.0, 1.0, rng):
+			assert_ne(StringName(wave.definition_id), entry.threat_definition.id, "포대 관측 정보가 없으면 편성에서 제외됩니다")
 
 func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	var entry := main.scenario.threat_entries[5]

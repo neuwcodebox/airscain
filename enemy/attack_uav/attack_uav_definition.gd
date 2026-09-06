@@ -45,6 +45,8 @@ func validation_error() -> String:
 		return base_error
 	if maximum_health <= 0.0 or movement == null or mission == null:
 		return "공격 UAV 구성 참조가 올바르지 않습니다"
+	if mission.acquisition_range > 0.0 and (not requires_role_knowledge or adaptive_knowledge_role != mission.knowledge_role()):
+		return "관측 기반 타격 임무와 요구 지식 역할이 일치하지 않습니다"
 	var movement_error := movement.validation_error()
 	if not movement_error.is_empty():
 		return movement_error

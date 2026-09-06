@@ -2,11 +2,13 @@ extends Node3D
 ## Airframe proportions are authored by each content scene, independent of AI.
 
 @export var jet: bool = false
-static var _geometry: Dictionary[bool, Array] = {}
+@export var armed: bool = false
+static var _geometry: Dictionary[int, Array] = {}
 
 func _ready() -> void:
-	if _geometry.has(jet):
-		_install_geometry(_geometry[jet])
+	var variant := int(jet) + int(armed) * 2
+	if _geometry.has(variant):
+		_install_geometry(_geometry[variant])
 		return
 	var skin := ModelGeometry.material(Color("8b9384") if not jet else Color("687a80"), 0.35, 0.55)
 	var underside := ModelGeometry.material(Color("414b48"), 0.3)
@@ -45,6 +47,10 @@ func _ready() -> void:
 		sensor.rings = 4
 		ModelGeometry.mesh(self, "OpticalTurret", sensor, Vector3(0, -0.8, -3), glass)
 		ModelGeometry.box(self, "PusherPropeller", Vector3(0.15, 3.4, 0.12), Vector3(0, 0, 5.3), underside)
+	if armed:
+		for side: float in [-1.0, 1.0]:
+			ModelGeometry.box(self, "WeaponPylon", Vector3(0.35, 0.8, 1.2), Vector3(side * 3.5, -0.5, 0.6), underside)
+			ModelGeometry.mesh(self, "StrikePod", ModelGeometry.hull([Vector3(0.02, 0.02, -2.6), Vector3(0.4, 0.4, -1.5), Vector3(0.4, 0.4, 1.8), Vector3(0.1, 0.1, 2.1)]), Vector3(side * 3.5, -1.1, 0.2), skin)
 	var parts: Array[MeshInstance3D] = []
 	for child: Node in get_children():
 		if child is MeshInstance3D:
@@ -53,7 +59,7 @@ func _ready() -> void:
 			if finish != null and not finish.emission_enabled:
 				parts.append(part)
 	var combined := ModelGeometry.combine_static_parts(parts)
-	_geometry[jet] = combined
+	_geometry[variant] = combined
 	for part: MeshInstance3D in parts:
 		part.free()
 	_install_geometry(combined)

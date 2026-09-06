@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/facility_strike_uav/battery_strike_uav.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[sub_resource type="Resource" id="Movement"]
+script = ExtResource("3")
+speed = 40.0
+cruise_altitude = 145.0
+terminal_distance = 240.0
+terminal_altitude = 65.0
+maximum_turn_rate_degrees = 80.0
+maximum_climb_rate = 32.0
+
+[sub_resource type="Resource" id="Mission"]
+script = ExtResource("4")
+type = 2
+target_role = 4
+damage = 40.0
+action_distance = 100.0
+acquisition_range = 220.0
+
+[resource]
+script = ExtResource("1")
+id = &"battery_strike_uav"
+display_name = "포대 타격 UAV"
+scene = ExtResource("2")
+neutralization_reward = 16
+signature_class = &"strike_uav"
+radar_signature = 0.68
+affiliation = 3
+adaptive_knowledge_role = &"weapon"
+adaptive_knowledge_weight = 1.6
+requires_role_knowledge = true
+maximum_health = 85.0
+movement = SubResource("Movement")
+mission = SubResource("Mission")
+visual_color = Color(0.42, 0.30, 0.22, 1)

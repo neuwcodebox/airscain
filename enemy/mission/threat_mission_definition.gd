@@ -2,15 +2,28 @@ class_name ThreatMissionDefinition
 extends Resource
 
 enum Type { IMPACT, RECONNAISSANCE, STRIKE_AND_EXIT }
-enum TargetRole { CITY, SENSOR, COMMAND, SUPPORT }
+enum TargetRole { CITY, SENSOR, COMMAND, SUPPORT, WEAPON }
 
 @export var type := Type.IMPACT
 @export var target_role := TargetRole.CITY
 @export var damage: float = 10.0
 @export var action_distance: float = 5.0
 @export var action_duration: float = 0.0
+@export var acquisition_range: float = 0.0
+
+func knowledge_role() -> StringName:
+	match target_role:
+		TargetRole.SENSOR: return &"sensor"
+		TargetRole.COMMAND: return &"command"
+		TargetRole.SUPPORT: return &"support"
+		TargetRole.WEAPON: return &"weapon"
+	return &""
 
 func validation_error() -> String:
+	if type not in Type.values() or target_role not in TargetRole.values() or not is_finite(acquisition_range) or acquisition_range < 0.0:
+		return "위협 임무 역할 또는 획득 범위가 올바르지 않습니다"
+	if acquisition_range > 0.0 and (type != Type.STRIKE_AND_EXIT or target_role == TargetRole.CITY or acquisition_range <= action_distance):
+		return "관측 기반 타격 임무의 획득 범위가 올바르지 않습니다"
 	if damage < 0.0 or action_distance <= 0.0 or action_duration < 0.0:
 		return "위협 임무 프로필이 올바르지 않습니다"
 	if type == Type.IMPACT and damage <= 0.0:

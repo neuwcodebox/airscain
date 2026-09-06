@@ -266,8 +266,12 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	for projectile_state: Dictionary in world_state.projectiles:
 		var projectile_type := StringName(String(projectile_state.get("type", "")))
 		if projectile_type == &"air_strike_munition":
-			if not _valid_vector_data(projectile_state.get("position")) or not _valid_vector_data(projectile_state.get("target_position")) or float(projectile_state.get("speed", 0.0)) <= 0.0 or int(projectile_state.get("damage", 0)) <= 0:
-				return "공대지 탄 비행 상태가 올바르지 않습니다"
+			var strike_target_id := int(projectile_state.get("target_defense_id", 0))
+			if strike_target_id != 0 and not defense_ids.has(strike_target_id):
+				return "공대지 탄의 타격 대상이 올바르지 않습니다"
+			var strike_error := AIR_STRIKE_MUNITION_SCRIPT.state_validation_error(projectile_state)
+			if not strike_error.is_empty():
+				return strike_error
 			continue
 		var owner_id := int(projectile_state.get("owner_defense_id", 0))
 		if not projectile_owner_definitions.has(owner_id):

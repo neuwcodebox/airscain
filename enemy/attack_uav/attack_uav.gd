@@ -22,6 +22,8 @@ func configure_mission(objective_value: ProtectedObjective, battlefield_value: B
 	speed_multiplier = pressure_multiplier
 	mover.setup(_definition.movement, battlefield, global_position.direction_to(target_point))
 	mission_runtime.setup(_definition.mission, objective, target_point, target_asset_value, exit_point_value)
+	if _definition.mission.acquisition_range > 0.0 and target_asset_value == null:
+		mission_runtime.phase = ThreatMissionRuntime.Phase.EGRESS
 
 func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -32,6 +34,8 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 func gameplay_tick(delta: float) -> void:
 	if not active or resolved_state:
 		return
+	if mission_runtime.observe_target(global_position) and enemy_knowledge != null:
+		enemy_knowledge.discard_estimate_at(mission_runtime.target_defense_id, mission_runtime.fixed_target, _definition.mission.acquisition_range)
 	var mission_target := mission_runtime.navigation_target()
 	target_point = mission_target
 	var previous_position := global_position
@@ -65,7 +69,16 @@ func gameplay_tick(delta: float) -> void:
 	if not had_applied_effect and mission_runtime.effect_applied and _definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
 		_spawn_strike_munition(mission_target)
 	if not had_applied_effect and mission_runtime.effect_applied and enemy_knowledge != null and _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
-		enemy_knowledge.record_recon(mission_runtime.target_asset)
+		_record_local_recon()
+
+func _record_local_recon() -> void:
+	var anchor := mission_runtime.target_asset
+	if not is_instance_valid(anchor):
+		return
+	for child: Node in anchor.get_parent().get_children():
+		var asset := child as DefenseUnit
+		if asset != null and asset.active and Vector2(asset.global_position.x - global_position.x, asset.global_position.z - global_position.z).length() <= _definition.mission.action_distance:
+			enemy_knowledge.record_recon(asset)
 
 func resolve_once(neutralized: bool) -> bool:
 	if resolved_state:
@@ -129,4 +142,4 @@ func _spawn_strike_munition(strike_target: Vector3) -> void:
 	var munition := STRIKE_MUNITION_SCENE.instantiate() as Node3D
 	parent.add_child(munition)
 	munition.global_position = global_position
-	munition.call("setup", strike_target, objective, roundi(_definition.mission.damage))
+	munition.call("setup", strike_target, objective, roundi(_definition.mission.damage), mission_runtime.target_asset, _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY)

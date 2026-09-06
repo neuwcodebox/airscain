@@ -720,7 +720,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		if String(state.type) == "air_strike_munition":
 			var strike_munition := AIR_STRIKE_MUNITION_SCENE.instantiate() as Node3D
 			threat_parent.add_child(strike_munition)
-			strike_munition.call("restore_state", state, objective)
+			strike_munition.call("restore_state", state, objective, defense_by_id)
 			continue
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
 		if String(state.type) == "homing_interceptor":

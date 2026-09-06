@@ -40,6 +40,11 @@ func record_outcome(neutralized: bool, position: Vector3, threat_id: StringName)
 	if recent_outcomes.size() > MAX_OUTCOMES:
 		recent_outcomes.pop_front()
 
+func discard_estimate_at(asset_id: int, searched_position: Vector3, search_range: float) -> void:
+	var estimate: Dictionary = estimates.get(asset_id, {})
+	if not estimate.is_empty() and SaveDocument.vector3_from_data(estimate.estimated_position).distance_to(searched_position) <= search_range:
+		estimates.erase(asset_id)
+
 func best_estimate_for_role(role: StringName) -> Dictionary:
 	var best: Dictionary = {}
 	for estimate: Dictionary in estimates.values():

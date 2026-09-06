@@ -279,6 +279,46 @@ func test_pending_air_strike_munition_restores_and_damages_at_its_surface_impact
 	assert_eq(main.objective.damage_smoke_effects.size(), 1)
 	assert_almost_eq(main.objective.damage_smoke_effects[0].global_position, target, Vector3.ONE * 0.001)
 
+func test_battery_strike_restores_observed_target_without_following_hidden_movement() -> void:
+	var battery := _place_defense(main.scenario.available_defenses[0])
+	main.enemy_knowledge.record_engagement(battery, &"missile")
+	var entry: ThreatSpawnEntry
+	for candidate: ThreatSpawnEntry in main.scenario.threat_entries:
+		if candidate.threat_definition.id == &"battery_strike_uav":
+			entry = candidate
+	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var runtime_id := threat.runtime_id
+	var observed := threat.mission_runtime.fixed_target
+	battery.global_position += Vector3(500, 0, 0)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_contact(runtime_id) as AttackUav
+	assert_eq(restored.mission_runtime.navigation_target(), observed)
+	restored.global_position = observed + Vector3.UP * 100.0
+	restored.gameplay_tick(0.1)
+	assert_eq(restored.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_false(restored.mission_runtime.effect_applied)
+
+func test_asset_strike_munition_restores_target_and_rejects_invalid_reference() -> void:
+	var battery := _place_defense(main.scenario.available_defenses[0])
+	var battery_id := battery.runtime_id
+	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as Node3D
+	main.threat_parent.add_child(munition)
+	munition.global_position = battery.global_position + Vector3.UP * 100.0
+	munition.call("setup", battery.global_position, main.objective, 40, battery, false)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var invalid := document.duplicate(true)
+	invalid.payload.world.projectiles.back().target_defense_id = 999999
+	assert_ne(main.restore_from_document(invalid), "")
+	assert_same(_find_defense(battery_id), battery)
+	assert_eq(main.restore_from_document(document), "")
+	var restored_battery := _find_defense(battery_id)
+	var restored := main.threat_parent.get_node("StrikeMunition") as Node3D
+	var city_before := main.objective.current_integrity
+	restored.call("_process", 1.0)
+	assert_eq(restored_battery.integrity, restored_battery.definition.maximum_integrity - 40.0)
+	assert_eq(main.objective.current_integrity, city_before)
+
 func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
 	var entry := main.scenario.threat_entries[9]
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
