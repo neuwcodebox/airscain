@@ -60,11 +60,6 @@ func defense_started() -> void:
 func defense_placed(unit: DefenseUnit) -> void:
 	if step == Step.RADAR and unit.definition.id == &"search_radar":
 		_set_step(Step.COMMAND)
-	elif step == Step.COMMAND and unit.definition.id == &"command_post":
-		if c2_network.placement_preview(unit.definition, unit.global_position).ready:
-			_set_step(Step.WEAPON)
-		else:
-			hud.set_feedback("지휘통제소가 센서와 연결되어 있지 않습니다. 청색 연결선이 생기는 위치를 선택하세요.")
 	elif step == Step.WEAPON and unit is MissileBattery:
 		training_battery = unit as MissileBattery
 		unit.set_hold_fire(true)
@@ -98,7 +93,9 @@ func track_selected(track: PlayerTrack) -> void:
 		_set_step(Step.SELECT_ASSET)
 
 func asset_selected(unit: DefenseUnit) -> void:
-	if step == Step.SELECT_ASSET and unit == _training_battery():
+	if step == Step.COMMAND and unit == city_command():
+		_set_step(Step.WEAPON)
+	elif step == Step.SELECT_ASSET and unit == _training_battery():
 		_set_step(Step.PRIORITY)
 	elif step == Step.ENERGY_REVIEW and unit == energy_subject:
 		energy_reviewed = true
@@ -162,11 +159,6 @@ func relocation_completed(unit: DefenseUnit) -> void:
 	if step == Step.WAIT_RELOCATE and unit == relocation_subject:
 		session.set_simulation_speed(0.0)
 		_set_step(Step.OPERATIONS)
-	elif step == Step.COMMAND:
-		for defense: DefenseUnit in defenses:
-			if defense.definition.id == &"command_post" and c2_network.placement_preview(defense.definition, defense.global_position).ready:
-				_set_step(Step.WEAPON)
-				break
 	elif step == Step.SUPPORT and unit.service_range() > 0.0:
 		defense_placed(unit)
 
@@ -191,7 +183,7 @@ func _set_step(next_step: Step) -> void:
 		Step.RADAR:
 			_lesson("탐색 센서", "상단의 방공 자산을 열어 탐색 레이더를 고르세요. 도시와 주황색 진입 표시 사이의 평탄한 지형에 배치하세요. 산 뒤에는 저고도 탐지 사각이 생깁니다.")
 		Step.COMMAND:
-			_lesson("지휘통제 연결", "방공 자산에서 지휘통제소를 골라 레이더에 청색 연결선이 이어지는 위치에 배치하세요. 센서만으로는 포대에 항적이 공유되지 않습니다.")
+			_lesson("도시 지휘통제소", "도시 중앙 건물 옥상의 지휘통제소를 선택하세요. 처음부터 무료로 제공되며 연결된 센서의 항적을 포대에 전달합니다. 망을 넓힐 때는 지휘통제소를 추가 설치할 수 있습니다.")
 		Step.WEAPON:
 			_lesson("요격 계층", "미사일 포대를 도시와 주황색 진입 표시 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다. 배치 모드는 우클릭이나 Esc로 종료합니다.")
 		Step.START:
@@ -240,6 +232,12 @@ func _set_step(next_step: Step) -> void:
 		Step.COMPLETE:
 			session.set_simulation_speed(1.0)
 			_lesson("훈련 완료", "탐지·C2·우선표적·자동교전, 보급·수리·도시 복구, 고도 계층·전력·재배치를 마쳤습니다. 자유롭게 연습하거나 Esc로 돌아가 지속 작전을 시작하세요.")
+
+func city_command() -> DefenseUnit:
+	for unit: DefenseUnit in defenses:
+		if unit.definition.id == &"command_post" and Vector2(unit.global_position.x, unit.global_position.z).length() < 1.0:
+			return unit
+	return null
 
 func _lesson(title: String, body: String, next_visible: bool = false) -> void:
 	hud.set_training_lesson(mini(int(step), LESSON_COUNT), LESSON_COUNT, title, body, next_visible)

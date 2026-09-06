@@ -17,6 +17,9 @@ var damage_smoke_effects: Array[DamageSmokeEffect] = []
 var damage_smoke_sites: Array[Dictionary] = []
 var prepared_smoke_effects: Array[DamageSmokeEffect] = []
 
+func initial_defense_mounts() -> Array[Dictionary]:
+	return []
+
 func setup(id_value: int, definition_value: ObjectiveDefinition) -> void:
 	runtime_id = id_value
 	definition = definition_value

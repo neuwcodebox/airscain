@@ -24,8 +24,11 @@ func configure(value: AirscainMain) -> void:
 	main.track_display.visible = false
 	main.c2_overlay.visible = false
 	(main.tactical_range_overlay as Node3D).visible = false
+	for unit: DefenseUnit in main.defenses:
+		unit.identity_marker.hide()
+		unit.status_marker.hide()
+		unit.set_process(false)
 	_place(&"search_radar", Vector3(230, 0, -110))
-	_place(&"command_post", Vector3(180, 0, 90))
 	_place(&"missile_battery", Vector3(230, 0, 10))
 	_place(&"short_range_missile", Vector3(220, 0, -160))
 	_place(&"close_in_gun", Vector3(220, 0, -50))

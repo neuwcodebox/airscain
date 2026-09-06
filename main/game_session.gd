@@ -90,16 +90,23 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 	var validation := battlefield.placement_result(position, definition.placement_profile)
 	if not validation.valid:
 		return {"success": false, "reason": validation.reason}
+	return _deploy_defense(definition, battlefield.snap_placement_position(position, definition.placement_profile), battlefield, defense_parent, registry, projectile_parent, true)
+
+func deploy_initial_defense(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D) -> Dictionary:
+	# Authored objective mounts are not player-placement surfaces or purchases.
+	return _deploy_defense(definition, position, battlefield, defense_parent, registry, projectile_parent, false)
+
+func _deploy_defense(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D, purchased: bool) -> Dictionary:
 	var unit := definition.scene.instantiate() as DefenseUnit
 	if unit == null:
 		return {"success": false, "reason": "방어 수단을 생성할 수 없습니다"}
 	defense_parent.add_child(unit)
-	unit.global_position = battlefield.snap_placement_position(position, definition.placement_profile)
+	unit.global_position = position
 	unit.setup(next_defense_id, definition)
 	unit.configure_combat(registry, projectile_parent)
 	next_defense_id += 1
 	battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
-	if not unlimited_budget:
+	if purchased and not unlimited_budget:
 		budget -= definition.price
 		defense_spending += definition.price
 	defense_count += 1

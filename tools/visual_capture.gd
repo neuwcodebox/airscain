@@ -20,6 +20,30 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-city-command-only"):
+		AirscainApp.apply_global_font()
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		var command := main.defenses[0]
+		var camera := main.camera_rig.camera
+		camera.global_position = command.global_position + Vector3(12, 105, 18)
+		camera.look_at(command.global_position + Vector3.UP * 4)
+		Input.warp_mouse(root.get_final_transform() * command.pointer_target.screen_rect(command, camera).get_center())
+		for frame: int in 8:
+			await process_frame
+		_save_capture("/tmp/airscain_city_command_day.png")
+		assert(main.placement.hovered_asset == command)
+		main.day_night.apply_time(448.0, true)
+		for frame: int in 8:
+			await process_frame
+		_save_capture("/tmp/airscain_city_command_night.png")
+		print("CITY_COMMAND_CAPTURE_OK roof hover day night")
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-asset-hover-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
@@ -48,7 +72,7 @@ func run() -> void:
 		main.set_process(false)
 		main.camera_rig.set_process(false)
 		_place_asset(main.scenario.available_defenses[4], 1.0)
-		var gun := main.defenses[0] as CloseInGun
+		var gun := main.defenses.back() as CloseInGun
 		(main.get_node("UI") as CanvasLayer).visible = false
 		main.camera_rig.camera.global_position = gun.global_position + Vector3(22, 18, -28)
 		main.camera_rig.camera.look_at(gun.global_position + Vector3.UP * 6)
@@ -626,12 +650,13 @@ func _capture_automatic_resupply() -> bool:
 	main.set_process(false)
 	main.session.budget = 5000
 	main._on_pressure_changed(5)
+	var initial_count := main.defenses.size()
 	_place_asset(main.scenario.available_defenses[7], 1.0)
 	_place_asset(main.scenario.available_defenses[5], 1.0)
-	if main.defenses.size() != 2:
+	if main.defenses.size() != initial_count + 2:
 		push_error("Automatic resupply capture could not place its assets")
 		return false
-	var battery := main.defenses[0] as MissileBattery
+	var battery := main.defenses[initial_count] as MissileBattery
 	if not main.support_manager.can_service(battery):
 		push_error("Automatic resupply capture needs local support")
 		return false
@@ -1031,7 +1056,7 @@ func _capture_popup_input_priority() -> bool:
 	if main.defenses.is_empty():
 		push_error("Could not place an asset for popup overlap verification")
 		return false
-	main._on_asset_selected(main.defenses[0])
+	main._on_asset_selected(main.defenses.back())
 	main.hud.set_catalog_expanded(true)
 	for index: int in 2:
 		await process_frame
@@ -1178,7 +1203,7 @@ func _capture_asset_hover() -> void:
 	main.set_process(false)
 	main.camera_rig.set_process(false)
 	_place_asset(main.scenario.available_defenses[4], 1.0)
-	var unit := main.defenses[0] as DefenseUnit
+	var unit := main.defenses.back() as DefenseUnit
 	var camera := main.camera_rig.camera
 	camera.global_position = unit.global_position + Vector3(45, 40, 55)
 	camera.look_at(unit.global_position + Vector3.UP * 5)

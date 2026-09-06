@@ -1,14 +1,8 @@
 class_name CityObjective
 extends ProtectedObjective
 
-func setup(id_value: int, definition_value: ObjectiveDefinition) -> void:
-	super.setup(id_value, definition_value)
-	var marker: MeshInstance3D = $CoreMarker
-	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("57c7ff")
-	material.emission_enabled = true
-	material.emission = Color("176a94")
-	marker.material_override = material
+func initial_defense_mounts() -> Array[Dictionary]:
+	return [{"definition_id": &"command_post", "position": ($CommandMount as Marker3D).global_position}]
 
 func excludes_placement(world_position: Vector3, radius: float) -> bool:
 	var hall := $CivicHall as MeshInstance3D

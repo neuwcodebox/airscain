@@ -5,7 +5,6 @@ extends Control
 const COLOR := Color(1.0, 0.78, 0.28)
 const PLACEMENT_LESSONS := {
 	TrainingController.Step.RADAR: &"search_radar",
-	TrainingController.Step.COMMAND: &"command_post",
 	TrainingController.Step.WEAPON: &"missile_battery",
 	TrainingController.Step.SUPPORT: &"support_facility",
 	TrainingController.Step.ALTITUDE: &"tracking_radar",
@@ -62,6 +61,8 @@ func refresh() -> void:
 		_placement_cue(PLACEMENT_LESSONS[training.step])
 		return
 	match training.step:
+		TrainingController.Step.COMMAND:
+			_asset(training.city_command())
 		TrainingController.Step.CAMERA, TrainingController.Step.OPERATIONS:
 			_button(hud.training_next_button, "계속")
 		TrainingController.Step.START:
@@ -185,9 +186,9 @@ func _find_suggestion(definition: DefenseDefinition) -> Vector3:
 	var near := Vector3(300, 0, 0)
 	if is_instance_valid(training.training_battery):
 		near = training.training_battery.global_position + Vector3(0, 0, 65)
-	if training.step == TrainingController.Step.COMMAND or training.step == TrainingController.Step.WEAPON:
+	if training.step == TrainingController.Step.WEAPON:
 		for unit: DefenseUnit in training.defenses:
-			if unit.definition.id == (&"search_radar" if training.step == TrainingController.Step.COMMAND else &"command_post"):
+			if unit.definition.id == &"search_radar":
 				near = unit.global_position + Vector3(-60, 0, 45)
 	if training.step == TrainingController.Step.RELOCATE and is_instance_valid(training.relocation_subject):
 		near = training.relocation_subject.global_position + Vector3(65, 0, 40)
@@ -197,7 +198,7 @@ func _find_suggestion(definition: DefenseDefinition) -> Vector3:
 		candidate = training.battlefield.snap_placement_position(candidate, definition.placement_profile)
 		if not training.battlefield.placement_result(candidate, definition.placement_profile).valid:
 			continue
-		if training.step == TrainingController.Step.COMMAND or training.step == TrainingController.Step.WEAPON:
+		if training.step == TrainingController.Step.WEAPON:
 			if not training.c2_network.placement_preview(definition, candidate).ready:
 				continue
 		if training.step == TrainingController.Step.SUPPORT and is_instance_valid(training.training_battery):

@@ -129,7 +129,22 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq(main.scenario.threat_entries[9].threat_definition.id, &"ballistic_missile")
 	assert_eq(main.scenario.threat_entries[10].threat_definition.id, &"rocket")
 	assert_eq(main.scenario.threat_entries[11].threat_definition.id, &"strike_aircraft")
-	assert_false(main.session.start_defense())
+	assert_true(main.session.start_defense(), "도시 기본 지휘통제소도 가동 자산으로 포함합니다")
+
+func test_city_rooftop_command_is_free_registered_and_connects_the_first_defenses() -> void:
+	assert_eq(main.defenses.size(), 1)
+	var command := main.defenses[0]
+	assert_eq(command.definition.id, &"command_post")
+	assert_eq(command.global_position, main.objective.initial_defense_mounts()[0].position)
+	assert_gt(command.global_position.y, main.objective.global_position.y + 20.0)
+	assert_eq(main.session.defense_spending, 0)
+	assert_eq(main.session.budget, main.session.starting_budget)
+	assert_eq(main.battlefield.occupied_positions.size(), 1)
+	var radar := _place_for(main, main.scenario.available_defenses[1]).unit as DefenseUnit
+	var weapon := _place_for(main, main.scenario.available_defenses[0]).unit as DefenseUnit
+	assert_true(main.c2_network.has_command_path(weapon, radar.runtime_id))
+	assert_ne(command.runtime_id, radar.runtime_id)
+	assert_ne(command.runtime_id, weapon.runtime_id)
 
 func test_time_control_buttons_are_the_only_speed_state_indicator() -> void:
 	var pause_button := main.hud.get_node("%PauseButton") as Button
@@ -316,8 +331,9 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	var radar_result := _place_for(training, training.scenario.available_defenses[1])
 	assert_true(radar_result.success)
 	assert_eq(training.training_controller.step, TrainingController.Step.COMMAND)
-	var command_result := _place_for(training, training.scenario.available_defenses[2])
-	assert_true(command_result.success)
+	var command := training.training_controller.city_command()
+	assert_not_null(command)
+	training._on_asset_selected(command)
 	assert_eq(training.training_controller.step, TrainingController.Step.WEAPON)
 	var battery_result := _place_for(training, training.scenario.available_defenses[0])
 	assert_true(battery_result.success)
@@ -456,6 +472,7 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 
 func test_asset_previews_show_geometry_without_creating_live_defenses() -> void:
 	var budget_before := main.session.budget
+	var defenses_before := main.session.defense_count
 	var contact_count := main.registry.count()
 	for definition: DefenseDefinition in main.scenario.available_defenses:
 		main.placement.select(definition)
@@ -465,7 +482,7 @@ func test_asset_previews_show_geometry_without_creating_live_defenses() -> void:
 		var live_units := main.placement.preview.find_children("*", "Node3D", true, false).filter(func(node: Node) -> bool: return node is DefenseUnit)
 		assert_true(live_units.is_empty(), "미리보기에는 게임 로직이 있는 자산이 남지 않습니다")
 	assert_eq(main.session.budget, budget_before)
-	assert_eq(main.session.defense_count, 0)
+	assert_eq(main.session.defense_count, defenses_before)
 	assert_eq(main.registry.count(), contact_count)
 	main.placement.cancel()
 

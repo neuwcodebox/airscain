@@ -119,7 +119,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(main.objective.current_integrity, 90)
 	assert_eq(main.objective.damage_smoke_effects.size(), 1)
 	assert_almost_eq(main.objective.damage_smoke_effects[0].global_position, building_impact, Vector3.ONE * 0.001)
-	assert_eq(main.defenses.size(), 2)
+	assert_eq(main.defenses.size(), 3)
 	var restored_battery := _find_defense(battery_runtime_id) as MissileBattery
 	assert_eq(restored_battery.runtime_id, battery_runtime_id)
 	assert_eq(restored_battery.global_position, placement_position)
@@ -214,7 +214,7 @@ func test_multi_munition_inventory_mode_and_validation_restore() -> void:
 	battery.magazines[&"high_speed_interceptor"].reserve = 0
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var invalid_document := document.duplicate(true)
-	invalid_document.payload.world.defenses[0].content_state.munition_magazines.erase("high_speed_interceptor")
+	invalid_document.payload.world.defenses.back().content_state.munition_magazines.erase("high_speed_interceptor")
 	assert_ne(main.restore_from_document(invalid_document), "")
 	assert_same(_find_defense(battery_id), battery)
 	assert_eq(main.restore_from_document(document), "")
@@ -330,7 +330,7 @@ func test_mobile_asset_relocation_finishes_after_save_restore() -> void:
 	assert_true(main.relocation_manager.request_relocation(gun, destination))
 	assert_false(gun.active)
 	assert_eq(main.session.budget, budget_before)
-	assert_eq(main.battlefield.occupied_positions.size(), 2)
+	assert_eq(main.battlefield.occupied_positions.size(), 3)
 	main.relocation_manager.gameplay_tick(gun.definition.relocation_duration - 0.1)
 	assert_eq(gun.global_position, origin)
 	var gun_id := gun.runtime_id
@@ -342,7 +342,7 @@ func test_mobile_asset_relocation_finishes_after_save_restore() -> void:
 	main.relocation_manager.gameplay_tick(0.2)
 	assert_eq(restored.global_position, destination)
 	assert_true(restored.active)
-	assert_eq(main.battlefield.occupied_positions.size(), 1)
+	assert_eq(main.battlefield.occupied_positions.size(), 2)
 	assert_eq(main.relocation_manager.task_status(restored), "")
 
 func test_facility_target_and_egress_mission_restore_runtime_references() -> void:
@@ -432,7 +432,7 @@ func test_automatic_resupply_save_rejects_invalid_targets_before_changing_runtim
 		document.payload.world.support.automatic_resupply_ids = invalid
 		assert_ne(main.restore_from_document(document), "")
 		assert_true(battery.automatic_resupply_enabled())
-		assert_eq(main.defenses.size(), 2)
+		assert_eq(main.defenses.size(), 3)
 	var missing := original.duplicate(true)
 	missing.payload.world.support.erase("automatic_resupply_ids")
 	assert_ne(main.restore_from_document(missing), "")
@@ -458,14 +458,35 @@ func test_version_17_gun_migrates_without_inventing_rounds_or_changing_ammunitio
 	var id := gun.runtime_id
 	gun.magazine.rounds = 23
 	var document := main.capture_save_document()
-	document.payload.world.defenses[0].content_state.erase("gunfire")
+	document.payload.world.defenses.back().content_state.erase("gunfire")
 	assert_ne(main.restore_from_document(document), "", "현재 버전은 비행탄 필드를 생략할 수 없습니다")
 	document.version = 17
 	assert_eq(main.restore_from_document(document), "")
 	var restored := _find_defense(id) as CloseInGun
 	assert_eq(restored.magazine.rounds, 23)
 	assert_eq(restored.gunfire.rounds.size(), 0)
-	assert_false(document.payload.world.defenses[0].content_state.has("gunfire"))
+	assert_false(document.payload.world.defenses.back().content_state.has("gunfire"))
+
+func test_initial_city_command_preserves_damage_and_does_not_respawn_on_restore() -> void:
+	var command := main.defenses[0]
+	var id := command.runtime_id
+	command.receive_damage(25.0)
+	var position := command.global_position
+	var integrity := command.integrity
+	var document := main.capture_save_document()
+	for iteration: int in 2:
+		assert_eq(main.restore_from_document(document), "")
+		assert_eq(main.defenses.size(), 1)
+		assert_eq(_find_defense(id).integrity, integrity)
+		assert_eq(_find_defense(id).global_position, position)
+		assert_eq(main.session.defense_spending, 0)
+	# Older saves without a rooftop installation retain their authored network.
+	var legacy := document.duplicate(true)
+	legacy.payload.world.defenses.clear()
+	legacy.payload.session.defense_count = 0
+	legacy.payload.session.next_defense_id = 1
+	assert_eq(main.restore_from_document(legacy), "")
+	assert_true(main.defenses.is_empty())
 
 func _find_defense(runtime_id: int) -> DefenseUnit:
 	for unit: DefenseUnit in main.defenses:

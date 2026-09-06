@@ -38,8 +38,9 @@ func run() -> void:
 	click.pressed = false
 	Input.parse_input_event(click)
 	assert(main.training_controller.step == TrainingController.Step.COMMAND)
-	var command := await place_recommended(2)
+	var command := main.training_controller.city_command()
 	assert(command != null)
+	main._on_asset_selected(command)
 	var battery := await place_recommended(0)
 	main.hud.start_requested.emit()
 	if not await until_step(TrainingController.Step.SELECT_TRACK):

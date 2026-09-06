@@ -375,7 +375,9 @@ func test_city_objective_uses_a_civic_landmark() -> void:
 	var city := add_child_autofree(preload("res://world/objective/city/city_objective.tscn").instantiate()) as CityObjective
 	assert_not_null(city.get_node_or_null("CivicHall"))
 	assert_not_null(city.get_node_or_null("CivicTower"))
-	assert_gt((city.get_node("CoreMarker") as MeshInstance3D).position.y, 28.0)
+	var roof := city.get_node("CivicRoof") as MeshInstance3D
+	var mount := city.get_node("CommandMount") as Marker3D
+	assert_almost_eq(mount.position.y, roof.position.y + (roof.mesh as BoxMesh).size.y * 0.5, 0.001)
 
 func test_tactical_units_use_a_smaller_presentation_scale_without_changing_profiles() -> void:
 	var defense := add_child_autofree(SCENARIO.available_defenses[0].scene.instantiate()) as DefenseUnit

@@ -107,6 +107,7 @@ func _ready() -> void:
 	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	training_controller.configure(scenario, battlefield, objective, defenses, registry, director, session, hud, tactical_screen_overlay, c2_network)
 	_connect_flow()
+	_deploy_initial_defenses()
 	if game_mode == GameMode.TRAINING:
 		var guidance := TrainingGuidance.new()
 		guidance.name = "TrainingGuidance"
@@ -180,6 +181,15 @@ func _spawn_objective() -> void:
 	objective.exclusion_radius = scenario.city_size * 0.5
 	objective.setup(1, scenario.objective_definition)
 	battlefield.set_objective(objective)
+
+func _deploy_initial_defenses() -> void:
+	for mount: Dictionary in objective.initial_defense_mounts():
+		for definition: DefenseDefinition in scenario.available_defenses:
+			if definition.id == mount.definition_id:
+				var result := session.deploy_initial_defense(definition, mount.position, battlefield, defense_parent, registry, projectile_parent)
+				if not result.success:
+					push_error("초기 방공 자산 생성 실패: %s" % result.reason)
+				break
 
 func _spawn_ambient_contacts() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -675,6 +685,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		scenario.world_seed = restored_seed
 		requested_seed = restored_seed
 		battlefield.build(scenario)
+	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
 	var world_state: Dictionary = payload.world
 	objective.restore_damage_smoke_state(world_state.get("objective_damage_smoke", []))
 	objective.restore_integrity(int(world_state.objective_integrity))
