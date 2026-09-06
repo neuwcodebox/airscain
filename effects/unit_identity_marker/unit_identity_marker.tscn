@@ -10,7 +10,7 @@ billboard = 1
 no_depth_test = true
 render_priority = 100
 fixed_size = true
-pixel_size = 0.0006
+pixel_size = 0.000376
 modulate = Color(0.46, 0.9, 0.62, 0.96)
 
 [node name="SelectionRing" type="MeshInstance3D" parent="."]

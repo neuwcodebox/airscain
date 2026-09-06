@@ -13,6 +13,7 @@ const MINIMUM_PITCH := PI / 15.0
 const MAXIMUM_PITCH := PI / 2.0
 const TERRAIN_CLEARANCE := 12.0
 const ORBIT_SCALE := sqrt(1.0 + 0.72 * 0.72)
+const ZOOM_HALF_SPAN := ORBIT_SCALE * tan(deg_to_rad(26.0))
 
 var rotating: bool = false
 var zoom_distance: float = 680.0
@@ -107,9 +108,11 @@ func _unhandled_input(event: InputEvent) -> void:
 func _update_camera() -> void:
 	pitch_radians = clampf(pitch_radians, MINIMUM_PITCH, MAXIMUM_PITCH)
 	var orbit_basis := Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -pitch_radians)
-	var offset := orbit_basis.z * zoom_distance * ORBIT_SCALE
+	# Zoom controls framing at the focus plane, independently of the lens angle.
+	var orbit_distance := zoom_distance * ZOOM_HALF_SPAN / tan(deg_to_rad(camera.fov * 0.5))
+	var offset := orbit_basis.z * orbit_distance
 	if pitch_radians == MAXIMUM_PITCH:
-		offset = Vector3.UP * zoom_distance * ORBIT_SCALE
+		offset = Vector3.UP * orbit_distance
 	camera.position = offset
 	if terrain_height.is_valid():
 		var floor_height := 0.0

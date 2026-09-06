@@ -265,7 +265,7 @@ func pick_asset_at(world_position: Vector3) -> DefenseUnit:
 func _terrain_hit(screen_position: Vector2) -> Dictionary:
 	var origin := camera.project_ray_origin(screen_position)
 	var direction := camera.project_ray_normal(screen_position)
-	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * 3000.0, 1)
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * camera.far, 1)
 	return get_world_3d().direct_space_state.intersect_ray(query)
 
 func _create_preview() -> void:

@@ -20,6 +20,31 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-camera-perspective-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		AirscainApp.apply_global_font()
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		var lens := main.camera_rig.camera.fov
+		main.camera_rig.camera.fov = 52.0
+		main.camera_rig._update_camera()
+		await create_timer(0.2).timeout
+		_save_capture("/tmp/airscain_perspective_before.png")
+		main.camera_rig.camera.fov = lens
+		main.camera_rig._update_camera()
+		await create_timer(0.2).timeout
+		_save_capture("/tmp/airscain_perspective_after.png")
+		main.camera_rig.pitch_radians = PI / 2.0
+		main.camera_rig.zoom_distance = main.camera_rig.maximum_zoom
+		main.camera_rig._update_camera()
+		await create_timer(0.2).timeout
+		_save_capture("/tmp/airscain_perspective_overhead.png")
+		print("CAMERA_PERSPECTIVE_CAPTURE_OK")
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-munition-menu-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

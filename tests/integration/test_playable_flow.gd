@@ -40,6 +40,14 @@ func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	assert_lte(main.battlefield.street_lights.size(), 6)
 	assert_eq(main.battlefield.window_material.get_shader_parameter("night_amount"), 1.0)
 
+func test_zoomed_out_camera_can_still_pick_the_city_surface() -> void:
+	main.camera_rig.zoom_distance = main.camera_rig.maximum_zoom
+	main.camera_rig._update_camera()
+	await get_tree().physics_frame
+	var point := Vector3(0, main.battlefield.terrain_height(0, 0), 0)
+	var hit := main.placement._terrain_hit(main.camera_rig.camera.unproject_position(point))
+	assert_false(hit.is_empty(), "멀어진 카메라에서도 배치 지면을 선택합니다")
+
 func test_night_placement_light_is_local_fades_and_stops_after_cancel() -> void:
 	main.set_process(false)
 	main.placement.set_process(false)

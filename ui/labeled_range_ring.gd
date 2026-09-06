@@ -21,7 +21,7 @@ func _ready() -> void:
 	caption.fixed_size = true
 	caption.font_size = 28
 	caption.outline_size = 8
-	caption.pixel_size = 0.00065
+	caption.pixel_size = 0.0004075
 	caption.render_priority = 125
 	add_child(caption)
 

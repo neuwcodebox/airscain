@@ -20,6 +20,22 @@ func test_wasd_action_moves_camera_rig() -> void:
 	Input.action_release("camera_right")
 	assert_gt(rig.global_position.x, initial_position.x)
 
+func test_lens_preserves_center_framing_and_reduces_near_far_size_difference() -> void:
+	rig.configure_for_battlefield(2400.0)
+	var lens := rig.camera.fov
+	var center_width := _projected_width(0.0)
+	var near_far_ratio := _projected_width(500.0) / _projected_width(-500.0)
+	var distance := rig.camera.position.length()
+	rig.camera.fov = 52.0
+	rig._update_camera()
+	assert_lt(lens, rig.camera.fov)
+	assert_gt(distance, rig.camera.position.length())
+	assert_almost_eq(center_width, _projected_width(0.0), 0.01)
+	assert_lt(near_far_ratio, _projected_width(500.0) / _projected_width(-500.0))
+
+func _projected_width(z: float) -> float:
+	return rig.camera.unproject_position(Vector3(100, 0, z)).distance_to(rig.camera.unproject_position(Vector3(0, 0, z)))
+
 func test_mouse_wheel_changes_zoom_within_limits() -> void:
 	var initial_zoom := rig.zoom_distance
 	var zoom_in := InputEventMouseButton.new()

@@ -23,7 +23,7 @@ func _ready() -> void:
 	engagement_distance_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	engagement_distance_label.no_depth_test = true
 	engagement_distance_label.fixed_size = true
-	engagement_distance_label.pixel_size = 0.001
+	engagement_distance_label.pixel_size = 0.000627
 	engagement_distance_label.font_size = 14
 	engagement_distance_label.outline_size = 6
 	engagement_distance_label.outline_modulate = Color(0.015, 0.025, 0.035, 0.96)

@@ -11,7 +11,7 @@ func _ready() -> void:
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.font = preload("res://ui/fonts/NanumSquareB.ttf")
 	label.font_size = 28
-	label.pixel_size = 0.00065
+	label.pixel_size = 0.0004075
 	label.outline_size = 6
 	label.no_depth_test = true
 	label.render_priority = 120
