@@ -1,5 +1,17 @@
 # PLAN.md
 
+## 플레이 피드백 정리
+
+- [x] 훈련 전체 안내·전술 표시 필드 분리·레이더 하위 분류·범위 라벨 충돌을 정리하고 실제 UI를 검증한다.
+- [x] 지형 안전 여유를 유지하면서 수평선 위를 볼 수 있는 연속 카메라 조작을 구현·검증한다.
+- [x] UAV 폭탄의 투하/탄도/피해 경로를 재현하고 표적 타격 실패를 수정·검증한다.
+
+훈련은 전체 안내를 처음부터 표시하고 줄바꿈 확정 후 카드 높이를 맞춘다. 전술 표시 필드명과 현재 선택값을 분리했다. 저·중고도 레이더는 고고도와 동일한 원 위치 및 우측 상단의 하향 화살표를 사용한다. 같은 viewport의 범위 라벨끼리 화면 사각형을 피하며 동일 반경도 각각 읽힌다. 가운데 드래그는 낮은 각도에서 안전한 궤도 위치를 유지한 채 하늘까지 시선을 회전한다. 지형 보정은 시선에 연속적으로 적용하고 정수직/Backspace 복원은 유지한다.
+
+UAV의 8m 투하 오차 한계와 작은 자산의 최소 8m 피해 반경이 맞닿아, 경사지 기관포에 실제 탄착 오차 8.212m로 피해가 누락되는 사례를 재현했다. 기본 투하 오차를 4m로 줄이고 기존 프레임 이동 길이 보완을 유지했다. 폭탄의 비유도 낙하·피해량·판정 반경은 변경하지 않았다. 포대 3종 × 접근 방향 4개 × 시간 간격/속도 조건 2개의 24개 탄착, 기존 비행 중 저장 복원·미사일 분리·실제 탄착을 검증했다.
+
+최종 전체 19개 스크립트 352개 테스트·27,934개 단언 통과(`/tmp/airscain_feedback_full_tests.log`). 실제 무음 Compatibility 창에서 훈련·구매 메뉴·동일 반경·전술 드롭다운, 가운데 드래그의 수평선/상향 시선과 UAV 투하/탄착 후 포대 60→20% 피해를 확인했다. 캡처: `/tmp/airscain_training_start.png`, `/tmp/airscain_training_review_catalog.png`, `/tmp/airscain_training_review_ranges.png`, `/tmp/airscain_training_review_dropdown.png`, `/tmp/airscain_training_camera_sky.png`, `/tmp/airscain_training_camera_sky_high.png`, `/tmp/airscain_battery_strike_uav_impact.png`. UI/카메라 재현은 `tools/training_quality_capture.gd -- --review-ui`, 탄착은 `tools/battery_strike_capture.gd -- --threat=battery_strike_uav`를 사용한다. 웹 실기 검증은 수행하지 않았다.
+
 ## 시간대별 하늘
 
 - [x] 전술/수평선 시점의 하늘·바다 연결과 낮밤 표현을 통합한다.

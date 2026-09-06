@@ -145,6 +145,26 @@ func test_camera_clears_terrain_during_movement_rotation_and_zoom() -> void:
 			assert_gte(position.y, float(rig.terrain_height.call(position.x, position.z)) + CameraRig.TERRAIN_CLEARANCE)
 			assert_true(rig.camera.global_basis.is_finite())
 
+func test_sky_tilt_preserves_safe_position_and_crosses_horizon_continuously() -> void:
+	rig.configure_for_battlefield(2400.0, func(_x: float, _z: float) -> float: return 240.0)
+	rig.zoom_distance = rig.minimum_zoom
+	rig.pitch_radians = CameraRig.MINIMUM_ORBIT_PITCH
+	rig._update_camera()
+	var safe_position := rig.camera.global_position
+	var previous_direction := -rig.camera.global_basis.z
+	for step: int in 150:
+		rig.pitch_radians = lerpf(CameraRig.MINIMUM_ORBIT_PITCH, CameraRig.MINIMUM_PITCH, float(step + 1) / 150.0)
+		rig._update_camera()
+		var direction := -rig.camera.global_basis.z
+		assert_almost_eq(rig.camera.global_position, safe_position, Vector3.ONE * 0.001)
+		assert_lt(direction.angle_to(previous_direction), 0.04)
+		assert_gte(rig.camera.global_position.y, 240.0 + CameraRig.TERRAIN_CLEARANCE)
+		previous_direction = direction
+	assert_gt(previous_direction.y, 0.8, "Middle drag can look well above the horizon")
+	rig.pitch_radians = 0.0
+	rig._update_camera()
+	assert_almost_eq(rig.camera.global_basis.z.y, 0.0, 0.001)
+
 func test_middle_release_over_ui_and_focus_loss_stop_rotation() -> void:
 	rig.rotating = true
 	var release := InputEventMouseButton.new()

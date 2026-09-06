@@ -45,12 +45,11 @@ func test_all_purchase_steps_resolve_an_available_catalog_button() -> void:
 		assert_true(main.hud.defense_buttons.has(guidance.target_control))
 		assert_true(guidance.target_rect.has_area())
 
-func test_details_are_optional_and_pause_hides_cues() -> void:
-	var summary := main.hud.training_body.text
-	main.hud._on_training_details_toggled(true)
+func test_full_lesson_is_visible_and_pause_hides_cues() -> void:
 	assert_eq(main.hud.training_body.text, main.hud.training_description)
-	main.hud._on_training_details_toggled(false)
-	assert_eq(main.hud.training_body.text, summary)
+	assert_null(main.hud.training_panel.get_node_or_null("VBox/TrainingDetailsButton"))
+	main.hud.set_training_lesson(2, 3, "안내", "첫 문장. 두 번째 문장도 표시합니다.")
+	assert_eq(main.hud.training_body.text, "첫 문장. 두 번째 문장도 표시합니다.")
 	main.camera_rig.input_blocked = true
 	guidance.refresh()
 	assert_false(guidance.target_rect.has_area())

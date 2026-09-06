@@ -141,7 +141,7 @@ func capture_sky(main: AirscainMain) -> void:
 		var elapsed := fposmod(time_hour - DayNightCycle.START_HOUR, 24.0) / 24.0 * DayNightCycle.CYCLE_SECONDS
 		main.day_night.apply_time(elapsed, true)
 		# Actual lowest gameplay orbit, facing the sunrise/sunset azimuth.
-		main.camera_rig.pitch_radians = CameraRig.MINIMUM_PITCH
+		main.camera_rig.pitch_radians = CameraRig.MINIMUM_ORBIT_PITCH
 		main.camera_rig.yaw_radians = deg_to_rad(DayNightCycle.orbit_rotation(time_hour if time_hour > 5.0 and time_hour < 19.0 else fposmod(time_hour + 12.0, 24.0)).y) + PI
 		main.camera_rig._update_camera()
 		await capture("sky_horizon_%04.1f" % time_hour)

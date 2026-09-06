@@ -189,6 +189,35 @@ func test_bomb_is_unpowered_ballistic_unregistered_and_restores_mid_fall() -> vo
 	bomb.call("_process", 10.0)
 	assert_eq(target.integrity, 60.0)
 
+func test_uav_bombs_hit_small_assets_from_multiple_approach_directions() -> void:
+	for definition_index: int in [0, 4, 6]:
+		var target := target_for_index(definition_index)
+		for case: int in 8:
+			var angle := float(case % 4) * 1.5
+			var time_step := 1.0 / 30.0 if case < 4 else 0.1
+			target.complete_repair()
+			var definition := entry_for(&"battery_strike_uav").threat_definition
+			var aircraft := definition.scene.instantiate() as AttackUav
+			main.threat_parent.add_child(aircraft)
+			aircraft.setup(9000, definition)
+			aircraft.global_position = target.global_position + Vector3(cos(angle) * 450.0, 180.0, sin(angle) * 450.0)
+			aircraft.configure_mission(main.objective, main.battlefield, target.global_position, 1.0 if case < 4 else 1.35, target, aircraft.global_position)
+			for tick: int in 4500:
+				aircraft.gameplay_tick(time_step)
+				if aircraft.mission_runtime.effect_applied:
+					break
+			var bomb: AirStrikeMunition
+			for child: Node in main.threat_parent.get_children():
+				if child is AirStrikeMunition and not child.is_queued_for_deletion():
+					bomb = child as AirStrikeMunition
+			assert_not_null(bomb, "Bomb release: %d / %.1f" % [definition_index, angle])
+			if bomb != null:
+				bomb.managed = true
+				bomb.gameplay_tick(15.0)
+				assert_lt(target.integrity, target.definition.maximum_integrity, "asset=%s angle=%.1f miss=%.3f impact=%s target=%s" % [target.definition.id, angle, bomb.global_position.distance_to(target.global_position), bomb.global_position, target.global_position])
+				bomb.free()
+			aircraft.free()
+
 func test_missile_flight_round_trips_before_and_after_ignition() -> void:
 	var target := target_for(&"weapon")
 	var pair := launch_at(target)
@@ -236,6 +265,9 @@ func test_release_alignment_rejects_sideways_and_backward_missile_shots() -> voi
 
 func target_for(role: StringName) -> DefenseUnit:
 	var index := {&"weapon": 0, &"sensor": 1, &"command": 2, &"support": 5}[role] as int
+	return target_for_index(index)
+
+func target_for_index(index: int) -> DefenseUnit:
 	var definition := main.scenario.available_defenses[index]
 	main._on_pressure_changed(definition.unlock_pressure_level)
 	for x: int in range(320, 900, 30):

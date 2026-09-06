@@ -4,6 +4,7 @@ extends RefCounted
 
 const BOMB_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
 const HARDPOINT := Vector3(3.5, -1.5, 0.2)
+const BOMB_RELEASE_TOLERANCE := 4.0
 
 static func ready(profile: ThreatMissionDefinition, body_transform: Transform3D, target: Vector3, velocity: Vector3, delta: float) -> bool:
 	var offset := target - body_transform * HARDPOINT
@@ -15,7 +16,9 @@ static func ready(profile: ThreatMissionDefinition, body_transform: Transform3D,
 		return horizontal.length() <= profile.action_distance and forward.normalized().dot(horizontal.normalized()) >= cos(deg_to_rad(profile.launch_cone_degrees))
 	var gravity := StrikeFlight.GRAVITY
 	var fall_time := (velocity.y + sqrt(maxf(0.0, velocity.y * velocity.y - 2.0 * gravity * offset.y))) / gravity
-	return fall_time > 0.0 and (horizontal - forward * fall_time).length() <= maxf(8.0, forward.length() * delta)
+	# Leave margin inside the smallest asset's impact radius for the hardpoint
+	# offset and the difference between target elevation and sloping terrain.
+	return fall_time > 0.0 and (horizontal - forward * fall_time).length() <= maxf(BOMB_RELEASE_TOLERANCE, forward.length() * delta)
 
 static func release(parent: Node, body_transform: Transform3D, mission: ThreatMissionRuntime, target: Vector3, velocity: Vector3, battlefield: Battlefield, objective: ProtectedObjective) -> Node3D:
 	if parent == null:

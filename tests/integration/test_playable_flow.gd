@@ -54,6 +54,23 @@ func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	assert_lte(main.battlefield.street_lights.size(), 6)
 	assert_eq(main.battlefield.window_material.get_shader_parameter("night_amount"), 1.0)
 
+func test_coincident_range_captions_choose_separate_visible_positions() -> void:
+	var first := LabeledRangeRing.new()
+	var second := LabeledRangeRing.new()
+	main.add_child(first)
+	main.add_child(second)
+	first.set_range(300.0, "지휘 연결")
+	second.set_range(300.0, "탐지 범위")
+	second.screen_bias = first.screen_bias
+	for yaw: float in [0.0, 0.7, 2.1]:
+		main.camera_rig.yaw_radians = yaw
+		main.camera_rig._update_camera()
+		first._process(0.0)
+		second._process(0.0)
+		assert_true(first.caption.visible)
+		assert_true(second.caption.visible)
+		assert_false(first.caption_screen_rect(main.camera_rig.camera).intersects(second.caption_screen_rect(main.camera_rig.camera)))
+
 func test_zoomed_out_camera_can_still_pick_the_city_surface() -> void:
 	main.camera_rig.zoom_distance = main.camera_rig.maximum_zoom
 	main.camera_rig._update_camera()
@@ -61,6 +78,10 @@ func test_zoomed_out_camera_can_still_pick_the_city_surface() -> void:
 	var point := Vector3(0, main.battlefield.terrain_height(0, 0), 0)
 	var hit := main.placement._terrain_hit(main.camera_rig.camera.unproject_position(point))
 	assert_false(hit.is_empty(), "멀어진 카메라에서도 배치 지면을 선택합니다")
+	main.camera_rig.pitch_radians = CameraRig.MINIMUM_PITCH
+	main.camera_rig._update_camera()
+	var sky_hit := main.placement._terrain_hit(get_viewport().get_visible_rect().size * 0.5)
+	assert_true(sky_hit.is_empty(), "하늘을 클릭해도 지면 배치로 처리하지 않습니다")
 
 func test_night_placement_light_is_local_fades_and_stops_after_cancel() -> void:
 	main.set_process(false)
@@ -384,8 +405,9 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(training.training_controller.step, TrainingController.Step.CAMERA)
 	assert_true(training.hud.training_panel.visible)
 	assert_string_contains(training.hud.training_title.text, "1/%d" % TrainingController.LESSON_COUNT)
-	assert_string_contains(training.hud.training_body.text, "WASD로 이동")
-	assert_string_contains(training.hud.training_body.text, "가운데 버튼 드래그로 수평·수직 회전")
+	assert_string_contains(training.hud.training_body.text, "WASD")
+	assert_string_contains(training.hud.training_body.text, "가운데 버튼 드래그")
+	assert_string_contains(training.hud.training_body.text, "수평·수직 회전")
 	assert_string_contains(training.hud.training_body.text, "Backspace")
 	assert_true(bool(training.tactical_screen_overlay.get("training_approach_visible")))
 	var approach_position: Vector3 = training.tactical_screen_overlay.get("training_approach_position")
@@ -1247,7 +1269,8 @@ func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> 
 	assert_true(main.c2_overlay.show_all_links)
 	main.hud._on_overlay_selected(0)
 	assert_false(main.c2_overlay.show_all_links)
-	assert_eq(main.hud.overlay_option.text, "전술 표시 · 없음")
+	assert_eq(main.hud.overlay_option.text, "없음")
+	assert_eq((main.hud.overlay_option.get_parent().get_node("OverlayLabel") as Label).text, "전술 표시")
 
 func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> void:
 	main.registry.clear()

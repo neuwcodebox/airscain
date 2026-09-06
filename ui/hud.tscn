@@ -221,10 +221,20 @@ text = "4×"
 [node name="Divider" type="VSeparator" parent="TopBar/Margin/Right"]
 layout_mode = 2
 
-[node name="OverlayOption" type="OptionButton" parent="TopBar/Margin/Right"]
+[node name="OverlayField" type="HBoxContainer" parent="TopBar/Margin/Right"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="OverlayLabel" type="Label" parent="TopBar/Margin/Right/OverlayField"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.66, 0.75, 0.77, 1)
+text = "전술 표시"
+
+[node name="OverlayOption" type="OptionButton" parent="TopBar/Margin/Right/OverlayField"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(190, 36)
+custom_minimum_size = Vector2(112, 36)
 size_flags_vertical = 4
 theme_override_font_sizes/font_size = 16
 tooltip_text = "전술 표시"
@@ -513,12 +523,6 @@ theme_override_font_sizes/font_size = 16
 text = "훈련 안내"
 autowrap_mode = 2
 vertical_alignment = 0
-
-[node name="TrainingDetailsButton" type="Button" parent="TrainingPanel/VBox"]
-layout_mode = 2
-toggle_mode = true
-text = "자세히"
-flat = true
 
 [node name="TrainingNextButton" type="Button" parent="TrainingPanel/VBox"]
 unique_name_in_owner = true
@@ -1026,7 +1030,7 @@ text = "메인 메뉴"
 [connection signal="pressed" from="TopBar/Margin/Right/TimeControls/NormalButton" to="." method="_on_normal_pressed"]
 [connection signal="pressed" from="TopBar/Margin/Right/TimeControls/FastButton" to="." method="_on_fast_pressed"]
 [connection signal="pressed" from="TopBar/Margin/Right/TimeControls/VeryFastButton" to="." method="_on_very_fast_pressed"]
-[connection signal="item_selected" from="TopBar/Margin/Right/OverlayOption" to="." method="_on_overlay_selected"]
+[connection signal="item_selected" from="TopBar/Margin/Right/OverlayField/OverlayOption" to="." method="_on_overlay_selected"]
 [connection signal="pressed" from="TopBar/Margin/Left/Actions/DefenseMenuButton" to="." method="_on_defense_menu_pressed"]
 [connection signal="pressed" from="TopBar/Margin/Left/Actions/CityMenuButton" to="." method="_on_city_menu_pressed"]
 [connection signal="pressed" from="TopBar/Margin/Left/Actions/ThreatMenuButton" to="." method="_on_threat_menu_pressed"]
@@ -1034,7 +1038,6 @@ text = "메인 메뉴"
 [connection signal="pressed" from="ThreatMenu/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
 [connection signal="item_selected" from="ThreatMenu/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
-[connection signal="toggled" from="TrainingPanel/VBox/TrainingDetailsButton" to="." method="_on_training_details_toggled"]
 [connection signal="minimum_size_changed" from="SelectedAssetPanel" to="." method="_fit_selection_panel" flags=3]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]

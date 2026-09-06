@@ -19,6 +19,36 @@ func run() -> void:
 	main.set_process(false)
 	main.camera_rig.set_process(false)
 	await capture("start")
+	if OS.get_cmdline_user_args().has("--review-ui"):
+		main.hud.set_catalog_expanded(true)
+		await capture("review_catalog")
+		main.hud.set_catalog_expanded(false)
+		var radar := place(1, Vector3(150, 0, 100))
+		main._on_asset_selected(radar)
+		await capture("review_ranges")
+		main.hud.overlay_option.show_popup()
+		await capture("review_dropdown")
+		main.hud.overlay_option.get_popup().hide()
+		main._on_asset_selected(null)
+		main.hud.hide()
+		main.day_night.apply_time(255.0, true)
+		main.camera_rig.yaw_radians = deg_to_rad(main.day_night._sun.rotation_degrees.y) + PI
+		main.camera_rig.pitch_radians = CameraRig.MINIMUM_ORBIT_PITCH
+		main.camera_rig._update_camera()
+		await capture("camera_horizon")
+		main.camera_rig.rotating = true
+		var motion := InputEventMouseMotion.new()
+		motion.relative = Vector2(0.0, -2.0)
+		for frame: int in 110:
+			main.camera_rig._unhandled_input(motion)
+			await process_frame
+			if frame == 30:
+				await capture("camera_sky")
+		await capture("camera_sky_high")
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	main.hud.training_next_button.pressed.emit()
 	var guidance := main.hud.get_node("TrainingGuidance") as TrainingGuidance
 	main.hud.set_catalog_expanded(true)

@@ -9,7 +9,8 @@ extends Node3D
 @export var rotation_drag_speed: float = 0.006
 
 const DEFAULT_PITCH := atan(0.72)
-const MINIMUM_PITCH := PI / 15.0
+const MINIMUM_PITCH := -PI / 3.0
+const MINIMUM_ORBIT_PITCH := PI / 15.0
 const MAXIMUM_PITCH := PI / 2.0
 const TERRAIN_CLEARANCE := 12.0
 const ORBIT_SCALE := sqrt(1.0 + 0.72 * 0.72)
@@ -107,7 +108,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _update_camera() -> void:
 	pitch_radians = clampf(pitch_radians, MINIMUM_PITCH, MAXIMUM_PITCH)
-	var orbit_basis := Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -pitch_radians)
+	var orbit_pitch := maxf(pitch_radians, MINIMUM_ORBIT_PITCH)
+	var orbit_basis := Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -orbit_pitch)
 	# Zoom controls framing at the focus plane, independently of the lens angle.
 	var orbit_distance := zoom_distance * ZOOM_HALF_SPAN / tan(deg_to_rad(camera.fov * 0.5))
 	var offset := orbit_basis.z * orbit_distance
@@ -122,8 +124,12 @@ func _update_camera() -> void:
 			for z: float in [-margin, 0.0, margin]:
 				floor_height = maxf(floor_height, float(terrain_height.call(camera.global_position.x + x, camera.global_position.z + z)))
 		camera.global_position.y = maxf(camera.global_position.y, floor_height + TERRAIN_CLEARANCE)
-	# A yaw-relative up vector remains well-defined at an exact vertical view.
-	camera.look_at(global_position, orbit_basis.y)
+	# Near the horizon, orbiting stops lowering the camera but dragging keeps
+	# tilting the view. Terrain correction fades out of the gaze, not the position.
+	var safe_pitch := atan2(camera.position.y, Vector2(camera.position.x, camera.position.z).length())
+	var view_pitch := pitch_radians + maxf(0.0, safe_pitch - orbit_pitch) * smoothstep(0.0, MINIMUM_ORBIT_PITCH, pitch_radians)
+	# A yaw-relative basis is stable at an exact top-down view as well.
+	camera.basis = Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -view_pitch)
 
 func _clamp_position() -> void:
 	global_position.x = clampf(global_position.x, -bounds, bounds)

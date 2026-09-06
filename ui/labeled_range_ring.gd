@@ -15,6 +15,7 @@ var _mesh_radius: float = -1.0
 var _mesh_terrain: Mesh
 
 func _ready() -> void:
+	add_to_group(&"range_captions")
 	cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	caption.no_depth_test = true
@@ -83,6 +84,14 @@ func _process(_delta: float) -> void:
 	for control: Control in obstacles:
 		if is_instance_valid(control) and control.is_visible_in_tree():
 			blocked_regions.append(control.get_global_rect().grow(8.0))
+	# Earlier rings claim their caption rectangle first; later rings choose another
+	# point on the circumference, including coincident radii and placement previews.
+	for peer: Node in get_tree().get_nodes_in_group(&"range_captions"):
+		if peer == self or peer.is_greater_than(self) or peer.get_viewport() != get_viewport():
+			continue
+		var ring := peer as LabeledRangeRing
+		if ring.is_visible_in_tree() and ring.caption.visible:
+			blocked_regions.append(ring.caption_screen_rect(camera).grow(8.0))
 	var caption_extent := Vector2(float(caption.text.length()) * 6.0 + 12.0, 16.0)
 	var best := INF
 	caption.visible = false
@@ -113,6 +122,11 @@ func _process(_delta: float) -> void:
 		var color := material.albedo_color
 		color.a = 1.0
 		caption.modulate = color
+
+func caption_screen_rect(camera: Camera3D) -> Rect2:
+	var center := camera.unproject_position(caption.global_position)
+	var extent := Vector2(float(caption.text.length()) * 6.0 + 12.0, 16.0)
+	return Rect2(center - extent, extent * 2.0)
 
 static func primary_radius(definition: DefenseDefinition) -> float:
 	if definition.placement_support_range() > 0.0:
