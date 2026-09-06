@@ -4,6 +4,7 @@ extends Resource
 @export var id: StringName
 @export var display_name: String
 @export_range(0, 3) var identity_bar_count: int = 0
+@export var identity_detail_symbol: String = ""
 @export_multiline var purchase_tooltip: String
 @export var scene: PackedScene
 @export var price: int = 200

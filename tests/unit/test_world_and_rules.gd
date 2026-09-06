@@ -402,7 +402,9 @@ func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
 		assert_gte(icon.render_priority, 100)
 		assert_gt(icon.font_size, 12)
 		var detail := defense.identity_marker.get_node("Detail") as Label3D
-		assert_eq(detail.visible, definition.identity_bar_count > 0)
+		assert_eq(detail.visible, definition.identity_bar_count > 0 or not definition.identity_detail_symbol.is_empty())
+		if not definition.identity_detail_symbol.is_empty():
+			assert_eq(detail.text, definition.identity_detail_symbol)
 		assert_eq(detail.text.count("|"), definition.identity_bar_count)
 		assert_true(detail.fixed_size)
 		assert_true(detail.no_depth_test)
@@ -412,6 +414,9 @@ func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
 	assert_true(role_icons.has("◆"))
 	assert_true(role_icons.has("▲"))
 	assert_true(role_icons.has("■"))
+	assert_ne(SCENARIO.available_defenses[1].identity_detail_symbol, SCENARIO.available_defenses[3].identity_detail_symbol)
+	assert_false(SCENARIO.available_defenses[1].identity_detail_symbol.is_empty())
+	assert_false(SCENARIO.available_defenses[3].identity_detail_symbol.is_empty())
 
 func test_friendly_installation_selection_highlights_icon_and_footprint() -> void:
 	var defense := add_child_autofree(SCENARIO.available_defenses[0].scene.instantiate()) as DefenseUnit

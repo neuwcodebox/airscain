@@ -14,6 +14,7 @@ rooftop_allowed = true
 [resource]
 script = ExtResource("1")
 id = &"search_radar"
+identity_detail_symbol = "/"
 display_name = "탐색 레이더"
 purchase_tooltip = "저고도와 중고도 항공 위협을 넓게 탐지합니다.\nC2 연결 시 탐지 항적을 방어 자산과 공유합니다."
 scene = ExtResource("2")
