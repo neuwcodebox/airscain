@@ -116,6 +116,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if selected == null and selected_threat == null:
 		if event is InputEventMouseButton:
 			var selection_click := event as InputEventMouseButton
+			if selection_click.pressed and selection_click.button_index == MOUSE_BUTTON_RIGHT:
+				world_selected.emit(Vector3.INF, Vector2.INF)
+				get_viewport().set_input_as_handled()
+				return
 			if selection_click.pressed and selection_click.button_index == MOUSE_BUTTON_LEFT and get_viewport().gui_get_hovered_control() == null:
 				var screen_position := selection_click.position
 				var hit := _terrain_hit(screen_position)

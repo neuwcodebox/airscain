@@ -65,6 +65,11 @@ func _ready() -> void:
 	_slider(controls, "pan", "카메라 이동", false)
 	_slider(controls, "rotation", "카메라 회전", false)
 	_slider(controls, "zoom", "카메라 줌", false)
+	var camera_help := Label.new()
+	camera_help.text = "WASD  이동\n가운데 버튼 드래그  수평·수직 회전\nQ / E  수평 회전\n휠  확대·축소\nBackspace  위치·줌·각도 초기화\n우클릭  배치 취소·선택 해제"
+	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	camera_help.add_theme_color_override("font_color", Color("a7bec4"))
+	controls.add_child(camera_help)
 	var display := _tab(tabs, "화면")
 	fullscreen = CheckButton.new()
 	fullscreen.text = "전체 화면"

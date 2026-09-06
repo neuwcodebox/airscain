@@ -18,6 +18,12 @@ func run() -> void:
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	main.camera_rig.set_process(false)
+	if OS.get_cmdline_user_args().has("--camera-only"):
+		await capture_camera_controls()
+		main.free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--terrain-only"):
 		var center := Vector3(-500, 0, -400)
 		center.y = main.battlefield.terrain_height(center.x, center.z)
@@ -102,6 +108,32 @@ func run() -> void:
 	await process_frame
 	print("QUALITY_CAPTURE_OK installations airframes laser field")
 	quit()
+
+func capture_camera_controls() -> void:
+	var rig := main.camera_rig
+	var hill := Vector3.ZERO
+	for x: int in range(-900, 901, 60):
+		for z: int in range(-900, 901, 60):
+			var height := main.battlefield.terrain_height(x, z)
+			if height > hill.y:
+				hill = Vector3(x, height, z)
+	rig.zoom_distance = rig.minimum_zoom
+	rig.pitch_radians = CameraRig.MINIMUM_PITCH
+	# Put the camera over the highest sampled hill to exercise clearance correction.
+	rig.focus_on(hill - Vector3(0, 0, cos(rig.pitch_radians) * rig.zoom_distance * CameraRig.ORBIT_SCALE))
+	await capture("camera_terrain")
+	var position := rig.camera.global_position
+	assert(position.y >= main.battlefield.terrain_height(position.x, position.z) + CameraRig.TERRAIN_CLEARANCE)
+	rig.focus_on(Vector3.ZERO)
+	rig.pitch_radians = PI / 2.0
+	rig._update_camera()
+	await capture("camera_vertical")
+	rig.yaw_radians = PI * 0.5
+	rig._update_camera()
+	await capture("camera_vertical_rotated")
+	rig.reset_view()
+	await capture("camera_reset")
+	print("QUALITY_CAPTURE_OK camera_terrain camera_vertical camera_vertical_rotated camera_reset")
 
 func capture(label: String) -> void:
 	for frame: int in 8:

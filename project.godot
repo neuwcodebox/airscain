@@ -30,6 +30,7 @@ camera_left={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode"
 camera_right={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":68)]}
 camera_rotate_left={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":81)]}
 camera_rotate_right={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":69)]}
+camera_reset={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":4194308)]}
 cancel_placement={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":4194305)]}
 
 [layer_names]

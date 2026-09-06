@@ -257,7 +257,9 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(training.training_controller.step, TrainingController.Step.CAMERA)
 	assert_true(training.hud.training_panel.visible)
 	assert_string_contains(training.hud.training_title.text, "1/%d" % TrainingController.LESSON_COUNT)
-	assert_string_contains(training.hud.training_body.text, "휠 클릭 드래그로 이동")
+	assert_string_contains(training.hud.training_body.text, "WASD로 이동")
+	assert_string_contains(training.hud.training_body.text, "가운데 버튼 드래그로 수평·수직 회전")
+	assert_string_contains(training.hud.training_body.text, "Backspace")
 	assert_true(bool(training.tactical_screen_overlay.get("training_approach_visible")))
 	var approach_position: Vector3 = training.tactical_screen_overlay.get("training_approach_position")
 	assert_gt(approach_position.x, training.objective.global_position.x + training.scenario.battlefield_size * 0.55)
@@ -831,6 +833,23 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	cancel_event.pressed = true
 	main.hud._input(cancel_event)
 	assert_false(main.hud.city_menu.visible)
+
+func test_right_click_cancels_placement_before_clearing_selection() -> void:
+	main.session.unlimited_budget = true
+	var result := _place_for(main, main.scenario.available_defenses[1])
+	assert_true(result.success)
+	main._on_asset_selected(result.unit)
+	main.placement.select(main.scenario.available_defenses[0])
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_RIGHT
+	click.pressed = true
+	main.placement._unhandled_input(click)
+	assert_null(main.placement.selected)
+	assert_same(main.selected_asset, result.unit)
+	main.placement._unhandled_input(click)
+	assert_null(main.selected_asset)
+	assert_null(main.selected_track)
+	assert_false(main.camera_rig.rotating)
 
 func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main.session.unlimited_budget = true

@@ -47,7 +47,7 @@ func test_mouse_wheel_does_not_zoom_over_registered_ui_region() -> void:
 	rig._unhandled_input(zoom_out)
 	assert_eq(rig.zoom_distance, initial_zoom)
 
-func test_middle_mouse_drag_pans_camera() -> void:
+func test_middle_mouse_drag_rotates_both_axes_without_panning() -> void:
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_MIDDLE
 	press.pressed = true
@@ -55,7 +55,9 @@ func test_middle_mouse_drag_pans_camera() -> void:
 	var motion := InputEventMouseMotion.new()
 	motion.relative = Vector2(20.0, -10.0)
 	rig._unhandled_input(motion)
-	assert_ne(rig.global_position, Vector3.ZERO)
+	assert_eq(rig.global_position, Vector3.ZERO)
+	assert_almost_eq(rig.yaw_radians, -20.0 * rig.rotation_drag_speed, 0.001)
+	assert_lt(rig.pitch_radians, CameraRig.DEFAULT_PITCH)
 
 func test_rotation_actions_orbit_camera_and_keep_pan_screen_relative() -> void:
 	var initial_camera_position := rig.camera.position
@@ -70,7 +72,7 @@ func test_rotation_actions_orbit_camera_and_keep_pan_screen_relative() -> void:
 	Input.action_release("camera_right")
 	assert_lt(rig.global_position.z, initial_rig_position.z)
 
-func test_right_mouse_drag_rotates_camera() -> void:
+func test_right_mouse_drag_does_not_rotate_camera() -> void:
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_RIGHT
 	press.pressed = true
@@ -78,8 +80,73 @@ func test_right_mouse_drag_rotates_camera() -> void:
 	var motion := InputEventMouseMotion.new()
 	motion.relative = Vector2(25.0, 4.0)
 	rig._unhandled_input(motion)
-	assert_almost_eq(rig.yaw_radians, -25.0 * rig.rotation_drag_speed, 0.001)
+	assert_eq(rig.yaw_radians, 0.0)
 	assert_eq(rig.global_position, Vector3.ZERO)
+
+func test_vertical_view_is_exact_and_stable_when_yaw_changes() -> void:
+	rig.rotating = true
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(0, 10000)
+	rig._unhandled_input(motion)
+	assert_eq(rig.pitch_radians, PI / 2.0)
+	assert_almost_eq(rig.camera.global_basis.z.dot(Vector3.UP), 1.0, 0.0001)
+	for yaw: float in [0.0, 0.7, PI, TAU]:
+		rig.yaw_radians = yaw
+		rig._update_camera()
+		assert_true(rig.camera.global_basis.is_finite())
+		assert_almost_eq(rig.camera.global_basis.determinant(), 1.0, 0.0001)
+		assert_almost_eq(rig.camera.global_basis.x.dot(Vector3.RIGHT.rotated(Vector3.UP, yaw)), 1.0, 0.0001)
+	motion.relative = Vector2(0, -10000)
+	rig._unhandled_input(motion)
+	assert_eq(rig.pitch_radians, CameraRig.MINIMUM_PITCH)
+
+func test_reset_restores_position_zoom_and_both_angles() -> void:
+	rig.configure_for_battlefield(2400.0)
+	var default_position := rig.camera.position
+	rig.focus_on(Vector3(200, 0, -300))
+	rig.zoom_distance = rig.minimum_zoom
+	rig.yaw_radians = 1.3
+	rig.pitch_radians = PI / 2.0
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_BACKSPACE
+	key.pressed = true
+	rig._unhandled_input(key)
+	assert_eq(rig.global_position, Vector3.ZERO)
+	assert_eq(rig.zoom_distance, rig.default_zoom_distance)
+	assert_eq(rig.yaw_radians, 0.0)
+	assert_eq(rig.pitch_radians, CameraRig.DEFAULT_PITCH)
+	assert_almost_eq(rig.camera.position.distance_to(default_position), 0.0, 0.001)
+
+func test_camera_clears_terrain_during_movement_rotation_and_zoom() -> void:
+	rig.configure_for_battlefield(2400.0, func(x: float, z: float) -> float: return 180.0 + absf(x) * 0.1 + absf(z) * 0.1)
+	for pitch: float in [CameraRig.MINIMUM_PITCH, CameraRig.DEFAULT_PITCH, PI / 2.0]:
+		for yaw: float in [0.0, 1.2, PI]:
+			rig.pitch_radians = pitch
+			rig.yaw_radians = yaw
+			rig.zoom_distance = rig.minimum_zoom
+			rig.focus_on(Vector3(800, 0, -800))
+			var position := rig.camera.global_position
+			assert_gte(position.y, float(rig.terrain_height.call(position.x, position.z)) + CameraRig.TERRAIN_CLEARANCE)
+			assert_true(rig.camera.global_basis.is_finite())
+
+func test_middle_release_over_ui_and_focus_loss_stop_rotation() -> void:
+	rig.rotating = true
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_MIDDLE
+	rig._input(release)
+	assert_false(rig.rotating)
+	rig.rotating = true
+	rig._notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	assert_false(rig.rotating)
+
+func test_blocked_camera_ignores_reset_and_rotation() -> void:
+	rig.focus_on(Vector3(100, 0, 50))
+	rig.input_blocked = true
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_BACKSPACE
+	key.pressed = true
+	rig._unhandled_input(key)
+	assert_eq(rig.global_position, Vector3(100, 0, 50))
 
 func test_battlefield_configuration_keeps_distant_ocean_visible() -> void:
 	rig.configure_for_battlefield(2400.0)

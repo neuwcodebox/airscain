@@ -80,7 +80,7 @@ func _ready() -> void:
 	battlefield.build(scenario)
 	add_child(day_night)
 	day_night.configure($Sun, $WorldEnvironment, battlefield)
-	camera_rig.configure_for_battlefield(scenario.battlefield_size)
+	camera_rig.configure_for_battlefield(scenario.battlefield_size, battlefield.terrain_height)
 	_spawn_objective()
 	_spawn_ambient_contacts()
 	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus, scenario.support_interval, scenario.support_amount)

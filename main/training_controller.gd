@@ -187,7 +187,7 @@ func _set_step(next_step: Step) -> void:
 	step = next_step
 	match step:
 		Step.CAMERA:
-			_lesson("전장 살펴보기", "WASD 또는 휠 클릭 드래그로 이동하고 Q/E 또는 우클릭 드래그로 회전하세요. 휠로 확대·축소하며 주황색 훈련 표적 진입 표시를 찾아보세요.", true)
+			_lesson("전장 살펴보기", "WASD로 이동하고 가운데 버튼 드래그로 수평·수직 회전하세요. Q/E는 수평 회전, 휠은 확대·축소, Backspace는 시점 초기화입니다. 주황색 훈련 표적 진입 표시를 찾아보세요.", true)
 		Step.RADAR:
 			_lesson("탐색 센서", "상단의 방공 자산을 열어 탐색 레이더를 고르세요. 도시와 주황색 진입 표시 사이의 평탄한 지형에 배치하세요. 산 뒤에는 저고도 탐지 사각이 생깁니다.")
 		Step.COMMAND:
