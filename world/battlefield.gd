@@ -38,11 +38,11 @@ func set_night_amount(amount: float) -> void:
 	if window_material != null:
 		window_material.set_shader_parameter("night_amount", amount)
 	if lamp_material != null:
-		lamp_material.emission_energy_multiplier = amount * 2.5
+		lamp_material.emission_energy_multiplier = amount * 1.2
 	if lamp_glare_material != null:
-		lamp_glare_material.albedo_color.a = amount * 0.55
+		lamp_glare_material.albedo_color.a = amount * 0.25
 	for light: OmniLight3D in street_lights:
-		light.light_energy = amount * 2.0
+		light.light_energy = amount * 1.0
 
 func build(scenario: ScenarioDefinition) -> void:
 	battlefield_size = scenario.battlefield_size
