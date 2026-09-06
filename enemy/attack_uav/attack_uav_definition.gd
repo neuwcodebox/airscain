@@ -19,7 +19,10 @@ func mission_definition() -> ThreatMissionDefinition:
 	return mission
 
 func shares_city_impact_target() -> bool:
-	return mission.target_role == ThreatMissionDefinition.TargetRole.CITY and mission.type == ThreatMissionDefinition.Type.IMPACT
+	return mission.target_role == ThreatMissionDefinition.TargetRole.CITY and mission.type != ThreatMissionDefinition.Type.RECONNAISSANCE
+
+func released_threat_definitions() -> Array[ThreatDefinition]:
+	return [mission.released_missile] if mission.released_missile != null else []
 
 func runtime_state_validation_error(content_state: Dictionary, defense_ids: Dictionary[int, bool]) -> String:
 	var movement_state: Dictionary = content_state.get("movement", {})

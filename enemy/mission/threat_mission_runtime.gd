@@ -48,12 +48,15 @@ func observe_target(unit_position: Vector3) -> bool:
 	fixed_target = target_asset.global_position
 	return false
 
-func gameplay_tick(unit_position: Vector3, delta: float) -> bool:
+func gameplay_tick(unit_position: Vector3, delta: float, release_ready: Variant = null) -> bool:
 	var target := navigation_target()
 	var action_distance := unit_position.distance_to(target + Vector3.UP * 2.0)
 	if profile.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
 		action_distance = Vector2(unit_position.x - target.x, unit_position.z - target.z).length()
-	if action_distance > profile.action_distance:
+	if profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT and phase != Phase.EGRESS and release_ready != null:
+		if not bool(release_ready):
+			return false
+	elif action_distance > profile.action_distance:
 		return false
 	if phase == Phase.EGRESS:
 		return true

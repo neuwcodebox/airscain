@@ -2,6 +2,7 @@ class_name ThreatUnit
 extends Node3D
 
 signal resolved(threat: ThreatUnit, neutralized: bool, reward: int)
+signal threat_released(threat: ThreatUnit)
 
 const PRESENTATION_SCALE := 0.9
 

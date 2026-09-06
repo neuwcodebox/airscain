@@ -175,6 +175,9 @@ func _gameplay_step(delta: float) -> void:
 			defense.gameplay_tick(delta)
 	for threat: ThreatUnit in registry.get_active():
 		threat.gameplay_tick(delta)
+	for munition: Node in get_tree().get_nodes_in_group("unpowered_strike_munitions"):
+		if munition.get_parent() == threat_parent and not munition.is_queued_for_deletion():
+			munition.call("_process", delta)
 
 func _spawn_objective() -> void:
 	objective = scenario.objective_definition.scene.instantiate() as ProtectedObjective
@@ -287,6 +290,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 		training_controller.defense_placed(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
+	director.bind_releases(threat)
 	threat.configure_enemy_knowledge(enemy_knowledge)
 	threat.resolved.connect(_on_threat_resolved)
 
@@ -720,6 +724,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		if String(state.type) == "air_strike_munition":
 			var strike_munition := AIR_STRIKE_MUNITION_SCENE.instantiate() as Node3D
 			threat_parent.add_child(strike_munition)
+			strike_munition.set("battlefield", battlefield)
 			strike_munition.call("restore_state", state, objective, defense_by_id)
 			continue
 		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))

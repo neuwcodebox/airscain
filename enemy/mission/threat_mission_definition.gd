@@ -10,6 +10,8 @@ enum TargetRole { CITY, SENSOR, COMMAND, SUPPORT, WEAPON }
 @export var action_distance: float = 5.0
 @export var action_duration: float = 0.0
 @export var acquisition_range: float = 0.0
+@export var released_missile: ThreatDefinition
+@export_range(5.0, 60.0) var launch_cone_degrees: float = 25.0
 
 func knowledge_role() -> StringName:
 	match target_role:
@@ -20,6 +22,14 @@ func knowledge_role() -> StringName:
 	return &""
 
 func validation_error() -> String:
+	if not is_finite(launch_cone_degrees) or launch_cone_degrees < 5.0 or launch_cone_degrees > 60.0:
+		return "투발 방향 설정이 올바르지 않습니다"
+	if released_missile != null:
+		if type != Type.STRIKE_AND_EXIT:
+			return "투발 무장은 투발 후 이탈 임무에만 설정할 수 있습니다"
+		var weapon_error := released_missile.validation_error()
+		if not weapon_error.is_empty():
+			return weapon_error
 	if type not in Type.values() or target_role not in TargetRole.values() or not is_finite(acquisition_range) or acquisition_range < 0.0:
 		return "위협 임무 역할 또는 획득 범위가 올바르지 않습니다"
 	if acquisition_range > 0.0 and (type == Type.RECONNAISSANCE or target_role == TargetRole.CITY or acquisition_range <= action_distance):

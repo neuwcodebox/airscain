@@ -18,6 +18,160 @@ func entry_for(id: StringName) -> ThreatSpawnEntry:
 			return entry
 	return null
 
+func launch_at(target: DefenseUnit) -> Array[ThreatUnit]:
+	main.enemy_knowledge.record_recon(target)
+	var aircraft := main.director._spawn_entry(entry_for(&"battery_strike_aircraft"), 0.5, 0.0) as AttackUav
+	for tick: int in 4500:
+		aircraft.gameplay_tick(1.0 / 30.0)
+		if aircraft.mission_runtime.effect_applied:
+			break
+	for threat: ThreatUnit in main.registry.get_active():
+		if threat.definition == aircraft.mission_runtime.profile.released_missile:
+			return [aircraft, threat]
+	fail_test("공대지 미사일이 등록되지 않았습니다")
+	return []
+
+func test_missile_separates_accelerates_and_survives_carrier_destruction() -> void:
+	var target := target_for(&"weapon")
+	var pair := launch_at(target)
+	assert_eq(pair.size(), 2)
+	if pair.size() != 2:
+		return
+	var aircraft := pair[0] as AttackUav
+	var missile := pair[1]
+	assert_false(aircraft.body.get_node("ReleasedStore").visible)
+	assert_gt(aircraft.global_position.distance_to(target.global_position), 400.0, "외곽에서 투발합니다")
+	assert_gt(missile.global_position.distance_to(aircraft.global_position), 1.0, "기체 중심이 아닌 날개 아래에서 분리합니다")
+	assert_almost_eq(missile.presentation_velocity(), aircraft.presentation_velocity(), Vector3.ONE * 0.001)
+	assert_false(missile.get_node("Flight/Flame").visible)
+	var initial_speed := missile.presentation_velocity().length()
+	aircraft.receive_damage(10000.0)
+	assert_true(missile.is_targetable())
+	missile.gameplay_tick(0.1)
+	assert_false(missile.get_node("Flight/Flame").visible)
+	missile.gameplay_tick(0.2)
+	assert_true(missile.get_node("Flight/Flame").visible)
+	assert_gt(missile.presentation_velocity().length(), initial_speed)
+	for tick: int in 600:
+		missile.gameplay_tick(1.0 / 120.0)
+		if missile.resolved_state:
+			break
+	assert_true(missile.resolved_state, "투발 후 수 초 안에 탄착합니다")
+	assert_eq(target.integrity, 50.0, "impact=%s target=%s flight=%s" % [missile.global_position, target.global_position, missile.capture_content_state()])
+	missile.gameplay_tick(10.0)
+	assert_eq(target.integrity, 50.0)
+
+func test_radar_observes_released_missile_and_gun_round_cancels_impact() -> void:
+	var target := target_for(&"weapon")
+	var pair := launch_at(target)
+	if pair.size() != 2:
+		return
+	var missile := pair[1]
+	missile.gameplay_tick(0.4)
+	var radar := target_for(&"sensor") as SearchRadar
+	radar.global_position = missile.global_position - Vector3(40, 20, 0)
+	var tracks_before: Array = main.player_knowledge.call("get_active_tracks")
+	radar._scan()
+	var tracks_after: Array = main.player_knowledge.call("get_active_tracks")
+	assert_gt(tracks_after.size(), tracks_before.size(), "별도 레이더 관측 대상입니다")
+	var gunfire := add_child_autofree(GunfireRuntime.new()) as GunfireRuntime
+	gunfire.registry = main.registry
+	gunfire.rounds.append({"position": missile.global_position - Vector3(1, 0, 0), "velocity": Vector3(100, 0, 0), "age": 0.05, "lifetime": 1.0, "damage": 30.0, "radius": 4.0, "emitted": true})
+	gunfire.gameplay_tick(0.02)
+	assert_true(missile.resolved_state, "기관포의 실제 근접신관 충돌 경로로 격추합니다")
+	assert_false(main.registry.get_active().has(missile))
+	missile.gameplay_tick(10.0)
+	assert_eq(target.integrity, target.definition.maximum_integrity, "격추된 탄은 피해를 주지 않습니다")
+
+func test_bomb_is_unpowered_ballistic_unregistered_and_restores_mid_fall() -> void:
+	var target := target_for(&"weapon")
+	main.enemy_knowledge.record_recon(target)
+	var aircraft := main.director._spawn_entry(entry_for(&"battery_strike_uav"), 0.5, 0.0) as AttackUav
+	for tick: int in 4500:
+		aircraft.gameplay_tick(1.0 / 30.0)
+		if aircraft.mission_runtime.effect_applied:
+			break
+	var bomb: Node3D
+	for child: Node in main.threat_parent.get_children():
+		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
+			bomb = child as Node3D
+	assert_not_null(bomb)
+	if bomb == null:
+		return
+	assert_false(bomb is ThreatUnit, "폭탄은 요격 목록에 등록하지 않습니다")
+	assert_false(bomb.get_node("Flame").visible)
+	assert_false(bomb.get_node("FlameLight").visible)
+	assert_false(aircraft.body.get_node("ReleasedStore").visible)
+	var initial_velocity: Vector3 = bomb.get("velocity")
+	var initial_position := bomb.global_position
+	aircraft.receive_damage(10000.0)
+	await get_tree().process_frame
+	assert_eq(bomb.global_position, initial_position, "정지한 시뮬레이션에서 폭탄만 진행하지 않습니다")
+	bomb.call("_process", 0.3)
+	var velocity: Vector3 = bomb.get("velocity")
+	assert_almost_eq(velocity.x, initial_velocity.x, 0.001)
+	assert_almost_eq(velocity.z, initial_velocity.z, 0.001)
+	assert_almost_eq(velocity.y, initial_velocity.y - 9.8 * 0.3, 0.001)
+	var before: Dictionary = bomb.call("capture_state")
+	var target_id := target.runtime_id
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	for child: Node in main.threat_parent.get_children():
+		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT and not child.is_queued_for_deletion():
+			bomb = child as Node3D
+	for asset: DefenseUnit in main.defenses:
+		if asset.runtime_id == target_id:
+			target = asset
+	assert_eq(bomb.call("capture_state"), before)
+	assert_false(bomb.get_node("Flame").visible)
+	bomb.call("_process", 10.0)
+	assert_eq(target.integrity, 60.0)
+
+func test_missile_flight_round_trips_before_and_after_ignition() -> void:
+	var target := target_for(&"weapon")
+	var pair := launch_at(target)
+	if pair.size() != 2:
+		return
+	var missile := pair[1]
+	var id := missile.runtime_id
+	missile.receive_damage(3.0)
+	for advance: float in [0.1, 0.3]:
+		missile.gameplay_tick(advance)
+		var before := missile.capture_state()
+		var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+		assert_eq(main.restore_from_document(document), "")
+		for candidate: ThreatUnit in main.registry.get_active():
+			if candidate.runtime_id == id:
+				missile = candidate
+		var after := missile.capture_state()
+		for key: String in before:
+			if key == "content_state":
+				for field: String in before.content_state:
+					if field == "elapsed":
+						assert_almost_eq(float(after.content_state[field]), float(before.content_state[field]), 0.000001)
+					else:
+						assert_eq(after.content_state[field], before.content_state[field], field)
+			else:
+				assert_eq(after[key], before[key], key)
+		assert_eq(missile.health, 21.0)
+		var invalid := document.duplicate(true)
+		for state: Dictionary in invalid.payload.world.contacts:
+			if int(state.runtime_id) == id:
+				state.content_state.velocity = [NAN, 0, 0]
+		assert_ne(main.restore_from_document(invalid), "")
+
+func test_release_alignment_rejects_sideways_and_backward_missile_shots() -> void:
+	var target := target_for(&"weapon")
+	main.enemy_knowledge.record_recon(target)
+	var aircraft := main.director._spawn_entry(entry_for(&"battery_strike_aircraft"), 0.0, 0.0) as AttackUav
+	aircraft.global_position = target.global_position + Vector3(300, 100, 0)
+	aircraft.mover.velocity = Vector3(100, 0, 0)
+	assert_false(aircraft._release_ready(target.global_position, 0.03))
+	aircraft.mover.velocity = Vector3(0, 0, 100)
+	assert_false(aircraft._release_ready(target.global_position, 0.03))
+	aircraft.mover.velocity = Vector3(-100, 0, 0)
+	assert_true(aircraft._release_ready(target.global_position, 0.03))
+
 func target_for(role: StringName) -> DefenseUnit:
 	var index := {&"weapon": 0, &"sensor": 1, &"command": 2, &"support": 5}[role] as int
 	var definition := main.scenario.available_defenses[index]
@@ -74,9 +228,9 @@ func test_each_variant_flies_to_its_role_and_applies_only_one_asset_hit() -> voi
 			assert_eq(target.integrity, target.definition.maximum_integrity)
 			var count := 0
 			for child: Node in main.threat_parent.get_children():
-				if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT and not child.is_queued_for_deletion():
+				if child is ThreatUnit and (child as ThreatUnit).definition == definition.mission.released_missile and not child.is_queued_for_deletion():
 					count += 1
-					child.call("_process", 10.0)
+					(child as ThreatUnit).gameplay_tick(10.0)
 			assert_eq(count, 1)
 			for tick: int in 4500:
 				threat.gameplay_tick(1.0 / 30.0)

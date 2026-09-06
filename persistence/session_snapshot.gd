@@ -320,6 +320,13 @@ static func contact_definition_map(scenario: ScenarioDefinition) -> Dictionary[S
 		result[entry.threat_definition.id] = entry.threat_definition
 	for definition: ThreatDefinition in scenario.ambient_contacts:
 		result[definition.id] = definition
+	var pending: Array = result.values()
+	while not pending.is_empty():
+		var definition := pending.pop_back() as ThreatDefinition
+		for released: ThreatDefinition in definition.released_threat_definitions():
+			if not result.has(released.id):
+				result[released.id] = released
+				pending.append(released)
 	return result
 
 static func _valid_vector_data(value: Variant) -> bool:

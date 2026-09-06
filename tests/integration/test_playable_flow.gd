@@ -1459,15 +1459,17 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 	var threat := main.director.spawn_one() as AttackUav
 	assert_not_null(threat)
 	assert_same(threat.mission_runtime.target_asset, support)
-	threat.global_position = support.global_position + Vector3(20.0, 2.0, 0.0)
-	threat.gameplay_tick(0.1)
+	for tick: int in 4500:
+		threat.gameplay_tick(1.0 / 30.0)
+		if threat.mission_runtime.effect_applied:
+			break
 	assert_eq(support.integrity, support.definition.maximum_integrity, "투발 시점에는 아직 피해가 없습니다")
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_false(threat.resolved_state)
 	var city_before := main.objective.current_integrity
 	for child: Node in main.threat_parent.get_children():
 		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
-			child.call("_process", 1.0)
+			child.call("_process", 10.0)
 	threat.gameplay_tick(0.1)
 	assert_eq(support.integrity, 65.0, "투발 피해는 한 번만 적용됩니다")
 	assert_eq(main.objective.current_integrity, city_before, "시설 타격은 도시 피해를 중복 발생시키지 않습니다")
@@ -1665,7 +1667,7 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	var target := main.objective.global_position
-	threat.global_position = target + Vector3(0.0, definition.movement.terminal_altitude, 80.0)
+	threat.global_position = target + Vector3(0.0, definition.movement.terminal_altitude, definition.mission.action_distance - 10.0)
 	threat.setup(811, definition)
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, threat.global_position + Vector3(600.0, 0.0, 0.0))
 	main.registry.add(threat)
@@ -1675,23 +1677,25 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	assert_true(threat.mission_runtime.effect_applied)
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_eq(main.objective.current_integrity, integrity_before, "도시 피해는 투하가 아니라 실제 탄착 때 적용됩니다")
-	var munition := main.threat_parent.get_node_or_null("StrikeMunition") as Node3D
+	var munition := main.threat_parent.get_node_or_null("AirLaunchedMissile") as ThreatUnit
 	assert_not_null(munition)
-	assert_gte((munition.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
+	assert_false(munition.get_node("Flight/FlameLight").visible, "분리 직후에는 점화하지 않습니다")
+	munition.gameplay_tick(0.25)
+	assert_true(munition.get_node("Flight/FlameLight").visible)
 	assert_eq(threat.get_node("Body").find_children("*ExhaustTrail", "MultiMeshInstance3D").size(), 2)
 	assert_gte((threat.get_node("Body/LeftEngineLight") as OmniLight3D).light_energy, 9.0)
-	munition.call("_process", 1.0)
+	munition.gameplay_tick(10.0)
 	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
 	assert_false(main.objective.damage_smoke_effects.is_empty())
-	assert_almost_eq(main.objective.damage_smoke_effects.back().global_position, target, Vector3.ONE * 0.001)
+	assert_true(munition.resolved_state, "실제 표면에서 비행이 끝납니다")
 
-func test_strike_aircraft_releases_above_the_city_and_climbs_out_over_the_sea() -> void:
+func test_strike_aircraft_releases_outside_the_city_and_climbs_out_over_the_sea() -> void:
 	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	var target := main.objective.global_position
 	var exit_point := Vector3(main.scenario.battlefield_size, main.battlefield.generator.sea_level + definition.movement.cruise_altitude, 0.0)
-	threat.global_position = target + Vector3(-90.0, definition.movement.terminal_altitude, 0.0)
+	threat.global_position = target + Vector3(-definition.mission.action_distance + 10.0, definition.movement.terminal_altitude, 0.0)
 	threat.setup(812, definition)
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, exit_point)
 	main.registry.add(threat)

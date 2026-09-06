@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=8 format=3]
 
 [ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
 [ext_resource path="res://enemy/strike_aircraft/facility_strike_aircraft.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
 [ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[ext_resource type="Resource" path="res://enemy/air_launched_missile/air_launched_missile.tres" id="5"]
 
 [sub_resource type="Resource" id="Movement"]
 script = ExtResource("3")
@@ -23,8 +25,9 @@ script = ExtResource("4")
 type = 2
 target_role = 2
 damage = 55.0
-action_distance = 240.0
-acquisition_range = 500.0
+action_distance = 700.0
+released_missile = ExtResource("5")
+acquisition_range = 1050.0
 
 [resource]
 script = ExtResource("1")

@@ -75,23 +75,41 @@ func run() -> void:
 		return
 	var munition: Node3D
 	for child: Node in main.threat_parent.get_children():
-		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
+		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT or child is ThreatUnit and (child as ThreatUnit).definition == hunter.mission_runtime.profile.released_missile:
 			munition = child as Node3D
 			munition.set_process(false)
 	assert(munition != null)
-	munition.call("_process", 0.06)
+	advance_munition(munition, 0.06)
+	main.hud.hide()
+	main.camera_rig.camera.global_position = hunter.global_position + Vector3(32, 22, 40)
+	main.camera_rig.camera.look_at(hunter.global_position)
 	await capture("release")
+	advance_munition(munition, 0.45)
+	hunter.gameplay_tick(0.45)
+	var midpoint := (hunter.global_position + munition.global_position) * 0.5
+	main.camera_rig.camera.global_position = midpoint + Vector3(60, 40, 65)
+	main.camera_rig.camera.look_at(midpoint)
+	await capture("flight")
+	main.hud.show()
+	main.camera_rig.camera.global_position = target.global_position + Vector3(230, 230, 290)
+	main.camera_rig.camera.look_at(target.global_position + Vector3.UP * 45.0)
 	var city_before := main.objective.current_integrity
-	munition.call("_process", 1.0)
+	advance_munition(munition, 10.0)
 	target._process(0.0)
 	main._on_asset_selected(target)
-	assert(not target.active and target.integrity == maxf(0.0, 60.0 - hunter.mission_runtime.profile.damage))
+	assert(target.integrity == maxf(0.0, 60.0 - hunter.mission_runtime.profile.damage))
 	assert(main.objective.current_integrity == city_before)
 	await capture("impact")
 	print("STRIKE verified: observed approach, one release, asset integrity 60 -> %.0f, city unchanged" % target.integrity)
 	main.free()
 	await process_frame
 	quit()
+
+func advance_munition(munition: Node3D, delta: float) -> void:
+	if munition is ThreatUnit:
+		(munition as ThreatUnit).gameplay_tick(delta)
+	else:
+		munition.call("_process", delta)
 
 func capture(label: String) -> void:
 	for frame: int in 3:

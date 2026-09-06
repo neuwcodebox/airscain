@@ -208,8 +208,20 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 		target.y = battlefield.terrain_height(target.x, target.z)
 	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed), target_asset, spawn_position)
 	registry.add(threat)
+	bind_releases(threat)
 	threat_spawned.emit(threat)
 	return threat
+
+func bind_releases(threat: ThreatUnit) -> void:
+	if not threat.threat_released.is_connected(_register_released_threat):
+		threat.threat_released.connect(_register_released_threat)
+
+func _register_released_threat(threat: ThreatUnit) -> void:
+	threat.setup(next_runtime_id, threat.definition)
+	next_runtime_id += 1
+	bind_releases(threat)
+	registry.add(threat)
+	threat_spawned.emit(threat)
 
 func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
 	if mission == null or mission.target_role == ThreatMissionDefinition.TargetRole.CITY or defense_parent == null:

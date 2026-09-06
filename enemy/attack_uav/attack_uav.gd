@@ -77,7 +77,7 @@ func gameplay_tick(delta: float) -> void:
 			global_position = nearest_impact
 	_sample_exhaust(previous_position, global_position)
 	var had_applied_effect := mission_runtime.effect_applied
-	if mission_runtime.gameplay_tick(global_position, delta):
+	if mission_runtime.gameplay_tick(global_position, delta, _release_ready(mission_target, delta)):
 		resolve_once(false)
 	if not had_applied_effect and mission_runtime.effect_applied and _definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
 		_spawn_strike_munition(mission_target)
@@ -131,6 +131,7 @@ func restore_content_state(state: Dictionary, objective_value: ProtectedObjectiv
 	mover.restore_state(state.get("movement", {}), _definition.movement, battlefield)
 	mission_runtime.restore_state(state.get("mission", {}), _definition.mission, objective, defense_by_id)
 	terminal_committed = bool(state.get("terminal_committed", false))
+	_update_weapon_store()
 
 func _apply_visual_color() -> void:
 	for child: Node in body.get_children():
@@ -154,10 +155,43 @@ func _release_exhaust_trail() -> void:
 			(child as LingeringSmokeTrail).release_to(parent)
 
 func _spawn_strike_munition(strike_target: Vector3) -> void:
+	_update_weapon_store()
 	var parent := get_parent()
 	if parent == null:
 		return
+	var missile_definition := _definition.mission.released_missile
+	if missile_definition != null:
+		var missile := missile_definition.scene.instantiate() as ThreatUnit
+		parent.add_child(missile)
+		missile.global_position = _release_position()
+		missile.setup(0, missile_definition)
+		missile.call("launch", strike_target, objective, battlefield, roundi(_definition.mission.damage), mission_runtime.target_asset, _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY, mover.velocity)
+		threat_released.emit(missile)
+		return
 	var munition := STRIKE_MUNITION_SCENE.instantiate() as Node3D
 	parent.add_child(munition)
-	munition.global_position = global_position
+	munition.global_position = _release_position()
 	munition.call("setup", strike_target, objective, roundi(_definition.mission.damage), mission_runtime.target_asset, _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY)
+	munition.call("configure_flight", 1, mover.velocity, battlefield)
+
+func _release_position() -> Vector3:
+	return body.to_global(Vector3(3.5, -1.5, 0.2))
+
+func _release_ready(target: Vector3, delta: float) -> bool:
+	if _definition.mission.type != ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
+		return false
+	var offset := target - _release_position()
+	var horizontal := Vector3(offset.x, 0.0, offset.z)
+	var forward := Vector3(mover.velocity.x, 0.0, mover.velocity.z)
+	if forward.length_squared() < 1.0:
+		return false
+	if _definition.mission.released_missile != null:
+		return horizontal.length() <= _definition.mission.action_distance and forward.normalized().dot(horizontal.normalized()) >= cos(deg_to_rad(_definition.mission.launch_cone_degrees))
+	# Unpowered release: predict where inherited velocity and gravity meet target height.
+	var fall_time := (mover.velocity.y + sqrt(maxf(0.0, mover.velocity.y * mover.velocity.y - 2.0 * 9.8 * offset.y))) / 9.8
+	var miss := horizontal - forward * fall_time
+	return fall_time > 0.0 and miss.length() <= maxf(8.0, forward.length() * delta)
+
+func _update_weapon_store() -> void:
+	if body.has_method("set_weapon_released"):
+		body.call("set_weapon_released", _definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT and mission_runtime.effect_applied)

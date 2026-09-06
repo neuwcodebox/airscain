@@ -4,11 +4,14 @@ extends Node3D
 @export var jet: bool = false
 @export var armed: bool = false
 static var _geometry: Dictionary[int, Array] = {}
+static var _store_mesh: ArrayMesh
+static var _store_material: StandardMaterial3D
 
 func _ready() -> void:
 	var variant := int(jet) + int(armed) * 2
 	if _geometry.has(variant):
 		_install_geometry(_geometry[variant])
+		_install_stores()
 		return
 	var skin := ModelGeometry.material(Color("8b9384") if not jet else Color("687a80"), 0.35, 0.55)
 	var underside := ModelGeometry.material(Color("414b48"), 0.3)
@@ -50,7 +53,6 @@ func _ready() -> void:
 	if armed:
 		for side: float in [-1.0, 1.0]:
 			ModelGeometry.box(self, "WeaponPylon", Vector3(0.35, 0.8, 1.2), Vector3(side * 3.5, -0.5, 0.6), underside)
-			ModelGeometry.mesh(self, "StrikePod", ModelGeometry.hull([Vector3(0.02, 0.02, -2.6), Vector3(0.4, 0.4, -1.5), Vector3(0.4, 0.4, 1.8), Vector3(0.1, 0.1, 2.1)]), Vector3(side * 3.5, -1.1, 0.2), skin)
 	var parts: Array[MeshInstance3D] = []
 	for child: Node in get_children():
 		if child is MeshInstance3D:
@@ -63,6 +65,21 @@ func _ready() -> void:
 	for part: MeshInstance3D in parts:
 		part.free()
 	_install_geometry(combined)
+	_install_stores()
+
+func _install_stores() -> void:
+	if not armed:
+		return
+	if _store_mesh == null:
+		_store_mesh = ModelGeometry.hull([Vector3(0.02, 0.02, -2.6), Vector3(0.4, 0.4, -1.5), Vector3(0.4, 0.4, 1.8), Vector3(0.1, 0.1, 2.1)])
+		_store_material = ModelGeometry.material(Color("414b48"), 0.3)
+	for side: float in [-1.0, 1.0]:
+		ModelGeometry.mesh(self, "ReleasedStore" if side > 0.0 else "ReserveStore", _store_mesh, Vector3(side * 3.5, -1.1, 0.2), _store_material)
+
+func set_weapon_released(released: bool) -> void:
+	var store := get_node_or_null("ReleasedStore") as MeshInstance3D
+	if store != null:
+		store.visible = not released
 
 func _install_geometry(shapes: Array) -> void:
 	for index: int in shapes.size():

@@ -36,6 +36,9 @@ func estimated_approach_seconds(_distance: float, _speed_multiplier: float) -> f
 func mission_definition() -> ThreatMissionDefinition:
 	return null
 
+func released_threat_definitions() -> Array[ThreatDefinition]:
+	return []
+
 func shares_city_impact_target() -> bool:
 	return false
 

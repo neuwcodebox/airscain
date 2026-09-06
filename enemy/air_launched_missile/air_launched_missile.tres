@@ -1,0 +1,14 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://enemy/air_launched_missile/air_launched_missile_definition.gd" id="1"]
+[ext_resource type="PackedScene" path="res://enemy/air_launched_missile/air_launched_missile.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"air_launched_missile"
+display_name = "공대지 미사일"
+scene = ExtResource("2")
+neutralization_reward = 0
+signature_class = &"cruise_missile"
+radar_signature = 0.32
+maximum_health = 24.0
