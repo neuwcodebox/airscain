@@ -275,6 +275,7 @@ func _create_preview() -> void:
 	_copy_preview_geometry(model, Transform3D.IDENTITY)
 	model.free()
 	range_disc = LabeledRangeRing.new()
+	range_disc.battlefield = battlefield
 	range_disc.obstacles = range_label_obstacles
 	wall_material_setup()
 	range_disc.position.y = 1.5

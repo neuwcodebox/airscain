@@ -97,7 +97,7 @@ func _ready() -> void:
 	c2_network.call("configure", registry)
 	track_display.configure(player_knowledge, defense_parent, engagement_coordinator)
 	var range_label_obstacles: Array[Control] = [hud.catalog, hud.city_menu, hud.selected_asset_panel, hud.placement_hint_panel, hud.training_panel, altitude_profile]
-	c2_overlay.configure(c2_network, support_manager, range_label_obstacles)
+	c2_overlay.configure(c2_network, support_manager, range_label_obstacles, battlefield)
 	tactical_range_overlay.call("configure", defense_parent, registry, support_manager)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager, range_label_obstacles)

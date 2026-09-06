@@ -142,6 +142,13 @@ func run() -> void:
 		for frame: int in 8:
 			await process_frame
 		_save_capture("/tmp/airscain_range_rotated.png")
+		main.c2_overlay.range_ring.global_position = Vector3(220.0, 140.0, -180.0)
+		main.c2_overlay.range_ring.set_range(400.0, "지휘 연결")
+		main.c2_overlay.set_process(false)
+		main.c2_overlay.operation_ring.hide()
+		for frame: int in 8:
+			await process_frame
+		_save_capture("/tmp/airscain_range_terrain.png")
 		main._clear_selection()
 		assert(not main.c2_overlay.visible)
 		print("RANGE_LABEL_CAPTURE_OK placement selected rotated clear")

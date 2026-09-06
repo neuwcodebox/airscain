@@ -61,11 +61,13 @@ func _process(delta: float) -> void:
 		range_refresh_remaining = 0.2
 		_rebuild_range()
 
-func configure(network: Node, support: SupportManager, label_obstacles: Array[Control] = []) -> void:
+func configure(network: Node, support: SupportManager, label_obstacles: Array[Control] = [], field: Battlefield = null) -> void:
 	c2_network = network
 	support_manager = support
 	range_ring.obstacles = label_obstacles
 	operation_ring.obstacles = label_obstacles
+	range_ring.battlefield = field
+	operation_ring.battlefield = field
 
 func select_asset(unit: DefenseUnit) -> void:
 	selected_asset = unit
@@ -150,13 +152,13 @@ func _rebuild_range() -> void:
 			radius = selected_asset.c2_link_range()
 			range_material.albedo_color = C2_COLOR
 			var operation_radius := LabeledRangeRing.primary_radius(selected_asset.definition) * selected_asset.operational_efficiency()
-			operation_ring.set_range(operation_radius, LabeledRangeRing.primary_title(selected_asset.definition))
 			operation_ring.global_position = center + Vector3.UP * 1.5
+			operation_ring.set_range(operation_radius, LabeledRangeRing.primary_title(selected_asset.definition))
 	if radius <= 0.0:
 		range_ring.visible = false
 		return
-	range_ring.set_range(radius, title)
 	range_ring.global_position = center + Vector3.UP * 2.0
+	range_ring.set_range(radius, title)
 	range_ring.visible = true
 
 func _add_segment(mesh: ImmediateMesh, start: Vector3, finish: Vector3, color: Color) -> void:

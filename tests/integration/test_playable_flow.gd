@@ -995,7 +995,7 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_eq(_metric_value(main.hud.asset_metrics, "전력 수요 / 공급"), "12 / 20")
 	var support_definition := main.scenario.available_defenses[5]
 	main.placement.select(support_definition)
-	assert_eq((main.placement.range_disc.mesh as TorusMesh).outer_radius, (support_definition as SupportFacilityDefinition).service_range)
+	assert_eq(main.placement.range_disc.radius, (support_definition as SupportFacilityDefinition).service_range)
 	main.placement.placement_preview_changed.emit(support_definition, candidate, true)
 	assert_eq(main.c2_overlay.visible_c2_link_count, 0)
 	assert_gte(main.c2_overlay.visible_support_link_count, 1)
@@ -1007,16 +1007,40 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	var selected_support_count := main.c2_overlay.visible_support_link_count
 	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "지원 가능 %d" % selected_support_count)
 	assert_true(main.c2_overlay.range_ring.visible)
-	assert_eq((main.c2_overlay.range_ring.mesh as TorusMesh).rings, 96)
+	assert_true(main.c2_overlay.range_ring.mesh is ArrayMesh)
 	main.c2_overlay.preview_placement(support_definition, support.global_position, true)
 	assert_eq(main.c2_overlay.visible_support_link_count, selected_support_count)
 	main.placement.select(laser_definition)
-	assert_eq((main.placement.range_disc.mesh as TorusMesh).rings, 96)
+	assert_true(main.placement.range_disc.mesh is ArrayMesh)
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
-	assert_eq((main.c2_overlay.range_ring.mesh as TorusMesh).rings, 96)
+	assert_true(main.c2_overlay.range_ring.mesh is ArrayMesh)
 	main.placement.cancel()
 	assert_false(main.c2_overlay.placement_active)
 	assert_false(main.hud.placement_hint_panel.visible)
+
+func test_range_ribbon_follows_surface_and_reuses_stationary_geometry() -> void:
+	var ring := main.c2_overlay.range_ring
+	ring.global_position = Vector3(220.0, 140.0, -180.0)
+	ring.set_range(400.0, "탐지 범위")
+	var original := ring.mesh
+	var vertices: PackedVector3Array = ring.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var lowest := INF
+	var highest := -INF
+	for vertex: Vector3 in vertices:
+		var world := ring.to_global(vertex)
+		var ground := main.battlefield.flight_surface_height(world.x, world.z)
+		assert_almost_eq(world.y, ground + LabeledRangeRing.SURFACE_CLEARANCE, 0.001)
+		lowest = minf(lowest, world.y)
+		highest = maxf(highest, world.y)
+	assert_gt(highest - lowest, 5.0)
+	ring.refresh_surface()
+	assert_same(ring.mesh, original)
+	ring.global_position.x += 20.0
+	ring.refresh_surface()
+	assert_ne(ring.mesh, original)
+	var moved := ring.mesh
+	ring.set_range(300.0, "탐지 범위")
+	assert_ne(ring.mesh, moved)
 
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
