@@ -1485,15 +1485,48 @@ func test_damage_supply_and_obstruction_are_independent_statuses() -> void:
 	assert_true(marker.supply_badge.visible)
 	assert_true(marker.obstruction_badge.visible)
 	assert_eq(gun.critical_status_text(), "손상")
-	var hint := TacticalScreenOverlay.asset_hint_text(gun)
-	assert_string_contains(hint, "손상")
-	assert_string_contains(hint, "탄약 고갈")
-	assert_string_contains(hint, "사선 차단")
+	var hint := TacticalScreenOverlay.asset_hint_statuses(gun)
+	assert_has(hint, "손상")
+	assert_has(hint, "탄약 고갈")
+	assert_has(hint, "사선 차단")
 	gun.receive_damage(100.0)
 	gun._process(0.0)
 	assert_false(marker.obstruction_badge.visible)
 	assert_true(marker.supply_badge.visible)
-	assert_false(TacticalScreenOverlay.asset_hint_text(gun).contains("사선 차단"))
+	assert_false(TacticalScreenOverlay.asset_hint_statuses(gun).has("사선 차단"))
+
+func test_asset_tooltip_separates_heading_and_statuses_without_stale_rows() -> void:
+	var overlay := add_child_autofree(TacticalScreenOverlay.new()) as TacticalScreenOverlay
+	overlay.set_process(false)
+	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
+	gun.setup(2020, SCENARIO.available_defenses[4])
+	gun.receive_damage(30.0)
+	gun.line_of_fire_blocked = true
+	gun.magazine.rounds = 0
+	gun.magazine.reserve = 0
+	overlay._show_asset_hint(gun, Vector2(400, 300))
+	assert_eq(overlay.priority_label.text, gun.definition.display_name)
+	assert_same(overlay.hint_icon.texture, gun.definition.identity_icon)
+	assert_true(overlay.hint_separator.visible)
+	assert_true(overlay.hint_details.visible)
+	assert_gt(overlay.priority_label.get_theme_font_size("font_size"), overlay.hint_rows[0].get_theme_font_size("font_size"))
+	assert_ne(overlay.priority_label.get_theme_color("font_color"), overlay.hint_rows[0].get_theme_color("font_color"))
+	for index: int in 3:
+		assert_true(overlay.hint_rows[index].visible)
+		assert_eq(overlay.hint_rows[index].mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_false(overlay.hint_rows[3].visible)
+	gun.complete_repair()
+	gun.line_of_fire_blocked = false
+	gun.magazine.rounds = 1
+	overlay._show_asset_hint(gun, Vector2(400, 300))
+	assert_false(overlay.hint_details.visible)
+	assert_false(overlay.hint_separator.visible)
+	assert_true(overlay.hint_icon.visible)
+	overlay._show_pointer_hint("클릭: 우선표적 지정", Vector2(400, 300))
+	assert_false(overlay.hint_icon.visible)
+	assert_false(overlay.hint_details.visible)
+	assert_eq(overlay.priority_label.text, "클릭: 우선표적 지정")
+	assert_eq(overlay.priority_hint.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 
 func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() -> void:
 	var manager := autofree(SupportManager.new()) as SupportManager

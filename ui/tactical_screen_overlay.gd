@@ -16,22 +16,56 @@ var placement: PlacementController
 var hovered_track: PlayerTrack
 var priority_hint := PanelContainer.new()
 var priority_label := Label.new()
+var hint_icon := TextureRect.new()
+var hint_separator := HSeparator.new()
+var hint_details := VBoxContainer.new()
+var hint_rows: Array[Label] = []
 
 func _ready() -> void:
 	priority_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	priority_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	priority_label.add_theme_font_size_override("font_size", 16)
+	priority_label.add_theme_font_size_override("font_size", 18)
+	priority_label.add_theme_color_override("font_color", Color("edf5f8"))
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.025, 0.06, 0.08, 0.96)
-	style.border_color = Color(0.35, 0.9, 0.75)
+	style.border_color = Color("41616d")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(5)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 7
-	style.content_margin_bottom = 7
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
 	priority_hint.add_theme_stylebox_override("panel", style)
-	priority_hint.add_child(priority_label)
+	var content := VBoxContainer.new()
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_theme_constant_override("separation", 7)
+	priority_hint.add_child(content)
+	var heading := HBoxContainer.new()
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heading.add_theme_constant_override("separation", 8)
+	content.add_child(heading)
+	hint_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_icon.custom_minimum_size = Vector2(24, 24)
+	hint_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	hint_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	hint_icon.modulate = Color("a7cbd9")
+	heading.add_child(hint_icon)
+	heading.add_child(priority_label)
+	hint_separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rule := StyleBoxLine.new()
+	rule.color = Color("304650")
+	rule.thickness = 1
+	hint_separator.add_theme_stylebox_override("separator", rule)
+	content.add_child(hint_separator)
+	hint_details.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_details.add_theme_constant_override("separation", 4)
+	content.add_child(hint_details)
+	for index: int in 4:
+		var row := Label.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_font_size_override("font_size", 14)
+		hint_details.add_child(row)
+		hint_rows.append(row)
 	add_child(priority_hint)
 	priority_hint.hide()
 
@@ -85,7 +119,7 @@ func _process(_delta: float) -> void:
 		can_hover = can_hover and not rig.input_blocked and not rig.rotating
 	var asset := placement.asset_at_screen(mouse) if can_hover else null
 	if is_instance_valid(asset):
-		_show_pointer_hint(asset_hint_text(asset), mouse)
+		_show_asset_hint(asset, mouse)
 	elif can_hover and is_instance_valid(priority_source) and priority_source.supports_engagement_controls():
 		hovered_track = track_at_screen(mouse)
 		if hovered_track != null:
@@ -97,13 +131,43 @@ func _process(_delta: float) -> void:
 
 func _show_pointer_hint(message: String, mouse: Vector2) -> void:
 	priority_label.text = message
+	hint_icon.hide()
+	hint_separator.hide()
+	hint_details.hide()
+	_position_pointer_hint(mouse)
+
+func _show_asset_hint(unit: DefenseUnit, mouse: Vector2) -> void:
+	priority_label.text = unit.definition.display_name
+	hint_icon.texture = unit.definition.identity_icon
+	hint_icon.show()
+	var statuses := asset_hint_statuses(unit)
+	hint_separator.visible = not statuses.is_empty()
+	hint_details.visible = not statuses.is_empty()
+	for index: int in hint_rows.size():
+		var row := hint_rows[index]
+		row.visible = index < statuses.size()
+		if row.visible:
+			row.text = statuses[index]
+			row.add_theme_color_override("font_color", _hint_status_color(statuses[index]))
+	_position_pointer_hint(mouse)
+
+static func _hint_status_color(status: String) -> Color:
+	if status == "기능 정지" or status == "탄약 고갈":
+		return Color("ff9685")
+	if status in ["손상", "사선 차단", "일부 탄종 고갈", "재보급 대기"]:
+		return Color("e8bd78")
+	if status == "재보급 중":
+		return Color("85d5c7")
+	return Color("a7bdc8")
+
+func _position_pointer_hint(mouse: Vector2) -> void:
 	priority_hint.reset_size()
 	var extent := get_viewport().get_visible_rect().size
 	priority_hint.position = (mouse + Vector2(20, 24)).clamp(Vector2(8, 8), (extent - priority_hint.size - Vector2(8, 8)).max(Vector2(8, 8)))
 	priority_hint.show()
 
-static func asset_hint_text(unit: DefenseUnit) -> String:
-	var lines: Array[String] = [unit.definition.display_name]
+static func asset_hint_statuses(unit: DefenseUnit) -> Array[String]:
+	var lines: Array[String] = []
 	if not unit.active:
 		lines.append("재배치 중" if unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() else "기능 정지")
 	elif unit.operational_ratio() < 0.75:
@@ -114,7 +178,7 @@ static func asset_hint_text(unit: DefenseUnit) -> String:
 	var magazine := unit.reload_display_magazine() if unit.active else null
 	if magazine != null:
 		lines.append("재장전 · %.1f초" % magazine.reload_remaining)
-	return "\n".join(lines)
+	return lines
 
 func _draw() -> void:
 	if camera == null:

@@ -1666,12 +1666,12 @@ func test_asset_icons_status_badges_and_reload_bars_share_hover_target() -> void
 		var rect := AssetPointerTarget.marker_screen_rect(visual, main.camera_rig.camera)
 		assert_true(rect.has_area())
 		assert_eq(main.placement.asset_at_screen(rect.get_center()), battery)
-	assert_eq(TacticalScreenOverlay.asset_hint_text(battery), battery.definition.display_name + "\n재보급 대기")
+	assert_eq(TacticalScreenOverlay.asset_hint_statuses(battery), ["재보급 대기"])
 	battery.receive_damage(1000.0)
 	battery._process(0.0)
 	var label_rect := AssetPointerTarget.marker_screen_rect(battery.identity_marker.get_node("ConditionFrame") as Sprite3D, main.camera_rig.camera)
 	assert_eq(main.placement.asset_at_screen(label_rect.get_center()), battery)
-	assert_eq(TacticalScreenOverlay.asset_hint_text(battery), battery.definition.display_name + "\n기능 정지\n재보급 대기")
+	assert_eq(TacticalScreenOverlay.asset_hint_statuses(battery), ["기능 정지", "재보급 대기"])
 	battery.complete_repair()
 	battery.set_automatic_resupply(false)
 	battery.magazine.reserve = 3
@@ -1681,10 +1681,10 @@ func test_asset_icons_status_badges_and_reload_bars_share_hover_target() -> void
 	var reload_bar := battery.identity_marker.get_node("ReloadBackground") as Sprite3D
 	var reload_rect := AssetPointerTarget.marker_screen_rect(reload_bar, main.camera_rig.camera)
 	assert_eq(main.placement.asset_at_screen(reload_rect.get_center()), battery)
-	assert_string_contains(TacticalScreenOverlay.asset_hint_text(battery), "재장전 · 4.0초")
+	assert_has(TacticalScreenOverlay.asset_hint_statuses(battery), "재장전 · 4.0초")
 	battery.magazine.reload_remaining = 0.0
 	battery.magazine.rounds = 1
-	assert_eq(TacticalScreenOverlay.asset_hint_text(battery), battery.definition.display_name)
+	assert_true(TacticalScreenOverlay.asset_hint_statuses(battery).is_empty())
 
 func test_procedural_planning_ignores_unobserved_asset_changes_and_limits_late_waves() -> void:
 	main.director.elapsed = 70.0
