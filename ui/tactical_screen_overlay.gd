@@ -79,17 +79,40 @@ func _process(_delta: float) -> void:
 	hovered_track = null
 	priority_hint.hide()
 	var mouse := get_viewport().get_mouse_position()
-	if is_instance_valid(priority_source) and priority_source.supports_engagement_controls() and placement != null and placement.selected == null and placement.selected_threat == null and get_viewport().get_visible_rect().has_point(mouse) and get_viewport().gui_get_hovered_control() == null and placement.asset_at_screen(mouse) == null:
+	var can_hover := placement != null and placement.selected == null and placement.selected_threat == null and get_viewport().get_visible_rect().has_point(mouse) and get_viewport().gui_get_hovered_control() == null
+	var rig := camera.get_parent() as CameraRig if camera != null else null
+	if rig != null:
+		can_hover = can_hover and not rig.input_blocked and not rig.rotating
+	var asset := placement.asset_at_screen(mouse) if can_hover else null
+	if is_instance_valid(asset):
+		_show_pointer_hint(asset_hint_text(asset), mouse)
+	elif can_hover and is_instance_valid(priority_source) and priority_source.supports_engagement_controls():
 		hovered_track = track_at_screen(mouse)
 		if hovered_track != null:
 			priority_label.text = "클릭: 우선표적 지정" if can_prioritize(priority_source, hovered_track) else "클릭: 항적 정보"
 			if can_prioritize(priority_source, hovered_track) and priority_source.priority_track_id() == hovered_track.track_id:
 				priority_label.text = "우선표적 지정됨"
-			priority_hint.reset_size()
-			var extent := get_viewport().get_visible_rect().size
-			priority_hint.position = (mouse + Vector2(20, 24)).clamp(Vector2(8, 8), extent - priority_hint.size - Vector2(8, 8))
-			priority_hint.show()
+			_show_pointer_hint(priority_label.text, mouse)
 	queue_redraw()
+
+func _show_pointer_hint(message: String, mouse: Vector2) -> void:
+	priority_label.text = message
+	priority_hint.reset_size()
+	var extent := get_viewport().get_visible_rect().size
+	priority_hint.position = (mouse + Vector2(20, 24)).clamp(Vector2(8, 8), (extent - priority_hint.size - Vector2(8, 8)).max(Vector2(8, 8)))
+	priority_hint.show()
+
+static func asset_hint_text(unit: DefenseUnit) -> String:
+	var lines: Array[String] = [unit.definition.display_name]
+	var status := unit.critical_status_text()
+	if status == "×":
+		status = "재배치 중" if unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() else "기능 정지"
+	if not status.is_empty():
+		lines.append(status)
+	var magazine := unit.reload_display_magazine() if unit.active else null
+	if magazine != null:
+		lines.append("재장전 · %.1f초" % magazine.reload_remaining)
+	return "\n".join(lines)
 
 func _draw() -> void:
 	if camera == null:

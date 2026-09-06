@@ -58,6 +58,19 @@ func _project_bounds(local_bounds: AABB, unit: Node3D, camera: Camera3D) -> Rect
 func hit_score(unit: Node3D, camera: Camera3D, position: Vector2) -> float:
 	if meshes.is_empty() or not unit.is_visible_in_tree():
 		return INF
+	if unit is DefenseUnit:
+		var defense := unit as DefenseUnit
+		var marker_score := INF
+		for parent: Node3D in [defense.identity_marker, defense.status_marker]:
+			if not is_instance_valid(parent):
+				continue
+			for child: Node in parent.get_children():
+				if child is Sprite3D or child is Label3D:
+					var rect := marker_screen_rect(child as GeometryInstance3D, camera)
+					if rect.has_area() and rect.grow(4.0).has_point(position):
+						marker_score = minf(marker_score, position.distance_to(rect.get_center()))
+		if is_finite(marker_score):
+			return marker_score
 	var coarse := _project_bounds(bounds.grow(bounds.size.length()), unit, camera)
 	if coarse.has_area() and not coarse.grow(MINIMUM_TARGET_SIZE).has_point(position):
 		return INF
@@ -70,6 +83,30 @@ func hit_score(unit: Node3D, camera: Camera3D, position: Vector2) -> float:
 		return INF
 	# Direct model hits win over another asset's padded margin.
 	return position.distance_to(rect.get_center()) + (0.0 if rect.has_point(position) else 10000.0)
+
+static func marker_screen_rect(marker: GeometryInstance3D, camera: Camera3D) -> Rect2:
+	if not marker.is_visible_in_tree() or camera.is_position_behind(marker.global_position):
+		return Rect2()
+	# Fixed-size billboards cancel perspective depth, but retain projection scale.
+	var projection := camera.get_camera_projection()
+	var viewport_size := camera.get_viewport().get_visible_rect().size
+	var scale := Vector2(projection.x.x * viewport_size.x, projection.y.y * viewport_size.y) * 0.5 * marker.global_basis.get_scale().x
+	var rect: Rect2
+	var pixel_size: float
+	if marker is Sprite3D:
+		var sprite := marker as Sprite3D
+		rect = sprite.get_item_rect()
+		pixel_size = sprite.pixel_size
+	else:
+		var label := marker as Label3D
+		var font := label.font if label.font != null else ThemeDB.fallback_font
+		var size := font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.font_size)
+		size.y = font.get_height(label.font_size)
+		size += Vector2.ONE * label.outline_size * 2.0
+		rect = Rect2(label.offset - size * 0.5, size)
+		pixel_size = label.pixel_size
+	var origin := camera.unproject_position(marker.global_position)
+	return Rect2(origin + Vector2(rect.position.x, -rect.end.y) * scale * pixel_size, rect.size * scale * pixel_size)
 
 func set_hovered(enabled: bool) -> void:
 	if hovered == enabled:
