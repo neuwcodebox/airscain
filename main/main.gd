@@ -7,9 +7,6 @@ signal restart_game_requested(mode: GameMode, world_seed: int)
 signal main_menu_requested
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
-const HOMING_INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
-const INTERCEPTOR_DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
-const AIR_STRIKE_MUNITION_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
 const MAXIMUM_GAMEPLAY_STEP := 1.0 / 30.0
 
 static var requested_seed: int = -1
@@ -36,7 +33,7 @@ var combat_effect_pool: CombatEffectPool
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
-@onready var player_knowledge: Node = $PlayerKnowledge
+@onready var player_knowledge: PlayerKnowledge = $PlayerKnowledge
 @onready var c2_network: Node = $C2Network
 @onready var engagement_coordinator: EngagementCoordinator = $EngagementCoordinator
 @onready var support_manager: SupportManager = $SupportManager
@@ -643,70 +640,20 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 		scenario.world_seed = restored_seed
 		requested_seed = restored_seed
 		battlefield.build(scenario)
-	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
 	var world_state: Dictionary = payload.world
-	objective.restore_damage_smoke_state(world_state.get("objective_damage_smoke", []))
-	objective.restore_integrity(int(world_state.objective_integrity))
-	var defense_definitions := SessionSnapshot.defense_definition_map(scenario)
-	for state: Dictionary in world_state.defenses:
-		var definition: DefenseDefinition = defense_definitions[StringName(String(state.definition_id))]
-		var unit := definition.scene.instantiate() as DefenseUnit
-		defense_parent.add_child(unit)
-		unit.global_position = SaveDocument.vector3_from_data(state.position)
-		unit.setup(int(state.runtime_id), definition)
-		unit.configure_combat(registry, projectile_parent)
-		unit.restore_state(state)
-		battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
-		_on_defense_placed(unit)
-	var contact_definitions := SessionSnapshot.contact_definition_map(scenario)
-	var defense_by_id: Dictionary[int, DefenseUnit] = {}
-	for defense: DefenseUnit in defenses:
-		defense_by_id[defense.runtime_id] = defense
-	for state: Dictionary in world_state.contacts:
-		var definition: ThreatDefinition = contact_definitions[StringName(String(state.definition_id))]
-		var contact := definition.scene.instantiate() as ThreatUnit
-		threat_parent.add_child(contact)
-		contact.global_position = SaveDocument.vector3_from_data(state.position)
-		contact.setup(int(state.runtime_id), definition)
-		contact.restore_state(state, objective, battlefield, defense_by_id)
-		registry.add(contact)
-		_on_threat_spawned(contact)
-	player_knowledge.call("restore_state", payload.player_knowledge)
-	var restored_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	var reconstruction := WorldReconstruction.new(battlefield, objective, registry, defense_parent, threat_parent, projectile_parent)
+	reconstruction.defense_restored.connect(_on_defense_placed)
+	reconstruction.contact_restored.connect(_on_threat_spawned)
+	reconstruction.restore_objects(world_state, scenario)
+	player_knowledge.restore_state(payload.player_knowledge)
 	engagement_coordinator.restore_state(world_state.engagements)
 	support_manager.restore_state(world_state.support)
 	relocation_manager.restore_state(world_state.relocations)
 	enemy_knowledge.restore_state(world_state.enemy_knowledge)
-	for state: Dictionary in world_state.projectiles:
-		if String(state.type) == "air_strike_munition":
-			var strike_munition := AIR_STRIKE_MUNITION_SCENE.instantiate() as AirStrikeMunition
-			threat_parent.add_child(strike_munition)
-			strike_munition.battlefield = battlefield
-			strike_munition.restore_state(state, objective, defense_by_id)
-			continue
-		var target_track: PlayerTrack = player_knowledge.call("find_track", int(state.target_track_id))
-		if String(state.type) == "homing_interceptor":
-			var owner := _find_defense(int(state.owner_defense_id)) as MissileBattery
-			var interceptor := HOMING_INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
-			projectile_parent.add_child(interceptor)
-			interceptor.restore_state(state, target_track, registry, restored_tracks, battlefield)
-			interceptor.target_changed.connect(owner._on_interceptor_target_changed)
-			owner.interceptors.append(interceptor)
-		else:
-			var drone_owner := _find_defense(int(state.owner_defense_id)) as InterceptorDroneDefense
-			var drone := INTERCEPTOR_DRONE_SCENE.instantiate() as InterceptorDrone
-			projectile_parent.add_child(drone)
-			drone.restore_state(state, drone_owner, target_track, registry)
-			drone_owner.active_drones.append(drone)
+	reconstruction.restore_projectiles(world_state.projectiles, player_knowledge)
 	director.restore_state(payload.director)
 	session.restore_state(payload.session)
 	day_night.apply_time(session.survival_time, true)
-
-func _find_defense(runtime_id: int) -> DefenseUnit:
-	for unit: DefenseUnit in defenses:
-		if unit.runtime_id == runtime_id:
-			return unit
-	return null
 
 func _clear_runtime_objects() -> void:
 	combat_audio.stop_all()

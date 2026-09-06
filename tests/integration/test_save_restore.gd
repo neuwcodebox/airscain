@@ -14,6 +14,16 @@ class ValidatingThreatDefinition:
 	func runtime_state_validation_error(_content_state: Dictionary, _defense_ids: Dictionary[int, bool]) -> String:
 		return "테스트 위협 상태 오류"
 
+class RestoringDefense:
+	extends DefenseUnit
+
+	var restored_states: Array[Dictionary] = []
+	var restored_target: PlayerTrack
+
+	func restore_projectile(state: Dictionary, target: PlayerTrack, _tracks: Array[PlayerTrack]) -> void:
+		restored_states.append(state)
+		restored_target = target
+
 var main: AirscainMain
 var save_path: String
 
@@ -27,6 +37,16 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_cleanup_save_files()
+
+func test_projectile_reconstruction_delegates_new_weapon_types_to_the_owner() -> void:
+	var owner := RestoringDefense.new()
+	add_child_autofree(owner)
+	var reconstruction := WorldReconstruction.new(main.battlefield, main.objective, main.registry, main.defense_parent, main.threat_parent, main.projectile_parent)
+	reconstruction.defenses_by_id[901] = owner
+	var state := {"type": "custom_weapon", "owner_defense_id": 901, "target_track_id": 0}
+	reconstruction.restore_projectiles([state], main.player_knowledge)
+	assert_eq(owner.restored_states, [state])
+	assert_null(owner.restored_target, "Lost tracks remain null instead of being replaced with hidden world targets")
 
 func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void:
 	main.director.elapsed = 240.0
@@ -576,6 +596,12 @@ func test_active_interceptor_drone_restores_owner_track_and_flight_state() -> vo
 	assert_same(restored.base_owner, restored_base)
 	assert_eq(restored.target_track.track_id, track.track_id)
 	assert_eq(restored.global_position, saved_position)
+	assert_eq(main.restore_from_document(document), "")
+	var second_base := _find_defense(base_id) as InterceptorDroneDefense
+	assert_eq(second_base.active_drones.size(), 1)
+	assert_eq(main.projectile_parent.get_child_count(), 1)
+	assert_same(second_base.active_drones[0].base_owner, second_base)
+	assert_eq(second_base.active_drones[0].global_position, saved_position)
 
 func _find_contact(runtime_id: int) -> ThreatUnit:
 	for contact: ThreatUnit in main.registry.get_active():

@@ -1,5 +1,14 @@
 # PLAN.md
 
+## 저장 월드 재구성 경계
+
+- [x] 월드 객체 재구성과 발사체 소유권 복원을 분리한다. 메인 전체 참조, 저장 버전 변경, 밸런스 변경은 도입하지 않는다.
+- [x] 반복 복원·무장 소유권·기존 저장 회귀와 전체 테스트를 검증하고 실행 가능한 단위로 커밋한다.
+
+WorldReconstruction은 검증된 자산·위협을 생성하고 동기 signal로 서비스 등록을 요청한다. 항적·지원·예약 복원 이후 발사체를 재구성하며, 방어 발사체는 소유 자산의 typed API가 생성·연결한다. main은 검증·초기화·모듈 복원 순서를 조율한다.
+
+검증: 저장 통합 28개 테스트·370개 단언, 전체 19개 스크립트 335개 테스트·25,739개 단언 통과. 새 발사체 종류의 소유 자산 위임, 반복 복원 시 드론의 단일 소유권·개수·위치, 기존 미사일의 복원 후 격추, 시설 타격탄·손상·지원·다른 seed 복구와 잘못된 문서의 비파괴 거절을 확인했다. 신규 클래스 metadata 생성 및 diff 검사 완료. 로그: `/tmp/airscain_reconstruction_tests.log`, `/tmp/airscain_reconstruction_full.log`. 화면 표현은 변경하지 않아 새 캡처는 생성하지 않았다.
+
 ## 모듈 경계 정리
 
 - [x] 최근 변경 이력과 전투·공습·표현·저장·HUD의 책임/의존성을 검토하고 우선순위를 기록한다.
@@ -11,7 +20,7 @@
 
 첫 실행 단위 검증: 전체 19개 스크립트, 332개 테스트·25,722개 단언 통과. StrikeFlight와 StrikePayload를 장면 없는 독립 규칙으로 검증하고 기존 분리/점화/유도/낙하/실제 격추·모기체 독립·저장 복원을 유지했다. 관련 항공 타격 10개 테스트도 별도 통과했고 새 클래스 메타데이터를 생성했다. 검토 결과와 후속 경계는 TECH의 주요 모듈 표 아래에 기록했다.
 
-두 번째 실행 단위 검증: AircraftStrikeRelease로 투발 계산·생성을 분리하고 종료 표현은 ThreatResolutionEffects + 콘텐츠 Resource로 옮겼다. 센서 분류와 독립된 표현 정책 및 AttackUav가 아닌 위협의 무충돌 이탈을 추가 검증했다. 관련 14개 테스트·450개 단언, 최종 전체 19개 스크립트 334개 테스트·25,732개 단언 통과. 실제 Dummy Compatibility 창에서 미사일/폭탄 분리·비행·타격과 추락 모델/착지 섬광을 확인했다. 캡처: `/tmp/airscain_radar_strike_aircraft_flight.png`, `/tmp/airscain_battery_strike_uav_flight.png`, `/tmp/airscain_wreck_impact.png`. 진단 도구의 폐기된 root helper 참조, SVG 전환 전 Label3D 검사와 파싱 오류를 정리하고 `balance_check`의 폭탄 이중 진행도 제거했다. 밸런스/프레임 진단기는 check-only 통과했으며 장기 성능 수치나 난이도 개선을 주장하지 않는다. HUD·월드 저장 재구성·압력 곡선은 검토 및 후속 경계만 기록하고 이번에 분해하지 않았다.
+두 번째 실행 단위 검증: AircraftStrikeRelease로 투발 계산·생성을 분리하고 종료 표현은 ThreatResolutionEffects + 콘텐츠 Resource로 옮겼다. 센서 분류와 독립된 표현 정책 및 AttackUav가 아닌 위협의 무충돌 이탈을 추가 검증했다. 관련 14개 테스트·450개 단언, 최종 전체 19개 스크립트 334개 테스트·25,732개 단언 통과. 실제 Dummy Compatibility 창에서 미사일/폭탄 분리·비행·타격과 추락 모델/착지 섬광을 확인했다. 캡처: `/tmp/airscain_radar_strike_aircraft_flight.png`, `/tmp/airscain_battery_strike_uav_flight.png`, `/tmp/airscain_wreck_impact.png`. 진단 도구의 폐기된 root helper 참조, SVG 전환 전 Label3D 검사와 파싱 오류를 정리하고 `balance_check`의 폭탄 이중 진행도 제거했다. 밸런스/프레임 진단기는 check-only 통과했으며 장기 성능 수치나 난이도 개선을 주장하지 않는다. HUD·압력 곡선은 후속 검토 대상으로 유지하며 월드 재구성은 위 저장 경계 실행 단위에서 다룬다.
 
 ## 항공 투발 무장 분리
 

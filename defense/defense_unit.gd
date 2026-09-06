@@ -275,6 +275,9 @@ func restore_state(state: Dictionary) -> void:
 	_refresh_damage_visual()
 	restore_content_state(state.get("content_state", {}))
 
+func restore_projectile(_state: Dictionary, _target: PlayerTrack, _tracks: Array[PlayerTrack]) -> void:
+	assert(false, "This defense does not own saved projectiles")
+
 func restore_content_state(_state: Dictionary) -> void:
 	pass
 

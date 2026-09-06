@@ -353,6 +353,13 @@ func capture_content_state() -> Dictionary:
 		"doctrine": capture_doctrine_state(),
 	}
 
+func restore_projectile(state: Dictionary, target: PlayerTrack, tracks: Array[PlayerTrack]) -> void:
+	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
+	projectile_parent.add_child(interceptor)
+	interceptor.restore_state(state, target, registry, tracks, battlefield)
+	interceptor.target_changed.connect(_on_interceptor_target_changed)
+	interceptors.append(interceptor)
+
 func restore_content_state(state: Dictionary) -> void:
 	var saved_cooldown := float(state.get("launch_cooldown", state.get("cooldown", 0.0)))
 	launch_cooldown = clampf(saved_cooldown, 0.0, _definition.launch_interval)

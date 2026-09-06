@@ -88,6 +88,12 @@ func selection_status_rows() -> Array[Dictionary]:
 func capture_content_state() -> Dictionary:
 	return {"available_drones": available_drones, "recharge_queue": recharge_queue.duplicate(), "cooldown": cooldown, "doctrine": capture_doctrine_state()}
 
+func restore_projectile(state: Dictionary, target: PlayerTrack, _tracks: Array[PlayerTrack]) -> void:
+	var drone := DRONE_SCENE.instantiate() as InterceptorDrone
+	projectile_parent.add_child(drone)
+	drone.restore_state(state, self, target, registry)
+	active_drones.append(drone)
+
 func restore_content_state(state_data: Dictionary) -> void:
 	available_drones = int(state_data.get("available_drones", _definition.drone_count))
 	recharge_queue.clear()
