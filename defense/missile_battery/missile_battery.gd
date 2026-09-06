@@ -112,21 +112,23 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 	var selected: PlayerTrack
 	var selected_urgency := -INF
 	var selected_distance := INF
+	var effective_range := _definition.attack_range * operational_efficiency()
 	for track: PlayerTrack in tracks:
 		if not doctrine.allows(track):
 			continue
+		var distance := global_position.distance_to(track.estimated_position)
+		if distance > effective_range:
+			continue
 		var munition := munition_for_track(track)
 		if munition == null or not is_track_available_for_engagement(track, engagement_limit()):
-			continue
-		var distance := global_position.distance_to(track.estimated_position)
-		if distance > _definition.attack_range * operational_efficiency():
 			continue
 		var altitude := track.estimated_position.y - battlefield.terrain_height(track.estimated_position.x, track.estimated_position.z) if battlefield != null else track.estimated_position.y
 		if altitude < _definition.minimum_engagement_altitude or altitude > _definition.maximum_engagement_altitude:
 			continue
 		if track.track_id == doctrine.priority_track_id:
 			return track
-		var urgency := track.track_quality * weapon_match(track) / maxf(1.0, track.estimated_position.distance_to(protected_position))
+		var match := munition.match_for(track.classification, track.estimated_velocity.length())
+		var urgency := track.track_quality * match / maxf(1.0, track.estimated_position.distance_to(protected_position))
 		if urgency > selected_urgency or (is_equal_approx(urgency, selected_urgency) and distance < selected_distance):
 			selected = track
 			selected_urgency = urgency

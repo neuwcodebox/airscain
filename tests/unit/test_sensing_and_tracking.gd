@@ -1,5 +1,39 @@
 extends GutTest
 
+func test_association_pruning_matches_nearest_compatible_unsampled_track() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 91271
+	var classes: Array[StringName] = [&"unknown", &"air_contact", &"uav", &"rocket"]
+	for index: int in 200:
+		var track := PlayerTrack.new()
+		track.track_id = index + 1
+		track.estimated_position = Vector3(rng.randf_range(-800, 800), rng.randf_range(0, 1000), rng.randf_range(-800, 800))
+		track.estimated_velocity = Vector3(rng.randf_range(-200, 200), 0, 0)
+		track.classification = classes[index % classes.size()]
+		track.last_observed_at = rng.randf_range(0, 1)
+		track.state = PlayerTrack.State.LOST if index % 7 == 0 else PlayerTrack.State.CONFIRMED
+		if index % 5 == 0:
+			track.sensor_observed_at[3] = 1.0
+		knowledge.tracks.append(track)
+	for index: int in 400:
+		var observation := SensorObservation.new()
+		observation.setup(3, 1.0, Vector3(rng.randf_range(-800, 800), rng.randf_range(0, 1000), rng.randf_range(-800, 800)), 0.9, 8, 0.1, classes[index % classes.size()])
+		var expected: PlayerTrack
+		var nearest := INF
+		for track: PlayerTrack in knowledge.tracks:
+			if track.state == PlayerTrack.State.LOST or not knowledge._classifications_compatible(track.classification, observation.classification_hint):
+				continue
+			if track.sensor_observed_at.has(3) and is_equal_approx(track.sensor_observed_at[3], observation.timestamp):
+				continue
+			var prediction := track.estimated_position + track.estimated_velocity * maxf(0, observation.timestamp - knowledge.simulation_time)
+			var distance := prediction.distance_to(observation.measured_position)
+			var gate := knowledge.association_gate + knowledge.maximum_association_speed * maxf(0, observation.timestamp - track.last_observed_at)
+			if distance < gate and distance < nearest:
+				expected = track
+				nearest = distance
+		assert_same(knowledge._associate(observation), expected)
+
 func test_observations_create_independent_tracks_and_update_estimates() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
 	var first := SensorObservation.new()

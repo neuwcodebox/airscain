@@ -3,6 +3,19 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+func test_building_occlusion_agrees_with_surface_collision_for_seeded_segments() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 65198
+	for index: int in 500:
+		var start := Vector3(rng.randf_range(-600, 600), rng.randf_range(-10, 180), rng.randf_range(-600, 600))
+		var end := Vector3(rng.randf_range(-600, 600), rng.randf_range(-10, 180), rng.randf_range(-600, 600))
+		assert_eq(field.building_blocks_segment(start, end), not field.building_segment_impact(start, end).is_empty())
+	var bounds := field.city_building_bounds(0)
+	for point: Vector3 in [bounds.position, bounds.end, bounds.get_center()]:
+		assert_eq(field.building_blocks_segment(point, point), not field.building_segment_impact(point, point).is_empty())
+
 func test_wreck_hits_the_current_roof_instead_of_the_original_ground_height() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	field.build(SCENARIO)

@@ -591,6 +591,22 @@ func test_ciws_skips_building_blocked_priority_and_reports_no_clear_target() -> 
 	assert_same(gun.select_track([blocked], Vector3.ZERO), blocked)
 	assert_false(gun.line_of_fire_blocked)
 
+func test_ciws_lower_ranked_blocked_targets_do_not_replace_clear_selection() -> void:
+	_set_departure_test_building()
+	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
+	gun.setup(2, SCENARIO.available_defenses[4])
+	gun.battlefield = battlefield
+	var clear := _confirmed_track(Vector3(-120, 30, 0))
+	var blocked := _confirmed_track(Vector3(120, 30, 0))
+	blocked.track_quality = 0.4
+	assert_same(gun.select_track([clear, blocked], Vector3.ZERO), clear)
+	assert_false(gun.line_of_fire_blocked)
+	gun.set_priority_track(blocked.track_id)
+	assert_same(gun.select_track([clear, blocked], Vector3.ZERO), clear)
+	assert_false(gun.line_of_fire_blocked)
+	assert_null(gun.select_track([blocked], Vector3.ZERO))
+	assert_true(gun.line_of_fire_blocked)
+
 func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_or_priority_tracks() -> void:
 	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
 	gun.setup(2, SCENARIO.available_defenses[4])

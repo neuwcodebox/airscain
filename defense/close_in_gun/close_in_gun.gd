@@ -99,13 +99,16 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range * operational_efficiency():
 			continue
+		var priority := track.track_id == doctrine.priority_track_id
+		var score := cooperative_target_score(track, protected_position, weapon_match(track))
+		if not priority and selected != null and score <= selected_score:
+			continue
 		if _building_blocks_aim(turret.global_position, _predicted_aim(track)):
 			line_of_fire_blocked = true
 			continue
-		if track.track_id == doctrine.priority_track_id:
+		if priority:
 			line_of_fire_blocked = false
 			return track
-		var score := cooperative_target_score(track, protected_position, weapon_match(track))
 		if score > selected_score:
 			selected = track
 			selected_score = score
@@ -118,7 +121,7 @@ func _predicted_aim(track: PlayerTrack) -> Vector3:
 	return track.estimated_position + track.estimated_velocity * flight_time - GunfireRuntime.GRAVITY * flight_time * flight_time * 0.5
 
 func _building_blocks_aim(origin: Vector3, aim: Vector3) -> bool:
-	return battlefield != null and not battlefield.building_segment_impact(origin, aim).is_empty()
+	return battlefield != null and battlefield.building_blocks_segment(origin, aim)
 
 func critical_status_text() -> String:
 	var status := super.critical_status_text()

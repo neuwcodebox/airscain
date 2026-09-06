@@ -165,6 +165,18 @@ func random_city_building_target(rng: RandomNumberGenerator) -> Vector3:
 		building.origin.z + size.z * rng.randf_range(CITY_TARGET_HORIZONTAL_FRACTION.x, CITY_TARGET_HORIZONTAL_FRACTION.y)
 	)
 
+func building_blocks_segment(from_position: Vector3, to_position: Vector3) -> bool:
+	if _building_bounds.is_empty() or not _city_bounds.intersects_segment(from_position, to_position) is Vector3:
+		return false
+	var first := _building_cell(from_position.min(to_position).max(_city_bounds.position))
+	var last := _building_cell(from_position.max(to_position).min(_city_bounds.end))
+	for z: int in range(first.y, last.y + 1):
+		for x: int in range(first.x, last.x + 1):
+			for index: int in _building_cells.get(Vector2i(x, z), []):
+				if _building_bounds[index].intersects_segment(from_position, to_position) is Vector3:
+					return true
+	return false
+
 func building_segment_impact(from_position: Vector3, to_position: Vector3) -> Dictionary:
 	if _building_bounds.is_empty() or not _city_bounds.intersects_segment(from_position, to_position) is Vector3:
 		return {}

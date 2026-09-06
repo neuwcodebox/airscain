@@ -63,19 +63,21 @@ func get_active_tracks() -> Array[PlayerTrack]:
 func _associate(observation: SensorObservation) -> PlayerTrack:
 	var selected: PlayerTrack
 	var nearest_distance := INF
+	var prediction_lead := maxf(0.0, observation.timestamp - simulation_time)
 	for track: PlayerTrack in tracks:
 		if track.state == PlayerTrack.State.LOST:
+			continue
+		var predicted_position := track.estimated_position + track.estimated_velocity * prediction_lead
+		var distance := predicted_position.distance_squared_to(observation.measured_position)
+		if distance >= nearest_distance:
 			continue
 		if not _classifications_compatible(track.classification, observation.classification_hint):
 			continue
 		if track.sensor_observed_at.has(observation.sensor_id) and is_equal_approx(track.sensor_observed_at[observation.sensor_id], observation.timestamp):
 			continue
 		var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
-		var prediction_lead := maxf(0.0, observation.timestamp - simulation_time)
-		var predicted_position := track.estimated_position + track.estimated_velocity * prediction_lead
-		var distance := predicted_position.distance_to(observation.measured_position)
 		var dynamic_gate := association_gate + maximum_association_speed * elapsed
-		if distance < dynamic_gate and distance < nearest_distance:
+		if distance < dynamic_gate * dynamic_gate:
 			nearest_distance = distance
 			selected = track
 	return selected
