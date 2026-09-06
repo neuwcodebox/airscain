@@ -480,7 +480,7 @@ layout_mode = 1
 offset_left = 18.0
 offset_top = 108.0
 offset_right = 356.0
-offset_bottom = 332.0
+offset_bottom = 230.0
 mouse_filter = 1
 theme_override_styles/panel = SubResource("CatalogPanel")
 
@@ -505,7 +505,7 @@ show_percentage = false
 
 [node name="TrainingBody" type="Label" parent="TrainingPanel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(300, 110)
+custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(0.86, 0.9, 0.88, 1)
@@ -513,6 +513,12 @@ theme_override_font_sizes/font_size = 16
 text = "훈련 안내"
 autowrap_mode = 2
 vertical_alignment = 0
+
+[node name="TrainingDetailsButton" type="Button" parent="TrainingPanel/VBox"]
+layout_mode = 2
+toggle_mode = true
+text = "자세히"
+flat = true
 
 [node name="TrainingNextButton" type="Button" parent="TrainingPanel/VBox"]
 unique_name_in_owner = true
@@ -1035,6 +1041,7 @@ text = "메인 메뉴"
 [connection signal="pressed" from="ThreatMenu/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
 [connection signal="item_selected" from="ThreatMenu/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
 [connection signal="pressed" from="TrainingPanel/VBox/TrainingNextButton" to="." method="_on_training_next_pressed"]
+[connection signal="toggled" from="TrainingPanel/VBox/TrainingDetailsButton" to="." method="_on_training_details_toggled"]
 [connection signal="minimum_size_changed" from="SelectedAssetPanel" to="." method="_fit_selection_panel" flags=3]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]

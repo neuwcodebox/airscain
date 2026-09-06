@@ -119,7 +119,8 @@ func track_marker_screen_position(track: PlayerTrack) -> Vector2:
 
 func _training_safe_margins() -> Vector4:
 	var left := EDGE_MARGIN
-	if training_left_panel != null and training_left_panel.is_visible_in_tree():
+	# Keep the lesson's reserved area stable while a menu temporarily hides it.
+	if training_left_panel != null:
 		left = maxf(left, training_left_panel.get_global_rect().end.x + 16.0)
 	return Vector4(left, 100.0, EDGE_MARGIN, 70.0)
 

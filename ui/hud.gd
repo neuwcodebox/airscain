@@ -37,6 +37,8 @@ var selected_track_engagement_count: int = 0
 var selected_track_can_prioritize: bool = false
 var overlay_mode_index: int = 0
 var catalog_expanded: bool = false
+var training_description: String = ""
+var training_summary: String = ""
 var city_menu_expanded: bool = false
 var threat_menu_expanded: bool = false
 var configured_game_mode: int = 0
@@ -283,8 +285,24 @@ func set_training_lesson(step: int, total: int, title: String, body: String, nex
 	var progress := get_node("%TrainingProgress") as ProgressBar
 	progress.max_value = total
 	progress.value = step
-	training_body.text = body
+	training_description = body
+	training_summary = body.get_slice(". ", 0)
+	if not training_summary.ends_with("."):
+		training_summary += "."
+	# Camera shortcuts benefit from a compact, directly scannable key list.
+	if step == 1:
+		training_summary = "WASD로 이동\n가운데 버튼 드래그로 수평·수직 회전\nQ/E 수평 회전 · 휠 확대/축소\nBackspace 시점 초기화"
+	var details := training_panel.get_node("VBox/TrainingDetailsButton") as Button
+	details.set_pressed_no_signal(false)
+	details.text = "자세히"
+	training_body.text = training_summary
 	training_next_button.visible = next_visible
+	training_panel.reset_size()
+
+func _on_training_details_toggled(expanded: bool) -> void:
+	training_body.text = training_description if expanded else training_summary
+	(training_panel.get_node("VBox/TrainingDetailsButton") as Button).text = "접기" if expanded else "자세히"
+	training_panel.reset_size()
 
 func set_pressure(level: int) -> void:
 	pressure_level = level

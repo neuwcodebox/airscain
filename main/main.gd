@@ -108,6 +108,10 @@ func _ready() -> void:
 	training_controller.configure(scenario, battlefield, objective, defenses, registry, director, session, hud, tactical_screen_overlay, c2_network)
 	_connect_flow()
 	if game_mode == GameMode.TRAINING:
+		var guidance := TrainingGuidance.new()
+		guidance.name = "TrainingGuidance"
+		hud.add_child(guidance)
+		guidance.configure(training_controller, placement, camera_rig)
 		training_controller.begin()
 	elif game_mode == GameMode.SANDBOX:
 		hud.set_feedback("방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요.", false)

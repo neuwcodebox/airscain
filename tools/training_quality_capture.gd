@@ -20,9 +20,27 @@ func run() -> void:
 	main.camera_rig.set_process(false)
 	await capture("start")
 	main.hud.training_next_button.pressed.emit()
-	place(1, Vector3(340, 0, 0))
-	place(2, Vector3(240, 0, -90))
-	var battery := place(0, Vector3(270, 0, 90))
+	var guidance := main.hud.get_node("TrainingGuidance") as TrainingGuidance
+	main.hud.set_catalog_expanded(true)
+	await capture("radar_menu")
+	assert(guidance.target_control == main.hud.defense_buttons[1])
+	main.hud.defense_buttons[1].pressed.emit()
+	guidance.refresh()
+	Input.warp_mouse(root.get_final_transform() * main.camera_rig.camera.unproject_position(guidance.suggestion))
+	await capture("radar_placement")
+	assert(guidance.suggestion.is_finite())
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = main.camera_rig.camera.unproject_position(guidance.suggestion)
+	Input.parse_input_event(click)
+	await process_frame
+	click.pressed = false
+	Input.parse_input_event(click)
+	assert(main.training_controller.step == TrainingController.Step.COMMAND)
+	var command := await place_recommended(2)
+	assert(command != null)
+	var battery := await place_recommended(0)
 	main.hud.start_requested.emit()
 	if not await until_step(TrainingController.Step.SELECT_TRACK):
 		return
@@ -45,7 +63,7 @@ func run() -> void:
 	main.hud.hold_fire_requested.emit(false)
 	if not await until_step(TrainingController.Step.SUPPORT):
 		return
-	place(5, battery.global_position + Vector3(0, 0, 65))
+	await place_recommended(5)
 	main._on_asset_selected(battery)
 	main.hud.resupply_button.pressed.emit()
 	if not await until_step(TrainingController.Step.REPAIR):
@@ -58,9 +76,13 @@ func run() -> void:
 	main.hud.set_city_menu_expanded(true)
 	await capture("city")
 	main.hud.city_restoration_button.pressed.emit()
+	main.hud.overlay_option.show_popup()
+	await capture("overlay")
+	assert(main.hud.overlay_option.get_popup().get_focused_item() == 5)
+	main.hud.overlay_option.get_popup().hide()
 	main.hud.overlay_option.item_selected.emit(5)
-	var sensor := place(3, Vector3(340, 0, -75))
-	var energy := place(6, Vector3(320, 0, 110))
+	var sensor := await place_recommended(3)
+	var energy := await place_recommended(6)
 	main._on_asset_selected(energy)
 	await capture("energy")
 	main.hud.training_next_button.pressed.emit()
@@ -80,6 +102,17 @@ func run() -> void:
 	main.queue_free()
 	await process_frame
 	quit(0)
+
+func place_recommended(index: int) -> DefenseUnit:
+	main.hud.set_catalog_expanded(true)
+	await capture("menu_%d" % index)
+	var guidance := main.hud.get_node("TrainingGuidance") as TrainingGuidance
+	assert(guidance.target_control == main.hud.defense_buttons[index])
+	main.hud.defense_buttons[index].pressed.emit()
+	for frame: int in 3:
+		await process_frame
+	assert(guidance.suggestion.is_finite())
+	return place(index, guidance.suggestion)
 
 func place(index: int, near: Vector3) -> DefenseUnit:
 	var definition := main.scenario.available_defenses[index]
