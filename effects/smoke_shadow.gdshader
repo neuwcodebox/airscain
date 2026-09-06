@@ -1,5 +1,6 @@
 shader_type spatial;
-render_mode cull_disabled, unshaded;
+render_mode cull_disabled, unshaded, fog_disabled;
+varying flat uint camera_layers;
 
 #include "res://effects/trail_motion.gdshaderinc"
 uniform bool trail_enabled = false;
@@ -8,6 +9,7 @@ uniform bool billboard_enabled = false;
 uniform float opacity_ratio : hint_range(0.0, 1.0) = 1.0;
 
 void vertex() {
+	camera_layers = CAMERA_VISIBLE_LAYERS;
 	if (billboard_enabled) {
 		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
 			INV_VIEW_MATRIX[0],
@@ -27,7 +29,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (!IN_SHADOW_PASS) {
+	if (!IN_SHADOW_PASS && camera_layers != uint(524288)) {
 		discard;
 	}
 	if (billboard_enabled && distance(UV, vec2(0.5)) > 0.5) {
@@ -36,4 +38,7 @@ void fragment() {
 	if (opacity_ratio <= 0.001 || COLOR.a <= 0.02) {
 		discard;
 	}
+	vec3 encoded = fract((1.0 - FRAGCOORD.z) * vec3(1.0, 255.0, 65025.0));
+	encoded -= encoded.yzz * vec3(1.0 / 255.0, 1.0 / 255.0, 0.0);
+	ALBEDO = encoded;
 }

@@ -1,5 +1,7 @@
 shader_type spatial;
 render_mode diffuse_burley;
+#include "res://effects/smoke_shadow_sampling.gdshaderinc"
+varying vec3 shadow_receiver_position;
 
 varying vec3 terrain_position;
 varying vec3 terrain_normal;
@@ -7,6 +9,7 @@ uniform bool placement_contours = false;
 uniform vec3 placement_center = vec3(0.0);
 
 void vertex() {
+	shadow_receiver_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	terrain_position = VERTEX;
 	terrain_normal = NORMAL;
 }
@@ -36,4 +39,5 @@ void fragment() {
 	contour *= smoothstep(0.0003, 0.003, slope) * (1.0 - smoothstep(2.0, 5.0, footprint));
 	ALBEDO = base * 0.68 * (1.0 - contour * mix(0.07, 0.28, local_weight));
 	ROUGHNESS = 0.94;
+	ALBEDO *= 1.0 - projected_smoke_shadow(shadow_receiver_position);
 }

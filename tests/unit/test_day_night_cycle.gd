@@ -31,6 +31,37 @@ func test_night_lighting_is_local_and_environment_is_not_shared() -> void:
 	world.free()
 	field.free()
 
+func test_smoke_projection_is_local_preserves_sun_and_retires_when_unused() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	var sun := DirectionalLight3D.new()
+	field.add_child(sun)
+	sun.shadow_enabled = true
+	sun.light_energy = 1.2
+	field.configure_smoke_shadows(sun)
+	var projection := field.smoke_shadow_projection
+	projection.update_projection()
+	assert_eq(projection.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
+	assert_eq(sun.shadow_caster_mask & SmokeShadowFactory.SMOKE_LAYER, 0)
+	assert_ne(sun.shadow_caster_mask & 1, 0, "건물 등 일반 물체의 그림자는 그대로 유지합니다")
+	var caster := MeshInstance3D.new()
+	caster.mesh = SphereMesh.new()
+	field.add_child(caster)
+	SmokeShadowFactory.register_caster(caster)
+	projection.update_projection()
+	assert_eq(projection.viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
+	assert_almost_eq(sun.light_energy, 1.2, 0.0001)
+	assert_gt(float(projection.receivers[0].get_shader_parameter("smoke_shadow_strength")), 0.0)
+	assert_lt(float(projection.receivers[0].get_shader_parameter("smoke_shadow_strength")), 1.0)
+	assert_false(SmokeShadowFactory.has_visible_casters(World3D.new()))
+	caster.hide()
+	projection.update_projection()
+	assert_eq(projection.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
+	assert_eq(float(projection.receivers[0].get_shader_parameter("smoke_shadow_strength")), 0.0)
+	caster.show()
+	sun.hide()
+	projection.update_projection()
+	assert_eq(projection.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED)
+
 func test_twilight_shadows_fade_continuously_in_both_directions() -> void:
 	var cycle := DayNightCycle.new()
 	var sun := DirectionalLight3D.new()

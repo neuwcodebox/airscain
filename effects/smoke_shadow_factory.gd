@@ -2,6 +2,26 @@ class_name SmokeShadowFactory
 extends RefCounted
 
 const SHADOW_SHADER := preload("res://effects/smoke_shadow.gdshader")
+const SMOKE_LAYER: int = 1 << 19
+static var _casters: Array[WeakRef] = []
+
+static func register_caster(caster: GeometryInstance3D) -> void:
+	caster.layers = SMOKE_LAYER
+	_casters.append(weakref(caster))
+
+static func has_visible_casters(world: World3D) -> bool:
+	var found := false
+	for index: int in range(_casters.size() - 1, -1, -1):
+		var caster := _casters[index].get_ref() as GeometryInstance3D
+		if caster == null:
+			_casters.remove_at(index)
+			continue
+		if not caster.is_inside_tree() or not caster.is_visible_in_tree() or caster.get_world_3d() != world:
+			continue
+		if caster is MultiMeshInstance3D and (caster as MultiMeshInstance3D).multimesh.visible_instance_count == 0:
+			continue
+		found = true
+	return found
 
 class Proxy:
 	extends RefCounted

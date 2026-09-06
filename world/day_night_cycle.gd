@@ -19,6 +19,7 @@ func configure(sun: DirectionalLight3D, world_environment: WorldEnvironment, bat
 	_environment = world_environment.environment.duplicate() as Environment
 	world_environment.environment = _environment
 	_battlefield = battlefield
+	_battlefield.configure_smoke_shadows(sun)
 	_sky_material = ProceduralSkyMaterial.new()
 	_sky_material.sky_curve = 0.18
 	_sky_material.sun_angle_max = 2.0

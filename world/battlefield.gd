@@ -10,6 +10,16 @@ var window_material: ShaderMaterial
 var street_lights: Array[OmniLight3D] = []
 var lamp_material: StandardMaterial3D
 var lamp_glare_material: StandardMaterial3D
+var smoke_shadow_materials: Array[ShaderMaterial] = []
+var smoke_shadow_projection: SmokeShadowProjection
+
+func configure_smoke_shadows(sun: DirectionalLight3D) -> void:
+	if not is_inside_tree() or terrain == null:
+		return
+	if smoke_shadow_projection == null:
+		smoke_shadow_projection = SmokeShadowProjection.new()
+		add_child(smoke_shadow_projection)
+		smoke_shadow_projection.configure(sun, self)
 
 var objective: ProtectedObjective
 var occupied_positions: Array[Vector3] = []
@@ -66,10 +76,33 @@ func build(scenario: ScenarioDefinition) -> void:
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
 	_city_boxes.build(city_visuals)
+	_configure_city_shadow_receivers()
 	var landscape := LandscapeDetails.new()
 	landscape.name = "LandscapeDetails"
 	city_visuals.add_child(landscape)
 	landscape.build(generator, city_blocks, building_transforms, city_road_width)
+
+func _configure_city_shadow_receivers() -> void:
+	smoke_shadow_materials.clear()
+	var cached: Dictionary[RID, ShaderMaterial] = {}
+	for child: Node in city_visuals.get_children():
+		if not child is GeometryInstance3D:
+			continue
+		var visual := child as GeometryInstance3D
+		var original := visual.material_override as StandardMaterial3D
+		if original == null or original.emission_enabled or original.albedo_texture != null:
+			continue
+		var key := original.get_rid()
+		if not cached.has(key):
+			var material := ShaderMaterial.new()
+			material.shader = preload("res://effects/smoke_shadow_receiver.gdshader")
+			material.set_shader_parameter("base_color", original.albedo_color)
+			material.set_shader_parameter("surface_roughness", original.roughness)
+			cached[key] = material
+			smoke_shadow_materials.append(material)
+		visual.material_override = cached[key]
+	if smoke_shadow_projection != null:
+		smoke_shadow_projection.configure_receivers()
 
 func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 	city_building_footprints.clear()

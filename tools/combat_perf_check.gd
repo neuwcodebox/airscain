@@ -70,10 +70,13 @@ func run() -> void:
 		camera.position = Vector3(0, 300, 450)
 		camera.look_at(Vector3(0, 40, -180))
 		camera.current = true
+		camera.cull_mask &= ~SmokeShadowFactory.SMOKE_LAYER
 		var light := DirectionalLight3D.new()
 		world.add_child(light)
 		light.rotation_degrees = Vector3(-55, -25, 0)
 		light.shadow_enabled = true
+		if not OS.get_cmdline_user_args().has("--opaque-smoke-shadows"):
+			world.configure_smoke_shadows(light)
 		# Freeze simulation ages so identical geometry is measured every frame.
 		if OS.get_cmdline_user_args().has("--faded"):
 			for trail: LingeringSmokeTrail in trails:

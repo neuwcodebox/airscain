@@ -1687,12 +1687,24 @@ func _capture_smoke_ground_shadow() -> void:
 		await process_frame
 	smoke.set_process(false)
 	_save_capture("/tmp/airscain_smoke_ground_shadow.png")
+	var projection := main.battlefield.smoke_shadow_projection
+	assert(projection.viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS)
+	var shadowed_image := root.get_texture().get_image()
 	var smoke_shadow := smoke.get_node("SmokeShadow") as MultiMeshInstance3D
 	smoke_shadow.visible = false
+	projection.update_projection()
 	for frame_index: int in 4:
 		await process_frame
 	_save_capture("/tmp/airscain_smoke_without_shadow.png")
+	var clear_image := root.get_texture().get_image()
+	var maximum_darkening := 0.0
+	for y: int in range(0, clear_image.get_height(), 8):
+		for x: int in range(0, clear_image.get_width(), 8):
+			maximum_darkening = maxf(maximum_darkening, clear_image.get_pixel(x, y).get_luminance() - shadowed_image.get_pixel(x, y).get_luminance())
+	assert(maximum_darkening > 0.005 and maximum_darkening < 0.35)
+	print("SMOKE_SHADOW_CAPTURE max_luminance_difference=", maximum_darkening)
 	smoke_shadow.visible = true
+	projection.update_projection()
 	smoke.release_to(main.effects_parent)
 	smoke._process(smoke.release_fade_duration * 0.5)
 	for frame_index: int in 4:
@@ -1704,6 +1716,18 @@ func _capture_smoke_ground_shadow() -> void:
 	_save_capture("/tmp/airscain_smoke_shadow_near_end.png")
 	if smoke.current_shadow_opacity_ratio >= 0.1:
 		push_error("Smoke shadow opacity did not fade continuously with visible smoke")
+	main.camera_rig.set_process(false)
+	var damage := preload("res://effects/damage_smoke/damage_smoke.tscn").instantiate() as DamageSmokeEffect
+	main.effects_parent.add_child(damage)
+	damage.global_position = Vector3(center.x, ground_height + 4.0, center.z)
+	damage.set_city_scale(1.5)
+	damage.restart_at_source()
+	await create_timer(3.0).timeout
+	projection.update_projection()
+	for frame: int in 4:
+		await process_frame
+	assert(projection.viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS)
+	_save_capture("/tmp/airscain_damage_smoke_ground_shadow.png")
 
 func _capture_explosion_instance_isolation() -> bool:
 	main.hud.visible = false

@@ -174,7 +174,8 @@ func _create_shadow_multimesh() -> void:
 	shadow_multimesh.visible_instance_count = 0
 	shadow_particles = MultiMeshInstance3D.new()
 	shadow_particles.name = "SmokeShadow"
-	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	SmokeShadowFactory.register_caster(shadow_particles)
+	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	shadow_particles.multimesh = shadow_multimesh
 	add_child(shadow_particles)
 

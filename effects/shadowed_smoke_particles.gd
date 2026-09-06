@@ -29,6 +29,7 @@ func _create_shadow_particles() -> void:
 
 	shadow_particles = GPUParticles3D.new()
 	shadow_particles.name = SHADOW_NODE_NAME
+	SmokeShadowFactory.register_caster(shadow_particles)
 	# Compatibility omits GPUParticles3D shadows in SHADOWS_ONLY mode.
 	# The proxy shader discards its color pass while retaining the shadow pass.
 	shadow_particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON

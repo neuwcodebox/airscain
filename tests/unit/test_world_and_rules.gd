@@ -674,7 +674,8 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 			assert_eq(material.get_shader_parameter("trail_lifetime"), trail.lifetime)
 			assert_eq(trail.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 			var shadow := trail.get_node("SmokeShadow") as MultiMeshInstance3D
-			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY)
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+			assert_eq(shadow.layers, SmokeShadowFactory.SMOKE_LAYER)
 			assert_true(shadow.multimesh.mesh is SphereMesh)
 			assert_eq(shadow.multimesh.instance_count, ceili(float(trail.amount) / float(trail.shadow_emission_stride)))
 			var shadow_sphere := shadow.multimesh.mesh as SphereMesh
