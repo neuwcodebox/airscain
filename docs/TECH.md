@@ -111,9 +111,9 @@ C#, GDExtension, 별도 ECS, 멀티스레드 gameplay, 커스텀 렌더 파이�
 
 한 판의 단계, 예산, 해금, 통계, 게임오버, 저장과 공격 강도를 소유한다.
 
-`ObjectiveDefinition`은 도시 기능의 최대치와 함께 1회 복구 비용과 회복량을 정의한다. HUD의 `도시 상태` 메뉴 버튼은 현재 값과 최대값을 항상 보여준다. 바로 아래 panel은 `도시 기반시설` 제목과 현재 상태를 먼저 보여주고, 공통 action row의 좌측에는 `피해 복구`, 우측에는 회복량과 비용을 정렬한다. 복구 행은 최대 상태, 예산 부족 또는 게임오버일 때 비활성화된다. 요청은 `AirscainMain`이 `GameSession.try_spend()`와 `ProtectedObjective.restore_integrity()`를 순서대로 호출해 처리하므로 준비와 전투 단계 모두에서 같은 즉시 교환 규칙을 사용한다.
+`ObjectiveDefinition`은 도시 기능의 최대치와 함께 1회 복구 비용과 회복량을 정의한다. HUD의 읽기 전용 도시 상태 Label은 현재 값과 최대값을 보여주고, 별도 `도시 관리` 버튼으로 복구 메뉴를 연다. 바로 아래 panel은 `도시 기반시설` 제목과 현재 상태를 먼저 보여주고, 공통 action row의 좌측에는 `피해 복구`, 우측에는 회복량과 비용을 정렬한다. 복구 행은 최대 상태, 예산 부족 또는 게임오버일 때 비활성화된다. 요청은 `AirscainMain`이 `GameSession.try_spend()`와 `ProtectedObjective.restore_integrity()`를 순서대로 호출해 처리하므로 준비와 전투 단계 모두에서 같은 즉시 교환 규칙을 사용한다.
 
-HUD 상단 메뉴는 읽기 전용 `예산`, 구매 목록을 여는 `방공 자산`, 복구 항목을 여는 `도시 상태`로 책임을 분리한다. 정적 상태 Label에는 메뉴 화살표 너비에 상응하는 최소 폭을 줘 연속된 항목의 시각 중심을 맞춘다. context panel은 해당 버튼 아래에 배치하고 하나를 열면 나머지를 닫는다. 방공 자산과 도시 상태 panel은 같은 폭, header, separator와 action row 스타일을 사용한다. 자유 모드 전용 위협 선택은 별도 `위협 투입` context panel을 사용한다. 메뉴 항목 선택, 바깥쪽 좌클릭과 `ui_cancel` 입력은 열린 panel을 닫는다.
+HUD 상단바는 왼쪽의 예산·도시 수치와 관리 버튼, 중앙의 생존 시간·위협 단계, 오른쪽의 시간 제어·전술 표시로 나눈다. 버튼은 배경·테두리와 열린 상태를 표시하고 정보 Label과 구분선으로 분리한다. 좌우 구역은 같은 최소 폭과 확장 비율을 사용한다. 전술 표시 OptionButton은 item_selected에서 해당 표시를 직접 선택하며 none·sensor·weapon·support·electronic·c2 계약을 유지한다. 목록을 열면 다른 상단 메뉴를 닫으며, 게임오버에는 목록을 닫고 비활성화한다. context panel은 해당 버튼 아래에 배치하고 하나를 열면 나머지를 닫는다. 방공 자산과 도시 관리 panel은 같은 폭, header, separator와 action row 스타일을 사용한다. 자유 모드 전용 위협 선택은 별도 `위협 투입` context panel을 사용한다. 메뉴 항목 선택, 바깥쪽 좌클릭과 `ui_cancel` 입력은 열린 panel을 닫는다.
 
 ### 실제 세계 시뮬레이션
 
@@ -763,7 +763,7 @@ Director는 예산 안에서 정찰, 기만, 제압, 포화와 타격 역할을 
 
 HUD 시간 제어의 네 `Button`은 toggle 상태를 현재 `GameSession.simulation_speed`에서 역으로 갱신한다. `statistics_changed`마다 0·1·2·4 중 일치하는 버튼 하나만 눌림 상태가 되고 전용 청록색 `StyleBoxFlat` 배경을 사용하며, 별도 `SpeedLabel`은 두지 않는다. 훈련 자동 정지·재생이나 저장 복원으로 속도가 바뀌어도 같은 갱신 경로를 사용한다.
 
-상단 context menu는 열릴 때 `move_to_front()`로 HUD 루트의 마지막 형제가 된다. Godot의 Control 입력 순서는 `z_index`만이 아니라 형제 순서의 영향을 받으므로, 이 동작으로 메뉴의 시각적 전면 순서와 포인터 hit-test 순서를 일치시킨다. 방공 자산, 도시 상태와 위협 투입 메뉴는 같은 경로를 사용한다.
+상단 context menu는 열릴 때 `move_to_front()`로 HUD 루트의 마지막 형제가 된다. Godot의 Control 입력 순서는 `z_index`만이 아니라 형제 순서의 영향을 받으므로, 이 동작으로 메뉴의 시각적 전면 순서와 포인터 hit-test 순서를 일치시킨다. 방공 자산, 도시 관리와 위협 투입 메뉴는 같은 경로를 사용한다.
 
 자유 모드 배치는 `PlacementController.selected` 또는 `selected_threat`를 지속 선택 상태로 유지한다. 성공한 좌클릭은 현재 후보 위치에 자산이나 위협을 생성한 뒤 preview와 선택을 정리하지 않으며, 우클릭·Esc·다른 배치 도구 선택만 명시적으로 취소한다. 위협 `OptionButton.item_selected`는 버튼 재확인 없이 `selected_threat`와 preview를 즉시 새 definition으로 교체한다.
 

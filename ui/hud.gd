@@ -54,7 +54,7 @@ const METRIC_FONT_SIZE := 14
 const MENU_COLLAPSED_SYMBOL := "▼"
 const MENU_EXPANDED_SYMBOL := "▲"
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
-const OVERLAY_LABELS: Array[String] = ["범위 없음", "센서 범위", "교전 영역", "지원 작업", "전자전", "C2 연결"]
+const OVERLAY_LABELS: Array[String] = ["없음", "탐지 범위", "사거리", "지원 범위", "전자전", "지휘 연결"]
 const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special"]
 const CATALOG_GROUP_LABELS := {
 	&"sensor": "감시·추적",
@@ -64,6 +64,7 @@ const CATALOG_GROUP_LABELS := {
 }
 
 @onready var budget_label: Label = %BudgetLabel
+@onready var city_status_label: Label = %CityStatusLabel
 @onready var defense_menu_button: Button = %DefenseMenuButton
 @onready var city_menu_button: Button = %CityMenuButton
 @onready var threat_menu_button: Button = %ThreatMenuButton
@@ -77,7 +78,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var fast_button: Button = %FastButton
 @onready var very_fast_button: Button = %VeryFastButton
 @onready var alert_label: Label = %AlertLabel
-@onready var overlay_button: Button = %OverlayButton
+@onready var overlay_option: OptionButton = %OverlayOption
 @onready var defense_list: VBoxContainer = %DefenseList
 @onready var catalog: PanelContainer = %Catalog
 @onready var catalog_budget_label: Label = %CatalogBudgetLabel
@@ -147,6 +148,13 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	configured_game_mode = game_mode
 	_style_metric_grid(track_metrics, 48.0)
 	_ensure_menu_row_styles()
+	_style_top_bar()
+	overlay_option.clear()
+	for label: String in OVERLAY_LABELS:
+		overlay_option.add_item(label)
+	overlay_option.select(overlay_mode_index)
+	overlay_option.text = "전술 표시 · %s" % OVERLAY_LABELS[overlay_mode_index]
+	overlay_option.get_popup().about_to_popup.connect(_close_context_menus)
 	_apply_menu_row_style(city_restoration_button)
 	_build_defense_catalog()
 	_catalog_state.clear()
@@ -175,6 +183,9 @@ func _build_mode_controls(game_mode: int) -> void:
 
 func set_catalog_expanded(expanded: bool) -> void:
 	catalog_expanded = expanded
+	defense_menu_button.set_pressed_no_signal(expanded)
+	if expanded:
+		overlay_option.get_popup().hide()
 	if expanded and city_menu_expanded:
 		set_city_menu_expanded(false)
 	if expanded and threat_menu_expanded:
@@ -191,6 +202,9 @@ func _on_defense_menu_pressed() -> void:
 
 func set_city_menu_expanded(expanded: bool) -> void:
 	city_menu_expanded = expanded
+	city_menu_button.set_pressed_no_signal(expanded)
+	if expanded:
+		overlay_option.get_popup().hide()
 	if expanded and catalog_expanded:
 		set_catalog_expanded(false)
 	if expanded and threat_menu_expanded:
@@ -206,6 +220,9 @@ func _on_city_menu_pressed() -> void:
 
 func set_threat_menu_expanded(expanded: bool) -> void:
 	threat_menu_expanded = expanded and configured_game_mode == 2
+	threat_menu_button.set_pressed_no_signal(threat_menu_expanded)
+	if threat_menu_expanded:
+		overlay_option.get_popup().hide()
 	if threat_menu_expanded and catalog_expanded:
 		set_catalog_expanded(false)
 	if threat_menu_expanded and city_menu_expanded:
@@ -569,14 +586,13 @@ func _refresh_speed_buttons() -> void:
 		buttons[index].set_pressed_no_signal(selected)
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
-	city_menu_button.text = _city_menu_text(MENU_EXPANDED_SYMBOL if city_menu_expanded else MENU_COLLAPSED_SYMBOL, current, maximum)
+	city_menu_button.text = _city_menu_text(MENU_EXPANDED_SYMBOL if city_menu_expanded else MENU_COLLAPSED_SYMBOL)
+	city_status_label.text = "도시  %d / %d" % [current, maximum]
 	city_integrity_label.text = "%d / %d" % [current, maximum]
 	_refresh_city_restoration_button()
 
-func _city_menu_text(arrow: String, current: int = -1, maximum: int = -1) -> String:
-	var displayed_current := objective.current_integrity if current < 0 and objective != null else current
-	var displayed_maximum := objective.definition.maximum_integrity if maximum < 0 and objective != null else maximum
-	return "도시 상태  %d / %d  %s" % [displayed_current, displayed_maximum, arrow]
+func _city_menu_text(arrow: String) -> String:
+	return "도시 관리  %s" % arrow
 
 func _refresh_city_restoration_button() -> void:
 	if session == null or objective == null or objective.definition == null:
@@ -615,7 +631,9 @@ func _set_gameplay_controls_disabled(disabled: bool) -> void:
 	normal_button.disabled = disabled
 	fast_button.disabled = disabled
 	very_fast_button.disabled = disabled
-	overlay_button.disabled = disabled
+	overlay_option.disabled = disabled
+	if disabled:
+		overlay_option.get_popup().hide()
 
 func _build_defense_catalog() -> void:
 	for child: Node in defense_list.get_children():
@@ -725,10 +743,49 @@ func _on_fast_pressed() -> void:
 func _on_very_fast_pressed() -> void:
 	speed_requested.emit(4.0)
 
-func _on_c2_overlay_pressed() -> void:
-	overlay_mode_index = (overlay_mode_index + 1) % OVERLAY_MODES.size()
-	overlay_button.text = OVERLAY_LABELS[overlay_mode_index]
+func _on_overlay_selected(index: int) -> void:
+	if overlay_option.disabled or index < 0 or index >= OVERLAY_MODES.size():
+		return
+	overlay_mode_index = index
+	overlay_option.select(index)
+	overlay_option.text = "전술 표시 · %s" % OVERLAY_LABELS[index]
 	overlay_requested.emit(OVERLAY_MODES[overlay_mode_index])
+
+func _close_context_menus() -> void:
+	set_catalog_expanded(false)
+	set_city_menu_expanded(false)
+	set_threat_menu_expanded(false)
+
+func _style_top_bar() -> void:
+	var normal := menu_row_normal.duplicate() as StyleBoxFlat
+	var hover := menu_row_hover.duplicate() as StyleBoxFlat
+	var pressed := menu_row_pressed.duplicate() as StyleBoxFlat
+	for style: StyleBoxFlat in [normal, hover, pressed]:
+		style.content_margin_left = 10
+		style.content_margin_right = 10
+	for button: Button in [defense_menu_button, city_menu_button, threat_menu_button, overlay_option, pause_button, normal_button, fast_button, very_fast_button]:
+		button.add_theme_stylebox_override("normal", normal)
+		button.add_theme_stylebox_override("hover", hover)
+		button.add_theme_stylebox_override("focus", hover)
+		button.add_theme_stylebox_override("disabled", menu_row_disabled)
+	for button: Button in [defense_menu_button, city_menu_button, threat_menu_button, overlay_option]:
+		button.add_theme_stylebox_override("pressed", pressed)
+		button.add_theme_stylebox_override("hover_pressed", pressed)
+	var popup := overlay_option.get_popup()
+	var panel := menu_row_normal.duplicate() as StyleBoxFlat
+	panel.set_content_margin_all(8)
+	popup.add_theme_stylebox_override("panel", panel)
+	popup.add_theme_stylebox_override("hover", hover)
+	popup.add_theme_color_override("font_color", METRIC_VALUE_COLOR)
+	popup.add_theme_color_override("font_hover_color", Color.WHITE)
+	popup.add_theme_constant_override("v_separation", 12)
+	popup.add_theme_font_size_override("font_size", 16)
+	var divider := StyleBoxLine.new()
+	divider.color = Color(0.22, 0.36, 0.4, 0.8)
+	divider.vertical = true
+	divider.thickness = 1
+	for node: Node in $TopBar.find_children("Divider", "VSeparator", true, false):
+		(node as VSeparator).add_theme_stylebox_override("separator", divider)
 
 func _on_hold_fire_toggled(enabled: bool) -> void:
 	hold_fire_requested.emit(enabled)

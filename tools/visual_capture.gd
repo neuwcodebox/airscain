@@ -379,7 +379,7 @@ func run() -> void:
 		return
 	_save_capture("/tmp/airscain_altitude_profile.png")
 	_save_capture("/tmp/airscain_layered_defense.png")
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(1)
 	for index: int in 3:
 		await process_frame
 	if main.tactical_range_overlay.get("mode") != &"sensor":
@@ -387,8 +387,7 @@ func run() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_sensor_overlay.png")
-	for index: int in 3:
-		main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(4)
 	for index: int in 3:
 		await process_frame
 	if main.tactical_range_overlay.get("mode") != &"electronic":
@@ -396,8 +395,7 @@ func run() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_electronic_overlay.png")
-	main.hud._on_c2_overlay_pressed()
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(0)
 	var early_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
 	if early_tracks.is_empty():
 		push_error("No public track was available for tactical selection capture")
@@ -966,7 +964,11 @@ func _capture_asset_catalog_and_support_base() -> void:
 	_save_capture("/tmp/airscain_integrated_support_base.png")
 
 func _capture_topbar_menus() -> void:
-	if main.hud.defense_menu_button.text != "방공 자산  ▼" or main.hud.city_menu_button.text != "도시 상태  100 / 100  ▼":
+	while not main.combat_effect_pool.prepared:
+		await process_frame
+	for index: int in 4:
+		await process_frame
+	if main.hud.defense_menu_button.text != "방공 자산  ▼" or main.hud.city_menu_button.text != "도시 관리  ▼":
 		push_error("Top bar menu labels do not expose defense assets and city status")
 		quit(1)
 		return
@@ -985,6 +987,26 @@ func _capture_topbar_menus() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_city_status_menu.png")
+	main.hud.overlay_option.show_popup()
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_tactical_dropdown.png")
+	main.hud.overlay_option.get_popup().hide()
+	main.hud.overlay_option.item_selected.emit(5)
+	main.hud.configured_game_mode = AirscainMain.GameMode.SANDBOX
+	main.hud._build_mode_controls(AirscainMain.GameMode.SANDBOX)
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_topbar_free_mode.png")
+	var original_scale_size := root.content_scale_size
+	root.content_scale_size = Vector2i(1280, 720)
+	for index: int in 4:
+		await process_frame
+	_save_capture("/tmp/airscain_topbar_compact.png")
+	var status := main.hud.time_label.get_parent() as Control
+	assert(absf(status.get_global_rect().get_center().x - main.hud.size.x * 0.5) < 2.0)
+	assert(main.hud.overlay_option.get_global_rect().end.x <= main.hud.size.x)
+	root.content_scale_size = original_scale_size
 
 func _capture_popup_input_priority() -> bool:
 	main.session.unlimited_budget = true

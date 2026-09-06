@@ -58,10 +58,7 @@ func run() -> void:
 	main.hud.set_city_menu_expanded(true)
 	await capture("city")
 	main.hud.city_restoration_button.pressed.emit()
-	for index: int in 6:
-		if main.training_controller.step == TrainingController.Step.ALTITUDE:
-			break
-		main.hud.overlay_button.pressed.emit()
+	main.hud.overlay_option.item_selected.emit(5)
 	var sensor := place(3, Vector3(340, 0, -75))
 	var energy := place(6, Vector3(320, 0, 110))
 	main._on_asset_selected(energy)

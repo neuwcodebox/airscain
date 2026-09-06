@@ -181,8 +181,10 @@ func test_non_combat_ui_audio_uses_selected_sources_and_routes_feedback() -> voi
 	assert_eq(main.ui_audio.played_count(UiAudio.ACTION_REJECTED), rejected_count + 1)
 
 func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
-	assert_eq(main.hud.budget_label.custom_minimum_size.x, 120.0)
-	assert_eq(main.hud.time_label.custom_minimum_size.x, 126.0)
+	assert_same(main.hud.time_label.get_parent(), main.hud.pressure_label.get_parent())
+	assert_same(main.hud.budget_label.get_parent(), main.hud.city_status_label.get_parent())
+	assert_ne(main.hud.budget_label.get_parent(), main.hud.defense_menu_button.get_parent())
+	assert_false(main.hud.defense_menu_button.flat)
 	assert_eq(main.hud.pressure_label.text, "위협 단계  1")
 	var preparation_hint := "방공 자산을 배치한 뒤 방어를 시작하세요."
 	assert_eq(main.hud.feedback_label.text, preparation_hint)
@@ -196,12 +198,36 @@ func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
 	main.hud.set_feedback("", false)
 	assert_false(main.hud.feedback_label.visible)
 
+func test_topbar_dropdown_selects_directly_and_excludes_other_menus() -> void:
+	var option := main.hud.overlay_option
+	assert_eq(option.item_count, Hud.OVERLAY_MODES.size())
+	main.hud.set_catalog_expanded(true)
+	option.get_popup().about_to_popup.emit()
+	assert_false(main.hud.catalog.visible)
+	assert_false(main.hud.defense_menu_button.button_pressed)
+	option.item_selected.emit(5)
+	assert_true(main.c2_overlay.show_all_links)
+	assert_eq(option.selected, 5)
+	option.item_selected.emit(2)
+	assert_false(main.c2_overlay.show_all_links)
+	assert_eq(main.tactical_range_overlay.get("mode"), &"weapon")
+	assert_eq(option.selected, 2)
+	option.item_selected.emit(0)
+	assert_eq(main.tactical_range_overlay.get("mode"), &"none")
+	assert_eq(option.selected, 0)
+	main.hud._on_overlay_selected(-1)
+	assert_eq(option.selected, 0)
+	option.disabled = true
+	option.item_selected.emit(5)
+	assert_eq(option.selected, 0)
+
 func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
 	var button := main.hud.city_restoration_button
 	var cost := main.objective.definition.restoration_cost
 	var amount := main.objective.definition.restoration_amount
 	var initial_budget := main.session.budget
-	assert_eq(main.hud.city_menu_button.text, "도시 상태  100 / 100  ▼")
+	assert_eq(main.hud.city_menu_button.text, "도시 관리  ▼")
+	assert_eq(main.hud.city_status_label.text, "도시  100 / 100")
 	main.hud.city_menu_button.pressed.emit()
 	assert_true(main.hud.city_menu.visible)
 	assert_false(main.hud.catalog.visible)
@@ -988,7 +1014,7 @@ func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
 	assert_gt(minimum_agl, 100.0)
 	assert_gt(minimum_city_distance, main.objective.exclusion_radius)
 
-func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> void:
+func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> void:
 	var radar_definition := main.scenario.available_defenses[1]
 	var weapon_definition := main.scenario.available_defenses[0]
 	var support_definition := main.scenario.available_defenses[5]
@@ -996,13 +1022,13 @@ func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> vo
 	assert_true(radar_result.success)
 	assert_true(main.session.request_placement(weapon_definition, _find_valid_position_for(weapon_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
 	assert_true(main.session.request_placement(support_definition, _find_valid_position_for(support_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(1)
 	assert_eq(main.tactical_range_overlay.get("mode"), &"sensor")
 	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(2)
 	assert_eq(main.tactical_range_overlay.get("mode"), &"weapon")
 	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(3)
 	assert_eq(main.tactical_range_overlay.get("mode"), &"support")
 	var support_overlay_mesh := (main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh
 	assert_not_null(support_overlay_mesh)
@@ -1013,15 +1039,15 @@ func test_tactical_overlay_cycles_one_public_information_layer_at_a_time() -> vo
 	jammer.setup(800, jammer_definition)
 	jammer.global_position = (radar_result.unit as DefenseUnit).global_position + Vector3(30.0, 70.0, 0.0)
 	main.registry.add(jammer)
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(4)
 	assert_eq(main.tactical_range_overlay.get("mode"), &"electronic")
 	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(5)
 	assert_eq(main.tactical_range_overlay.get("mode"), &"none")
 	assert_true(main.c2_overlay.show_all_links)
-	main.hud._on_c2_overlay_pressed()
+	main.hud._on_overlay_selected(0)
 	assert_false(main.c2_overlay.show_all_links)
-	assert_eq(main.hud.overlay_button.text, "범위 없음")
+	assert_eq(main.hud.overlay_option.text, "전술 표시 · 없음")
 
 func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> void:
 	main.registry.clear()
@@ -1174,7 +1200,7 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	assert_true(main.hud.defense_menu_button.disabled)
 	assert_true(main.hud.city_menu_button.disabled)
 	assert_true(main.hud.pause_button.disabled)
-	assert_true(main.hud.overlay_button.disabled)
+	assert_true(main.hud.overlay_option.disabled)
 	assert_string_contains(main.hud.final_stats.text, "방어 구간")
 	assert_string_contains(main.hud.final_stats.text, "도시 피해")
 	assert_string_contains(main.hud.final_combat_stats.text, "무력화")

@@ -78,57 +78,103 @@ theme_override_styles/panel = SubResource("TopPanel")
 layout_mode = 2
 theme_override_constants/separation = 18
 
-[node name="BudgetLabel" type="Label" parent="TopBar/Margin"]
-unique_name_in_owner = true
+[node name="Left" type="HBoxContainer" parent="TopBar/Margin"]
+layout_mode = 2
+custom_minimum_size = Vector2(480, 0)
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="Resources" type="VBoxContainer" parent="TopBar/Margin/Left"]
+layout_mode = 2
 custom_minimum_size = Vector2(120, 0)
+theme_override_constants/separation = 3
+
+[node name="BudgetLabel" type="Label" parent="TopBar/Margin/Left/Resources"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 15
 text = "예산  $400"
 
-[node name="DefenseMenuButton" type="Button" parent="TopBar/Margin"]
+[node name="CityStatusLabel" type="Label" parent="TopBar/Margin/Left/Resources"]
 unique_name_in_owner = true
 layout_mode = 2
-flat = true
-theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.68, 0.8, 0.85, 1)
+theme_override_font_sizes/font_size = 15
+text = "도시  100 / 100"
+
+[node name="Divider" type="VSeparator" parent="TopBar/Margin/Left"]
+layout_mode = 2
+
+[node name="Actions" type="HBoxContainer" parent="TopBar/Margin/Left"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DefenseMenuButton" type="Button" parent="TopBar/Margin/Left/Actions"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(100, 36)
+size_flags_vertical = 4
+toggle_mode = true
+theme_override_font_sizes/font_size = 16
 text = "방공 자산  ▼"
 
-[node name="CityMenuButton" type="Button" parent="TopBar/Margin"]
+[node name="CityMenuButton" type="Button" parent="TopBar/Margin/Left/Actions"]
 unique_name_in_owner = true
 layout_mode = 2
-flat = true
-theme_override_colors/font_color = Color(0.3, 0.78, 1, 1)
-theme_override_font_sizes/font_size = 20
-text = "도시 상태  100 / 100  ▼"
+custom_minimum_size = Vector2(100, 36)
+size_flags_vertical = 4
+toggle_mode = true
+theme_override_font_sizes/font_size = 16
+text = "도시 관리  ▼"
 
-[node name="ThreatMenuButton" type="Button" parent="TopBar/Margin"]
+[node name="ThreatMenuButton" type="Button" parent="TopBar/Margin/Left/Actions"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-flat = true
-theme_override_colors/font_color = Color(1, 0.62, 0.3, 1)
-theme_override_font_sizes/font_size = 20
+custom_minimum_size = Vector2(100, 36)
+size_flags_vertical = 4
+toggle_mode = true
+theme_override_font_sizes/font_size = 16
 text = "위협 투입  ▼"
 
-[node name="TimeLabel" type="Label" parent="TopBar/Margin"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(126, 0)
+[node name="Status" type="HBoxContainer" parent="TopBar/Margin"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="TimeLabel" type="Label" parent="TopBar/Margin/Status"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
 text = "생존  00:00"
 
-[node name="PressureLabel" type="Label" parent="TopBar/Margin"]
+[node name="Divider" type="VSeparator" parent="TopBar/Margin/Status"]
+layout_mode = 2
+
+[node name="PressureLabel" type="Label" parent="TopBar/Margin/Status"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.65, 0.28, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 18
 text = "위협 단계  1"
 
-[node name="PauseButton" type="Button" parent="TopBar/Margin"]
+[node name="Right" type="HBoxContainer" parent="TopBar/Margin"]
+layout_mode = 2
+custom_minimum_size = Vector2(480, 0)
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+alignment = 2
+
+[node name="TimeControls" type="HBoxContainer" parent="TopBar/Margin/Right"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PauseButton" type="Button" parent="TopBar/Margin/Right/TimeControls"]
 unique_name_in_owner = true
 layout_mode = 2
+custom_minimum_size = Vector2(36, 36)
+size_flags_vertical = 4
 toggle_mode = true
 theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
 theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
@@ -136,9 +182,11 @@ theme_override_styles/pressed = SubResource("TimeButtonSelected")
 theme_override_styles/hover_pressed = SubResource("TimeButtonSelected")
 text = "Ⅱ"
 
-[node name="NormalButton" type="Button" parent="TopBar/Margin"]
+[node name="NormalButton" type="Button" parent="TopBar/Margin/Right/TimeControls"]
 unique_name_in_owner = true
 layout_mode = 2
+custom_minimum_size = Vector2(36, 36)
+size_flags_vertical = 4
 toggle_mode = true
 theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
 theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
@@ -146,9 +194,11 @@ theme_override_styles/pressed = SubResource("TimeButtonSelected")
 theme_override_styles/hover_pressed = SubResource("TimeButtonSelected")
 text = "1×"
 
-[node name="FastButton" type="Button" parent="TopBar/Margin"]
+[node name="FastButton" type="Button" parent="TopBar/Margin/Right/TimeControls"]
 unique_name_in_owner = true
 layout_mode = 2
+custom_minimum_size = Vector2(36, 36)
+size_flags_vertical = 4
 toggle_mode = true
 theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
 theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
@@ -156,9 +206,11 @@ theme_override_styles/pressed = SubResource("TimeButtonSelected")
 theme_override_styles/hover_pressed = SubResource("TimeButtonSelected")
 text = "2×"
 
-[node name="VeryFastButton" type="Button" parent="TopBar/Margin"]
+[node name="VeryFastButton" type="Button" parent="TopBar/Margin/Right/TimeControls"]
 unique_name_in_owner = true
 layout_mode = 2
+custom_minimum_size = Vector2(36, 36)
+size_flags_vertical = 4
 toggle_mode = true
 theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
 theme_override_colors/font_hover_pressed_color = Color(1, 1, 1, 1)
@@ -166,11 +218,16 @@ theme_override_styles/pressed = SubResource("TimeButtonSelected")
 theme_override_styles/hover_pressed = SubResource("TimeButtonSelected")
 text = "4×"
 
-[node name="OverlayButton" type="Button" parent="TopBar/Margin"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(82, 0)
+[node name="Divider" type="VSeparator" parent="TopBar/Margin/Right"]
 layout_mode = 2
-text = "범위 없음"
+
+[node name="OverlayOption" type="OptionButton" parent="TopBar/Margin/Right"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(190, 36)
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 16
+tooltip_text = "전술 표시"
 
 [node name="AlertLabel" type="Label" parent="."]
 unique_name_in_owner = true
@@ -952,14 +1009,14 @@ size_flags_horizontal = 3
 custom_minimum_size = Vector2(0, 42)
 text = "메인 메뉴"
 
-[connection signal="pressed" from="TopBar/Margin/PauseButton" to="." method="_on_pause_pressed"]
-[connection signal="pressed" from="TopBar/Margin/NormalButton" to="." method="_on_normal_pressed"]
-[connection signal="pressed" from="TopBar/Margin/FastButton" to="." method="_on_fast_pressed"]
-[connection signal="pressed" from="TopBar/Margin/VeryFastButton" to="." method="_on_very_fast_pressed"]
-[connection signal="pressed" from="TopBar/Margin/OverlayButton" to="." method="_on_c2_overlay_pressed"]
-[connection signal="pressed" from="TopBar/Margin/DefenseMenuButton" to="." method="_on_defense_menu_pressed"]
-[connection signal="pressed" from="TopBar/Margin/CityMenuButton" to="." method="_on_city_menu_pressed"]
-[connection signal="pressed" from="TopBar/Margin/ThreatMenuButton" to="." method="_on_threat_menu_pressed"]
+[connection signal="pressed" from="TopBar/Margin/Right/TimeControls/PauseButton" to="." method="_on_pause_pressed"]
+[connection signal="pressed" from="TopBar/Margin/Right/TimeControls/NormalButton" to="." method="_on_normal_pressed"]
+[connection signal="pressed" from="TopBar/Margin/Right/TimeControls/FastButton" to="." method="_on_fast_pressed"]
+[connection signal="pressed" from="TopBar/Margin/Right/TimeControls/VeryFastButton" to="." method="_on_very_fast_pressed"]
+[connection signal="item_selected" from="TopBar/Margin/Right/OverlayOption" to="." method="_on_overlay_selected"]
+[connection signal="pressed" from="TopBar/Margin/Left/Actions/DefenseMenuButton" to="." method="_on_defense_menu_pressed"]
+[connection signal="pressed" from="TopBar/Margin/Left/Actions/CityMenuButton" to="." method="_on_city_menu_pressed"]
+[connection signal="pressed" from="TopBar/Margin/Left/Actions/ThreatMenuButton" to="." method="_on_threat_menu_pressed"]
 [connection signal="pressed" from="CityMenu/VBox/CityRestorationButton" to="." method="_on_city_restoration_pressed"]
 [connection signal="pressed" from="ThreatMenu/VBox/SandboxThreatButton" to="." method="_on_sandbox_threat_pressed"]
 [connection signal="item_selected" from="ThreatMenu/VBox/SandboxThreatOption" to="." method="_on_sandbox_threat_option_selected"]
