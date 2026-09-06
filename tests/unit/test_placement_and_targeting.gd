@@ -481,6 +481,76 @@ func test_gun_laser_and_microwave_can_fire_on_the_same_reserved_track() -> void:
 	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.INTERCEPTOR), 2)
 	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.FIRE_SUPPORT), 3)
 
+func _set_departure_test_building() -> void:
+	var buildings: Array[Transform3D] = [Transform3D(Basis.from_scale(Vector3(20, 80, 20)), Vector3(40, 40, 0))]
+	battlefield.city_buildings = buildings
+	battlefield._cache_city_building_footprints(buildings)
+
+func test_nearby_roof_departure_aligns_vertically_and_refreshes_after_relocation() -> void:
+	_set_departure_test_building()
+	assert_eq(battlefield.nearby_building_roof(Vector3.ZERO, 31.0), 80.0)
+	assert_eq(battlefield.nearby_building_roof(Vector3.ZERO, 29.0), 0.0)
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(77, SCENARIO.available_defenses[0])
+	battery.battlefield = battlefield
+	var target := Vector3(200, 30, 0)
+	assert_false(battery._aim_turret(target, 0.01), "상승 발사각에 도달하기 전에는 발사하지 않습니다")
+	assert_true(battery._aim_turret(target, 3.0))
+	assert_gt(battery.departure_clearance_height, 80.0)
+	assert_almost_eq(battery.launcher_forward().dot(Vector3.UP), 1.0, 0.0001)
+	battery.global_position = Vector3(0, 100, 0)
+	battery._aim_turret(target, 3.0)
+	assert_eq(battery.departure_clearance_height, 0.0, "주변 옥상보다 높은 포대에는 강제 상승이 불필요합니다")
+	battery.global_position = Vector3(-400, 0, 0)
+	battery._aim_turret(target, 3.0)
+	assert_eq(battery.departure_clearance_height, 0.0)
+	assert_almost_eq(battery.elevation.rotation.x, deg_to_rad(MissileBattery.MINIMUM_LAUNCH_ELEVATION_DEGREES), 0.00001)
+
+func test_vertical_departure_survives_save_and_then_resumes_homing() -> void:
+	var interceptor := add_child_autofree(HomingInterceptor.new()) as HomingInterceptor
+	var track := _confirmed_track(Vector3(500, 100, 0))
+	var registry := ThreatRegistry.new()
+	var definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	interceptor.configure(track, registry, definition.munitions[0], Vector3.UP)
+	interceptor.departure_clearance_height = 120.0
+	interceptor.gameplay_tick(0.05)
+	assert_gt(interceptor.global_position.y, 0.0)
+	assert_eq(interceptor.global_position.x, 0.0)
+	var state := interceptor.capture_state()
+	assert_eq(definition.persistent_projectile_state_validation_error(&"homing_interceptor", state), "")
+	var restored := add_child_autofree(HomingInterceptor.new()) as HomingInterceptor
+	restored.restore_state(state, track, registry)
+	restored.gameplay_tick(0.05)
+	assert_eq(restored.global_position.x, 0.0)
+	assert_eq(restored.departure_clearance_height, 120.0)
+	restored.global_position.y = 121.0
+	restored.gameplay_tick(0.05)
+	assert_eq(restored.departure_clearance_height, 0.0)
+	assert_gt(restored.velocity.x, 0.0)
+	state.erase("departure_clearance_height")
+	restored.restore_state(state, track, registry)
+	assert_eq(restored.departure_clearance_height, 0.0)
+	state.departure_clearance_height = -1.0
+	assert_ne(definition.persistent_projectile_state_validation_error(&"homing_interceptor", state), "")
+
+func test_ciws_skips_building_blocked_priority_and_reports_no_clear_target() -> void:
+	_set_departure_test_building()
+	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
+	gun.setup(78, SCENARIO.available_defenses[4])
+	gun.battlefield = battlefield
+	var blocked := _confirmed_track(Vector3(120, 30, 0))
+	var clear := _confirmed_track(Vector3(-120, 30, 0))
+	clear.track_id = blocked.track_id + 1
+	gun.set_priority_track(blocked.track_id)
+	assert_same(gun.select_track([blocked, clear], Vector3.ZERO), clear)
+	assert_false(gun.line_of_fire_blocked)
+	assert_null(gun.select_track([blocked], Vector3.ZERO))
+	assert_true(gun.line_of_fire_blocked)
+	assert_string_contains(gun.critical_status_text(), "사선 차단")
+	gun.global_position.y = 150.0
+	assert_same(gun.select_track([blocked], Vector3.ZERO), blocked)
+	assert_false(gun.line_of_fire_blocked)
+
 func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_or_priority_tracks() -> void:
 	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
 	gun.setup(2, SCENARIO.available_defenses[4])
@@ -588,6 +658,8 @@ func test_missile_rack_launches_one_ready_round_per_interval() -> void:
 	battery.configure_player_knowledge(battlefield, track_provider)
 	battery.configure_c2(c2_network)
 	battery.configure_engagements(coordinator)
+	# This test measures the firing cadence after initial launcher alignment.
+	battery._aim_turret(target_position, 3.0)
 	battery.gameplay_tick(0.01)
 	assert_eq(battery.interceptors.size(), 1)
 	assert_eq(coordinator.reservation_count(track.track_id), 1)

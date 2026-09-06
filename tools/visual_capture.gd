@@ -20,6 +20,41 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-building-departure-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		AirscainApp.apply_global_font()
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		var battery := load("res://defense/missile_battery/missile_battery.tscn").instantiate() as MissileBattery
+		main.add_child(battery)
+		var definition := main.scenario.available_defenses[0] as MissileBatteryDefinition
+		battery.setup(999, definition)
+		var building := main.battlefield.city_building_bounds(0)
+		battery.global_position = Vector3(building.end.x + 14.0, 0, building.get_center().z)
+		battery.global_position.y = main.battlefield.terrain_height(battery.global_position.x, battery.global_position.z)
+		battery.battlefield = main.battlefield
+		battery.configure_combat(ThreatRegistry.new(), main)
+		var track := PlayerTrack.new()
+		track.track_id = 999
+		track.state = PlayerTrack.State.CONFIRMED
+		track.estimated_position = battery.global_position + Vector3(300, 80, 0)
+		assert(battery._aim_turret(track.estimated_position, 3.0))
+		assert(battery.departure_clearance_height > battery.global_position.y)
+		assert(battery._fire_round(track, definition.munitions[0]))
+		var missile := battery.interceptors[0]
+		var launch := missile.global_position
+		var camera := main.camera_rig.camera
+		camera.global_position = battery.global_position + Vector3(140, 140, 210)
+		camera.look_at(battery.global_position + Vector3.UP * 40)
+		for frame: int in 12:
+			missile.gameplay_tick(0.016)
+			await process_frame
+		assert(is_equal_approx(missile.global_position.x, launch.x))
+		_save_capture("/tmp/airscain_building_departure.png")
+		print("BUILDING_DEPARTURE_CAPTURE_OK vertical launcher and initial trajectory")
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-range-labels-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

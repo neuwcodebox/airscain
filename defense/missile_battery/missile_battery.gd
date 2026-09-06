@@ -8,6 +8,8 @@ const TURRET_AIMER := preload("res://defense/turret_aimer.gd")
 @export var launcher_elevation_speed_degrees: float = 55.0
 @export var launch_sector_degrees: float = 30.0
 const MINIMUM_LAUNCH_ELEVATION_DEGREES := 20.0
+const BUILDING_DEPARTURE_RADIUS := 80.0
+const ROOF_DEPARTURE_CLEARANCE := 24.0
 
 var registry: ThreatRegistry
 var projectile_parent: Node3D
@@ -17,6 +19,9 @@ var interceptors: Array[HomingInterceptor] = []
 var magazines: Dictionary[StringName, WeaponMagazine] = {}
 var munition_mode: StringName = &"auto"
 var next_launch_sequence: int = 0
+var departure_clearance_height: float = 0.0
+var departure_query_position := Vector3.INF
+var departure_battlefield: Battlefield
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
@@ -68,6 +73,10 @@ func gameplay_tick(delta: float) -> void:
 			engagement_coordinator.release_one(track.track_id, runtime_id)
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
+	_refresh_departure_clearance()
+	if departure_clearance_height > global_position.y:
+		elevation.rotation.x = move_toward(elevation.rotation.x, PI * 0.5, deg_to_rad(launcher_elevation_speed_degrees) * delta)
+		return is_equal_approx(elevation.rotation.x, PI * 0.5)
 	var target_direction := launch_point.global_position.direction_to(target_position)
 	var minimum_pitch := deg_to_rad(MINIMUM_LAUNCH_ELEVATION_DEGREES)
 	if elevation.rotation.x >= minimum_pitch - 0.00001 and (target_direction.length_squared() <= 0.001 or launcher_forward().angle_to(target_direction) <= deg_to_rad(launch_sector_degrees)):
@@ -78,6 +87,17 @@ func _aim_turret(target_position: Vector3, delta: float) -> bool:
 
 func launcher_forward() -> Vector3:
 	return -launch_point.global_basis.z.normalized()
+
+func _refresh_departure_clearance() -> void:
+	if battlefield == departure_battlefield and global_position.is_equal_approx(departure_query_position):
+		return
+	departure_battlefield = battlefield
+	departure_query_position = global_position
+	departure_clearance_height = 0.0
+	if battlefield != null:
+		var roof := battlefield.nearby_building_roof(global_position, BUILDING_DEPARTURE_RADIUS)
+		if roof > global_position.y + 4.0:
+			departure_clearance_height = roof + ROOF_DEPARTURE_CLEARANCE
 
 func _active_interceptor_count() -> int:
 	var result := 0
@@ -247,6 +267,7 @@ func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition,
 	interceptor.global_position = launch_point.global_position + launch_point.global_basis.x * lateral_offset
 	var initial_direction := launcher_forward()
 	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks(), battlefield)
+	interceptor.departure_clearance_height = departure_clearance_height
 	interceptor.target_changed.connect(_on_interceptor_target_changed)
 	interceptors.append(interceptor)
 	projectile_launched.emit(self, interceptor)

@@ -16,6 +16,7 @@ var gunfire: GunfireRuntime
 var barrel_spin_speed: float = 0.0
 var barrel_spin_remaining: float = 0.0
 var firing_audio: GunAudio
+var line_of_fire_blocked: bool = false
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
@@ -65,6 +66,7 @@ func gameplay_tick(delta: float) -> void:
 	barrel_spin_speed = move_toward(barrel_spin_speed, 28.0 if barrel_spin_remaining > 0 else 0.0, delta * 55.0)
 	barrel_cluster.rotation.z = fposmod(barrel_cluster.rotation.z + barrel_spin_speed * delta, TAU)
 	if not active or registry == null or player_knowledge == null or c2_network == null:
+		line_of_fire_blocked = false
 		maintain_fire_support(null, false)
 		return
 	magazine.gameplay_tick(delta)
@@ -73,10 +75,13 @@ func gameplay_tick(delta: float) -> void:
 	var has_assignment := maintain_fire_support(track, magazine.can_fire())
 	if track == null:
 		return
-	var flight_time := muzzle.global_position.distance_to(track.estimated_position) / _definition.muzzle_velocity
-	var aim_position := track.estimated_position + track.estimated_velocity * flight_time - GunfireRuntime.GRAVITY * flight_time * flight_time * 0.5
+	var aim_position := _predicted_aim(track)
 	var is_aimed := _aim_turret(aim_position, delta)
 	if is_aimed and cooldown <= 0.0 and magazine.can_fire() and has_assignment:
+		if _building_blocks_aim(muzzle.global_position, aim_position):
+			line_of_fire_blocked = true
+			maintain_fire_support(null, false)
+			return
 		magazine.consume()
 		_fire_burst(track)
 		cooldown = _definition.burst_interval
@@ -85,6 +90,7 @@ func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, barrel_elevation_speed_degrees, firing_alignment_degrees, delta, -8.0, 80.0)
 
 func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> PlayerTrack:
+	line_of_fire_blocked = false
 	var selected: PlayerTrack
 	var selected_score := -INF
 	for track: PlayerTrack in tracks:
@@ -93,13 +99,36 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range * operational_efficiency():
 			continue
+		if _building_blocks_aim(turret.global_position, _predicted_aim(track)):
+			line_of_fire_blocked = true
+			continue
 		if track.track_id == doctrine.priority_track_id:
+			line_of_fire_blocked = false
 			return track
 		var score := cooperative_target_score(track, protected_position, weapon_match(track))
 		if score > selected_score:
 			selected = track
 			selected_score = score
+	if selected != null:
+		line_of_fire_blocked = false
 	return selected
+
+func _predicted_aim(track: PlayerTrack) -> Vector3:
+	var flight_time := muzzle.global_position.distance_to(track.estimated_position) / _definition.muzzle_velocity
+	return track.estimated_position + track.estimated_velocity * flight_time - GunfireRuntime.GRAVITY * flight_time * flight_time * 0.5
+
+func _building_blocks_aim(origin: Vector3, aim: Vector3) -> bool:
+	return battlefield != null and not battlefield.building_segment_impact(origin, aim).is_empty()
+
+func critical_status_text() -> String:
+	var status := super.critical_status_text()
+	return status if not status.is_empty() else ("사선 차단" if line_of_fire_blocked else "")
+
+func selection_status_rows() -> Array[Dictionary]:
+	var rows := super.selection_status_rows()
+	if line_of_fire_blocked:
+		rows.append({"label": "교전", "value": "사선 차단", "warning": true})
+	return rows
 
 func weapon_match(track: PlayerTrack) -> float:
 	return _definition.preferred_target_match if track.classification == _definition.preferred_class else _definition.other_target_match

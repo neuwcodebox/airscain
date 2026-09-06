@@ -41,6 +41,7 @@ var other_target_match: float = 1.0
 var small_target_match: float = 0.22
 var rng := RandomNumberGenerator.new()
 var flight_ended_emitted: bool = false
+var departure_clearance_height: float = 0.0
 
 func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null) -> void:
 	target_track = track_value
@@ -72,6 +73,12 @@ func gameplay_tick(delta: float) -> void:
 		else:
 			_expire(Color(0.72, 0.78, 0.82), "요격 실패")
 		return
+	if departure_clearance_height > 0.0:
+		if global_position.y < departure_clearance_height:
+			velocity = Vector3.UP * speed
+			_advance_unguided(delta)
+			return
+		departure_clearance_height = 0.0
 	if target_destroyed_abort:
 		if not _try_retarget():
 			_continue_destroyed_target_abort(delta)
@@ -99,7 +106,7 @@ func gameplay_tick(delta: float) -> void:
 	global_position += velocity * delta
 	if _resolve_terrain_impact(previous):
 		return
-	look_at(global_position + velocity, Vector3.UP)
+	_orient_to_velocity()
 	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 	if smoke != null:
 		smoke.sample_world_segment(previous, global_position)
@@ -155,11 +162,15 @@ func _advance_unguided(delta: float) -> bool:
 	if _resolve_terrain_impact(previous):
 		return true
 	if velocity.length_squared() > 0.001:
-		look_at(global_position + velocity, Vector3.UP)
+		_orient_to_velocity()
 	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 	if smoke != null:
 		smoke.sample_world_segment(previous, global_position)
 	return _resolve_proximity_intercept(previous)
+
+func _orient_to_velocity() -> void:
+	var up := Vector3.FORWARD if absf(velocity.normalized().dot(Vector3.UP)) > 0.99 else Vector3.UP
+	look_at(global_position + velocity, up)
 
 func _resolve_terrain_impact(previous: Vector3) -> bool:
 	if battlefield == null:
@@ -369,6 +380,7 @@ func capture_state() -> Dictionary:
 		"target_destroyed_abort": target_destroyed_abort,
 		"closest_guidance_distance": closest_guidance_distance if closest_guidance_distance < INF else -1.0,
 		"boost_guidance_ramp_active": boost_guidance_ramp_active,
+		"departure_clearance_height": departure_clearance_height,
 		"preferred_classes": preferred_classes.map(func(classification: StringName) -> String: return String(classification)),
 		"minimum_preferred_speed": minimum_preferred_speed,
 		"other_target_match": other_target_match,
@@ -409,7 +421,8 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	var saved_guidance_distance := float(state.get("closest_guidance_distance", -1.0))
 	closest_guidance_distance = INF if saved_guidance_distance < 0.0 else saved_guidance_distance
 	boost_guidance_ramp_active = bool(state.get("boost_guidance_ramp_active", false))
+	departure_clearance_height = float(state.get("departure_clearance_height", 0.0))
 	rng.state = int(state.get("rng_state", rng.state))
 	_connect_registry_signal()
 	if velocity.length_squared() > 0.001:
-		look_at(global_position + velocity, Vector3.UP)
+		_orient_to_velocity()

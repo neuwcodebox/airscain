@@ -166,6 +166,23 @@ func terrain_segment_impact(from_position: Vector3, to_position: Vector3) -> Dic
 		return {"position": impact}
 	return {}
 
+func nearby_building_roof(position: Vector3, radius: float) -> float:
+	var highest := position.y
+	var first := _building_cell(position - Vector3(radius, 0, radius))
+	var last := _building_cell(position + Vector3(radius, 0, radius))
+	var visited: Dictionary[int, bool] = {}
+	for z: int in range(first.y, last.y + 1):
+		for x: int in range(first.x, last.x + 1):
+			for index: int in _building_cells.get(Vector2i(x, z), []):
+				if visited.has(index):
+					continue
+				visited[index] = true
+				var bounds := city_building_bounds(index)
+				var closest := Vector2(clampf(position.x, bounds.position.x, bounds.end.x), clampf(position.z, bounds.position.z, bounds.end.z))
+				if closest.distance_squared_to(Vector2(position.x, position.z)) <= radius * radius:
+					highest = maxf(highest, bounds.end.y)
+	return highest
+
 func city_building_bounds(index: int) -> AABB:
 	return _building_bounds[index]
 

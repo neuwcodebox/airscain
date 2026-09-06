@@ -53,6 +53,9 @@ func persistent_projectile_state_validation_error(projectile_type: StringName, s
 		return super.persistent_projectile_state_validation_error(projectile_type, state)
 	var maximum_lifetime := float(state.get("maximum_lifetime", 0.0))
 	var age := float(state.get("age", -1.0))
+	var clearance: Variant = state.get("departure_clearance_height", 0.0)
+	if not (clearance is float or clearance is int) or not is_finite(float(clearance)) or float(clearance) < 0.0:
+		return "요격체 초기 상승 고도가 올바르지 않습니다"
 	if float(state.get("speed", 0.0)) <= 0.0 or float(state.get("turn_rate", 0.0)) <= 0.0 or maximum_lifetime <= 0.0 or float(state.get("damage", 0.0)) <= 0.0 or float(state.get("proximity_radius", 0.0)) <= 0.0 or age < 0.0 or age >= maximum_lifetime:
 		return "요격체 비행 상태가 올바르지 않습니다"
 	return ""
