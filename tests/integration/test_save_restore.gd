@@ -28,6 +28,25 @@ func before_each() -> void:
 func after_each() -> void:
 	_cleanup_save_files()
 
+func test_resupply_order_and_fractional_credit_survive_document_restore() -> void:
+	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
+	var facility := _place_defense(main.scenario.available_defenses[5])
+	facility.global_position = gun.global_position
+	gun.magazine.reserve -= 1
+	var budget := main.session.budget
+	assert_true(gun.request_resupply())
+	assert_eq(main.session.budget, budget - 1)
+	gun.magazine.reserve -= 1
+	var id := gun.runtime_id
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	var restored := main.support_manager.consumers[id] as CloseInGun
+	assert_eq(restored.magazine.ordered_reserve, 1)
+	assert_eq(restored.magazine.resupply_credit, 114)
+	main.support_manager.gameplay_tick(4.0)
+	assert_eq(restored.magazine.reserve, 119)
+	assert_eq(main.session.budget, budget - 1)
+
 func test_restore_clears_old_airburst_audio_and_reconnects_restored_guns() -> void:
 	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
 	var id := gun.runtime_id

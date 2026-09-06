@@ -29,7 +29,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
 	_definition = definition_value as CloseInGunDefinition
 	rng.seed = id_value ^ 0x4C11DB7
-	magazine.setup(_definition.magazine_capacity, _definition.reserve_ammunition, _definition.reload_duration)
+	magazine.setup(_definition.magazine_capacity, _definition.reserve_ammunition, _definition.reload_duration, _definition.resupply_cost)
 	gunfire = GunfireRuntime.new()
 	gunfire.name = "Gunfire"
 	add_child(gunfire)
@@ -134,7 +134,7 @@ func weapon_match(track: PlayerTrack) -> float:
 	return _definition.preferred_target_match if track.classification == _definition.preferred_class else _definition.other_target_match
 
 func resupply_cost() -> int:
-	return _definition.resupply_cost
+	return magazine.resupply_cost()
 
 func uses_ammunition() -> bool:
 	return true

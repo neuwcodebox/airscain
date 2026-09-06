@@ -169,6 +169,9 @@ func automatic_resupply_enabled() -> bool:
 func complete_resupply() -> void:
 	pass
 
+func reserve_resupply() -> void:
+	pass
+
 func combat_resource_depleted() -> bool:
 	return false
 

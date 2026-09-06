@@ -1030,6 +1030,61 @@ func test_support_and_power_managers_accept_capability_providers() -> void:
 	assert_true(consumer.replenished)
 	assert_eq(power.generation_capacity(), 12.0)
 
+func test_proportional_resupply_carries_rounding_credit_across_save() -> void:
+	var stock := WeaponMagazine.new()
+	stock.setup(4, 20, 6.0, 14)
+	var paid := 0
+	for index: int in 20:
+		stock.reserve -= 1
+		paid += stock.resupply_cost()
+		stock.reserve_resupply()
+		var restored := WeaponMagazine.new()
+		restored.setup(4, 20, 6.0, 14)
+		restored.restore_state(stock.capture_state())
+		assert_eq(WeaponMagazine.validation_error(restored.capture_state()), "")
+		restored.refill_reserve()
+		stock = restored
+	assert_eq(paid, 14, "분할 보급도 전체 보급과 같은 금액입니다")
+	assert_eq(stock.resupply_credit, 0)
+	assert_eq(stock.reserve, 20)
+
+func test_resupply_delivers_only_paid_quantity_after_further_consumption() -> void:
+	var stock := WeaponMagazine.new()
+	stock.setup(6, 18, 9.0, 8)
+	stock.reserve = 12
+	assert_eq(stock.resupply_cost(), 3)
+	stock.reserve_resupply()
+	stock.reserve = 6
+	var restored := WeaponMagazine.new()
+	restored.setup(6, 18, 9.0, 8)
+	restored.restore_state(stock.capture_state())
+	restored.refill_reserve()
+	assert_eq(restored.reserve, 12, "대기 중 추가로 사용한 탄은 무료로 채우지 않습니다")
+	assert_eq(restored.ordered_reserve, -1)
+	var invalid := restored.capture_state()
+	invalid.ordered_reserve = 19
+	assert_ne(WeaponMagazine.validation_error(invalid), "")
+
+func test_legacy_magazine_state_retains_paid_full_refill() -> void:
+	var stock := WeaponMagazine.new()
+	stock.setup(6, 18, 9.0, 8)
+	stock.reserve = 0
+	var legacy := stock.capture_state()
+	legacy.erase("ordered_reserve")
+	legacy.erase("resupply_credit")
+	stock.restore_state(legacy)
+	stock.refill_reserve()
+	assert_eq(stock.reserve, 18)
+
+func test_balance_damage_breakpoints_and_full_supply_prices() -> void:
+	var short_definition := SCENARIO.available_defenses[8] as MissileBatteryDefinition
+	var long_definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	assert_eq(short_definition.munitions[0].interceptor_damage, 100.0)
+	assert_eq(short_definition.munitions[0].resupply_cost, 14)
+	assert_lt(long_definition.munitions[0].interceptor_damage, 140.0)
+	assert_gte(long_definition.munitions[1].interceptor_damage, 140.0)
+	assert_eq((SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost, 6)
+
 func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
 	var support_session: GameSession = autofree(GameSession.new()) as GameSession
@@ -1045,9 +1100,9 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
 	assert_true(gun.request_resupply())
-	assert_eq(support_session.budget, 98)
+	assert_eq(support_session.budget, 94)
 	assert_false(gun.request_resupply())
-	assert_eq(support_session.budget, 98)
+	assert_eq(support_session.budget, 94)
 	assert_eq(manager.task_status(gun), "재보급 진행")
 	manager.gameplay_tick(1.0)
 	var saved_state := manager.capture_state()
@@ -1101,6 +1156,8 @@ func test_automatic_resupply_marker_reports_progress_or_waiting_instead_of_deple
 	battery.set_automatic_resupply(false)
 	assert_eq(battery.critical_status_text(), "탄약 고갈")
 	battery.set_automatic_resupply(true)
+	manager.gameplay_tick(100.0)
+	assert_eq(battery.critical_status_text(), "재보급 대기", "요청 후 소모한 다른 탄종은 다음 보급이 필요합니다")
 	manager.gameplay_tick(100.0)
 	assert_eq(battery.critical_status_text(), "")
 
@@ -1220,11 +1277,11 @@ func test_support_tasks_require_a_nearby_operational_facility() -> void:
 	gun.global_position += Vector3.RIGHT
 	assert_false(gun.can_request_repair())
 	assert_false(gun.request_repair())
-	assert_eq(support_session.budget, 98)
+	assert_eq(support_session.budget, 94)
 	gun.global_position -= Vector3.RIGHT
 	assert_true(gun.can_request_repair())
 	assert_true(gun.request_repair())
-	assert_eq(support_session.budget, 88)
+	assert_eq(support_session.budget, 84)
 
 func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
@@ -1275,7 +1332,7 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	assert_true(gun.status_marker.visible)
 	var depleted_label := gun.status_marker.get_node("Label") as Label3D
 	assert_eq(depleted_label.text, "재보급 대기")
-	assert_almost_eq(depleted_label.pixel_size, 0.001, 0.00001)
+	assert_true(depleted_label.fixed_size)
 	gun.receive_damage(70.0)
 	gun._process(0.0)
 	assert_eq((gun.status_marker.get_node("Label") as Label3D).text, "×")

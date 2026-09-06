@@ -141,6 +141,9 @@ func critical_status_text() -> String:
 func complete_resupply() -> void:
 	magazine.refill_reserve()
 
+func reserve_resupply() -> void:
+	magazine.reserve_resupply()
+
 func _with_support_status(ammunition_status: String) -> String:
 	var statuses: Array[String] = []
 	if support_manager != null and not support_manager.task_status(self).is_empty():

@@ -17,7 +17,7 @@ extends DefenseDefinition
 @export var magazine_capacity: int = 120
 @export var reserve_ammunition: int = 120
 @export var reload_duration: float = 2.5
-@export var resupply_cost: int = 2
+@export var resupply_cost: int = 6
 @export var resupply_work: float = 12.0
 
 func placement_c2_roles() -> int:

@@ -34,7 +34,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	magazines.clear()
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		var munition_magazine := WeaponMagazine.new()
-		munition_magazine.setup(munition.magazine_capacity, munition.reserve_ammunition, munition.reload_duration)
+		munition_magazine.setup(munition.magazine_capacity, munition.reserve_ammunition, munition.reload_duration, munition.resupply_cost)
 		magazines[munition.id] = munition_magazine
 	magazine = magazines[_definition.munitions[0].id]
 	_refresh_launcher_cells()
@@ -205,7 +205,7 @@ func resupply_cost() -> int:
 	var result := 0
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		if magazines[munition.id].reserve < magazines[munition.id].reserve_capacity:
-			result += munition.resupply_cost
+			result += magazines[munition.id].resupply_cost()
 	return result
 
 func uses_ammunition() -> bool:
@@ -233,6 +233,10 @@ func ammunition_reserve_ratio() -> float:
 func complete_resupply() -> void:
 	for munition_magazine: WeaponMagazine in magazines.values():
 		munition_magazine.refill_reserve()
+
+func reserve_resupply() -> void:
+	for munition_magazine: WeaponMagazine in magazines.values():
+		munition_magazine.reserve_resupply()
 
 func resource_status_text() -> String:
 	var lines: Array[String] = [operational_status_text(), "교전 고도 %d–%dm" % [roundi(_definition.minimum_engagement_altitude), roundi(_definition.maximum_engagement_altitude)], "탄종 %s" % munition_mode_text()]

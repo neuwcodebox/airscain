@@ -71,6 +71,8 @@ func request_repair(unit: DefenseUnit) -> bool:
 func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float, user_requested: bool = true) -> bool:
 	if session == null or not session.try_spend(cost):
 		return false
+	if kind == RESUPPLY:
+		unit.reserve_resupply()
 	tasks.append({"kind": kind, "target_defense_id": unit.runtime_id, "remaining_work": work, "user_requested": user_requested})
 	task_requested.emit(StringName(kind), unit)
 	return true
