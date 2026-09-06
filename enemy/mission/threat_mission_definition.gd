@@ -10,7 +10,7 @@ enum TargetRole { CITY, SENSOR, COMMAND, SUPPORT, WEAPON }
 @export var action_distance: float = 5.0
 @export var action_duration: float = 0.0
 @export var acquisition_range: float = 0.0
-@export var released_missile: ThreatDefinition
+@export var released_missile: AirLaunchedMissileDefinition
 @export_range(5.0, 60.0) var launch_cone_degrees: float = 25.0
 
 func knowledge_role() -> StringName:

@@ -161,18 +161,18 @@ func _spawn_strike_munition(strike_target: Vector3) -> void:
 		return
 	var missile_definition := _definition.mission.released_missile
 	if missile_definition != null:
-		var missile := missile_definition.scene.instantiate() as ThreatUnit
+		var missile := missile_definition.scene.instantiate() as AirLaunchedMissile
 		parent.add_child(missile)
 		missile.global_position = _release_position()
 		missile.setup(0, missile_definition)
-		missile.call("launch", strike_target, objective, battlefield, roundi(_definition.mission.damage), mission_runtime.target_asset, _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY, mover.velocity)
+		missile.launch(strike_target, objective, battlefield, roundi(_definition.mission.damage), mission_runtime.target_asset, _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY, mover.velocity)
 		threat_released.emit(missile)
 		return
-	var munition := STRIKE_MUNITION_SCENE.instantiate() as Node3D
+	var munition := STRIKE_MUNITION_SCENE.instantiate() as AirStrikeMunition
 	parent.add_child(munition)
 	munition.global_position = _release_position()
-	munition.call("setup", strike_target, objective, roundi(_definition.mission.damage), mission_runtime.target_asset, _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY)
-	munition.call("configure_flight", 1, mover.velocity, battlefield)
+	munition.setup(strike_target, objective, roundi(_definition.mission.damage), mission_runtime.target_asset, _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY)
+	munition.configure_flight(StrikeFlight.Mode.BOMB, mover.velocity, battlefield)
 
 func _release_position() -> Vector3:
 	return body.to_global(Vector3(3.5, -1.5, 0.2))

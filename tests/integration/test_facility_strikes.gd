@@ -12,6 +12,37 @@ func before_each() -> void:
 	main.session.budget = 10000
 	await get_tree().process_frame
 
+func test_flight_rules_run_without_scene_visuals_and_restore_continuously() -> void:
+	var original := StrikeFlight.new()
+	original.mode = StrikeFlight.Mode.BOMB
+	original.velocity = Vector3(40, 0, 0)
+	var position := Vector3(0, 100, 0)
+	var target := Vector3(180, 0, 0)
+	position = original.advance(position, target, null, 0.25)
+	var restored := StrikeFlight.new()
+	restored.restore_state(original.capture_state())
+	for tick: int in 60:
+		var expected := original.advance(position, target, null, StrikeFlight.MAXIMUM_STEP)
+		var actual := restored.advance(position, target, null, StrikeFlight.MAXIMUM_STEP)
+		assert_eq(actual, expected)
+		assert_eq(restored.velocity, original.velocity)
+		position = expected
+	assert_false(original.powered())
+	assert_lt(original.velocity.y, 0.0)
+
+func test_payload_damage_is_independent_of_visuals_and_idempotent() -> void:
+	var target := target_for(&"weapon")
+	var payload := StrikePayload.new()
+	payload.setup(main.objective, 30, target, false)
+	var city_before := main.objective.current_integrity
+	payload.apply_impact(target.global_position)
+	payload.apply_impact(target.global_position)
+	assert_eq(target.integrity, 70.0)
+	assert_eq(main.objective.current_integrity, city_before)
+	payload.setup(main.objective, 30, target, false)
+	payload.apply_impact(target.global_position + Vector3(1000, 0, 0))
+	assert_eq(target.integrity, 70.0)
+
 func entry_for(id: StringName) -> ThreatSpawnEntry:
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
 		if entry.threat_definition.id == id:
@@ -102,13 +133,13 @@ func test_bomb_is_unpowered_ballistic_unregistered_and_restores_mid_fall() -> vo
 	assert_false(bomb.get_node("Flame").visible)
 	assert_false(bomb.get_node("FlameLight").visible)
 	assert_false(aircraft.body.get_node("ReleasedStore").visible)
-	var initial_velocity: Vector3 = bomb.get("velocity")
+	var initial_velocity := (bomb as AirStrikeMunition).motion.velocity
 	var initial_position := bomb.global_position
 	aircraft.receive_damage(10000.0)
 	await get_tree().process_frame
 	assert_eq(bomb.global_position, initial_position, "정지한 시뮬레이션에서 폭탄만 진행하지 않습니다")
 	bomb.call("_process", 0.3)
-	var velocity: Vector3 = bomb.get("velocity")
+	var velocity := (bomb as AirStrikeMunition).motion.velocity
 	assert_almost_eq(velocity.x, initial_velocity.x, 0.001)
 	assert_almost_eq(velocity.z, initial_velocity.z, 0.001)
 	assert_almost_eq(velocity.y, initial_velocity.y - 9.8 * 0.3, 0.001)
