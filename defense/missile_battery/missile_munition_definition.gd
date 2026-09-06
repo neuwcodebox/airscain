@@ -3,6 +3,8 @@ extends Resource
 
 @export var id: StringName
 @export var display_name: String
+@export var role_tooltip: String
+@export var target_icon: Texture2D
 @export var interceptor_speed: float = 200.0
 @export var interceptor_turn_rate_degrees: float = 240.0
 @export var interceptor_lifetime: float = 5.0

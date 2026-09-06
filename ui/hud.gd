@@ -10,7 +10,7 @@ signal overlay_requested(mode: StringName)
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
 signal priority_target_requested
-signal munition_mode_requested
+signal munition_mode_requested(mode: StringName)
 signal resupply_requested
 signal automatic_resupply_requested(enabled: bool)
 signal repair_requested
@@ -127,7 +127,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var hold_fire_button: CheckButton = %HoldFireButton
 @onready var engage_unknown_button: CheckButton = %EngageUnknownButton
 @onready var priority_target_button: Button = %PriorityTargetButton
-@onready var munition_mode_button: Button = %MunitionModeButton
+@onready var munition_mode_button: OptionButton = %MunitionModeButton
 @onready var resupply_button: Button = %ResupplyButton
 @onready var automatic_resupply_button: CheckButton = %AutomaticResupplyButton
 @onready var repair_button: Button = %RepairButton
@@ -382,6 +382,7 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int, support_connec
 	selected_asset_connection_count = connection_count
 	selected_asset_support_connection_count = support_connection_count
 	if unit != null:
+		_refresh_munition_options()
 		var supports_doctrine := unit.supports_engagement_controls()
 		if supports_doctrine:
 			hold_fire_button.set_pressed_no_signal(unit.engagement_hold_fire())
@@ -517,6 +518,36 @@ func _set_metric_rows(grid: GridContainer, rows: Array[Dictionary]) -> void:
 		var key_label := grid.get_child(index * 2) as Label
 		var value_label := grid.get_child(index * 2 + 1) as Label
 		key_label.text = String(row.get("label", ""))
+		var tooltip := String(row.get("tooltip", ""))
+		key_label.tooltip_text = tooltip
+		value_label.tooltip_text = tooltip
+		key_label.mouse_filter = Control.MOUSE_FILTER_PASS if not tooltip.is_empty() else Control.MOUSE_FILTER_IGNORE
+		value_label.mouse_filter = key_label.mouse_filter
+		var icon := key_label.get_node_or_null("TargetIcon") as TextureRect
+		var texture := row.get("icon") as Texture2D
+		if texture != null:
+			if icon == null:
+				icon = TextureRect.new()
+				icon.name = "TargetIcon"
+				icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				key_label.add_child(icon)
+				icon.anchor_top = 0.5
+				icon.anchor_bottom = 0.5
+				icon.offset_top = -9.0
+				icon.offset_bottom = 9.0
+				icon.offset_right = 18.0
+			var padding := key_label.get_theme_stylebox("normal") as StyleBoxEmpty
+			if not key_label.has_theme_stylebox_override("normal"):
+				padding = StyleBoxEmpty.new()
+				padding.content_margin_left = 24.0
+				key_label.add_theme_stylebox_override("normal", padding)
+			icon.texture = texture
+			icon.show()
+		elif icon != null:
+			icon.hide()
+			key_label.remove_theme_stylebox_override("normal")
 		value_label.text = String(row.get("value", ""))
 		var color := METRIC_WARNING_COLOR if bool(row.get("warning", false)) else METRIC_VALUE_COLOR
 		if value_label.get_theme_color("font_color") != color:
@@ -834,8 +865,19 @@ func _on_engage_unknown_toggled(enabled: bool) -> void:
 func _on_priority_target_pressed() -> void:
 	priority_target_requested.emit()
 
-func _on_munition_mode_pressed() -> void:
-	munition_mode_requested.emit()
+func _refresh_munition_options() -> void:
+	munition_mode_button.clear()
+	for option: Dictionary in selected_asset.munition_options():
+		var index := munition_mode_button.item_count
+		munition_mode_button.add_icon_item(option.get("icon") as Texture2D, String(option.label))
+		munition_mode_button.set_item_metadata(index, option.id)
+		munition_mode_button.set_item_tooltip(index, String(option.get("tooltip", "")))
+		if bool(option.get("selected", false)):
+			munition_mode_button.select(index)
+			munition_mode_button.tooltip_text = String(option.get("tooltip", ""))
+
+func _on_munition_mode_selected(index: int) -> void:
+	munition_mode_requested.emit(StringName(munition_mode_button.get_item_metadata(index)))
 	_refresh_selected_asset_label()
 
 func _on_resupply_pressed() -> void:

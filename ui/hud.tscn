@@ -838,7 +838,7 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "미확인 항적 교전 허용"
 
-[node name="MunitionModeButton" type="Button" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+[node name="MunitionModeButton" type="OptionButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
@@ -1045,7 +1045,7 @@ text = "메인 메뉴"
 [connection signal="minimum_size_changed" from="SelectedAssetPanel" to="." method="_fit_selection_panel" flags=3]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionModeButton" to="." method="_on_munition_mode_pressed"]
+[connection signal="item_selected" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionModeButton" to="." method="_on_munition_mode_selected"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/ResupplyButton" to="." method="_on_resupply_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/AutomaticResupplyButton" to="." method="_on_automatic_resupply_toggled"]

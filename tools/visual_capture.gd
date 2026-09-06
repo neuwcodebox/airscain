@@ -20,6 +20,31 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-munition-menu-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		AirscainApp.apply_global_font()
+		main.set_process(false)
+		main.session.budget = 10000
+		main._on_pressure_changed(5)
+		_place_asset(main.scenario.available_defenses[7], 1.0)
+		main._on_asset_selected(main.defenses.back())
+		await create_timer(0.2).timeout
+		await _click_control(main.hud.munition_mode_button)
+		await create_timer(0.2).timeout
+		assert(main.hud.munition_mode_button.get_popup().visible)
+		_save_capture("/tmp/airscain_munition_menu.png")
+		var popup := main.hud.munition_mode_button.get_popup()
+		popup.index_pressed.emit(2)
+		popup.hide()
+		await create_timer(0.2).timeout
+		assert((main.defenses.back() as MissileBattery).munition_mode == &"high_speed_interceptor")
+		_save_capture("/tmp/airscain_munition_selected.png")
+		print("MUNITION_MENU_CAPTURE_OK")
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-night-placement-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

@@ -554,9 +554,10 @@ func _on_priority_target_requested() -> void:
 		if game_mode == GameMode.TRAINING:
 			training_controller.priority_assigned(selected_asset)
 
-func _on_munition_mode_requested() -> void:
+func _on_munition_mode_requested(mode: StringName) -> void:
 	if selected_asset != null and selected_asset.supports_munition_selection():
-		selected_asset.cycle_munition_mode()
+		selected_asset.set_munition_mode(mode)
+		hud.refresh_selected_asset()
 		hud.set_feedback("탄종 운용 모드를 변경했습니다")
 
 func _on_resupply_requested() -> void:

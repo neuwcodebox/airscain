@@ -302,6 +302,8 @@ signal은 변화 통지와 느슨한 결합에 사용한다. 중요한 상태 �
 
 야간 배치 보조 조명은 `PlacementController`가 후보 위치·활성 여부를 전달하고 `Battlefield`가 밤의 정도와 진입·종료 보간을 관리한다. `placement_surface_light.gdshaderinc`를 지형 및 도시 불투명 표면 셰이더에만 포함해 후보의 수평 거리 12–85m 사이에서 감쇠하는 낮은 발광 성분을 더한다. 실제 광원·그림자 패스를 추가하지 않고 공중 객체·수면·창문 발광에는 적용하지 않는다. 취소·UI 진입·지도 밖에서 감광 후 갱신을 중단한다.
 
+탄종의 `role_tooltip`·`target_icon`은 `MissileMunitionDefinition`이 소유한다. 공통 자산의 `munition_options()`와 `set_munition_mode()`를 통해 HUD의 OptionButton이 표시 데이터와 선택 ID를 주고받는다. 탄약 행은 같은 아이콘·호버 정보를 재사용한다. 탄종의 저장 ID·표적 상성·고가탄 보존 정책은 표시 이름과 독립적이다.
+
 ## 10. 좌표, 지형과 공간 질의
 
 월드 좌표는 미터 단위로 해석한다. 장비 크기, 속도, 고도, 사거리와 VFX 크기는 같은 상대 스케일을 사용한다.

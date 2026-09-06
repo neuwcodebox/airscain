@@ -126,8 +126,11 @@ func set_priority_track(_track_id: int) -> void:
 func supports_munition_selection() -> bool:
 	return false
 
-func cycle_munition_mode() -> void:
+func set_munition_mode(_mode: StringName) -> void:
 	pass
+
+func munition_options() -> Array[Dictionary]:
+	return []
 
 func munition_mode_text() -> String:
 	return ""

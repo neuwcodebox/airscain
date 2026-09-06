@@ -1,9 +1,11 @@
-[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="MissileBatteryDefinition" load_steps=9 format=3]
 
 [ext_resource path="res://defense/missile_battery/missile_battery_definition.gd" type="Script" id="1"]
 [ext_resource path="res://defense/long_range_missile/long_range_missile.tscn" type="PackedScene" id="2"]
 [ext_resource path="res://defense/placement_profile.gd" type="Script" id="3"]
 [ext_resource path="res://defense/missile_battery/missile_munition_definition.gd" type="Script" id="4"]
+[ext_resource path="res://ui/icons/aircraft_target.svg" type="Texture2D" id="5"]
+[ext_resource path="res://ui/icons/ballistic_target.svg" type="Texture2D" id="6"]
 
 [sub_resource type="Resource" id="PlacementProfile"]
 script = ExtResource("3")
@@ -14,7 +16,9 @@ boundary_margin = 18.0
 [sub_resource type="Resource" id="AreaDefenseMunition"]
 script = ExtResource("4")
 id = &"area_defense"
-display_name = "광역방공탄"
+display_name = "일반 요격탄"
+role_tooltip = "항공기·순항미사일"
+target_icon = ExtResource("5")
 interceptor_speed = 360.0
 interceptor_turn_rate_degrees = 190.0
 interceptor_lifetime = 8.0
@@ -32,7 +36,9 @@ resupply_work = 14.0
 [sub_resource type="Resource" id="BallisticDefenseMunition"]
 script = ExtResource("4")
 id = &"high_speed_interceptor"
-display_name = "고속위협 요격탄"
+display_name = "고속 요격탄"
+role_tooltip = "탄도미사일·로켓·고속 항공기 · 비용 높음"
+target_icon = ExtResource("6")
 interceptor_speed = 520.0
 interceptor_turn_rate_degrees = 150.0
 interceptor_lifetime = 7.0
