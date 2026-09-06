@@ -9,13 +9,19 @@ const COMMAND_COLOR := Color("8eb8ff")
 const DEFENSE_COLOR := Color("75e49a")
 const SUPPORT_COLOR := Color("f0c86a")
 const SELECTION_COLOR := Color(0.26, 0.9, 1.0, 0.92)
+const DAMAGED_FRAME := preload("res://effects/unit_identity_marker/condition_damaged.svg")
+const DISABLED_FRAME := preload("res://effects/unit_identity_marker/condition_disabled.svg")
 
 @onready var icon: Sprite3D = $Icon
 @onready var selection_ring: MeshInstance3D = $SelectionRing
 @onready var reload_background: Sprite3D = $ReloadBackground
 @onready var reload_fill: Sprite3D = $ReloadFill
+@onready var condition_frame: Sprite3D = $ConditionFrame
 
 var selected: bool = false
+var role_color := DEFENSE_COLOR
+var operational: bool = true
+var damaged: bool = false
 
 func _ready() -> void:
 	var ring := TorusMesh.new()
@@ -45,12 +51,24 @@ func configure(texture: Texture2D, roles: int) -> void:
 		icon.modulate = DEFENSE_COLOR
 	else:
 		icon.modulate = SUPPORT_COLOR
+	role_color = icon.modulate
 	visible = true
 	_apply_selection()
 
 func set_selected(enabled: bool) -> void:
 	selected = enabled
 	_apply_selection()
+
+func set_condition(is_operational: bool, is_damaged: bool) -> void:
+	if operational == is_operational and damaged == is_damaged:
+		return
+	operational = is_operational
+	damaged = is_damaged
+	if condition_frame == null:
+		condition_frame = get_node("ConditionFrame") as Sprite3D
+	condition_frame.texture = DISABLED_FRAME if not operational else DAMAGED_FRAME
+	condition_frame.visible = not operational or damaged
+	icon.modulate = role_color if operational else Color(role_color.r * 0.38, role_color.g * 0.38, role_color.b * 0.38, 1.0)
 
 func set_reload(magazine: WeaponMagazine) -> void:
 	if reload_background == null:
@@ -74,3 +92,4 @@ func _apply_selection() -> void:
 	icon.scale = Vector3.ONE * (1.2 if selected else 1.0)
 	reload_background.scale = icon.scale
 	reload_fill.scale = icon.scale
+	condition_frame.scale = icon.scale

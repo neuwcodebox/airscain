@@ -130,7 +130,15 @@ func critical_status_text() -> String:
 	var operational_status := super.critical_status_text()
 	if not operational_status.is_empty():
 		return operational_status
+	return supply_status_text()
+
+func supply_status_text() -> String:
 	if support_manager != null:
+		var task := support_manager.task_status(self)
+		if task == "재보급 진행":
+			return "재보급 중"
+		if task == "재보급 대기":
+			return task
 		var resupply_status := support_manager.automatic_resupply_status(self)
 		if not resupply_status.is_empty():
 			return resupply_status

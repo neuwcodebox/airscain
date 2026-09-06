@@ -1662,16 +1662,16 @@ func test_asset_icons_status_badges_and_reload_bars_share_hover_target() -> void
 	battery._process(0.0)
 	var marker := battery.status_marker as UnitStatusMarker
 	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
-	for visual: GeometryInstance3D in [icon, marker.badge]:
+	for visual: GeometryInstance3D in [icon, marker.supply_badge]:
 		var rect := AssetPointerTarget.marker_screen_rect(visual, main.camera_rig.camera)
 		assert_true(rect.has_area())
 		assert_eq(main.placement.asset_at_screen(rect.get_center()), battery)
 	assert_eq(TacticalScreenOverlay.asset_hint_text(battery), battery.definition.display_name + "\n재보급 대기")
 	battery.receive_damage(1000.0)
 	battery._process(0.0)
-	var label_rect := AssetPointerTarget.marker_screen_rect(marker.label, main.camera_rig.camera)
+	var label_rect := AssetPointerTarget.marker_screen_rect(battery.identity_marker.get_node("ConditionFrame") as Sprite3D, main.camera_rig.camera)
 	assert_eq(main.placement.asset_at_screen(label_rect.get_center()), battery)
-	assert_eq(TacticalScreenOverlay.asset_hint_text(battery), battery.definition.display_name + "\n기능 정지")
+	assert_eq(TacticalScreenOverlay.asset_hint_text(battery), battery.definition.display_name + "\n기능 정지\n재보급 대기")
 	battery.complete_repair()
 	battery.set_automatic_resupply(false)
 	battery.magazine.reserve = 3

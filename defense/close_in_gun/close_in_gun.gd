@@ -122,7 +122,10 @@ func _building_blocks_aim(origin: Vector3, aim: Vector3) -> bool:
 
 func critical_status_text() -> String:
 	var status := super.critical_status_text()
-	return status if not status.is_empty() else ("사선 차단" if line_of_fire_blocked else "")
+	return status if not status.is_empty() else obstruction_status_text()
+
+func obstruction_status_text() -> String:
+	return "사선 차단" if active and line_of_fire_blocked else ""
 
 func selection_status_rows() -> Array[Dictionary]:
 	var rows := super.selection_status_rows()

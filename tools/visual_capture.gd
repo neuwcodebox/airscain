@@ -2337,9 +2337,10 @@ func _capture_city_smoke_and_ammo_status() -> void:
 		return
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
+	gun.set_automatic_resupply(false)
 	gun._process(0.0)
-	var label := gun.status_marker.get_node("Label") as Label3D
-	if label.text != "탄약 고갈" or label.pixel_size > 0.0011:
+	var badge := gun.status_marker.get_node("SupplyBadge") as Sprite3D
+	if not badge.visible or badge.texture != UnitStatusMarker.SUPPLY_TEXTURES["탄약 고갈"]:
 		push_error("Depleted ammunition status was not concise and screen-sized")
 		quit(1)
 		return

@@ -207,6 +207,12 @@ func critical_status_text() -> String:
 		return "손상"
 	return ""
 
+func supply_status_text() -> String:
+	return ""
+
+func obstruction_status_text() -> String:
+	return ""
+
 func receive_damage(amount: float) -> bool:
 	if amount <= 0.0 or integrity <= 0.0:
 		return false
@@ -307,7 +313,6 @@ func _refresh_status_marker() -> void:
 		return
 	if is_instance_valid(identity_marker):
 		identity_marker.call("set_reload", reload_display_magazine() if active else null)
+		identity_marker.call("set_condition", active, operational_ratio() < 0.75)
 	_ensure_status_marker()
-	var message := critical_status_text()
-	var color := Color("ff4b32") if not active else Color("ffb02e")
-	status_marker.call("set_status", message, color)
+	status_marker.call("set_status", supply_status_text(), not obstruction_status_text().is_empty())

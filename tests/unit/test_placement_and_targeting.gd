@@ -1209,7 +1209,7 @@ func test_automatic_resupply_marker_reports_progress_or_waiting_instead_of_deple
 		stock.reserve = 0
 	assert_eq(battery.critical_status_text(), "재보급 중")
 	battery.set_automatic_resupply(false)
-	assert_eq(battery.critical_status_text(), "탄약 고갈")
+	assert_eq(battery.critical_status_text(), "재보급 중", "자동 요청을 꺼도 이미 진행 중인 보급은 표시합니다")
 	battery.set_automatic_resupply(true)
 	manager.gameplay_tick(100.0)
 	assert_eq(battery.critical_status_text(), "재보급 대기", "요청 후 소모한 다른 탄종은 다음 보급이 필요합니다")
@@ -1355,10 +1355,10 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	assert_gte((facility.damage_smoke.get_node("Smoke") as GPUParticles3D).amount, 40)
 	assert_true((facility.damage_smoke.get_node("Fire") as GPUParticles3D).emitting)
 	facility._process(0.0)
-	var damage_label := facility.status_marker.get_node("Label") as Label3D
-	assert_eq(damage_label.text, "손상")
-	assert_true(damage_label.no_depth_test)
-	assert_gte(damage_label.render_priority, 100)
+	var damage_frame := facility.identity_marker.get_node("ConditionFrame") as Sprite3D
+	assert_true(damage_frame.visible)
+	assert_true(damage_frame.no_depth_test)
+	assert_gte(damage_frame.render_priority, 100)
 	assert_eq(facility.operational_status_text(), "상태 성능저하 · 내구도 50%")
 	assert_almost_eq(facility.support_capacity(), 2.0, 0.0001)
 	assert_true(gun.receive_damage(50.0))
@@ -1385,45 +1385,83 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	gun.magazine.reserve = 0
 	gun._process(0.0)
 	assert_true(gun.status_marker.visible)
-	var depleted_label := gun.status_marker.get_node("Label") as Label3D
-	assert_eq(depleted_label.text, "재보급 대기")
-	assert_false(depleted_label.visible)
-	assert_true((gun.status_marker.get_node("Badge") as Sprite3D).visible)
-	assert_true(depleted_label.fixed_size)
+	var depleted_badge := gun.status_marker.get_node("SupplyBadge") as Sprite3D
+	assert_eq(depleted_badge.texture, UnitStatusMarker.SUPPLY_TEXTURES["재보급 대기"])
+	assert_true(depleted_badge.visible)
+	assert_true(depleted_badge.fixed_size)
 	gun.receive_damage(70.0)
 	gun._process(0.0)
-	assert_eq((gun.status_marker.get_node("Label") as Label3D).text, "×")
+	assert_true((gun.identity_marker.get_node("ConditionFrame") as Sprite3D).visible)
 
-func test_status_badges_replace_resupply_text_and_clear_above_identity() -> void:
+func test_status_channels_coexist_and_keep_subtype_corner_clear() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
 	battery.setup(2000, SCENARIO.available_defenses[0])
 	var marker := battery.status_marker as UnitStatusMarker
 	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
 	assert_eq(marker.position, battery.identity_marker.position)
-	assert_gt(marker.label.render_priority, icon.render_priority)
-	assert_gt(marker.badge.render_priority, icon.render_priority)
-	assert_true(marker.badge.fixed_size)
-	assert_true(marker.badge.no_depth_test)
-	marker.set_status("재보급 대기", Color.ORANGE)
-	var waiting := marker.badge.texture
+	var frame := battery.identity_marker.get_node("ConditionFrame") as Sprite3D
+	assert_gt(marker.supply_badge.render_priority, icon.render_priority)
+	assert_true(marker.supply_badge.fixed_size)
+	assert_true(marker.supply_badge.no_depth_test)
+	marker.set_status("재보급 대기", true)
+	var waiting := marker.supply_badge.texture
 	assert_not_null(waiting)
-	assert_true(marker.badge.visible)
-	assert_false(marker.label.visible)
-	marker.set_status("재보급 중", Color.ORANGE)
-	assert_ne(marker.badge.texture, waiting)
-	assert_false(marker.label.visible)
+	assert_true(marker.supply_badge.visible)
+	assert_true(marker.obstruction_badge.visible)
+	var textures: Array[Texture2D] = []
+	for status: String in UnitStatusMarker.SUPPLY_TEXTURES:
+		marker.set_status(status, true)
+		assert_false(textures.has(marker.supply_badge.texture))
+		textures.append(marker.supply_badge.texture)
 	battery.set_selected(true)
-	var badge_bottom := (marker.badge.offset.y - marker.badge.texture.get_height() * 0.5) * marker.badge.pixel_size
-	var icon_top := icon.texture.get_height() * 0.5 * icon.pixel_size * icon.scale.y
-	assert_gt(badge_bottom, icon_top, "선택 확대 후에도 표식은 아이콘 위에 놓입니다")
-	marker.set_status("×", Color.RED)
-	assert_true(marker.label.visible)
-	assert_eq(marker.label.text, "×")
-	assert_false(marker.badge.visible)
-	marker.set_status("", Color.WHITE)
+	var original_texture := icon.texture
+	var original_color := icon.modulate
+	battery.receive_damage(50.0)
+	battery._process(0.0)
+	assert_true(frame.visible)
+	var damaged_texture := frame.texture
+	assert_eq(icon.modulate, original_color)
+	var badge_left := (marker.supply_badge.offset.x - 12.0) * marker.supply_badge.pixel_size
+	var frame_right := frame.texture.get_width() * 0.5 * frame.pixel_size * frame.scale.x
+	assert_gt(badge_left, frame_right, "선택 확대된 경고 테두리도 배지를 가리지 않습니다")
+	assert_lt(marker.supply_badge.offset.y, 0.0, "보급은 오른쪽 아래이며 하위 분류 자리는 비워 둡니다")
+	assert_lt(marker.obstruction_badge.offset.x, 0.0)
+	assert_lt(marker.obstruction_badge.offset.y, 0.0)
+	battery.receive_damage(100.0)
+	battery._process(0.0)
+	assert_ne(frame.texture, damaged_texture)
+	assert_lt(icon.modulate.r, original_color.r)
+	assert_eq(icon.texture, original_texture)
+	battery.complete_repair()
+	battery._process(0.0)
+	assert_false(frame.visible)
+	assert_eq(icon.modulate, original_color)
+	marker.set_status("", false)
 	assert_false(marker.visible)
-	assert_false(marker.badge.visible)
-	assert_false(marker.label.visible)
+	assert_false(marker.supply_badge.visible)
+	assert_false(marker.obstruction_badge.visible)
+
+func test_damage_supply_and_obstruction_are_independent_statuses() -> void:
+	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
+	gun.setup(2200, SCENARIO.available_defenses[4])
+	gun.magazine.rounds = 0
+	gun.magazine.reserve = 0
+	gun.line_of_fire_blocked = true
+	gun.receive_damage(30.0)
+	gun._process(0.0)
+	var marker := gun.status_marker as UnitStatusMarker
+	assert_true(marker.supply_badge.visible)
+	assert_true(marker.obstruction_badge.visible)
+	assert_eq(gun.critical_status_text(), "손상")
+	var hint := TacticalScreenOverlay.asset_hint_text(gun)
+	assert_string_contains(hint, "손상")
+	assert_string_contains(hint, "탄약 고갈")
+	assert_string_contains(hint, "사선 차단")
+	gun.receive_damage(100.0)
+	gun._process(0.0)
+	assert_false(marker.obstruction_badge.visible)
+	assert_true(marker.supply_badge.visible)
+	assert_false(TacticalScreenOverlay.asset_hint_text(gun).contains("사선 차단"))
 
 func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() -> void:
 	var manager := autofree(SupportManager.new()) as SupportManager

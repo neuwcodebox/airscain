@@ -405,7 +405,7 @@ func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
 		assert_not_null(icon.texture)
 		assert_same(icon.texture, definition.identity_icon)
 		assert_true(icon.texture.resource_path.ends_with(".svg"))
-		assert_gt(defense.identity_marker.position.y, defense.status_marker.position.y)
+		assert_eq(defense.identity_marker.position, defense.status_marker.position, "상태 표식은 같은 기준점에서 화면 기준 간격을 유지합니다")
 		role_icons[icon.texture.resource_path] = true
 	assert_eq(role_icons.size(), SCENARIO.available_defenses.size(), "각 자산 종류의 아이콘을 구분할 수 있습니다")
 

@@ -25,6 +25,14 @@ modulate = Color(0.46, 0.9, 0.62, 0.96)
 position = Vector3(0, -27, 0)
 visible = false
 
+[node name="ConditionFrame" type="Sprite3D" parent="."]
+visible = false
+billboard = 1
+no_depth_test = true
+render_priority = 103
+fixed_size = true
+pixel_size = 0.000376
+
 [node name="ReloadBackground" type="Sprite3D" parent="."]
 visible = false
 billboard = 1

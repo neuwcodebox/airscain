@@ -173,8 +173,8 @@ func combat_resource_depleted() -> bool:
 			return false
 	return true
 
-func critical_status_text() -> String:
-	var status := super.critical_status_text()
+func supply_status_text() -> String:
+	var status := super.supply_status_text()
 	if not status.is_empty():
 		return status
 	for stock: WeaponMagazine in magazines.values():

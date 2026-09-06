@@ -104,11 +104,13 @@ func _show_pointer_hint(message: String, mouse: Vector2) -> void:
 
 static func asset_hint_text(unit: DefenseUnit) -> String:
 	var lines: Array[String] = [unit.definition.display_name]
-	var status := unit.critical_status_text()
-	if status == "×":
-		status = "재배치 중" if unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() else "기능 정지"
-	if not status.is_empty():
-		lines.append(status)
+	if not unit.active:
+		lines.append("재배치 중" if unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() else "기능 정지")
+	elif unit.operational_ratio() < 0.75:
+		lines.append("손상")
+	for status: String in [unit.supply_status_text(), unit.obstruction_status_text()]:
+		if not status.is_empty():
+			lines.append(status)
 	var magazine := unit.reload_display_magazine() if unit.active else null
 	if magazine != null:
 		lines.append("재장전 · %.1f초" % magazine.reload_remaining)
