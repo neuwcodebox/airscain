@@ -315,4 +315,6 @@ func _refresh_status_marker() -> void:
 		identity_marker.call("set_reload", reload_display_magazine() if active else null)
 		identity_marker.call("set_condition", active, operational_ratio() < 0.75)
 	_ensure_status_marker()
+	if is_instance_valid(identity_marker):
+		status_marker.call("set_clearance", identity_marker.call("status_half_width"))
 	status_marker.call("set_status", supply_status_text(), not obstruction_status_text().is_empty())

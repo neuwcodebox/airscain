@@ -23,6 +23,7 @@ func _ready() -> void:
 	caption.outline_size = 8
 	caption.pixel_size = 0.0004075
 	caption.render_priority = 125
+	caption.outline_render_priority = 124
 	add_child(caption)
 
 func set_range(value: float, title: String) -> void:

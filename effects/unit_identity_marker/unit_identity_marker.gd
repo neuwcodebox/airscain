@@ -70,6 +70,10 @@ func set_condition(is_operational: bool, is_damaged: bool) -> void:
 	condition_frame.visible = not operational or damaged
 	icon.modulate = role_color if operational else Color(role_color.r * 0.38, role_color.g * 0.38, role_color.b * 0.38, 1.0)
 
+func status_half_width() -> float:
+	var boundary := condition_frame if is_instance_valid(condition_frame) and condition_frame.visible else icon
+	return boundary.texture.get_width() * 0.5 * boundary.pixel_size * boundary.scale.x
+
 func set_reload(magazine: WeaponMagazine) -> void:
 	if reload_background == null:
 		reload_background = get_node("ReloadBackground") as Sprite3D

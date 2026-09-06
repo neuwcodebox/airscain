@@ -1441,6 +1441,38 @@ func test_status_channels_coexist_and_keep_subtype_corner_clear() -> void:
 	assert_false(marker.supply_badge.visible)
 	assert_false(marker.obstruction_badge.visible)
 
+func test_badge_clearance_tracks_visible_boundary_not_supply_state() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(2010, SCENARIO.available_defenses[0])
+	var marker := battery.status_marker as UnitStatusMarker
+	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
+	var healthy_offset := marker.supply_badge.offset.x
+	var healthy_gap := (healthy_offset - 12.0) * marker.supply_badge.pixel_size - icon.texture.get_width() * 0.5 * icon.pixel_size
+	for status: String in UnitStatusMarker.SUPPLY_TEXTURES:
+		marker.set_status(status, true)
+		assert_eq(marker.supply_badge.offset.x, healthy_offset, "탄약·보급 종류로 배지 간격이 달라지지 않습니다")
+	battery.receive_damage(30.0)
+	battery.set_selected(true)
+	battery._process(0.0)
+	var frame := battery.identity_marker.get_node("ConditionFrame") as Sprite3D
+	var damaged_gap := (marker.supply_badge.offset.x - 12.0) * marker.supply_badge.pixel_size - frame.texture.get_width() * 0.5 * frame.pixel_size * frame.scale.x
+	assert_almost_eq(damaged_gap, healthy_gap, 0.00001, "실제 테두리와 배지 사이의 여백은 상태·선택과 무관하게 같습니다")
+	assert_eq(marker.obstruction_badge.offset.x, -marker.supply_badge.offset.x)
+	assert_gt(marker.supply_badge.offset.x, healthy_offset)
+	battery.complete_repair()
+	battery.set_selected(false)
+	battery._process(0.0)
+	assert_almost_eq(marker.supply_badge.offset.x, healthy_offset, 0.00001)
+
+func test_range_caption_and_outline_render_in_front_of_ribbon() -> void:
+	var ring := add_child_autofree(LabeledRangeRing.new()) as LabeledRangeRing
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring.material_override = material
+	assert_true(ring.caption.no_depth_test)
+	assert_gt(ring.caption.outline_render_priority, material.render_priority)
+	assert_gt(ring.caption.render_priority, ring.caption.outline_render_priority)
+
 func test_damage_supply_and_obstruction_are_independent_statuses() -> void:
 	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
 	gun.setup(2200, SCENARIO.available_defenses[4])
