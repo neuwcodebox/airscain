@@ -30,6 +30,9 @@ func spawn_radius_multiplier() -> float:
 func spawn_altitude() -> float:
 	return 70.0
 
+func estimated_approach_seconds(_distance: float, _speed_multiplier: float) -> float:
+	return 0.0
+
 func mission_definition() -> ThreatMissionDefinition:
 	return null
 

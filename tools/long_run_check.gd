@@ -28,8 +28,13 @@ func run() -> void:
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
 	await process_frame
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	main.set_process(false)
-	main.combat_audio.call("stop_all")
+	main.combat_audio.enabled = false
+	main.combat_audio.stop_all()
+	main.ui_audio.enabled = false
+	main.ui_audio.stop_all()
 	main.director.threat_spawned.connect(_track_spawned_threat)
 	_build_candidates()
 	_buy_available_defenses()

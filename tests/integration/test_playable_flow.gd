@@ -1654,6 +1654,27 @@ func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> voi
 	assert_eq(_active_definition_count(&"support_strike_uav"), 1)
 	assert_eq(main.director.pending_waves.size(), 0)
 
+func test_procedural_planning_ignores_unobserved_asset_changes_and_limits_late_waves() -> void:
+	main.director.elapsed = 70.0
+	main.director.pressure_level = 12
+	main.enemy_knowledge.estimates.clear()
+	var state := main.director.capture_state()
+	main.director.launch_budgeted_raid()
+	var expected := main.director.capture_state()
+	for wave: Dictionary in main.director.pending_waves:
+		assert_lte(float(wave.remaining), 5.0)
+		assert_false(String(wave.definition_id) in ["support_strike_uav", "command_strike_uav", "anti_radiation_missile"])
+	main.director.restore_state(state)
+	for unit: DefenseUnit in main.defenses:
+		unit.global_position += Vector3(250.0, 0.0, 100.0)
+		unit.receive_damage(1000.0)
+	main.director.launch_budgeted_raid()
+	assert_eq(main.director.capture_state(), expected)
+	main.director.elapsed = main.scenario.attack_window_duration
+	var pending := main.director.pending_waves.duplicate(true)
+	main.director.launch_budgeted_raid()
+	assert_eq(main.director.pending_waves, pending, "정비 구간에는 새 공습을 예약하지 않습니다")
+
 func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> void:
 	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
@@ -1673,7 +1694,7 @@ func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> voi
 	main.enemy_knowledge.record_recon(radar)
 	var radar_angle := fposmod(atan2(radar.global_position.z - main.objective.global_position.z, radar.global_position.x - main.objective.global_position.x), TAU)
 	assert_almost_eq(main.director.adaptive_approach_angle(), fposmod(radar_angle + PI, TAU), 0.2)
-	main.director.elapsed = 90.0
+	main.director.elapsed = 240.0
 	main.director.pressure_level = 3
 	main.director.pending_waves.clear()
 	main.director.launch_budgeted_raid()

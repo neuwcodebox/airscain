@@ -28,6 +28,32 @@ func before_each() -> void:
 func after_each() -> void:
 	_cleanup_save_files()
 
+func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void:
+	main.director.elapsed = 240.0
+	main.director.pressure_level = 12
+	main.director.launch_budgeted_raid()
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var pending: Array = document.payload.director.pending_waves.duplicate(true)
+	main.director.pending_waves.clear()
+	main.director.launch_budgeted_raid()
+	var expected := main.director.capture_state()
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(main.director.pending_waves, pending)
+	main.director.pending_waves.clear()
+	main.director.launch_budgeted_raid()
+	assert_eq(main.director.capture_state(), expected)
+	var invalid := document.duplicate(true)
+	invalid.payload.director.last_raid_pattern = "missing_pattern"
+	assert_ne(main.restore_from_document(invalid), "")
+	assert_eq(main.director.capture_state(), expected, "잘못된 이력은 현재 작전을 변경하지 않습니다")
+	var legacy := document.duplicate(true)
+	legacy.version = 21
+	legacy.payload.director.erase("last_raid_pattern")
+	assert_eq(main.restore_from_document(legacy), "")
+	assert_eq(main.director.raid_planner.last_pattern, &"")
+	assert_eq(main.director.pending_waves, pending)
+	assert_false(legacy.payload.director.has("last_raid_pattern"))
+
 func test_disabled_battery_and_pending_repair_survive_document_restore() -> void:
 	var battery := _place_defense(main.scenario.available_defenses[0]) as MissileBattery
 	var facility := _place_defense(main.scenario.available_defenses[5])

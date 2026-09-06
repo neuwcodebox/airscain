@@ -21,6 +21,7 @@ var enabled: bool = false
 var pending_waves: Array[Dictionary] = []
 var in_recovery: bool = false
 var completed_attack_windows: int = 0
+var raid_planner := RaidPlanner.new()
 
 func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D, enemy_knowledge_value: EnemyKnowledge) -> void:
 	scenario = scenario_value
@@ -42,6 +43,7 @@ func reset() -> void:
 	pending_waves.clear()
 	in_recovery = false
 	completed_attack_windows = 0
+	raid_planner.last_pattern = &""
 	pressure_changed.emit(pressure_level)
 
 func gameplay_tick(delta: float) -> void:
@@ -117,21 +119,26 @@ func speed_multiplier_at(time_seconds: float) -> float:
 	return minf(scenario.maximum_speed_multiplier, 1.0 + time_seconds / scenario.speed_growth_duration)
 
 func launch_budgeted_raid() -> void:
-	var budget := threat_budget_at(elapsed)
+	var cycle := scenario.attack_window_duration + scenario.recovery_duration
+	var remaining_attack := scenario.attack_window_duration - fmod(elapsed, cycle)
+	if remaining_attack <= 0.0:
+		return
+	var weights: Dictionary[StringName, float] = {}
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		var weight := adaptive_entry_weight(entry)
+		var role := entry.threat_definition.adaptive_knowledge_role
+		if entry.raid_role == ThreatSpawnEntry.RaidRole.SUPPRESSION and not role.is_empty():
+			var estimate := enemy_knowledge.best_estimate_for_role(role) if enemy_knowledge != null else {}
+			if estimate.is_empty() or float(estimate.confidence) < 0.2:
+				weight = 0.0
+		weights[entry.threat_definition.id] = weight
 	var approach_angle := adaptive_approach_angle()
-	var archetype := _choose_archetype()
-	if archetype != null and archetype.total_cost() <= budget and rng.randf() < 0.45:
-		schedule_archetype(archetype, approach_angle)
-		budget -= archetype.total_cost()
-	var scheduled_count := 0
-	while budget > 0.0 and scheduled_count < 6:
-		var entry := _choose_entry_for_budget(budget)
-		if entry == null:
-			break
-		var cost := entry.threat_cost * float(entry.group_size)
-		pending_waves.append({"definition_id": String(entry.threat_definition.id), "remaining": rng.randf_range(0.0, 2.0), "angle": approach_angle + rng.randf_range(-0.18, 0.18)})
-		budget -= cost
-		scheduled_count += 1
+	if rng.randf() < 0.3:
+		approach_angle = rng.randf_range(0.0, TAU)
+	else:
+		approach_angle += rng.randf_range(-0.35, 0.35)
+	var max_delay := minf(32.0, maxf(0.0, remaining_attack - 0.05))
+	pending_waves.append_array(raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng))
 
 func adaptive_approach_angle() -> float:
 	var known_angles: Array[float] = []
@@ -265,22 +272,6 @@ func recent_neutralization_rate() -> float:
 			neutralized += 1
 	return float(neutralized) / float(enemy_knowledge.recent_outcomes.size())
 
-func _choose_archetype() -> RaidArchetypeDefinition:
-	var available: Array[RaidArchetypeDefinition] = []
-	var total_weight := 0.0
-	for archetype: RaidArchetypeDefinition in scenario.raid_archetypes:
-		if archetype.unlock_level <= pressure_level:
-			available.append(archetype)
-			total_weight += archetype.selection_weight
-	if available.is_empty():
-		return null
-	var roll := rng.randf() * total_weight
-	for archetype: RaidArchetypeDefinition in available:
-		roll -= archetype.selection_weight
-		if roll <= 0.0:
-			return archetype
-	return available.back()
-
 func _entry_for_definition(definition_id: StringName) -> ThreatSpawnEntry:
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
 		if entry.threat_definition.id == definition_id:
@@ -298,6 +289,7 @@ func capture_state() -> Dictionary:
 		"pending_waves": pending_waves.duplicate(true),
 		"in_recovery": in_recovery,
 		"completed_attack_windows": completed_attack_windows,
+		"last_raid_pattern": String(raid_planner.last_pattern),
 	}
 
 func restore_state(state: Dictionary) -> void:
@@ -312,4 +304,5 @@ func restore_state(state: Dictionary) -> void:
 		pending_waves.append({"definition_id": String(wave.definition_id), "remaining": float(wave.remaining), "angle": float(wave.angle)})
 	in_recovery = bool(state.in_recovery)
 	completed_attack_windows = int(state.completed_attack_windows)
+	raid_planner.last_pattern = StringName(state.get("last_raid_pattern", ""))
 	pressure_changed.emit(pressure_level)

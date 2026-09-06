@@ -12,6 +12,9 @@ func spawn_radius_multiplier() -> float:
 func spawn_altitude() -> float:
 	return movement.cruise_altitude
 
+func estimated_approach_seconds(distance: float, speed_multiplier: float) -> float:
+	return maxf(0.0, distance) / (movement.speed * minf(speed_multiplier, movement.maximum_speed_multiplier))
+
 func mission_definition() -> ThreatMissionDefinition:
 	return mission
 

@@ -4,9 +4,13 @@ extends RefCounted
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
-	if version >= 21:
+	if version >= 22:
 		return payload
 	var result := payload.duplicate(true)
+	if result.get("director") is Dictionary:
+		result.director.last_raid_pattern = ""
+	if version >= 21:
+		return result
 	var support: Variant = result.world.get("support", {})
 	if support is Dictionary and support.get("tasks") is Array:
 		for task: Variant in support.tasks:
@@ -279,6 +283,9 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if not projectile_error.is_empty():
 			return projectile_error
 	var director_state: Dictionary = payload.director
+	var last_pattern: Variant = director_state.get("last_raid_pattern")
+	if not last_pattern is String or not (String(last_pattern).is_empty() or StringName(last_pattern) in RaidPlanner.PATTERNS):
+		return "공습 생성 이력이 올바르지 않습니다"
 	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"
 	for wave: Dictionary in director_state.pending_waves:
