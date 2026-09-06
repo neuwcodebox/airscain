@@ -11,10 +11,21 @@ no_depth_test = true
 render_priority = 100
 fixed_size = true
 pixel_size = 0.001
-font_size = 12
+font_size = 16
 outline_size = 4
 modulate = Color(0.46, 0.9, 0.62, 0.96)
 text = "▲"
+
+[node name="Detail" type="Label3D" parent="."]
+billboard = 1
+no_depth_test = true
+render_priority = 101
+fixed_size = true
+pixel_size = 0.001
+font_size = 12
+outline_size = 4
+offset = Vector2(0, 12)
+visible = false
 
 [node name="SelectionRing" type="MeshInstance3D" parent="."]
 position = Vector3(0, -27, 0)

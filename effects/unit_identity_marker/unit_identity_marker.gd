@@ -11,6 +11,7 @@ const SUPPORT_COLOR := Color("f0c86a")
 const SELECTION_COLOR := Color(0.26, 0.9, 1.0, 0.92)
 
 @onready var icon: Label3D = $Icon
+@onready var detail: Label3D = $Detail
 @onready var selection_ring: MeshInstance3D = $SelectionRing
 
 var selected: bool = false
@@ -49,6 +50,15 @@ func set_role(roles: int) -> void:
 	visible = true
 	_apply_selection()
 
+func set_detail_bars(count: int) -> void:
+	if detail == null:
+		detail = get_node("Detail") as Label3D
+	detail.text = ""
+	for index: int in clampi(count, 0, 3):
+		detail.text += "|" if index == 0 else " |"
+	detail.modulate = icon.modulate
+	detail.visible = count > 0
+
 func set_selected(enabled: bool) -> void:
 	selected = enabled
 	_apply_selection()
@@ -59,3 +69,5 @@ func _apply_selection() -> void:
 	selection_ring.visible = selected
 	icon.outline_size = 8 if selected else 4
 	icon.scale = Vector3.ONE * (1.2 if selected else 1.0)
+	detail.outline_size = icon.outline_size
+	detail.scale = icon.scale

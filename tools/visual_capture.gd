@@ -20,6 +20,36 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-identity-icons-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		AirscainApp.apply_global_font()
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		var definitions: Array[DefenseDefinition] = [main.scenario.available_defenses[8], main.scenario.available_defenses[0], main.scenario.available_defenses[7], main.scenario.available_defenses[1]]
+		var units: Array[DefenseUnit] = []
+		for index: int in definitions.size():
+			var definition := definitions[index]
+			var unit := definition.scene.instantiate() as DefenseUnit
+			main.add_child(unit)
+			unit.setup(900 + index, definition)
+			unit.global_position = Vector3(float(index) * 70.0 - 105.0, 0, 400)
+			unit.global_position.y = main.battlefield.terrain_height(unit.global_position.x, unit.global_position.z)
+			units.append(unit)
+		var center := units[1].global_position + Vector3(35, 15, 0)
+		main.camera_rig.camera.global_position = center + Vector3(0, 190, 320)
+		main.camera_rig.camera.look_at(center)
+		for frame: int in 6:
+			await process_frame
+		_save_capture("/tmp/airscain_identity_icons.png")
+		units[1].set_selected(true)
+		main.day_night.apply_time(448.0, true)
+		for frame: int in 6:
+			await process_frame
+		_save_capture("/tmp/airscain_identity_icons_night.png")
+		print("IDENTITY_ICONS_CAPTURE_OK short medium long radar selected night")
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-building-departure-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

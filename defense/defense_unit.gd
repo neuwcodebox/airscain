@@ -290,6 +290,7 @@ func _ensure_identity_marker() -> void:
 	add_child(identity_marker)
 	identity_marker.position = Vector3(0.0, 28.0, 0.0)
 	identity_marker.call("set_role", c2_roles())
+	identity_marker.call("set_detail_bars", definition.identity_bar_count)
 
 func _refresh_status_marker() -> void:
 	if definition == null:

@@ -400,7 +400,12 @@ func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
 		assert_true(icon.fixed_size)
 		assert_true(icon.no_depth_test)
 		assert_gte(icon.render_priority, 100)
-		assert_eq(icon.font_size, 12)
+		assert_gt(icon.font_size, 12)
+		var detail := defense.identity_marker.get_node("Detail") as Label3D
+		assert_eq(detail.visible, definition.identity_bar_count > 0)
+		assert_eq(detail.text.count("|"), definition.identity_bar_count)
+		assert_true(detail.fixed_size)
+		assert_true(detail.no_depth_test)
 		assert_gt(defense.identity_marker.position.y, defense.status_marker.position.y)
 		role_icons[icon.text] = true
 	assert_true(role_icons.has("◎"))
@@ -419,6 +424,7 @@ func test_friendly_installation_selection_highlights_icon_and_footprint() -> voi
 	assert_true(selection_ring.visible)
 	assert_eq(icon.outline_size, 8)
 	assert_eq(icon.scale, Vector3.ONE * 1.2)
+	assert_eq((defense.identity_marker.get_node("Detail") as Label3D).scale, icon.scale)
 	assert_eq((selection_ring.mesh as TorusMesh).rings, 64)
 	defense.set_selected(false)
 	assert_false(selection_ring.visible)
