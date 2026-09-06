@@ -390,6 +390,8 @@ func test_tactical_units_use_a_smaller_presentation_scale_without_changing_profi
 	assert_eq(threat.definition.radar_signature, SCENARIO.threat_entries[0].threat_definition.radar_signature)
 
 func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
+	assert_eq(SCENARIO.available_defenses[1].display_name, "저·중고도 레이더")
+	assert_eq(SCENARIO.available_defenses[3].display_name, "고고도 레이더")
 	var role_icons: Dictionary = {}
 	for definition: DefenseDefinition in SCENARIO.available_defenses:
 		var defense := add_child_autofree(definition.scene.instantiate()) as DefenseUnit
