@@ -20,6 +20,33 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-night-placement-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		AirscainApp.apply_global_font()
+		main.set_process(false)
+		main.day_night.apply_time(450.0, true)
+		var definition := main.scenario.available_defenses[0]
+		var candidates := _visible_valid_placement_positions(definition.placement_profile, 1)
+		assert(not candidates.is_empty())
+		main.placement.select(definition)
+		Input.warp_mouse(root.get_final_transform() * main.camera_rig.camera.unproject_position(candidates[0]))
+		await create_timer(0.6).timeout
+		_save_capture("/tmp/airscain_night_placement_lit.png")
+		assert(main.battlefield._placement_light_strength > 0.9)
+		var city_point := Vector3(-80.0, main.battlefield.terrain_height(-80.0, 40.0), 40.0)
+		Input.warp_mouse(root.get_final_transform() * main.camera_rig.camera.unproject_position(city_point))
+		await create_timer(0.6).timeout
+		_save_capture("/tmp/airscain_night_placement_city.png")
+		main.placement.cancel()
+		await create_timer(0.6).timeout
+		assert(main.battlefield._placement_light_strength == 0.0)
+		_save_capture("/tmp/airscain_night_placement_off.png")
+		print("NIGHT_PLACEMENT_CAPTURE_OK")
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-all-relocation-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

@@ -84,6 +84,7 @@ func cancel() -> void:
 	selected_threat = null
 	relocating_unit = null
 	if battlefield != null:
+		battlefield.set_placement_light(false)
 		battlefield.set_rooftop_pads_visible(false)
 		battlefield.set_placement_contours(false)
 	if preview != null:
@@ -96,15 +97,19 @@ func cancel() -> void:
 func _process(delta: float) -> void:
 	_update_asset_hover()
 	if selected == null and selected_threat == null or preview == null:
+		if battlefield != null:
+			battlefield.set_placement_light(false)
 		return
 	var mouse := get_viewport().get_mouse_position()
 	if not get_viewport().get_visible_rect().has_point(mouse) or get_viewport().gui_get_hovered_control() != null:
+		battlefield.set_placement_light(false)
 		preview.visible = false
 		_publish_dependency_preview(null, Vector3.ZERO, false)
 		placement_status_changed.emit("", false, mouse, false)
 		return
 	var hit := _terrain_hit(mouse)
 	if hit.is_empty():
+		battlefield.set_placement_light(false)
 		battlefield.set_placement_contours(false)
 		preview.visible = false
 		candidate_valid = false
@@ -114,6 +119,7 @@ func _process(delta: float) -> void:
 	preview.visible = true
 	candidate_position = hit.position if selected_threat != null else battlefield.snap_placement_position(hit.position, selected.placement_profile)
 	preview.global_position = candidate_position
+	battlefield.set_placement_light(selected != null, candidate_position)
 	_update_elevation_guide()
 	var result := {"valid": true, "reason": "위협 투입 가능"} if selected_threat != null else _validation()
 	candidate_valid = result.valid

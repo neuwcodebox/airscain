@@ -12,6 +12,32 @@ var lamp_material: StandardMaterial3D
 var lamp_glare_material: StandardMaterial3D
 var smoke_shadow_materials: Array[ShaderMaterial] = []
 var smoke_shadow_projection: SmokeShadowProjection
+var _night_amount: float = 0.0
+var _placement_light_active: bool = false
+var _placement_light_center := Vector3.ZERO
+var _placement_light_strength: float = 0.0
+
+func set_placement_light(enabled: bool, center: Vector3 = Vector3.ZERO) -> void:
+	if not enabled and not _placement_light_active:
+		return
+	_placement_light_active = enabled
+	if enabled:
+		_placement_light_center = center
+	set_process(true)
+
+func _process(delta: float) -> void:
+	var target := _night_amount if _placement_light_active else 0.0
+	_placement_light_strength = move_toward(_placement_light_strength, target, delta * 3.0)
+	if terrain != null and terrain.material_override is ShaderMaterial:
+		_apply_placement_light(terrain.material_override as ShaderMaterial)
+	for material: ShaderMaterial in smoke_shadow_materials:
+		_apply_placement_light(material)
+	if not _placement_light_active and _placement_light_strength == 0.0:
+		set_process(false)
+
+func _apply_placement_light(material: ShaderMaterial) -> void:
+	material.set_shader_parameter("placement_light_center", _placement_light_center)
+	material.set_shader_parameter("placement_light_strength", _placement_light_strength)
 
 func configure_smoke_shadows(sun: DirectionalLight3D) -> void:
 	if not is_inside_tree() or terrain == null:
@@ -45,6 +71,7 @@ var _city_boxes := CityBoxBatch.new()
 @onready var city_visuals: Node3D = $CityVisuals
 
 func set_night_amount(amount: float) -> void:
+	_night_amount = amount
 	if window_material != null:
 		window_material.set_shader_parameter("night_amount", amount)
 	if lamp_material != null:

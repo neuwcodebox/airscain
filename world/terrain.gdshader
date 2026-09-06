@@ -1,6 +1,7 @@
 shader_type spatial;
 render_mode diffuse_burley;
 #include "res://effects/smoke_shadow_sampling.gdshaderinc"
+#include "res://effects/placement_surface_light.gdshaderinc"
 varying vec3 shadow_receiver_position;
 
 varying vec3 terrain_position;
@@ -40,4 +41,5 @@ void fragment() {
 	ALBEDO = base * 0.68 * (1.0 - contour * mix(0.07, 0.28, local_weight));
 	ROUGHNESS = 0.94;
 	ALBEDO *= 1.0 - projected_smoke_shadow(shadow_receiver_position);
+	EMISSION = placement_surface_light(shadow_receiver_position, ALBEDO);
 }

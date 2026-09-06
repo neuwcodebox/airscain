@@ -40,6 +40,33 @@ func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	assert_lte(main.battlefield.street_lights.size(), 6)
 	assert_eq(main.battlefield.window_material.get_shader_parameter("night_amount"), 1.0)
 
+func test_night_placement_light_is_local_fades_and_stops_after_cancel() -> void:
+	main.set_process(false)
+	main.placement.set_process(false)
+	var field := main.battlefield
+	var material := field.terrain.material_override as ShaderMaterial
+	var center := Vector3(40.0, 20.0, -30.0)
+	field.set_night_amount(0.0)
+	field.set_placement_light(true, center)
+	field._process(0.1)
+	assert_eq(float(material.get_shader_parameter("placement_light_strength")), 0.0)
+	field.set_night_amount(1.0)
+	field._process(0.05)
+	var partial := float(material.get_shader_parameter("placement_light_strength"))
+	assert_gt(partial, 0.0)
+	assert_lt(partial, 1.0)
+	field._process(1.0)
+	assert_eq(material.get_shader_parameter("placement_light_center"), center)
+	for receiver: ShaderMaterial in field.smoke_shadow_materials:
+		assert_eq(float(receiver.get_shader_parameter("placement_light_strength")), 1.0)
+	main.placement.cancel()
+	field._process(0.05)
+	assert_lt(float(material.get_shader_parameter("placement_light_strength")), 1.0)
+	assert_gt(float(material.get_shader_parameter("placement_light_strength")), 0.0)
+	field._process(1.0)
+	assert_eq(float(material.get_shader_parameter("placement_light_strength")), 0.0)
+	assert_false(field.is_processing())
+
 func test_smoking_buildings_lose_window_power_until_their_smoke_is_repaired() -> void:
 	main.set_process(false)
 	for index: int in [0, main.battlefield.city_buildings.size() - 1]:
