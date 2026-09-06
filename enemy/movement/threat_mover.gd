@@ -32,6 +32,8 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		desired_position.y = _cruise_height(unit.global_position, horizontal_to_target)
 	else:
 		desired_position.y = battlefield.flight_surface_height(target.x, target.z) + profile.terminal_altitude
+		if force_terminal:
+			desired_position.y = maxf(desired_position.y, target.y + profile.terminal_altitude)
 	var desired_direction := unit.global_position.direction_to(desired_position)
 	if desired_direction.length_squared() <= 0.0001:
 		return

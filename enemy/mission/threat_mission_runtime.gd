@@ -32,12 +32,18 @@ func navigation_target() -> Vector3:
 	return fixed_target
 
 func observe_target(unit_position: Vector3) -> bool:
-	if profile.acquisition_range <= 0.0 or phase == Phase.EGRESS:
+	if profile.acquisition_range <= 0.0 or phase == Phase.EGRESS or target_defense_id == 0:
 		return false
-	if unit_position.distance_to(fixed_target) > profile.acquisition_range:
+	# Search inside the estimated area before declaring an offset report empty.
+	var confirmation_distance := maxf(profile.acquisition_range * 0.75, (profile.acquisition_range + profile.action_distance) * 0.5)
+	if unit_position.distance_to(fixed_target) > confirmation_distance:
 		return false
 	if not is_instance_valid(target_asset) or not target_asset.active or target_asset.global_position.distance_to(unit_position) > profile.acquisition_range:
-		phase = Phase.EGRESS
+		if profile.type == ThreatMissionDefinition.Type.IMPACT:
+			target_asset = null
+			target_defense_id = 0
+		else:
+			phase = Phase.EGRESS
 		return true
 	fixed_target = target_asset.global_position
 	return false
@@ -85,7 +91,7 @@ func _apply_effect(unit_position: Vector3) -> void:
 	effect_applied = true
 	if profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
 		return # The released munition owns impact damage.
-	if target_asset != null and is_instance_valid(target_asset):
-		target_asset.receive_damage(profile.damage)
-	else:
+	if profile.target_role == ThreatMissionDefinition.TargetRole.CITY:
 		objective.apply_surface_impact(roundi(profile.damage), unit_position)
+	elif is_instance_valid(target_asset) and target_asset.active and unit_position.distance_to(target_asset.global_position + Vector3.UP * 2.0) <= profile.action_distance:
+		target_asset.receive_damage(profile.damage)

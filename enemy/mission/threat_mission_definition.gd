@@ -22,7 +22,7 @@ func knowledge_role() -> StringName:
 func validation_error() -> String:
 	if type not in Type.values() or target_role not in TargetRole.values() or not is_finite(acquisition_range) or acquisition_range < 0.0:
 		return "위협 임무 역할 또는 획득 범위가 올바르지 않습니다"
-	if acquisition_range > 0.0 and (type != Type.STRIKE_AND_EXIT or target_role == TargetRole.CITY or acquisition_range <= action_distance):
+	if acquisition_range > 0.0 and (type == Type.RECONNAISSANCE or target_role == TargetRole.CITY or acquisition_range <= action_distance):
 		return "관측 기반 타격 임무의 획득 범위가 올바르지 않습니다"
 	if damage < 0.0 or action_distance <= 0.0 or action_duration < 0.0:
 		return "위협 임무 프로필이 올바르지 않습니다"

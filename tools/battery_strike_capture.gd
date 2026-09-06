@@ -1,6 +1,8 @@
 extends SceneTree
 ## Deterministic, silent visual check of the observed-target strike flow.
 
+var capture_prefix := "airscain_battery_strike"
+
 func _init() -> void:
 	call_deferred("run")
 
@@ -18,7 +20,20 @@ func run() -> void:
 	main.set_process(false)
 	main.camera_rig.set_process(false)
 	main.altitude_profile.hide()
-	var definition: DefenseDefinition = main.scenario.available_defenses[0]
+	var requested: StringName = &"battery_strike_uav"
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--threat="):
+			requested = StringName(argument.trim_prefix("--threat="))
+			capture_prefix = "airscain_%s" % requested
+	var entry: ThreatSpawnEntry
+	for candidate: ThreatSpawnEntry in main.scenario.threat_entries:
+		if candidate.threat_definition.id == requested:
+			entry = candidate
+	assert(entry != null)
+	var role := entry.threat_definition.adaptive_knowledge_role
+	var definition_index := {&"weapon": 0, &"sensor": 1, &"command": 2, &"support": 5}[role] as int
+	var definition: DefenseDefinition = main.scenario.available_defenses[definition_index]
+	main._on_pressure_changed(definition.unlock_pressure_level)
 	var target: DefenseUnit
 	for x: int in range(280, 601, 30):
 		var position := Vector3(x, main.battlefield.terrain_height(x, 180), 180)
@@ -29,18 +44,13 @@ func run() -> void:
 	assert(target != null)
 	target.receive_damage(40.0)
 	main.enemy_knowledge.record_recon(target)
-	var entry: ThreatSpawnEntry
-	for candidate: ThreatSpawnEntry in main.scenario.threat_entries:
-		if candidate.threat_definition.id == &"battery_strike_uav":
-			entry = candidate
-	assert(entry != null)
 	var hunter := main.director._spawn_entry(entry, 0.5, 0.0) as AttackUav
 	for tick: int in 3600:
 		hunter.gameplay_tick(1.0 / 30.0)
-		if hunter.global_position.distance_to(target.global_position) < 190.0:
+		if hunter.global_position.distance_to(target.global_position) < maxf(190.0, hunter.mission_runtime.profile.action_distance * 1.4):
 			break
 	main.hud.hide()
-	main.camera_rig.camera.global_position = hunter.global_position + Vector3(23, 18, 28)
+	main.camera_rig.camera.global_position = hunter.global_position + Vector3(35, 28, 42)
 	main.camera_rig.camera.look_at(hunter.global_position)
 	await capture("model")
 	main.hud.show()
@@ -54,6 +64,15 @@ func run() -> void:
 		if hunter.mission_runtime.effect_applied:
 			break
 	assert(hunter.mission_runtime.effect_applied)
+	if hunter.mission_runtime.profile.type == ThreatMissionDefinition.Type.IMPACT:
+		target._process(0.0)
+		main._on_asset_selected(target)
+		assert(target.integrity == maxf(0.0, 60.0 - hunter.mission_runtime.profile.damage))
+		await capture("impact")
+		main.free()
+		await process_frame
+		quit()
+		return
 	var munition: Node3D
 	for child: Node in main.threat_parent.get_children():
 		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
@@ -66,10 +85,10 @@ func run() -> void:
 	munition.call("_process", 1.0)
 	target._process(0.0)
 	main._on_asset_selected(target)
-	assert(not target.active and target.integrity == 20.0)
+	assert(not target.active and target.integrity == maxf(0.0, 60.0 - hunter.mission_runtime.profile.damage))
 	assert(main.objective.current_integrity == city_before)
 	await capture("impact")
-	print("STRIKE verified: observed approach, one release, asset integrity 60 -> 20, city unchanged")
+	print("STRIKE verified: observed approach, one release, asset integrity 60 -> %.0f, city unchanged" % target.integrity)
 	main.free()
 	await process_frame
 	quit()
@@ -78,6 +97,6 @@ func capture(label: String) -> void:
 	for frame: int in 3:
 		await process_frame
 	await RenderingServer.frame_post_draw
-	var path := "/tmp/airscain_battery_strike_%s.png" % label
+	var path := "/tmp/%s_%s.png" % [capture_prefix, label]
 	root.get_texture().get_image().save_png(path)
 	print("CAPTURE ", path)

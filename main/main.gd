@@ -296,7 +296,7 @@ func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> 
 	session.register_threat_resolution(threat, neutralized, reward)
 	if not neutralized and threat is AttackUav:
 		var aircraft := threat as AttackUav
-		if aircraft.mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS and aircraft.mission_runtime.effect_applied:
+		if aircraft.mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS:
 			threat.queue_free()
 			return
 	if neutralized and _leaves_falling_wreck(threat):
@@ -321,7 +321,7 @@ func _is_city_impact(threat: ThreatUnit, neutralized: bool) -> bool:
 	if neutralized or not threat is AttackUav:
 		return false
 	var mission := (threat as AttackUav).mission_runtime.profile
-	return mission != null and mission.type == ThreatMissionDefinition.Type.IMPACT
+	return mission != null and mission.type == ThreatMissionDefinition.Type.IMPACT and mission.target_role == ThreatMissionDefinition.TargetRole.CITY
 
 func _spawn_falling_wreck(threat: ThreatUnit) -> void:
 	var effect := FALLING_WRECK_SCENE.instantiate() as FallingWreckEffect

@@ -8,34 +8,37 @@
 [sub_resource type="Resource" id="Movement"]
 script = ExtResource("3")
 mode = 1
-speed = 82.0
-cruise_altitude = 22.0
-terminal_distance = 150.0
-maximum_turn_rate_degrees = 105.0
-maximum_climb_rate = 55.0
+speed = 92.0
+maximum_speed_multiplier = 1.3
+cruise_altitude = 28.0
+spawn_radius_multiplier = 0.68
+terminal_distance = 90.0
+terminal_altitude = 2.0
+maximum_turn_rate_degrees = 80.0
+maximum_climb_rate = 48.0
 terrain_lookahead = 120.0
 
 [sub_resource type="Resource" id="Mission"]
 script = ExtResource("4")
 type = 0
-target_role = 1
-damage = 48.0
+target_role = 4
+damage = 55.0
 action_distance = 9.0
 acquisition_range = 240.0
 
 [resource]
 script = ExtResource("1")
-id = &"anti_radiation_missile"
-display_name = "대레이더미사일"
+id = &"battery_strike_cruise"
+display_name = "포대 타격 순항미사일"
 scene = ExtResource("2")
-neutralization_reward = 24
-signature_class = &"missile"
-radar_signature = 0.5
+neutralization_reward = 25
+signature_class = &"cruise_missile"
+radar_signature = 0.46
 affiliation = 3
-adaptive_knowledge_role = &"sensor"
-adaptive_knowledge_weight = 3.0
+adaptive_knowledge_role = &"weapon"
+adaptive_knowledge_weight = 1.5
 requires_role_knowledge = true
-maximum_health = 45.0
+maximum_health = 65.0
 movement = SubResource("Movement")
 mission = SubResource("Mission")
-visual_color = Color(0.7, 0.28, 0.08, 1)
+visual_color = Color(0.38, 0.41, 0.3, 1)

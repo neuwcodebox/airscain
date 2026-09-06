@@ -22,8 +22,10 @@ func configure_mission(objective_value: ProtectedObjective, battlefield_value: B
 	speed_multiplier = pressure_multiplier
 	mover.setup(_definition.movement, battlefield, global_position.direction_to(target_point))
 	mission_runtime.setup(_definition.mission, objective, target_point, target_asset_value, exit_point_value)
-	if _definition.mission.acquisition_range > 0.0 and target_asset_value == null:
+	if _definition.mission.acquisition_range > 0.0 and target_asset_value == null and _definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
 		mission_runtime.phase = ThreatMissionRuntime.Phase.EGRESS
+	elif _definition.mission.acquisition_range > 0.0 and target_asset_value == null:
+		_ground_missed_target()
 
 func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -34,8 +36,12 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 func gameplay_tick(delta: float) -> void:
 	if not active or resolved_state:
 		return
-	if mission_runtime.observe_target(global_position) and enemy_knowledge != null:
-		enemy_knowledge.discard_estimate_at(mission_runtime.target_defense_id, mission_runtime.fixed_target, _definition.mission.acquisition_range)
+	var observed_id := mission_runtime.target_defense_id
+	if mission_runtime.observe_target(global_position):
+		if enemy_knowledge != null:
+			enemy_knowledge.discard_estimate_at(observed_id, mission_runtime.fixed_target, _definition.mission.acquisition_range)
+		if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
+			_ground_missed_target()
 	var mission_target := mission_runtime.navigation_target()
 	target_point = mission_target
 	var previous_position := global_position
@@ -52,10 +58,17 @@ func gameplay_tick(delta: float) -> void:
 		mover.advance(self, body, target_point, speed_multiplier, delta, preserving_egress_altitude, terminal_committed)
 	if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
 		var building_impact := battlefield.building_segment_impact(previous_position, global_position)
+		if _definition.mission.target_role != ThreatMissionDefinition.TargetRole.CITY:
+			var terrain_impact := battlefield.terrain_segment_impact(previous_position, global_position)
+			if not terrain_impact.is_empty() and (building_impact.is_empty() or previous_position.distance_squared_to(terrain_impact.position) < previous_position.distance_squared_to(building_impact.position)):
+				building_impact = terrain_impact
 		if not building_impact.is_empty():
 			global_position = building_impact.position
 			_sample_exhaust(previous_position, global_position)
-			objective.apply_building_impact(roundi(_definition.mission.damage), global_position, float(building_impact.building_height))
+			if _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
+				objective.apply_building_impact(roundi(_definition.mission.damage), global_position, float(building_impact.building_height))
+			else:
+				mission_runtime.gameplay_tick(global_position, delta)
 			resolve_once(false)
 			return
 		var impact_point := mission_target + Vector3.UP * 2.0
@@ -70,6 +83,11 @@ func gameplay_tick(delta: float) -> void:
 		_spawn_strike_munition(mission_target)
 	if not had_applied_effect and mission_runtime.effect_applied and enemy_knowledge != null and _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
 		_record_local_recon()
+
+func _ground_missed_target() -> void:
+	var point := mission_runtime.fixed_target
+	point.y = battlefield.flight_surface_height(point.x, point.z)
+	mission_runtime.fixed_target = point
 
 func _record_local_recon() -> void:
 	var anchor := mission_runtime.target_asset
