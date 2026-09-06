@@ -124,7 +124,7 @@ tooltip_text = "자산 배치, 탐지, 교전, 보급 등 기본 조작을 익�
 custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "샌드박스"
+text = "자유 모드"
 tooltip_text = "방공 자산을 자유롭게 배치하고 위협을 직접 투입합니다."
 
 [node name="MenuFeedbackLabel" type="Label" parent="MainMenu/Panel/VBox"]
