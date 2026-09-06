@@ -39,6 +39,8 @@ func run() -> void:
 		gun_definition.reserve_ammunition = 120
 		gun_definition.resupply_cost = 6
 	for argument: String in args:
+		if argument.begins_with("--fuze="):
+			main.scenario.threat_entries[1].threat_definition.missile_fuze_response = float(argument.trim_prefix("--fuze="))
 		if argument.begins_with("--rack="):
 			(main.scenario.available_defenses[4] as CloseInGunDefinition).magazine_capacity = int(argument.trim_prefix("--rack="))
 	for x: int in range(260, 501, 25):
@@ -97,7 +99,7 @@ func run() -> void:
 			break
 		if tick % 30 == 0:
 			await process_frame
-	print("BALANCE_RESULT ", JSON.stringify({"kind":kind,"seed":world_seed,"low_only":low_only,"baseline":baseline,"purchase":initial_spending,"time":main.session.survival_time,"city":main.objective.current_integrity,"spawned":spawned,"kills":main.session.neutralized_count,"by_type":main.session.neutralized_by_type,"fired":fired,"projectile_outcomes":projectile_outcomes,"reload_asset_seconds":blocked,"supply_cost":main.session.support_spending,"budget":main.session.budget,"active":main.registry.hostile_count(),"positions":weapons.map(func(u:DefenseUnit)->String:return str(u.global_position))}))
+	print("BALANCE_RESULT ", JSON.stringify({"kind":kind,"seed":world_seed,"low_only":low_only,"swarm_fuze_response":main.scenario.threat_entries[1].threat_definition.missile_fuze_response,"baseline":baseline,"purchase":initial_spending,"time":main.session.survival_time,"city":main.objective.current_integrity,"spawned":spawned,"kills":main.session.neutralized_count,"by_type":main.session.neutralized_by_type,"fired":fired,"projectile_outcomes":projectile_outcomes,"reload_asset_seconds":blocked,"supply_cost":main.session.support_spending,"budget":main.session.budget,"active":main.registry.hostile_count(),"positions":weapons.map(func(u:DefenseUnit)->String:return str(u.global_position))}))
 	main.free()
 	main = null
 	weapons.clear()
@@ -127,6 +129,13 @@ func buy(index: int, preferred: Vector3) -> bool:
 func _projectile_launched(_unit: DefenseUnit, projectile: Node) -> void:
 	if projectile is HomingInterceptor:
 		(projectile as HomingInterceptor).flight_ended.connect(_missile_ended)
+		(projectile as HomingInterceptor).target_hit.connect(_missile_hit)
+
+func _missile_hit(threat: ThreatUnit, nominal_damage: float) -> void:
+	var key := "missile_hit_" + String(threat.definition.id)
+	projectile_outcomes[key] = int(projectile_outcomes.get(key, 0)) + 1
+	projectile_outcomes["missile_effective_damage"] = float(projectile_outcomes.get("missile_effective_damage", 0.0)) + minf(threat.health, nominal_damage)
+	projectile_outcomes["missile_excess_damage"] = float(projectile_outcomes.get("missile_excess_damage", 0.0)) + maxf(0.0, nominal_damage - threat.health)
 
 func _missile_ended(detonated: bool) -> void:
 	# This signal also covers timeout/self-destruction, not only hits.

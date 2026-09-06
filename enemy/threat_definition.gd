@@ -18,6 +18,7 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export_range(0.0, 1.0) var chaff_effectiveness: float = 0.0
 @export var countermeasure_charges: int = 0
 @export_range(0.0, 2.0) var electronic_vulnerability: float = 1.0
+@export_range(0.1, 1.0) var missile_fuze_response: float = 1.0
 @export var adaptive_knowledge_role: StringName
 @export_range(0.0, 4.0, 0.1) var adaptive_knowledge_weight: float = 1.0
 @export var requires_role_knowledge: bool = false
@@ -39,6 +40,8 @@ func runtime_state_validation_error(_content_state: Dictionary, _defense_ids: Di
 	return ""
 
 func validation_error() -> String:
+	if not is_finite(missile_fuze_response) or missile_fuze_response < 0.1 or missile_fuze_response > 1.0:
+		return "미사일 신관 반응 설정이 올바르지 않습니다"
 	if id.is_empty() or display_name.is_empty() or scene == null:
 		return "위협 Definition의 필수 참조가 없습니다"
 	if neutralization_reward < 0 or radar_signature < 0.0 or radar_signature > 1.0:

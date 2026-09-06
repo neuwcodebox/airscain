@@ -3,6 +3,7 @@ extends Node3D
 
 signal target_changed(previous_track_id: int, new_track_id: int, remaining_lifetime: float)
 signal flight_ended(detonated: bool)
+signal target_hit(threat: ThreatUnit, nominal_damage: float)
 
 const MISS_EFFECT_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
 const DETONATION_SCENE := preload("res://effects/explosion/explosion.tscn")
@@ -191,10 +192,11 @@ func _resolve_proximity_intercept(previous: Vector3) -> bool:
 	for threat: ThreatUnit in registry.get_active():
 		var physical_position := threat.get_aim_position()
 		var nearest := Geometry3D.get_closest_point_to_segment(physical_position, previous, global_position)
-		if nearest.distance_to(physical_position) <= proximity_radius:
+		if nearest.distance_to(physical_position) <= proximity_radius * threat.definition.missile_fuze_response:
 			global_position = nearest
 			_finish_flight(true)
 			_spawn_detonation(Color(0.45, 0.78, 1.0), 6.0)
+			target_hit.emit(threat, damage)
 			threat.receive_damage(damage)
 			_release_smoke_trail()
 			queue_free()

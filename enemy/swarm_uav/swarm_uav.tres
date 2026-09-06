@@ -29,6 +29,7 @@ scene = ExtResource("2")
 neutralization_reward = 3
 signature_class = &"small_uav"
 radar_signature = 0.42
+missile_fuze_response = 0.6
 affiliation = 3
 high_neutralization_weight = 1.9
 maximum_health = 36.0

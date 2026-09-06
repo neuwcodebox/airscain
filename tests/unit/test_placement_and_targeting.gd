@@ -66,6 +66,46 @@ func before_each() -> void:
 	objective.exclusion_radius = SCENARIO.city_size * 0.5
 	battlefield.set_objective(objective)
 
+func test_missile_fuze_requires_closer_pass_for_low_response_targets() -> void:
+	for response: float in [1.0, 0.4]:
+		var registry := ThreatRegistry.new()
+		var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+		var definition := ThreatDefinition.new()
+		definition.missile_fuze_response = response
+		threat.setup(901, definition)
+		threat.health = 36.0
+		threat.global_position = Vector3(0, 20, 8)
+		registry.add(threat)
+		var parent := add_child_autofree(Node3D.new()) as Node3D
+		var interceptor := HomingInterceptor.new()
+		parent.add_child(interceptor)
+		interceptor.registry = registry
+		interceptor.proximity_radius = 15.0
+		interceptor.damage = 100.0
+		interceptor.global_position = Vector3(10, 20, 0)
+		watch_signals(interceptor)
+		var hit := interceptor._resolve_proximity_intercept(Vector3(-10, 20, 0))
+		if response == 1.0:
+			assert_true(hit)
+		else:
+			assert_false(hit)
+			assert_eq(threat.health, 36.0)
+			assert_signal_not_emitted(interceptor, "target_hit")
+			threat.global_position.z = 4.0
+			assert_true(interceptor._resolve_proximity_intercept(Vector3(-10, 20, 0)))
+		assert_eq(threat.health, -64.0, "신관 작동 거리만 바꾸고 명중 피해는 유지합니다")
+		assert_signal_emit_count(interceptor, "target_hit", 1)
+
+func test_missile_fuze_response_validation_rejects_nonphysical_values() -> void:
+	assert_eq(SCENARIO.threat_entries[1].threat_definition.missile_fuze_response, 0.6)
+	assert_eq(SCENARIO.threat_entries[0].threat_definition.missile_fuze_response, 1.0)
+	var definition := SCENARIO.threat_entries[1].threat_definition.duplicate() as ThreatDefinition
+	for response: float in [0.0, 1.1, NAN]:
+		definition.missile_fuze_response = response
+		assert_ne(definition.validation_error(), "")
+	definition.missile_fuze_response = 0.4
+	assert_eq(definition.validation_error(), "")
+
 func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	var registry := ThreatRegistry.new()
 	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
