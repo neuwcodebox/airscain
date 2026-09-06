@@ -451,8 +451,6 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	training._on_asset_selected(battery)
 	assert_eq(training.training_controller.step, TrainingController.Step.PRIORITY)
 	training._on_world_selected(Vector3.INF, distant_track_marker)
-	assert_false(training.hud.priority_target_button.disabled)
-	training.hud.priority_target_button.pressed.emit()
 	assert_eq(battery.doctrine.priority_track_id, track.track_id)
 	assert_eq(training.training_controller.step, TrainingController.Step.DOCTRINE)
 	training._on_asset_selected(battery)
@@ -1095,6 +1093,37 @@ func test_range_ribbon_follows_surface_and_reuses_stationary_geometry() -> void:
 	ring.set_range(300.0, "탐지 범위")
 	assert_ne(ring.mesh, moved)
 
+func test_clicking_hostile_track_prioritizes_without_overriding_engagement_rules() -> void:
+	var battery := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
+	var observation := SensorObservation.new()
+	observation.setup(1, 0.0, Vector3(300, 180, 300), 0.95, 4.0, 3.0, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.95)
+	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 0.95
+	battery.set_hold_fire(true)
+	main._on_asset_selected(battery)
+	var point := main.tactical_screen_overlay.track_marker_screen_position(track)
+	assert_same(main.tactical_screen_overlay.track_at_screen(point), track)
+	main._on_world_selected(Vector3.INF, point)
+	assert_eq(battery.doctrine.priority_track_id, track.track_id)
+	assert_same(main.selected_asset, battery)
+	assert_true(battery.doctrine.hold_fire)
+	assert_eq(main.hud.selection_kind_label.text, "우선표적")
+	battery.set_priority_track(-1)
+	main._on_world_selected(track.estimated_position, Vector2(-100, -100))
+	assert_eq(battery.doctrine.priority_track_id, -1, "항적 아래의 지면 클릭은 명령이 아닙니다")
+	for affiliation: int in [PlayerTrack.Affiliation.NEUTRAL, PlayerTrack.Affiliation.FRIENDLY, PlayerTrack.Affiliation.UNKNOWN]:
+		track.affiliation = affiliation
+		battery.set_priority_track(-1)
+		main._on_world_selected(Vector3.INF, point)
+		assert_eq(battery.doctrine.priority_track_id, -1)
+		assert_same(main.selected_track, track)
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.state = PlayerTrack.State.LOST
+	assert_false(TacticalScreenOverlay.can_prioritize(battery, track))
+	main._clear_selection()
+	assert_null(main.tactical_screen_overlay.priority_source)
+
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
 	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
@@ -1125,7 +1154,7 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	assert_eq(main.hud.track_engagement_value.text, "1")
 	var stable_panel_width := main.hud.selected_asset_panel.size.x
 	track.classification_confidence = 0.09
-	main.hud.set_selected_track(track, false, 1, 1)
+	main.hud.set_selected_track(track, 1, 1)
 	assert_eq(main.hud.selected_asset_panel.size.x, stable_panel_width)
 	assert_eq(int(main.tactical_screen_overlay.get("selected_track_id")), track.track_id)
 	var battery_definition: DefenseDefinition = main.scenario.available_defenses[0]
@@ -1285,8 +1314,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
 	main.placement.pick_asset_at(battery.global_position)
 	main._on_world_selected(known_tracks[0].estimated_position)
-	main.hud.priority_target_requested.emit()
-	assert_eq(battery.doctrine.priority_track_id, known_tracks[0].track_id)
+	assert_eq(battery.doctrine.priority_track_id, -1, "적성 미확인 항적은 정보만 조회합니다")
 	main.hud.hold_fire_requested.emit(true)
 	assert_true(battery.doctrine.hold_fire)
 	main.hud.hold_fire_requested.emit(false)

@@ -74,8 +74,6 @@ func refresh() -> void:
 		TrainingController.Step.PRIORITY:
 			if hud.selected_asset != training.training_battery:
 				_asset(training.training_battery)
-			elif hud.priority_target_button.is_visible_in_tree():
-				_button(hud.priority_target_button, "우선표적 지정")
 			else:
 				_track()
 		TrainingController.Step.DOCTRINE:

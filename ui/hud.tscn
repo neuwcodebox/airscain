@@ -866,13 +866,6 @@ theme_override_constants/h_separation = 6
 theme_override_constants/v_separation = 6
 columns = 2
 
-[node name="PriorityTargetButton" type="Button" parent="SelectedAssetPanel/VBox/ActionSection/ActionGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-disabled = true
-text = "우선 표적 지정"
-
 [node name="ResupplyButton" type="Button" parent="SelectedAssetPanel/VBox/ActionSection/ActionGrid"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -1046,7 +1039,6 @@ text = "메인 메뉴"
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
 [connection signal="item_selected" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionModeButton" to="." method="_on_munition_mode_selected"]
-[connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/PriorityTargetButton" to="." method="_on_priority_target_pressed"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/ResupplyButton" to="." method="_on_resupply_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/AutomaticResupplyButton" to="." method="_on_automatic_resupply_toggled"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/RepairButton" to="." method="_on_repair_pressed"]

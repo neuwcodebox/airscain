@@ -59,7 +59,6 @@ func run() -> void:
 	main._on_asset_selected(battery)
 	main._on_world_selected(Vector3.INF, marker)
 	await capture("priority")
-	main.hud.priority_target_button.pressed.emit()
 	main._on_asset_selected(battery)
 	main.hud.hold_fire_requested.emit(false)
 	if not await until_step(TrainingController.Step.SUPPORT):

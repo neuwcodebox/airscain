@@ -9,7 +9,6 @@ signal main_menu_requested
 signal overlay_requested(mode: StringName)
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
-signal priority_target_requested
 signal munition_mode_requested(mode: StringName)
 signal resupply_requested
 signal automatic_resupply_requested(enabled: bool)
@@ -34,7 +33,6 @@ var selected_asset_connection_count: int = 0
 var selected_asset_support_connection_count: int = 0
 var selected_track_sensor_count: int = 0
 var selected_track_engagement_count: int = 0
-var selected_track_can_prioritize: bool = false
 var overlay_mode_index: int = 0
 var catalog_expanded: bool = false
 var training_description: String = ""
@@ -126,7 +124,6 @@ const CATALOG_GROUP_LABELS := {
 @onready var action_section: VBoxContainer = %ActionSection
 @onready var hold_fire_button: CheckButton = %HoldFireButton
 @onready var engage_unknown_button: CheckButton = %EngageUnknownButton
-@onready var priority_target_button: Button = %PriorityTargetButton
 @onready var munition_mode_button: OptionButton = %MunitionModeButton
 @onready var resupply_button: Button = %ResupplyButton
 @onready var automatic_resupply_button: CheckButton = %AutomaticResupplyButton
@@ -170,7 +167,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	_on_state_changed()
 	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
 	set_selected_asset(null, 0)
-	set_selected_track(null, false)
+	set_selected_track(null)
 	set_catalog_expanded(false)
 	set_city_menu_expanded(false)
 	set_threat_menu_expanded(false)
@@ -408,9 +405,8 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	relocation_button.disabled = not selected_asset.can_request_relocation()
 	_refresh_selection_view(fit_panel)
 
-func set_selected_track(track: PlayerTrack, can_prioritize: bool, sensor_count: int = 0, engagement_count: int = 0) -> void:
+func set_selected_track(track: PlayerTrack, sensor_count: int = 0, engagement_count: int = 0) -> void:
 	selected_track = track
-	selected_track_can_prioritize = can_prioritize
 	selected_track_sensor_count = sensor_count
 	selected_track_engagement_count = engagement_count
 	_refresh_selection_view()
@@ -430,8 +426,6 @@ func _refresh_selection_view(fit_panel: bool = true) -> void:
 	hold_fire_button.visible = doctrine_section.visible
 	engage_unknown_button.visible = doctrine_section.visible
 	munition_mode_button.visible = doctrine_section.visible and selected_asset.supports_munition_selection()
-	priority_target_button.visible = engagement_review
-	priority_target_button.disabled = not selected_track_can_prioritize
 	resupply_button.visible = has_asset and not has_track and selected_asset.uses_ammunition()
 	automatic_resupply_button.visible = doctrine_section.visible and selected_asset.uses_ammunition()
 	repair_button.visible = has_asset and not has_track
@@ -483,7 +477,7 @@ func _refresh_track_details() -> void:
 	track_engagement_value.text = str(selected_track_engagement_count)
 
 func _refresh_engagement_review() -> void:
-	selection_kind_label.text = "교전 검토"
+	selection_kind_label.text = "우선표적" if selected_asset.priority_track_id() == selected_track.track_id else "교전 검토"
 	selected_asset_label.text = "자산과 항적"
 	selection_state_label.text = "선택됨"
 	_set_state_color(true)
@@ -870,9 +864,6 @@ func _on_hold_fire_toggled(enabled: bool) -> void:
 
 func _on_engage_unknown_toggled(enabled: bool) -> void:
 	engage_unknown_requested.emit(enabled)
-
-func _on_priority_target_pressed() -> void:
-	priority_target_requested.emit()
 
 func _refresh_munition_options() -> void:
 	munition_mode_button.clear()

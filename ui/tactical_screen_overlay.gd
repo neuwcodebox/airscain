@@ -11,6 +11,48 @@ var training_approach_origin: Vector3
 var training_approach_position: Vector3
 var training_approach_text: String = "훈련 표적 진입"
 var training_left_panel: Control
+var priority_source: DefenseUnit
+var placement: PlacementController
+var hovered_track: PlayerTrack
+var priority_hint := PanelContainer.new()
+var priority_label := Label.new()
+
+func _ready() -> void:
+	priority_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	priority_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	priority_label.add_theme_font_size_override("font_size", 16)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.06, 0.08, 0.96)
+	style.border_color = Color(0.35, 0.9, 0.75)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
+	priority_hint.add_theme_stylebox_override("panel", style)
+	priority_hint.add_child(priority_label)
+	add_child(priority_hint)
+	priority_hint.hide()
+
+static func can_prioritize(unit: DefenseUnit, track: PlayerTrack) -> bool:
+	return is_instance_valid(unit) and unit.supports_engagement_controls() and unit.integrity > 0.0 and track != null and track.state != PlayerTrack.State.LOST and track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3
+
+func select_priority_source(unit: DefenseUnit) -> void:
+	priority_source = unit
+	hovered_track = null
+	priority_hint.hide()
+	queue_redraw()
+
+func track_at_screen(point: Vector2) -> PlayerTrack:
+	var nearest: PlayerTrack
+	var distance := 34.0
+	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
+		var screen := track_marker_screen_position(track)
+		if screen.is_finite() and screen.distance_to(point) < distance:
+			distance = screen.distance_to(point)
+			nearest = track
+	return nearest
 
 func configure(camera_value: Camera3D, knowledge: Node, left_panel: Control = null) -> void:
 	camera = camera_value
@@ -34,11 +76,30 @@ func hide_training_approach() -> void:
 	queue_redraw()
 
 func _process(_delta: float) -> void:
+	hovered_track = null
+	priority_hint.hide()
+	var mouse := get_viewport().get_mouse_position()
+	if is_instance_valid(priority_source) and priority_source.supports_engagement_controls() and placement != null and placement.selected == null and placement.selected_threat == null and get_viewport().get_visible_rect().has_point(mouse) and get_viewport().gui_get_hovered_control() == null and placement.asset_at_screen(mouse) == null:
+		hovered_track = track_at_screen(mouse)
+		if hovered_track != null:
+			priority_label.text = "클릭: 우선표적 지정" if can_prioritize(priority_source, hovered_track) else "클릭: 항적 정보"
+			if can_prioritize(priority_source, hovered_track) and priority_source.priority_track_id() == hovered_track.track_id:
+				priority_label.text = "우선표적 지정됨"
+			priority_hint.reset_size()
+			var extent := get_viewport().get_visible_rect().size
+			priority_hint.position = (mouse + Vector2(20, 24)).clamp(Vector2(8, 8), extent - priority_hint.size - Vector2(8, 8))
+			priority_hint.show()
 	queue_redraw()
 
 func _draw() -> void:
 	if camera == null:
 		return
+	if can_prioritize(priority_source, hovered_track):
+		var point := track_marker_screen_position(hovered_track)
+		var color := Color(0.35, 1.0, 0.75)
+		draw_arc(point, 20.0, 0.0, TAU, 32, color, 1.5, true)
+		for direction: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
+			draw_line(point + direction * 16, point + direction * 25, color, 2, true)
 	if training_approach_visible:
 		_draw_training_approach()
 	if player_knowledge == null:

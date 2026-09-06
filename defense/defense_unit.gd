@@ -123,6 +123,9 @@ func set_engage_unknown(_enabled: bool) -> void:
 func set_priority_track(_track_id: int) -> void:
 	pass
 
+func priority_track_id() -> int:
+	return -1
+
 func supports_munition_selection() -> bool:
 	return false
 

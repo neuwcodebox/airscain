@@ -42,6 +42,9 @@ func set_engage_unknown(enabled: bool) -> void:
 func set_priority_track(track_id: int) -> void:
 	doctrine.priority_track_id = track_id
 
+func priority_track_id() -> int:
+	return doctrine.priority_track_id
+
 func available_tracks() -> Array[PlayerTrack]:
 	if player_knowledge == null or c2_network == null:
 		return []
