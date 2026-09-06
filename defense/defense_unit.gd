@@ -49,6 +49,9 @@ func _process(_delta: float) -> void:
 func gameplay_tick(_delta: float) -> void:
 	pass
 
+func reload_display_magazine() -> WeaponMagazine:
+	return null
+
 func configure_combat(_registry: ThreatRegistry, _projectile_parent: Node3D) -> void:
 	pass
 
@@ -300,6 +303,8 @@ func _ensure_identity_marker() -> void:
 func _refresh_status_marker() -> void:
 	if definition == null:
 		return
+	if is_instance_valid(identity_marker):
+		identity_marker.call("set_reload", reload_display_magazine() if active else null)
 	_ensure_status_marker()
 	var message := critical_status_text()
 	var color := Color("ff4b32") if not active else Color("ffb02e")

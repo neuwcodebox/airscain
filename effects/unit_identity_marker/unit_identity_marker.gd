@@ -12,6 +12,8 @@ const SELECTION_COLOR := Color(0.26, 0.9, 1.0, 0.92)
 
 @onready var icon: Sprite3D = $Icon
 @onready var selection_ring: MeshInstance3D = $SelectionRing
+@onready var reload_background: Sprite3D = $ReloadBackground
+@onready var reload_fill: Sprite3D = $ReloadFill
 
 var selected: bool = false
 
@@ -50,8 +52,25 @@ func set_selected(enabled: bool) -> void:
 	selected = enabled
 	_apply_selection()
 
+func set_reload(magazine: WeaponMagazine) -> void:
+	if reload_background == null:
+		reload_background = get_node("ReloadBackground") as Sprite3D
+		reload_fill = get_node("ReloadFill") as Sprite3D
+	var reloading := magazine != null and magazine.is_reloading() and not magazine.is_depleted()
+	reload_background.visible = reloading
+	reload_fill.visible = reloading
+	if not reloading:
+		return
+	var progress := clampf(1.0 - magazine.reload_remaining / magazine.reload_duration, 0.0, 1.0)
+	var width := 40.0 * progress
+	reload_fill.region_rect = Rect2(0, 0, width, 2)
+	reload_fill.offset = Vector2((width - 40.0) * 0.5, -29)
+	reload_fill.visible = width > 0.0
+
 func _apply_selection() -> void:
 	if icon == null or selection_ring == null:
 		return
 	selection_ring.visible = selected
 	icon.scale = Vector3.ONE * (1.2 if selected else 1.0)
+	reload_background.scale = icon.scale
+	reload_fill.scale = icon.scale

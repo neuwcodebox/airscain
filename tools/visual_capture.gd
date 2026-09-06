@@ -165,7 +165,7 @@ func run() -> void:
 		print("ALL_RELOCATION_CAPTURE_OK long_range duration running completed city_command")
 		quit()
 		return
-	if OS.get_cmdline_user_args().has("--capture-identity-icons-only"):
+	if OS.get_cmdline_user_args().has("--capture-identity-icons-only") or OS.get_cmdline_user_args().has("--capture-reload-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
 		AirscainApp.apply_global_font()
@@ -186,6 +186,27 @@ func run() -> void:
 		var center := units[2].global_position + Vector3(0, 15, 50)
 		main.camera_rig.camera.global_position = center + Vector3(0, 190, 320)
 		main.camera_rig.camera.look_at(center)
+		if OS.get_cmdline_user_args().has("--capture-reload-only"):
+			for index: int in [0, 1, 2, 5]:
+				var armed := units[index] as ArmedDefenseUnit
+				var magazines: Array[WeaponMagazine] = [armed.magazine]
+				if armed is MissileBattery:
+					magazines.assign((armed as MissileBattery).magazines.values())
+				for magazine: WeaponMagazine in magazines:
+					while magazine.can_fire():
+						magazine.consume()
+					magazine.gameplay_tick(magazine.reload_duration * (0.2 + float(index) * 0.12))
+			main._on_asset_selected(units[2])
+			for frame: int in 6:
+				await process_frame
+			_save_capture("/tmp/airscain_reload_day.png")
+			main.day_night.apply_time(448.0, true)
+			for frame: int in 6:
+				await process_frame
+			_save_capture("/tmp/airscain_reload_night.png")
+			print("RELOAD_CAPTURE_OK missiles gun selected day night")
+			quit()
+			return
 		for frame: int in 6:
 			await process_frame
 		_save_capture("/tmp/airscain_identity_icons.png")

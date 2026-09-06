@@ -1,6 +1,14 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource path="res://effects/unit_identity_marker/unit_identity_marker.gd" type="Script" id="1"]
+
+[sub_resource type="Gradient" id="Gradient_bar"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
+
+[sub_resource type="GradientTexture2D" id="Texture_bar"]
+gradient = SubResource("Gradient_bar")
+width = 42
+height = 4
 
 [node name="UnitIdentityMarker" type="Node3D"]
 script = ExtResource("1")
@@ -16,3 +24,27 @@ modulate = Color(0.46, 0.9, 0.62, 0.96)
 [node name="SelectionRing" type="MeshInstance3D" parent="."]
 position = Vector3(0, -27, 0)
 visible = false
+
+[node name="ReloadBackground" type="Sprite3D" parent="."]
+visible = false
+billboard = 1
+no_depth_test = true
+render_priority = 101
+fixed_size = true
+pixel_size = 0.000376
+texture = SubResource("Texture_bar")
+offset = Vector2(0, -29)
+modulate = Color(0.025, 0.075, 0.105, 0.95)
+
+[node name="ReloadFill" type="Sprite3D" parent="."]
+visible = false
+billboard = 1
+no_depth_test = true
+render_priority = 102
+fixed_size = true
+pixel_size = 0.000376
+texture = SubResource("Texture_bar")
+region_enabled = true
+region_rect = Rect2(0, 0, 40, 2)
+offset = Vector2(0, -29)
+modulate = Color(0.46, 0.9, 0.62, 1)

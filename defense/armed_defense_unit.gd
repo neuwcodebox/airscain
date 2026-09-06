@@ -99,6 +99,9 @@ func selection_status_rows() -> Array[Dictionary]:
 func uses_ammunition() -> bool:
 	return false
 
+func reload_display_magazine() -> WeaponMagazine:
+	return magazine if uses_ammunition() and magazine.is_reloading() and not magazine.is_depleted() else null
+
 func resupply_work() -> float:
 	return 1.0
 

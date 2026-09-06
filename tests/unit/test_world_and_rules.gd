@@ -425,6 +425,55 @@ func test_friendly_installation_selection_highlights_icon_and_footprint() -> voi
 	assert_false(selection_ring.visible)
 	assert_eq(icon.scale, Vector3.ONE)
 
+func test_reload_marker_tracks_magazine_not_burst_cooldown() -> void:
+	var definition := SCENARIO.available_defenses[4]
+	var gun := add_child_autofree(definition.scene.instantiate()) as CloseInGun
+	gun.setup(1, definition)
+	var background := gun.identity_marker.get_node("ReloadBackground") as Sprite3D
+	var fill := gun.identity_marker.get_node("ReloadFill") as Sprite3D
+	gun.cooldown = 0.1
+	gun._process(0.0)
+	assert_false(background.visible, "연사 대기에는 재장전 막대가 없습니다")
+	while gun.magazine.can_fire():
+		gun.magazine.consume()
+	gun._process(0.0)
+	assert_true(background.visible)
+	assert_false(fill.visible)
+	gun.magazine.gameplay_tick(gun.magazine.reload_duration * 0.5)
+	gun._process(0.0)
+	assert_true(fill.visible)
+	assert_gt(fill.region_rect.size.x, 0.0)
+	assert_lt(fill.region_rect.size.x, float(background.texture.get_width()))
+	assert_true(fill.fixed_size and fill.no_depth_test)
+	assert_true(gun.selection_status_rows().any(func(row: Dictionary) -> bool: return row.label == "재장전"))
+	gun.magazine.gameplay_tick(gun.magazine.reload_duration)
+	gun._process(0.0)
+	assert_false(background.visible)
+	gun.magazine.reserve = 0
+	while gun.magazine.can_fire():
+		gun.magazine.consume()
+	gun._process(0.0)
+	assert_false(background.visible, "탄약 고갈은 재장전이 아닙니다")
+
+func test_multiple_munition_reload_marker_uses_next_completion() -> void:
+	var definition := SCENARIO.available_defenses[7]
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(1, definition)
+	var magazines: Array = battery.magazines.values()
+	assert_eq(magazines.size(), 2)
+	for magazine: WeaponMagazine in magazines:
+		while magazine.can_fire():
+			magazine.consume()
+	var first := magazines[0] as WeaponMagazine
+	var second := magazines[1] as WeaponMagazine
+	first.reload_remaining = 3.0
+	second.reload_remaining = 1.0
+	assert_same(battery.reload_display_magazine(), second)
+	second.gameplay_tick(1.0)
+	assert_same(battery.reload_display_magazine(), first)
+	first.gameplay_tick(3.0)
+	assert_null(battery.reload_display_magazine())
+
 func _average(values: Array[float]) -> float:
 	var total := 0.0
 	for value: float in values:

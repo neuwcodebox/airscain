@@ -259,6 +259,15 @@ func selection_status_rows() -> Array[Dictionary]:
 	rows.append_array(_selection_task_rows())
 	return rows
 
+func reload_display_magazine() -> WeaponMagazine:
+	var next_ready: WeaponMagazine
+	for munition_id: StringName in magazines:
+		var candidate: WeaponMagazine = magazines[munition_id]
+		if candidate.is_reloading() and not candidate.is_depleted():
+			if next_ready == null or candidate.reload_remaining < next_ready.reload_remaining:
+				next_ready = candidate
+	return next_ready
+
 func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition, launch_sequence: int, lateral_offset: float) -> void:
 	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
 	projectile_parent.add_child(interceptor)
