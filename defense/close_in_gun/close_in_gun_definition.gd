@@ -14,10 +14,10 @@ extends DefenseDefinition
 @export var preferred_target_match: float = 1.0
 @export var other_target_match: float = 0.28
 @export var c2_range: float = 500.0
-@export var magazine_capacity: int = 120
-@export var reserve_ammunition: int = 120
+@export var magazine_capacity: int = 60
+@export var reserve_ammunition: int = 80
 @export var reload_duration: float = 2.5
-@export var resupply_cost: int = 6
+@export var resupply_cost: int = 4
 @export var resupply_work: float = 12.0
 
 func placement_c2_roles() -> int:

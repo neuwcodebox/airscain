@@ -1083,7 +1083,22 @@ func test_balance_damage_breakpoints_and_full_supply_prices() -> void:
 	assert_eq(short_definition.munitions[0].resupply_cost, 14)
 	assert_lt(long_definition.munitions[0].interceptor_damage, 140.0)
 	assert_gte(long_definition.munitions[1].interceptor_damage, 140.0)
-	assert_eq((SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost, 6)
+	assert_eq((SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost, 4)
+
+func test_gun_stock_reduction_preserves_legacy_inventory_and_unit_price() -> void:
+	var definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
+	var gun := add_child_autofree(definition.scene.instantiate()) as CloseInGun
+	gun.setup(1, definition)
+	assert_eq(gun.magazine.capacity, 60)
+	assert_eq(gun.magazine.reserve_capacity, 80)
+	var saved := gun.capture_content_state()
+	saved.magazine.capacity = 120
+	saved.magazine.rounds = 120
+	saved.magazine.reserve_capacity = 120
+	saved.magazine.reserve = 0
+	gun.restore_content_state(saved)
+	assert_eq(gun.magazine.rounds, 120, "기존 저장의 재고는 삭제하지 않습니다")
+	assert_eq(gun.resupply_cost(), 6, "구버전 재고도 묶음당 단가는 같습니다")
 
 func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
@@ -1100,9 +1115,9 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
 	assert_true(gun.request_resupply())
-	assert_eq(support_session.budget, 94)
+	assert_eq(support_session.budget, 96)
 	assert_false(gun.request_resupply())
-	assert_eq(support_session.budget, 94)
+	assert_eq(support_session.budget, 96)
 	assert_eq(manager.task_status(gun), "재보급 진행")
 	manager.gameplay_tick(1.0)
 	var saved_state := manager.capture_state()
@@ -1277,11 +1292,11 @@ func test_support_tasks_require_a_nearby_operational_facility() -> void:
 	gun.global_position += Vector3.RIGHT
 	assert_false(gun.can_request_repair())
 	assert_false(gun.request_repair())
-	assert_eq(support_session.budget, 94)
+	assert_eq(support_session.budget, 96)
 	gun.global_position -= Vector3.RIGHT
 	assert_true(gun.can_request_repair())
 	assert_true(gun.request_repair())
-	assert_eq(support_session.budget, 84)
+	assert_eq(support_session.budget, 86)
 
 func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager

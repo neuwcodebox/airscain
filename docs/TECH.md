@@ -686,6 +686,8 @@ OPERATIONAL
 
 ## 18. 탄약, 전력과 지원
 
+기관포 기본 재고는 준비탄 60·예비탄 80묶음, 예비탄 전체 보급비 4다. 저장된 탄창 용량·재고는 유지하며 `CloseInGun.restore_content_state()`는 저장 용량에 맞춰 전체 보급비를 계산해 묶음당 단가를 보존한다. 비교 시험의 조건·결과·한계는 `docs/BALANCE.md`, 재현 도구는 `tools/balance_check.gd`에 둔다.
+
 `WeaponMagazine`은 콘텐츠의 전체 예비탄 보급비로 부족 수량의 비례 비용을 계산한다. 정수 결제 초과분 `resupply_credit`은 예비탄 용량을 분모로 하는 정수 분자로 보존하여 반복 반올림 오차를 막는다. `SupportManager`는 결제 성공 후 `reserve_resupply()` capability로 지급 수량 `ordered_reserve`를 확정하며, 완료 시 그 수량만 충전한다. 두 값은 탄창 상태로 저장·검증한다. 구버전의 필드 누락은 크레딧 0·예약 수량 -1로 읽어 기존에 결제된 전체 충전 작업을 보존한다. 단가는 저장값이 아닌 현재 Definition에서 초기화한다.
 
 탄약과 에너지는 장비별 런타임 상태다.

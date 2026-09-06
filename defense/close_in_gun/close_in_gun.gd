@@ -171,5 +171,7 @@ func restore_content_state(state: Dictionary) -> void:
 	cooldown = float(state.get("cooldown", 0.0))
 	rng.state = int(state.get("rng_state", rng.state))
 	magazine.restore_state(state.get("magazine", {}))
+	# Preserve existing saved inventories and their per-burst supply price.
+	magazine.resupply_pack_cost = roundi(float(_definition.resupply_cost) * magazine.reserve_capacity / maxf(1.0, _definition.reserve_ammunition))
 	restore_doctrine_state(state.get("doctrine", {}))
 	gunfire.restore_state(state.get("gunfire", []))
