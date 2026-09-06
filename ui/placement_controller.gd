@@ -32,6 +32,7 @@ var last_dependency_definition: DefenseDefinition
 var last_dependency_position: Vector3
 var dependency_preview_active: bool = false
 var elevation_guide: PlacementElevationGuide
+var hovered_asset: DefenseUnit
 
 func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
 	session = session_value
@@ -91,6 +92,7 @@ func cancel() -> void:
 	placement_status_changed.emit("", false, Vector2.ZERO, false)
 
 func _process(delta: float) -> void:
+	_update_asset_hover()
 	if selected == null and selected_threat == null or preview == null:
 		return
 	var mouse := get_viewport().get_mouse_position()
@@ -137,10 +139,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 			if selection_click.pressed and selection_click.button_index == MOUSE_BUTTON_LEFT and get_viewport().gui_get_hovered_control() == null:
 				var screen_position := selection_click.position
+				var picked := asset_at_screen(screen_position)
+				if picked != null:
+					asset_selected.emit(picked)
+					get_viewport().set_input_as_handled()
+					return
 				var hit := _terrain_hit(screen_position)
 				if not hit.is_empty():
-					if pick_asset_at(hit.position) == null:
-						world_selected.emit(hit.position, screen_position)
+					world_selected.emit(hit.position, screen_position)
 				else:
 					world_selected.emit(Vector3.INF, screen_position)
 		return
@@ -196,6 +202,42 @@ func _validation() -> Dictionary:
 	if relocating_unit == null and not session.unlimited_budget and session.budget < selected.price:
 		return {"valid": false, "reason": "예산이 부족합니다"}
 	return battlefield.placement_result(candidate_position, selected.placement_profile)
+
+func asset_at_screen(screen_position: Vector2) -> DefenseUnit:
+	if camera == null or defense_parent == null:
+		return null
+	var picked: DefenseUnit
+	var best_score := INF
+	var best_depth := INF
+	for child: Node in defense_parent.get_children():
+		var unit := child as DefenseUnit
+		if unit == null or unit.is_queued_for_deletion() or unit.pointer_target == null:
+			continue
+		var score := unit.pointer_target.hit_score(unit, camera, screen_position)
+		var depth := camera.global_position.distance_squared_to(unit.global_position)
+		if score < best_score or (is_finite(score) and is_equal_approx(score, best_score) and depth < best_depth):
+			best_score = score
+			best_depth = depth
+			picked = unit
+	return picked
+
+func _update_asset_hover() -> void:
+	var viewport := get_viewport()
+	var mouse := viewport.get_mouse_position()
+	var enabled := selected == null and selected_threat == null and viewport.get_visible_rect().has_point(mouse) and viewport.gui_get_hovered_control() == null
+	var rig := camera.get_parent() as CameraRig if camera != null else null
+	if rig != null:
+		enabled = enabled and not rig.input_blocked and not rig.rotating
+	set_hovered_asset(asset_at_screen(mouse) if enabled else null)
+
+func set_hovered_asset(unit: DefenseUnit) -> void:
+	if is_instance_valid(hovered_asset) and hovered_asset == unit:
+		return
+	if is_instance_valid(hovered_asset):
+		hovered_asset.pointer_target.set_hovered(false)
+	hovered_asset = unit
+	if is_instance_valid(hovered_asset):
+		hovered_asset.pointer_target.set_hovered(true)
 
 func pick_asset_at(world_position: Vector3) -> DefenseUnit:
 	var picked: DefenseUnit

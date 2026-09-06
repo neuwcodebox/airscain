@@ -23,6 +23,7 @@ var damage_smoke: DamageSmokeEffect
 var prepared_damage_smoke: DamageSmokeEffect
 var status_marker: Node3D
 var identity_marker: Node3D
+var pointer_target: AssetPointerTarget
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	scale = Vector3.ONE * PRESENTATION_SCALE
@@ -30,6 +31,9 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	definition = definition_value
 	integrity = definition.maximum_integrity
 	active = true
+	if pointer_target == null:
+		pointer_target = AssetPointerTarget.new()
+		pointer_target.prepare(self)
 	if prepared_damage_smoke == null:
 		prepared_damage_smoke = DAMAGE_SMOKE_SCENE.instantiate() as DamageSmokeEffect
 		add_child(prepared_damage_smoke)

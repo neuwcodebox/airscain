@@ -20,6 +20,14 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-asset-hover-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		await _capture_asset_hover()
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-placement-hint-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
@@ -1164,6 +1172,38 @@ func _capture_offscreen_marker_full_edge() -> void:
 		quit(1)
 		return
 	_save_capture("/tmp/airscain_offscreen_marker_full_edge.png")
+
+func _capture_asset_hover() -> void:
+	AirscainApp.apply_global_font()
+	main.set_process(false)
+	main.camera_rig.set_process(false)
+	_place_asset(main.scenario.available_defenses[4], 1.0)
+	var unit := main.defenses[0] as DefenseUnit
+	var camera := main.camera_rig.camera
+	camera.global_position = unit.global_position + Vector3(45, 40, 55)
+	camera.look_at(unit.global_position + Vector3.UP * 5)
+	var rect := unit.pointer_target.screen_rect(unit, camera)
+	Input.warp_mouse(root.get_final_transform() * rect.get_center())
+	for frame: int in 12:
+		await process_frame
+	assert(main.placement.hovered_asset == unit)
+	await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_asset_hover.png")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = Vector2(rect.end.x + 6, rect.get_center().y)
+	Input.parse_input_event(click)
+	await process_frame
+	assert(main.selected_asset == unit)
+	click.pressed = false
+	Input.parse_input_event(click)
+	Input.warp_mouse(root.get_final_transform() * main.hud.defense_menu_button.get_global_rect().get_center())
+	for frame: int in 4:
+		await process_frame
+	assert(main.placement.hovered_asset == null)
+	assert(not unit.pointer_target.hovered)
+	print("ASSET_HOVER_CAPTURE_OK outline padded_click ui_clear")
 
 func _capture_placement_hint() -> void:
 	AirscainApp.apply_global_font()
