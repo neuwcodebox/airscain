@@ -2,6 +2,4 @@
 <circle cx="12" cy="12" r="11" fill="#091820" stroke="#e8b65c" stroke-width="1.5"/>
 <path d="M5 12Q12 3 19 12Q12 21 5 12Z" fill="none" stroke="#e8b65c" stroke-width="1.8" stroke-linejoin="round"/>
 <circle cx="12" cy="12" r="2.4" fill="#e8b65c"/>
-<path d="M6 18 18 6" stroke="#091820" stroke-width="4"/>
-<path d="M6 18 18 6" stroke="#e8b65c" stroke-width="2" stroke-linecap="round"/>
 </svg>
