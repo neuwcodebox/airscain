@@ -19,7 +19,10 @@ var placement_active: bool = false
 var placement_ready: bool = false
 
 var links := MeshInstance3D.new()
-var range_ring := MeshInstance3D.new()
+var range_ring := LabeledRangeRing.new()
+var operation_ring := LabeledRangeRing.new()
+var operation_material := StandardMaterial3D.new()
+var range_refresh_remaining: float = 0.0
 var line_material := StandardMaterial3D.new()
 var range_material := StandardMaterial3D.new()
 
@@ -36,12 +39,33 @@ func _ready() -> void:
 	range_material.albedo_color = Color(0.16, 0.78, 0.95, 0.48)
 	range_material.no_depth_test = true
 	range_ring.material_override = range_material
+	range_ring.screen_bias = Vector2(0.75, 0.38)
 	add_child(range_ring)
+	operation_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	operation_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	operation_material.no_depth_test = true
+	operation_material.albedo_color = SUPPORT_COLOR
+	operation_ring.material_override = operation_material
+	operation_ring.name = "OperationRange"
+	add_child(operation_ring)
 	visible = false
 
-func configure(network: Node, support: SupportManager) -> void:
+func _process(delta: float) -> void:
+	if not is_visible_in_tree():
+		return
+	if selected_asset != null and not is_instance_valid(selected_asset):
+		select_asset(null)
+		return
+	range_refresh_remaining -= delta
+	if range_refresh_remaining <= 0.0:
+		range_refresh_remaining = 0.2
+		_rebuild_range()
+
+func configure(network: Node, support: SupportManager, label_obstacles: Array[Control] = []) -> void:
 	c2_network = network
 	support_manager = support
+	range_ring.obstacles = label_obstacles
+	operation_ring.obstacles = label_obstacles
 
 func select_asset(unit: DefenseUnit) -> void:
 	selected_asset = unit
@@ -109,28 +133,29 @@ func _rebuild() -> void:
 func _rebuild_range() -> void:
 	var center := Vector3.ZERO
 	var radius := 0.0
+	var title := "지휘 연결"
+	operation_ring.hide()
 	if placement_active:
 		center = placement_position
 		if placement_definition.placement_support_range() <= 0.0:
 			radius = placement_definition.placement_c2_range()
 			range_material.albedo_color = C2_COLOR if placement_ready else INCOMPLETE_COLOR
-	elif selected_asset != null:
+	elif is_instance_valid(selected_asset) and selected_asset.active:
 		center = selected_asset.global_position
 		if selected_asset.service_range() > 0.0:
 			radius = selected_asset.service_range()
 			range_material.albedo_color = SUPPORT_COLOR
+			title = "지원 범위"
 		else:
 			radius = selected_asset.c2_link_range()
 			range_material.albedo_color = C2_COLOR
+			var operation_radius := LabeledRangeRing.primary_radius(selected_asset.definition) * selected_asset.operational_efficiency()
+			operation_ring.set_range(operation_radius, LabeledRangeRing.primary_title(selected_asset.definition))
+			operation_ring.global_position = center + Vector3.UP * 1.5
 	if radius <= 0.0:
 		range_ring.visible = false
 		return
-	var ring := TorusMesh.new()
-	ring.inner_radius = radius - 2.5
-	ring.outer_radius = radius
-	ring.rings = 96
-	ring.ring_segments = 8
-	range_ring.mesh = ring
+	range_ring.set_range(radius, title)
 	range_ring.global_position = center + Vector3.UP * 2.0
 	range_ring.visible = true
 

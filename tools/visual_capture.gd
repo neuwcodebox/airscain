@@ -20,6 +20,39 @@ func run() -> void:
 	_apply_requested_seed()
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(main)
+	if OS.get_cmdline_user_args().has("--capture-range-labels-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		AirscainApp.apply_global_font()
+		main.set_process(false)
+		var definition := main.scenario.available_defenses[0]
+		var candidates := _visible_valid_placement_positions(definition.placement_profile, 1)
+		assert(not candidates.is_empty())
+		main.placement.select(definition)
+		Input.warp_mouse(root.get_final_transform() * main.camera_rig.camera.unproject_position(candidates[0]))
+		for frame: int in 10:
+			await process_frame
+		assert(main.placement.range_disc.caption.visible)
+		assert(main.c2_overlay.range_ring.caption.visible)
+		_save_capture("/tmp/airscain_range_placement.png")
+		assert(main.placement.request_selected_defense_placement())
+		main._on_asset_selected(main.defenses.back())
+		for frame: int in 8:
+			await process_frame
+		assert(main.c2_overlay.operation_ring.caption.visible)
+		_save_capture("/tmp/airscain_range_selected.png")
+		main.camera_rig.yaw_radians += PI * 0.5
+		main.camera_rig._update_camera()
+		for frame: int in 8:
+			await process_frame
+		_save_capture("/tmp/airscain_range_rotated.png")
+		main._clear_selection()
+		assert(not main.c2_overlay.visible)
+		print("RANGE_LABEL_CAPTURE_OK placement selected rotated clear")
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--capture-city-command-only"):
 		AirscainApp.apply_global_font()
 		while not main.combat_effect_pool.prepared:

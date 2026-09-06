@@ -25,7 +25,7 @@ var relocating_unit: DefenseUnit
 var candidate_position: Vector3
 var candidate_valid: bool = false
 var preview: Node3D
-var range_disc: MeshInstance3D
+var range_disc: LabeledRangeRing
 var preview_material := StandardMaterial3D.new()
 var dependency_refresh_remaining: float = 0.0
 var last_dependency_definition: DefenseDefinition
@@ -33,8 +33,10 @@ var last_dependency_position: Vector3
 var dependency_preview_active: bool = false
 var elevation_guide: PlacementElevationGuide
 var hovered_asset: DefenseUnit
+var range_label_obstacles: Array[Control] = []
 
-func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager) -> void:
+func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager, label_obstacles: Array[Control] = []) -> void:
+	range_label_obstacles = label_obstacles
 	session = session_value
 	battlefield = battlefield_value
 	battlefield.set_rooftop_pads_visible(false)
@@ -272,18 +274,13 @@ func _create_preview() -> void:
 	preview.add_child(model)
 	_copy_preview_geometry(model, Transform3D.IDENTITY)
 	model.free()
-	range_disc = MeshInstance3D.new()
-	var disc := TorusMesh.new()
-	var displayed_range := selected.placement_support_range() if selected.placement_support_range() > 0.0 else selected.preview_range
-	disc.inner_radius = displayed_range - 2.5
-	disc.outer_radius = displayed_range
-	disc.rings = 96
-	disc.ring_segments = 8
+	range_disc = LabeledRangeRing.new()
+	range_disc.obstacles = range_label_obstacles
 	wall_material_setup()
-	range_disc.mesh = disc
 	range_disc.position.y = 1.5
 	range_disc.material_override = preview_material
 	preview.add_child(range_disc)
+	range_disc.set_range(LabeledRangeRing.primary_radius(selected), LabeledRangeRing.primary_title(selected))
 	elevation_guide = PlacementElevationGuide.new()
 	elevation_guide.guide_material = preview_material
 	preview.add_child(elevation_guide)
