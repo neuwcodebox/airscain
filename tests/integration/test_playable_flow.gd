@@ -22,6 +22,20 @@ func before_each() -> void:
 	main = add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
 	await get_tree().process_frame
 
+func test_result_visual_preparation_preserves_gameplay_and_hidden_panel() -> void:
+	main.set_process(false)
+	var phase := main.session.phase
+	var integrity := main.objective.current_integrity
+	var budget := main.session.budget
+	var threat_count := main.registry.get_active().size()
+	await main.hud.prepare_result_visuals(main._final_statistics())
+	assert_eq(main.session.phase, phase)
+	assert_eq(main.objective.current_integrity, integrity)
+	assert_eq(main.session.budget, budget)
+	assert_eq(main.registry.get_active().size(), threat_count)
+	assert_false(main.hud.game_over_panel.visible)
+	assert_false(main.hud.game_over_blocker.visible)
+
 func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	main.set_process(false)
 	main.session.phase = GameSession.Phase.RUNNING

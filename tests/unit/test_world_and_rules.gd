@@ -168,6 +168,32 @@ func test_airframe_geometry_is_shared_but_content_colors_remain_independent() ->
 		assert_eq((second_mesh.get_active_material(0) as StandardMaterial3D).albedo_color, Color.BLUE)
 		assert_ne((first_mesh.mesh.surface_get_material(0) as StandardMaterial3D).albedo_color, Color.RED)
 
+func test_runtime_airframe_paint_survives_the_last_aircraft_leaving() -> void:
+	var definition := preload("res://enemy/attack_uav/attack_uav.tres")
+	var first := definition.scene.instantiate() as AttackUav
+	add_child(first)
+	first.setup(1, definition)
+	var paint := (first.body.get_node("Airframe") as MeshInstance3D).material_override
+	first.free()
+	var next := add_child_autofree(definition.scene.instantiate()) as AttackUav
+	next.setup(2, definition)
+	assert_same((next.body.get_node("Airframe") as MeshInstance3D).material_override, paint, "Runtime material stays alive across empty battlefields")
+	assert_false((paint as StandardMaterial3D).vertex_color_use_as_albedo)
+
+func test_content_warmup_uses_runtime_setup_without_joining_combat() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var threat_definition := preload("res://enemy/strike_aircraft/strike_aircraft.tres")
+	var defense_definition := preload("res://defense/close_in_gun/close_in_gun.tres")
+	var threat := CombatVfxWarmup.create_content_sample(parent, threat_definition) as AttackUav
+	var defense := CombatVfxWarmup.create_content_sample(parent, defense_definition) as CloseInGun
+	assert_same(threat.definition, threat_definition)
+	assert_same(defense.definition, defense_definition)
+	assert_not_null(defense.gunfire)
+	assert_not_null(defense.prepared_damage_smoke)
+	assert_null(defense.registry)
+	assert_eq(threat.process_mode, Node.PROCESS_MODE_DISABLED)
+	assert_eq(defense.process_mode, Node.PROCESS_MODE_DISABLED)
+
 func test_airframe_palette_preserves_triangles_and_surface_finishes() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D
 	var finishes: Array[StandardMaterial3D] = [ModelGeometry.material(Color.RED, 0.2, 0.7), ModelGeometry.material(Color.BLUE, 0.8, 0.3)]
@@ -1286,22 +1312,43 @@ func test_explosion_layers_retire_only_at_zero_and_restart_with_the_same_timelin
 	effect._process(0.1)
 	assert_true(effect.pressure_ring.visible)
 
-func test_overflow_explosions_reuse_buffers_without_limiting_simultaneous_effects() -> void:
+func test_prepared_explosion_budget_reuses_buffers_without_limiting_overflow() -> void:
 	var pool := add_child_autofree(CombatEffectPool.new()) as CombatEffectPool
 	var parent := add_child_autofree(Node3D.new()) as Node3D
 	var effects: Array[ExplosionEffect] = []
-	for index: int in CombatEffectPool.RETAINED_CAPACITY + 2:
+	var prepared := pool.available.duplicate()
+	for effect: ExplosionEffect in prepared:
+		assert_false(effect.visible)
+		assert_false(effect.is_processing())
+	for index: int in CombatEffectPool.CAPACITY + 2:
 		effects.append(pool.spawn_explosion(parent, Vector3(index, 0, 0), Color.ORANGE, 8))
 		assert_true(effects.back().visible)
+		if index < CombatEffectPool.CAPACITY:
+			assert_true(prepared.has(effects.back()), "The entire retained budget exists before the first salvo")
 	assert_eq(parent.get_child_count(), effects.size())
-	assert_eq(pool.retained_count, CombatEffectPool.RETAINED_CAPACITY)
-	var overflow := effects[CombatEffectPool.CAPACITY]
-	var material := overflow.flash_material
-	overflow._process(overflow.duration)
+	var retained := effects[CombatEffectPool.CAPACITY - 1]
+	var material := retained.flash_material
+	retained._process(retained.duration)
 	var reused := pool.spawn_explosion(parent, Vector3.ZERO, Color.WHITE, 10)
-	assert_same(reused, overflow)
+	assert_same(reused, retained)
 	assert_same(reused.flash_material, material)
 	assert_false(effects.back().reusable)
+
+func test_city_smoke_configuration_is_stable_across_reactivation() -> void:
+	var effect := add_child_autofree(preload("res://effects/damage_smoke/damage_smoke.tscn").instantiate()) as DamageSmokeEffect
+	effect.set_city_scale(1.5, 45)
+	var smoke_scale := effect.smoke.scale
+	var fire_scale := effect.fire.scale
+	var lifetime := effect.smoke.lifetime
+	effect.set_damage_ratio(0.2)
+	effect.deactivate()
+	effect.set_city_scale(1.5, 45)
+	assert_eq(effect.smoke.scale, smoke_scale)
+	assert_eq(effect.fire.scale, fire_scale)
+	assert_eq(effect.smoke.lifetime, lifetime)
+	assert_true(effect.fire.emitting)
+	assert_true(effect.smoke.emitting)
+	assert_eq(effect.smoke.amount_ratio, 1.0)
 
 func test_street_details_rotate_local_length_with_the_road() -> void:
 	var details := add_child_autofree(LandscapeDetails.new()) as LandscapeDetails

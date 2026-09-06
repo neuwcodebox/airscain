@@ -61,12 +61,38 @@ CPU 평균 약 13%, p95 약 15%, 정지 전장 프레임 약 19%, 실제 진행 
 
 ## 재현
 
+### 사건별 순간 지연
+
+`tools/hitch_check.gd -- --brief`는 seed 73129의 자유 모드에서 앱 VFX 예열과 실제 전장 준비를 완료한 뒤 사건 전 10프레임 안정화, 사건 호출 CPU 시간과 이후 12프레임을 기록한다. 실제 앱 폰트를 사용하며 오디오 출력/게임 시뮬레이션은 비활성화한다. 단일 폭발·16/32개 동시 폭발·일반 도시 피격·기체 등장·게임 종료를 분리한다. `--brief`를 빼면 모든 공습 콘텐츠의 생성 경로를 확인한다. 일반 피격은 피해 1로 도시 생존을 단언하고, 게임 종료는 마지막 별도 사건이다. 최대 프레임은 GPU timestamp가 아니라 프레임 완료 대기를 포함한다.
+
+정상 플레이 상태로 수정한 동일 진단기를 기존 커밋 `cb45149`와 후속 구현에 각각 실행했다. 원본 로그는 `/tmp/airscain_hitch_verified_before.log`, `/tmp/airscain_hitch_release.log`다.
+
+| 사건 | 기존 | 후속 |
+| --- | ---: | ---: |
+| UAV 첫 등장 프레임 | 164.730ms | 35.262ms |
+| UAV 재등장 프레임 | 169.392ms | 33.645ms |
+| 레이더 타격기 첫 등장 프레임 | 171.579ms | 33.430ms |
+| 첫 32개 폭발 CPU 생성 | 30.271ms | 1.740ms |
+| 최초 일반 도시 피격 프레임 | 36.258ms | 36.886ms |
+| 최초 게임 종료 프레임 | 110.783ms | 57.584ms |
+
+원시 scene 예열은 Definition setup 이후의 실전 재질을 준비하지 않았다. 기체 도색 재질을 계속 보존하고 실제 전장 환경에서도 렌더하자 반복 생성 시의 큰 지연이 제거됐다. 풀도 보존 한도 32개 전체를 미리 준비해 첫 동시 폭발에서 남은 24개를 추가 생성하지 않는다. 효과 수·수명·광원·피해·발사 빈도를 줄이지 않는다.
+
+일반 도시 피격의 뚜렷한 최초 지연은 재현되지 않았으며 개선을 주장하지 않는다. 초기 진단은 도시 최대 기능 100에 피해 100을 주어 종료 화면 비용을 피격 비용으로 잘못 분류했고, 기본 폰트까지 달랐다. 해당 초기 로그의 도시 피격 수치는 근거에서 제외한다. 캡처로 이 문제를 발견한 뒤 정상 피격/게임 종료를 나누고 기존 구현까지 다시 측정했다.
+
+게임 종료 패널도 로딩 차단막 뒤에서 실제 통계 텍스트로 레이아웃·글꼴 렌더를 준비한다. 예열은 도시 기능이나 세션 단계를 변경하지 않으며 종료 시에는 최신 통계로 다시 채운다.
+
+32개 동시 폭발의 12프레임 최대는 330.224→363.214ms로 여전히 크다. 이는 첫 생성 제거만으로 해결되지 않는 지속적인 중첩 VFX/광원 비용이다. 시작 전 준비 시간은 이 진단에서 약 7.6→13.9초로 증가했으며, 앱 메뉴의 병행 시연을 포함한 실제 사용자 로딩 시간이나 브라우저 수치를 뜻하지 않는다. 샘플 수가 적고 WSL 드라이버 변동이 있으므로 작은 차이는 유의한 개선으로 보지 않는다. 별도 야간 전환·장시간 재출현·첫 발사·브라우저의 사건별 지연은 후속 검증 대상이다.
+
+검증 캡처: `/tmp/airscain_hitch_city.png`(일반 피격, 도시 생존), `/tmp/airscain_hitch_check.png`(별도 종료 화면). 캡처는 사건의 12프레임 기록 이후 저장하므로 측정 구간에 파일 저장 시간이 포함되지 않는다.
+
 ```bash
 godot --headless --audio-driver Dummy --path . --script res://tools/profile_check.gd -- --breakdown --large
 godot --audio-driver Dummy --path . --script res://tools/profile_check.gd -- --breakdown --large --render --render-probe
 godot --headless --audio-driver Dummy --path . --script res://tools/combat_perf_check.gd
 godot --audio-driver Dummy --path . --script res://tools/combat_perf_check.gd -- --render --faded
 godot --audio-driver Dummy --path . --script res://tools/render_load_check.gd
+godot --audio-driver Dummy --path . --script res://tools/hitch_check.gd -- --brief
 godot --audio-driver Dummy --path . --script res://tools/visual_capture.gd -- --capture-static-details-only
 ```
 

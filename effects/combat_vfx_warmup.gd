@@ -39,27 +39,48 @@ func _ready() -> void:
 	_add_secondary_effects()
 	await _render_samples()
 	progress_changed.emit(0.6)
-	var scenes: Array[PackedScene] = []
-	for definition: DefenseDefinition in SCENARIO.available_defenses:
-		if not scenes.has(definition.scene):
-			scenes.append(definition.scene)
-	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
-		if not scenes.has(entry.threat_definition.scene):
-			scenes.append(entry.threat_definition.scene)
-	for definition: ThreatDefinition in SCENARIO.ambient_contacts:
-		if not scenes.has(definition.scene):
-			scenes.append(definition.scene)
-	for index: int in scenes.size():
-		var model := scenes[index].instantiate() as Node3D
-		model.position = WARMUP_POSITION
-		model.scale = Vector3.ONE * 0.18
-		add_child(model)
-		model.process_mode = Node.PROCESS_MODE_DISABLED
-		if index % 4 == 3 or index == scenes.size() - 1:
+	var definitions := content_definitions(SCENARIO)
+	for index: int in definitions.size():
+		_add_content_sample(definitions[index])
+		if index % 4 == 3 or index == definitions.size() - 1:
 			await _render_samples()
-			progress_changed.emit(0.6 + 0.4 * float(index + 1) / scenes.size())
+			progress_changed.emit(0.6 + 0.4 * float(index + 1) / definitions.size())
 	completed.emit()
 	queue_free()
+
+func _add_content_sample(definition: Resource) -> Node3D:
+	var model := create_content_sample(self, definition)
+	model.position = WARMUP_POSITION
+	model.scale = Vector3.ONE * 0.18
+	return model
+
+static func content_definitions(scenario: ScenarioDefinition) -> Array[Resource]:
+	var definitions: Array[Resource] = []
+	definitions.append_array(scenario.available_defenses)
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		if not definitions.has(entry.threat_definition):
+			definitions.append(entry.threat_definition)
+	for definition: ThreatDefinition in scenario.ambient_contacts:
+		if not definitions.has(definition):
+			definitions.append(definition)
+	return definitions
+
+static func create_content_sample(parent: Node, definition: Resource) -> Node3D:
+	var model: Node3D
+	if definition is DefenseDefinition:
+		var content := definition as DefenseDefinition
+		var unit := content.scene.instantiate() as DefenseUnit
+		parent.add_child(unit)
+		unit.setup(1, content)
+		model = unit
+	else:
+		var content := definition as ThreatDefinition
+		var unit := content.scene.instantiate() as ThreatUnit
+		parent.add_child(unit)
+		unit.setup(1, content)
+		model = unit
+	model.process_mode = Node.PROCESS_MODE_DISABLED
+	return model
 
 func _render_samples() -> void:
 	for node: Node in get_children():

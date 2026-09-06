@@ -1,6 +1,10 @@
 class_name AttackUav
 extends ThreatUnit
 
+# Runtime paint is immutable. Keep the rendered material alive between spawns,
+# including periods with no aircraft of this type on the battlefield.
+static var _paint_materials: Dictionary[StandardMaterial3D, Dictionary] = {}
+
 var objective: ProtectedObjective
 var battlefield: Battlefield
 var target_point: Vector3
@@ -147,10 +151,18 @@ func _apply_visual_color() -> void:
 	for child: Node in body.get_children():
 		if child is MeshInstance3D:
 			var mesh_instance := child as MeshInstance3D
-			var material := mesh_instance.material_override.duplicate() as StandardMaterial3D
-			material.albedo_color = _definition.visual_color
-			material.vertex_color_use_as_albedo = false
-			mesh_instance.material_override = material
+			var source := mesh_instance.mesh.surface_get_material(0) as StandardMaterial3D
+			if source == null:
+				source = mesh_instance.material_override as StandardMaterial3D
+			if not _paint_materials.has(source):
+				_paint_materials[source] = {}
+			var paints: Dictionary = _paint_materials[source]
+			if not paints.has(_definition.visual_color):
+				var material := source.duplicate() as StandardMaterial3D
+				material.albedo_color = _definition.visual_color
+				material.vertex_color_use_as_albedo = false
+				paints[_definition.visual_color] = material
+			mesh_instance.material_override = paints[_definition.visual_color]
 
 func _sample_exhaust(from_position: Vector3, to_position: Vector3) -> void:
 	for child: Node in body.get_children():

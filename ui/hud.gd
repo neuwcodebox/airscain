@@ -357,6 +357,17 @@ func _position_placement_hint(screen_position: Vector2) -> void:
 		preferred.y = screen_position.y - panel_size.y - 24.0
 	placement_hint_panel.position = Vector2(clampf(preferred.x, 12.0, maxf(12.0, viewport_size.x - panel_size.x - 12.0)), clampf(preferred.y, 72.0, maxf(72.0, viewport_size.y - panel_size.y - 12.0)))
 
+func prepare_result_visuals(stats: Dictionary) -> void:
+	# Called only behind the loading cover; do not transition the game session.
+	set_final_stats(stats)
+	var was_visible := game_over_panel.visible
+	game_over_panel.show()
+	for frame: int in 3:
+		await get_tree().process_frame
+		if DisplayServer.get_name() != "headless":
+			await RenderingServer.frame_post_draw
+	game_over_panel.visible = was_visible
+
 func set_final_stats(stats: Dictionary) -> void:
 	final_stats.text = String(stats.get("summary", ""))
 	final_combat_stats.text = String(stats.get("combat", ""))

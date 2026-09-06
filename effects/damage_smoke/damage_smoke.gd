@@ -39,11 +39,15 @@ func set_damage_ratio(damage_ratio: float) -> void:
 	fire.emitting = intensity >= 0.35
 
 func set_city_scale(scale_multiplier: float, source_height: float = REFERENCE_SOURCE_HEIGHT) -> void:
-	set_damage_ratio(1.0)
+	visible = true
+	process_mode = Node.PROCESS_MODE_INHERIT
 	var height_ratio := clampf(source_height / REFERENCE_SOURCE_HEIGHT, 0.65, 2.0)
 	smoke.amount = CITY_PARTICLE_COUNT
 	smoke.amount_ratio = 1.0
 	smoke.lifetime = CITY_LIFETIME
+	smoke.emitting = true
 	var height_scale := remap(height_ratio, 0.65, 2.0, 0.85, 1.3)
 	smoke.scale = Vector3.ONE * scale_multiplier * height_scale
-	fire.scale *= scale_multiplier
+	fire.amount_ratio = 1.0
+	fire.scale = Vector3.ONE * 1.7 * scale_multiplier
+	fire.emitting = true

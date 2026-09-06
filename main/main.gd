@@ -137,7 +137,8 @@ func _prepare_combat_visuals() -> void:
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		panel.add_child(label)
-	await combat_effect_pool.prepare(objective.prepared_smoke_effects)
+		await hud.prepare_result_visuals(_final_statistics())
+	await combat_effect_pool.prepare(objective.prepared_smoke_effects, scenario)
 	if blocker != null:
 		blocker.queue_free()
 
