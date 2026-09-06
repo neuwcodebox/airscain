@@ -13,6 +13,7 @@ resource_local_to_scene = true
 shader = ExtResource("3")
 
 [sub_resource type="PlaneMesh" id="OceanMesh"]
+resource_local_to_scene = true
 material = SubResource("OceanMaterial")
 size = Vector2(19200, 19200)
 

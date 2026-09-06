@@ -1,6 +1,8 @@
 shader_type spatial;
 render_mode diffuse_burley;
 
+#include "res://world/sky_atmosphere.gdshaderinc"
+
 uniform sampler2D terrain_heights : filter_linear, repeat_disable;
 uniform float battlefield_size = 2400.0;
 varying vec2 water_position;
@@ -42,4 +44,10 @@ void fragment() {
 	NORMAL_MAP = normalize(vec3(-slope * 0.22, 1.0)) * 0.5 + 0.5;
 	ROUGHNESS = 0.68;
 	SPECULAR = 0.12;
+	// Only the far sea receives aerial haze; keep the playable coast unchanged.
+	float haze = smoothstep(battlefield_size * 0.85, battlefield_size * 2.2, length(water_position));
+	vec3 ray = normalize((INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz - CAMERA_POSITION_WORLD);
+	ALBEDO *= 1.0 - haze;
+	EMISSION = atmosphere(ray) * haze;
+	SPECULAR *= 1.0 - haze;
 }

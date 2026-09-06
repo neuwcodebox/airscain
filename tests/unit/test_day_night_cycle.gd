@@ -1,5 +1,65 @@
 extends GutTest
 
+func test_sky_restores_clock_and_celestial_directions_without_sharing_world_state() -> void:
+	var cycles: Array[DayNightCycle] = []
+	var materials: Array[ShaderMaterial] = []
+	for index: int in 2:
+		var cycle := DayNightCycle.new()
+		var sun := DirectionalLight3D.new()
+		var world := WorldEnvironment.new()
+		var field := Battlefield.new()
+		world.environment = Environment.new()
+		cycle.configure(sun, world, field)
+		cycles.append(cycle)
+		materials.append(world.environment.sky.sky_material as ShaderMaterial)
+		add_child_autofree(cycle)
+		add_child_autofree(sun)
+		add_child_autofree(world)
+		autofree(field)
+	assert_ne(materials[0], materials[1])
+	assert_eq(materials[0].get_shader_parameter("cloud_noise"), materials[1].get_shader_parameter("cloud_noise"))
+	cycles[0].apply_time(450.0, true)
+	assert_eq(float(materials[0].get_shader_parameter("sky_clock")), 450.0)
+	assert_eq(float(materials[1].get_shader_parameter("sky_clock")), 0.0)
+	assert_eq(materials[0].get_shader_parameter("sun_direction"), cycles[0]._sun.basis.z.normalized())
+	assert_eq(materials[0].get_shader_parameter("moon_direction"), cycles[0]._moon.basis.z.normalized())
+	assert_gt(cycles[0]._moon.basis.z.y, 0.0)
+	cycles[0].apply_time(450.0)
+	assert_eq(float(materials[0].get_shader_parameter("sky_clock")), 450.0, "Paused simulation leaves cloud motion unchanged")
+	cycles[0].apply_time(450.016)
+	assert_almost_eq(float(materials[0].get_shader_parameter("sky_clock")), 450.016, 0.0001, "Sky motion does not wait for the lighting interval")
+	cycles[0].apply_time(0.0, true)
+	for parameter: String in ["sky_clock", "sun_direction", "moon_direction", "daylight", "night_amount", "horizon_color", "zenith_color", "star_rotation"]:
+		assert_eq(materials[0].get_shader_parameter(parameter), materials[1].get_shader_parameter(parameter), "Restored sky: " + parameter)
+
+func test_celestial_orbit_is_continuous_at_midnight() -> void:
+	var before := Basis.from_euler(DayNightCycle.orbit_rotation(23.999) * PI / 180.0).z
+	var after := Basis.from_euler(DayNightCycle.orbit_rotation(0.001) * PI / 180.0).z
+	assert_lt(before.distance_to(after), 0.001)
+
+func test_ocean_and_sky_share_haze_without_affecting_another_world() -> void:
+	var cycles: Array[DayNightCycle] = []
+	for index: int in 2:
+		var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+		var cycle := add_child_autofree(DayNightCycle.new()) as DayNightCycle
+		var sun := add_child_autofree(DirectionalLight3D.new()) as DirectionalLight3D
+		var world := add_child_autofree(WorldEnvironment.new()) as WorldEnvironment
+		world.environment = Environment.new()
+		cycle.configure(sun, world, field)
+		cycles.append(cycle)
+	assert_ne(cycles[0]._ocean_material, cycles[1]._ocean_material)
+	cycles[0].apply_time(450.0, true)
+	assert_eq(float(cycles[1]._ocean_material.get_shader_parameter("daylight")), 1.0)
+	for parameter: String in ["sun_direction", "horizon_color", "zenith_color", "daylight", "twilight"]:
+		assert_eq(cycles[0]._ocean_material.get_shader_parameter(parameter), cycles[0]._sky_material.get_shader_parameter(parameter))
+	var previous: Color = Color.BLACK
+	for index: int in 401:
+		cycles[0].apply_time(250.0 + index * 0.1, true)
+		var horizon: Color = cycles[0]._sky_material.get_shader_parameter("horizon_color")
+		if index > 0:
+			assert_lt(Vector3(horizon.r, horizon.g, horizon.b).distance_to(Vector3(previous.r, previous.g, previous.b)), 0.01)
+		previous = horizon
+
 func test_clock_wraps_and_repeats_saved_elapsed_time() -> void:
 	assert_almost_eq(DayNightCycle.hour_at(0.0), 9.0, 0.001)
 	assert_almost_eq(DayNightCycle.hour_at(450.0), 0.0, 0.001)

@@ -1,12 +1,31 @@
 extends SceneTree
 
 func _init() -> void:
+	AudioServer.set_bus_mute(0, true)
 	call_deferred("run")
 
 func run() -> void:
+	if OS.get_cmdline_user_args().has("--sky-menu"):
+		var app := load("res://main/app.tscn").instantiate() as AirscainApp
+		root.add_child(app)
+		var backdrop := app.get_node("MainMenu/Background") as TextureRect
+		var demo: AirscainMain = backdrop.get("demo")
+		while not app.combat_vfx_warmup_completed or not demo.combat_effect_pool.prepared:
+			await process_frame
+		demo.set_process(false)
+		for elapsed: float in [0.0, 255.0, 450.0]:
+			demo.day_night.apply_time(elapsed, true)
+			await capture("sky_menu_%03d" % int(elapsed))
+		app.free()
+		for frame: int in 3:
+			await process_frame
+		quit()
+		return
 	AirscainMain.requested_seed = 73129
 	var main := load("res://main/main.tscn").instantiate() as AirscainMain
 	root.add_child(main)
+	main.combat_audio.enabled = false
+	main.ui_audio.enabled = false
 	while not main.combat_effect_pool.prepared:
 		await process_frame
 	main.set_process(false)
@@ -15,6 +34,20 @@ func run() -> void:
 	main.camera_rig.set_process(false)
 	main.camera_rig.camera.position = Vector3(360, 260, 430)
 	main.camera_rig.camera.look_at(Vector3(0, 15, 0))
+	if OS.get_cmdline_user_args().has("--sky-benchmark"):
+		await benchmark_sky(main)
+		main.free()
+		for frame: int in 3:
+			await process_frame
+		quit()
+		return
+	if OS.get_cmdline_user_args().has("--sky"):
+		await capture_sky(main)
+		main.free()
+		for frame: int in 3:
+			await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--smoke-lighting"):
 		await capture_smoke_lighting(main)
 		main.free()
@@ -101,3 +134,44 @@ func capture_smoke_lighting(main: AirscainMain) -> void:
 		trail.shadow_particles.visible = false
 		await capture("smoke_%02d_no_proxy" % int(entry.y))
 		trail.shadow_particles.visible = true
+
+func capture_sky(main: AirscainMain) -> void:
+	var camera := main.camera_rig.camera
+	for time_hour: float in [5.5, 6.2, 9.0, 17.5, 18.2, 20.0, 0.0]:
+		var elapsed := fposmod(time_hour - DayNightCycle.START_HOUR, 24.0) / 24.0 * DayNightCycle.CYCLE_SECONDS
+		main.day_night.apply_time(elapsed, true)
+		# Actual lowest gameplay orbit, facing the sunrise/sunset azimuth.
+		main.camera_rig.pitch_radians = CameraRig.MINIMUM_PITCH
+		main.camera_rig.yaw_radians = deg_to_rad(DayNightCycle.orbit_rotation(time_hour if time_hour > 5.0 and time_hour < 19.0 else fposmod(time_hour + 12.0, 24.0)).y) + PI
+		main.camera_rig._update_camera()
+		await capture("sky_horizon_%04.1f" % time_hour)
+		# Inspection angle for the complete dome, not a change to player controls.
+		camera.global_position = Vector3(0, 180, 0)
+		var direction := main.day_night._sun.basis.z if time_hour > 5.0 and time_hour < 19.0 else main.day_night._moon.basis.z
+		direction.y = maxf(direction.y, 0.15)
+		camera.look_at(camera.global_position + direction * 100)
+		await capture("sky_dome_%04.1f" % time_hour)
+
+func benchmark_sky(main: AirscainMain) -> void:
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = 0
+	var sky := main.day_night._environment.sky
+	var reference := Sky.new()
+	reference.radiance_size = Sky.RADIANCE_SIZE_32
+	reference.sky_material = ProceduralSkyMaterial.new()
+	var camera := main.camera_rig.camera
+	for angle: String in ["tactical", "dome"]:
+		camera.global_position = Vector3(360, 260, 430)
+		camera.look_at(Vector3(0, 15, 0) if angle == "tactical" else camera.global_position + Vector3(0.0, 1.0, -1.0))
+		for candidate: Sky in [reference, sky, sky, reference]:
+			main.day_night._environment.sky = candidate
+			var frames: Array[float] = []
+			for index: int in 210:
+				main.day_night.apply_time(450.0 + float(index) / 60.0, true)
+				var start := Time.get_ticks_usec()
+				await process_frame
+				if index >= 30:
+					frames.append(float(Time.get_ticks_usec() - start) / 1000.0)
+			frames.sort()
+			print("SKY_BENCH %s %s median=%.3f p95=%.3f" % [angle, "living" if candidate == sky else "procedural", frames[90], frames[171]])
+	main.day_night._environment.sky = sky
