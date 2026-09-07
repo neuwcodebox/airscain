@@ -796,7 +796,7 @@ func test_long_range_launcher_exposes_munition_mode_control() -> void:
 	assert_ne(option.get_item_icon(1), option.get_item_icon(2))
 	assert_string_contains(option.get_item_tooltip(0), "보존")
 	assert_string_contains(option.get_item_tooltip(1), "항공기·순항미사일")
-	assert_string_contains(option.get_item_tooltip(2), "비용 높음")
+	assert_eq(option.get_item_tooltip(2), "탄도미사일·로켓·고속 항공기")
 	main.hud._on_munition_mode_selected(2)
 	assert_eq(battery.munition_mode, &"high_speed_interceptor")
 	assert_eq(option.selected, 2)
