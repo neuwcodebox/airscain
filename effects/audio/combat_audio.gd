@@ -14,9 +14,15 @@ const MISSILE_EVENTS: Array[StringName] = [LONG_MISSILE, MISSILE, SHORT_MISSILE]
 const DETONATION_FADE_SECONDS := 0.12
 const RETIRE_FADE_SECONDS := 0.25
 const FADE_FLOOR_DB := -40.0
-const MAX_AUDIBLE_MISSILES := 4
+const MAX_AUDIBLE_MISSILE_GROUPS := 4
+const MISSILE_GROUP_WINDOW := 0.1
 const MISSILE_MIX_BUDGET := 0.65
 const MISSILE_VOICE_GAIN := 0.35
+
+class MissileGroup:
+	var event_id: StringName
+	var opened_at: float
+	var members: Array[int] = []
 
 const STREAM_GROUPS: Dictionary = {
 	CONTACT: [
@@ -67,7 +73,8 @@ var players: Array[AudioStreamPlayer] = []
 var missile_players: Array[AudioStreamPlayer] = []
 var missile_gains: Dictionary[int, float] = {}
 var source_players: Dictionary[int, AudioStreamPlayer] = {}
-var player_source_ids: Dictionary[int, int] = {}
+var missile_groups: Dictionary[int, MissileGroup] = {}
+var missile_clock: float = 0.0
 var fade_tweens: Dictionary[int, Tween] = {}
 var fade_generations: Dictionary[int, int] = {}
 var next_fade_generation: int = 1
@@ -122,7 +129,7 @@ func _ready() -> void:
 		add_child(player)
 		players.append(player)
 	# Launches cannot steal alert/explosion voices or cut off another missile.
-	for index: int in MAX_AUDIBLE_MISSILES:
+	for index: int in MAX_AUDIBLE_MISSILE_GROUPS:
 		var player := AudioStreamPlayer.new()
 		player.name = "MissileVoice%d" % index
 		player.bus = &"Missiles"
@@ -154,6 +161,8 @@ static func uses_sample_playback() -> bool:
 	return OS.has_feature("web")
 
 func _process(delta: float) -> void:
+	if not simulation_paused:
+		missile_clock += delta
 	for event_id: StringName in cooldowns.keys():
 		cooldowns[event_id] = maxf(0.0, cooldowns[event_id] - delta)
 	_refresh_missile_mix(delta)
@@ -176,7 +185,7 @@ func _refresh_missile_mix(delta: float = 0.0) -> void:
 
 func _on_missile_voice_finished(player: AudioStreamPlayer) -> void:
 	_cancel_player_fade(player)
-	_release_player_source(player)
+	_release_missile_group(player)
 	missile_gains.erase(player.get_instance_id())
 	player.stream = null
 
@@ -191,7 +200,7 @@ func stop_all() -> void:
 		player.stop()
 		player.stream = null
 	source_players.clear()
-	player_source_ids.clear()
+	missile_groups.clear()
 	missile_gains.clear()
 
 func on_gun_round_detonated(position: Vector3, reason: StringName) -> void:
@@ -211,15 +220,21 @@ func play_missile_event(event_id: StringName, source: Node, intensity: float = 1
 	if not enabled or not is_instance_valid(source) or event_id not in MISSILE_EVENTS:
 		return false
 	var source_id := source.get_instance_id()
-	if source_players.has(source_id):
+	var exiting := _on_source_tree_exiting.bind(source_id)
+	if source.tree_exiting.is_connected(exiting):
 		return false
 	# Suppressed launches still produce their own eventual impact event.
 	var ended := _on_source_flight_ended.bind(source_id)
 	if source.has_signal("flight_ended") and not source.is_connected("flight_ended", ended):
 		source.connect("flight_ended", ended, CONNECT_ONE_SHOT)
-	var exiting := _on_source_tree_exiting.bind(source_id)
-	if not source.tree_exiting.is_connected(exiting):
-		source.tree_exiting.connect(exiting, CONNECT_ONE_SHOT)
+	source.tree_exiting.connect(exiting, CONNECT_ONE_SHOT)
+	# Join only within the fixed window from the first launch, without restarting.
+	for candidate: AudioStreamPlayer in missile_players:
+		var group := missile_groups.get(candidate.get_instance_id()) as MissileGroup
+		if group != null and candidate.playing and group.event_id == event_id and missile_clock - group.opened_at < MISSILE_GROUP_WINDOW:
+			group.members.append(source_id)
+			source_players[source_id] = candidate
+			return true
 	var player: AudioStreamPlayer
 	for candidate: AudioStreamPlayer in missile_players:
 		if not candidate.playing and not fade_tweens.has(candidate.get_instance_id()):
@@ -227,7 +242,7 @@ func play_missile_event(event_id: StringName, source: Node, intensity: float = 1
 			break
 	if player == null:
 		return false
-	_release_player_source(player)
+	_release_missile_group(player)
 	var choices: Array = STREAM_GROUPS[event_id]
 	player.stream = choices[rng.randi_range(0, choices.size() - 1)] as AudioStream
 	var gain := MISSILE_VOICE_GAIN * clampf(intensity, 0.15, 1.0)
@@ -238,7 +253,11 @@ func play_missile_event(event_id: StringName, source: Node, intensity: float = 1
 	event_counts[event_id] = event_counts.get(event_id, 0) + 1
 	last_stream_paths[event_id] = player.stream.resource_path
 	source_players[source_id] = player
-	player_source_ids[player.get_instance_id()] = source_id
+	var group := MissileGroup.new()
+	group.event_id = event_id
+	group.opened_at = missile_clock
+	group.members.append(source_id)
+	missile_groups[player.get_instance_id()] = group
 	return true
 
 func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
@@ -248,7 +267,6 @@ func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
 	var stream := choices[rng.randi_range(0, choices.size() - 1)] as AudioStream
 	var player := _available_player()
 	_cancel_player_fade(player)
-	_release_player_source(player)
 	player.stream = stream
 	player.bus = &"Alerts" if event_id in [CONTACT, PRESSURE, LOW_AMMO] else &"Explosions"
 	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
@@ -276,32 +294,36 @@ func _available_player() -> AudioStreamPlayer:
 	next_player_index = (next_player_index + 1) % players.size()
 	return player
 
-func _release_player_source(player: AudioStreamPlayer) -> void:
+func _release_missile_group(player: AudioStreamPlayer) -> void:
 	var player_id := player.get_instance_id()
-	if not player_source_ids.has(player_id):
+	var group := missile_groups.get(player_id) as MissileGroup
+	if group == null:
 		return
-	var source_id := player_source_ids[player_id]
-	player_source_ids.erase(player_id)
-	source_players.erase(source_id)
+	for source_id: int in group.members:
+		source_players.erase(source_id)
+	missile_groups.erase(player_id)
 
 func _on_source_flight_ended(detonated: bool, source_id: int) -> void:
-	_fade_source(source_id, DETONATION_FADE_SECONDS if detonated else RETIRE_FADE_SECONDS)
+	_retire_missile_source(source_id, DETONATION_FADE_SECONDS if detonated else RETIRE_FADE_SECONDS)
 	if detonated:
 		play_event(EXPLOSION)
 
 func _on_source_tree_exiting(source_id: int) -> void:
-	_fade_source(source_id, RETIRE_FADE_SECONDS)
+	_retire_missile_source(source_id, RETIRE_FADE_SECONDS)
 
-func _fade_source(source_id: int, duration: float) -> void:
+func _retire_missile_source(source_id: int, duration: float) -> void:
 	var player := source_players.get(source_id) as AudioStreamPlayer
 	if player == null:
 		return
 	var player_id := player.get_instance_id()
-	if int(player_source_ids.get(player_id, 0)) != source_id:
-		source_players.erase(source_id)
-		return
-	player_source_ids.erase(player_id)
 	source_players.erase(source_id)
+	var group := missile_groups.get(player_id) as MissileGroup
+	if group == null:
+		return
+	group.members.erase(source_id)
+	if not group.members.is_empty():
+		return
+	missile_groups.erase(player_id)
 	_cancel_player_fade(player)
 	var generation := next_fade_generation
 	next_fade_generation += 1

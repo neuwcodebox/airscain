@@ -4,15 +4,16 @@ class MissileSource:
 	extends Node
 	signal flight_ended(detonated: bool)
 
-func test_missile_burst_keeps_representatives_and_shared_gain_budget() -> void:
+func test_missile_groups_keep_four_slots_and_shared_gain_budget() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var sources: Array[MissileSource] = []
 	for index: int in 40:
+		context._process(CombatAudio.MISSILE_GROUP_WINDOW + 0.01)
 		var source := add_child_autofree(MissileSource.new()) as MissileSource
 		sources.append(source)
 		var accepted := context.play_missile_event(CombatAudio.MISSILE_EVENTS[index % 3], source)
-		assert_eq(accepted, index < CombatAudio.MAX_AUDIBLE_MISSILES)
-	assert_eq(context.source_players.size(), CombatAudio.MAX_AUDIBLE_MISSILES)
+		assert_eq(accepted, index < CombatAudio.MAX_AUDIBLE_MISSILE_GROUPS)
+	assert_eq(context.source_players.size(), CombatAudio.MAX_AUDIBLE_MISSILE_GROUPS)
 	var first := context.source_players[sources[0].get_instance_id()]
 	assert_false(context.play_missile_event(CombatAudio.MISSILE, sources[0]), "같은 발사음을 재시작하지 않습니다")
 	for event: StringName in [CombatAudio.CONTACT, CombatAudio.DAMAGE, CombatAudio.EXPLOSION]:
@@ -28,9 +29,12 @@ func test_missile_burst_keeps_representatives_and_shared_gain_budget() -> void:
 	sources.back().flight_ended.emit(true)
 	assert_eq(context.played_count(CombatAudio.EXPLOSION), explosions + 1, "Suppressed launch still reports impact")
 	sources[0].flight_ended.emit(false)
-	assert_false(context.play_missile_event(CombatAudio.MISSILE, sources.back()), "Fading voice still occupies its slot")
+	var suppressed := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_false(context.play_missile_event(CombatAudio.MISSILE, suppressed), "Fading voice still occupies its slot")
 	await get_tree().create_timer(CombatAudio.RETIRE_FADE_SECONDS + 0.05).timeout
-	assert_true(context.play_missile_event(CombatAudio.MISSILE, sources.back()))
+	assert_false(context.play_missile_event(CombatAudio.MISSILE, suppressed), "Suppressed launches never start late")
+	var replacement := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, replacement))
 	for frame: int in 24:
 		await get_tree().process_frame
 		total = 0.0
@@ -40,20 +44,72 @@ func test_missile_burst_keeps_representatives_and_shared_gain_budget() -> void:
 		assert_lte(total, CombatAudio.MISSILE_MIX_BUDGET + 0.0001, "Retirement/replacement also obeys the mix budget")
 	context.stop_all()
 	assert_true(context.source_players.is_empty())
+	assert_true(context.missile_groups.is_empty())
 	for player: AudioStreamPlayer in context.missile_players:
 		assert_false(player.playing)
+
+func test_simultaneous_missiles_share_sound_until_last_member_exits() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var sources: Array[MissileSource] = []
+	for index: int in 40:
+		var source := add_child_autofree(MissileSource.new()) as MissileSource
+		sources.append(source)
+		assert_true(context.play_missile_event(CombatAudio.MISSILE, source))
+	assert_eq(context.played_count(CombatAudio.MISSILE), 1)
+	var player := context.source_players[sources[0].get_instance_id()]
+	for index: int in 39:
+		assert_same(context.source_players[sources[index].get_instance_id()], player)
+		sources[index].flight_ended.emit(true)
+		assert_false(context.fade_tweens.has(player.get_instance_id()))
+		assert_true(player.playing)
+	# Scene removal is also an end; no flight_ended signal is required.
+	remove_child(sources.back())
+	assert_true(context.fade_tweens.has(player.get_instance_id()))
+	assert_true(context.source_players.is_empty())
+	await get_tree().create_timer(CombatAudio.RETIRE_FADE_SECONDS + 0.05).timeout
+	assert_false(player.playing)
+
+func test_missile_group_window_is_fixed_and_separates_families() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	context.set_process(false)
+	var first := add_child_autofree(MissileSource.new()) as MissileSource
+	var second := add_child_autofree(MissileSource.new()) as MissileSource
+	var third := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, first))
+	context._process(CombatAudio.MISSILE_GROUP_WINDOW * 0.75)
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, second))
+	assert_eq(context.played_count(CombatAudio.MISSILE), 1)
+	context._process(CombatAudio.MISSILE_GROUP_WINDOW * 0.5)
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, third))
+	assert_eq(context.played_count(CombatAudio.MISSILE), 2, "Joining never extends the first launch's window")
+	for event: StringName in [CombatAudio.LONG_MISSILE, CombatAudio.SHORT_MISSILE]:
+		var source := add_child_autofree(MissileSource.new()) as MissileSource
+		assert_true(context.play_missile_event(event, source))
+		assert_eq(context.played_count(event), 1)
+	assert_eq(context.missile_groups.size(), 4)
+	var last := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, last), "Existing group can accept members even when all slots are occupied")
+	assert_same(context.source_players[third.get_instance_id()], context.source_players[last.get_instance_id()])
+	context.simulation_paused = true
+	var clock_before := context.missile_clock
+	context._process(1.0)
+	assert_eq(context.missile_clock, clock_before)
 
 func test_natural_missile_completion_releases_ownership_before_reuse() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var source := add_child_autofree(MissileSource.new()) as MissileSource
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, source))
+	var companion := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, companion))
 	var player := context.source_players[source.get_instance_id()]
 	player.stop()
 	player.finished.emit()
 	assert_false(context.source_players.has(source.get_instance_id()))
+	assert_false(context.source_players.has(companion.get_instance_id()))
 	var next := add_child_autofree(MissileSource.new()) as MissileSource
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, next))
 	source.flight_ended.emit(false)
+	companion.flight_ended.emit(true)
 	assert_true(player.playing, "Retired missile cannot fade a reused voice")
 	assert_false(context.fade_tweens.has(player.get_instance_id()))
 
