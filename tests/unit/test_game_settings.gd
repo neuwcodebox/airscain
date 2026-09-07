@@ -92,7 +92,9 @@ func test_audio_categories_are_independent_and_zero_mutes() -> void:
 func test_players_route_to_the_matching_category() -> void:
 	var combat := add_child_autofree(CombatAudio.new()) as CombatAudio
 	assert_eq(combat._play_stream(CombatAudio.CONTACT, 1.0).bus, &"Alerts")
-	assert_eq(combat._play_stream(CombatAudio.MISSILE, 1.0).bus, &"Missiles")
+	var missile := add_child_autofree(Node.new()) as Node
+	assert_true(combat.play_missile_event(CombatAudio.MISSILE, missile))
+	assert_eq(combat.source_players[missile.get_instance_id()].bus, &"Missiles")
 	assert_eq(combat._play_stream(CombatAudio.EXPLOSION, 1.0).bus, &"Explosions")
 	assert_eq(combat.gun_airbursts.bus, &"Guns")
 	var ui := add_child_autofree(UiAudio.new()) as UiAudio

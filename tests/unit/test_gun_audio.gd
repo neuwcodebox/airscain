@@ -1,5 +1,62 @@
 extends GutTest
 
+class MissileSource:
+	extends Node
+	signal flight_ended(detonated: bool)
+
+func test_missile_burst_keeps_representatives_and_shared_gain_budget() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var sources: Array[MissileSource] = []
+	for index: int in 40:
+		var source := add_child_autofree(MissileSource.new()) as MissileSource
+		sources.append(source)
+		var accepted := context.play_missile_event(CombatAudio.MISSILE_EVENTS[index % 3], source)
+		assert_eq(accepted, index < CombatAudio.MAX_AUDIBLE_MISSILES)
+	assert_eq(context.source_players.size(), CombatAudio.MAX_AUDIBLE_MISSILES)
+	var first := context.source_players[sources[0].get_instance_id()]
+	assert_false(context.play_missile_event(CombatAudio.MISSILE, sources[0]), "같은 발사음을 재시작하지 않습니다")
+	for event: StringName in [CombatAudio.CONTACT, CombatAudio.DAMAGE, CombatAudio.EXPLOSION]:
+		context.play_event(event)
+	assert_same(first, context.source_players[sources[0].get_instance_id()])
+	var total := 0.0
+	for player: AudioStreamPlayer in context.missile_players:
+		total += player.volume_linear
+		assert_true(player.playing)
+	assert_lte(total, CombatAudio.MISSILE_MIX_BUDGET + 0.0001)
+	context.cooldowns[CombatAudio.EXPLOSION] = 0.0
+	var explosions := context.played_count(CombatAudio.EXPLOSION)
+	sources.back().flight_ended.emit(true)
+	assert_eq(context.played_count(CombatAudio.EXPLOSION), explosions + 1, "Suppressed launch still reports impact")
+	sources[0].flight_ended.emit(false)
+	assert_false(context.play_missile_event(CombatAudio.MISSILE, sources.back()), "Fading voice still occupies its slot")
+	await get_tree().create_timer(CombatAudio.RETIRE_FADE_SECONDS + 0.05).timeout
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, sources.back()))
+	for frame: int in 24:
+		await get_tree().process_frame
+		total = 0.0
+		for player: AudioStreamPlayer in context.missile_players:
+			if player.playing:
+				total += player.volume_linear
+		assert_lte(total, CombatAudio.MISSILE_MIX_BUDGET + 0.0001, "Retirement/replacement also obeys the mix budget")
+	context.stop_all()
+	assert_true(context.source_players.is_empty())
+	for player: AudioStreamPlayer in context.missile_players:
+		assert_false(player.playing)
+
+func test_natural_missile_completion_releases_ownership_before_reuse() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var source := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, source))
+	var player := context.source_players[source.get_instance_id()]
+	player.stop()
+	player.finished.emit()
+	assert_false(context.source_players.has(source.get_instance_id()))
+	var next := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, next))
+	source.flight_ended.emit(false)
+	assert_true(player.playing, "Retired missile cannot fade a reused voice")
+	assert_false(context.fade_tweens.has(player.get_instance_id()))
+
 func test_all_guns_share_one_timed_airburst_voice() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var definition := preload("res://defense/close_in_gun/close_in_gun.tres")

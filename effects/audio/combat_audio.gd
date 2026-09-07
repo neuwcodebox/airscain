@@ -14,6 +14,9 @@ const MISSILE_EVENTS: Array[StringName] = [LONG_MISSILE, MISSILE, SHORT_MISSILE]
 const DETONATION_FADE_SECONDS := 0.12
 const RETIRE_FADE_SECONDS := 0.25
 const FADE_FLOOR_DB := -40.0
+const MAX_AUDIBLE_MISSILES := 4
+const MISSILE_MIX_BUDGET := 0.65
+const MISSILE_VOICE_GAIN := 0.35
 
 const STREAM_GROUPS: Dictionary = {
 	CONTACT: [
@@ -61,6 +64,8 @@ var cooldowns: Dictionary[StringName, float] = {}
 var event_counts: Dictionary[StringName, int] = {}
 var last_stream_paths: Dictionary[StringName, String] = {}
 var players: Array[AudioStreamPlayer] = []
+var missile_players: Array[AudioStreamPlayer] = []
+var missile_gains: Dictionary[int, float] = {}
 var source_players: Dictionary[int, AudioStreamPlayer] = {}
 var player_source_ids: Dictionary[int, int] = {}
 var fade_tweens: Dictionary[int, Tween] = {}
@@ -116,6 +121,15 @@ func _ready() -> void:
 		player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(player)
 		players.append(player)
+	# Launches cannot steal alert/explosion voices or cut off another missile.
+	for index: int in MAX_AUDIBLE_MISSILES:
+		var player := AudioStreamPlayer.new()
+		player.name = "MissileVoice%d" % index
+		player.bus = &"Missiles"
+		player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
+		add_child(player)
+		missile_players.append(player)
+		player.finished.connect(_on_missile_voice_finished.bind(player))
 
 static func all_streams() -> Array[AudioStream]:
 	var streams: Array[AudioStream] = GunAudio.all_streams()
@@ -142,6 +156,29 @@ static func uses_sample_playback() -> bool:
 func _process(delta: float) -> void:
 	for event_id: StringName in cooldowns.keys():
 		cooldowns[event_id] = maxf(0.0, cooldowns[event_id] - delta)
+	_refresh_missile_mix(delta)
+
+func _refresh_missile_mix(delta: float = 0.0) -> void:
+	var fading_gain := 0.0
+	var requested_gain := 0.0
+	for player: AudioStreamPlayer in missile_players:
+		if fade_tweens.has(player.get_instance_id()):
+			fading_gain += player.volume_linear
+		elif player.playing:
+			requested_gain += float(missile_gains.get(player.get_instance_id(), 0.0))
+	var scale := minf(1.0, maxf(0.0, MISSILE_MIX_BUDGET - fading_gain) / maxf(0.0001, requested_gain))
+	for player: AudioStreamPlayer in missile_players:
+		if not player.playing or fade_tweens.has(player.get_instance_id()):
+			continue
+		var target := float(missile_gains.get(player.get_instance_id(), 0.0)) * scale
+		# Reduce immediately to preserve the budget; recover gently as voices retire.
+		player.volume_linear = minf(target, player.volume_linear + delta * 0.8)
+
+func _on_missile_voice_finished(player: AudioStreamPlayer) -> void:
+	_cancel_player_fade(player)
+	_release_player_source(player)
+	missile_gains.erase(player.get_instance_id())
+	player.stream = null
 
 func _exit_tree() -> void:
 	stop_all()
@@ -149,12 +186,13 @@ func _exit_tree() -> void:
 func stop_all() -> void:
 	if is_instance_valid(gun_airbursts):
 		gun_airbursts.reset()
-	for player: AudioStreamPlayer in players:
+	for player: AudioStreamPlayer in players + missile_players:
 		_cancel_player_fade(player)
 		player.stop()
 		player.stream = null
 	source_players.clear()
 	player_source_ids.clear()
+	missile_gains.clear()
 
 func on_gun_round_detonated(position: Vector3, reason: StringName) -> void:
 	if is_instance_valid(gun_airbursts):
@@ -170,23 +208,41 @@ func play_event(event_id: StringName, intensity: float = 1.0) -> bool:
 	return true
 
 func play_missile_event(event_id: StringName, source: Node, intensity: float = 1.0) -> bool:
-	if source == null or event_id not in MISSILE_EVENTS:
+	if not enabled or not is_instance_valid(source) or event_id not in MISSILE_EVENTS:
 		return false
 	var source_id := source.get_instance_id()
 	if source_players.has(source_id):
-		_stop_source(source_id)
-	var player := _play_stream(event_id, intensity)
+		return false
+	# Suppressed launches still produce their own eventual impact event.
+	var ended := _on_source_flight_ended.bind(source_id)
+	if source.has_signal("flight_ended") and not source.is_connected("flight_ended", ended):
+		source.connect("flight_ended", ended, CONNECT_ONE_SHOT)
+	var exiting := _on_source_tree_exiting.bind(source_id)
+	if not source.tree_exiting.is_connected(exiting):
+		source.tree_exiting.connect(exiting, CONNECT_ONE_SHOT)
+	var player: AudioStreamPlayer
+	for candidate: AudioStreamPlayer in missile_players:
+		if not candidate.playing and not fade_tweens.has(candidate.get_instance_id()):
+			player = candidate
+			break
 	if player == null:
 		return false
+	_release_player_source(player)
+	var choices: Array = STREAM_GROUPS[event_id]
+	player.stream = choices[rng.randi_range(0, choices.size() - 1)] as AudioStream
+	var gain := MISSILE_VOICE_GAIN * clampf(intensity, 0.15, 1.0)
+	missile_gains[player.get_instance_id()] = gain
+	player.volume_linear = gain
+	player.play()
+	_refresh_missile_mix()
+	event_counts[event_id] = event_counts.get(event_id, 0) + 1
+	last_stream_paths[event_id] = player.stream.resource_path
 	source_players[source_id] = player
 	player_source_ids[player.get_instance_id()] = source_id
-	if source.has_signal("flight_ended"):
-		source.connect("flight_ended", _on_source_flight_ended.bind(source_id), CONNECT_ONE_SHOT)
-	source.tree_exiting.connect(_on_source_tree_exiting.bind(source_id), CONNECT_ONE_SHOT)
 	return true
 
 func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
-	if not enabled or not STREAM_GROUPS.has(event_id) or players.is_empty():
+	if event_id in MISSILE_EVENTS or not enabled or not STREAM_GROUPS.has(event_id) or players.is_empty():
 		return null
 	var choices: Array = STREAM_GROUPS[event_id]
 	var stream := choices[rng.randi_range(0, choices.size() - 1)] as AudioStream
@@ -194,7 +250,7 @@ func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
 	_cancel_player_fade(player)
 	_release_player_source(player)
 	player.stream = stream
-	player.bus = &"Missiles" if event_id in MISSILE_EVENTS else &"Alerts" if event_id in [CONTACT, PRESSURE, LOW_AMMO] else &"Explosions"
+	player.bus = &"Alerts" if event_id in [CONTACT, PRESSURE, LOW_AMMO] else &"Explosions"
 	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
 	player.play()
 	event_counts[event_id] = event_counts.get(event_id, 0) + 1
@@ -263,6 +319,7 @@ func _finish_player_fade(player: AudioStreamPlayer, generation: int) -> void:
 		return
 	player.stop()
 	player.stream = null
+	missile_gains.erase(player_id)
 	fade_tweens.erase(player_id)
 	fade_generations.erase(player_id)
 
@@ -273,18 +330,6 @@ func _cancel_player_fade(player: AudioStreamPlayer) -> void:
 		tween.kill()
 	fade_tweens.erase(player_id)
 	fade_generations.erase(player_id)
-
-func _stop_source(source_id: int) -> void:
-	var player := source_players.get(source_id) as AudioStreamPlayer
-	if player == null:
-		return
-	var player_id := player.get_instance_id()
-	if int(player_source_ids.get(player_id, 0)) == source_id:
-		_cancel_player_fade(player)
-		player.stop()
-		player.stream = null
-		player_source_ids.erase(player_id)
-	source_players.erase(source_id)
 
 func _event_cooldown(event_id: StringName) -> float:
 	match event_id:
