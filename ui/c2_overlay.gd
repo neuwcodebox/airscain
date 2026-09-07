@@ -3,7 +3,6 @@ extends Node3D
 
 const C2_COLOR := Color(0.12, 0.82, 1.0, 0.82)
 const SUPPORT_COLOR := Color(0.36, 1.0, 0.54, 0.9)
-const INCOMPLETE_COLOR := Color(1.0, 0.58, 0.18, 0.92)
 const LINK_HEIGHT := 9.0
 
 var c2_network: Node
@@ -141,7 +140,7 @@ func _rebuild_range() -> void:
 		center = placement_position
 		if placement_definition.placement_support_range() <= 0.0:
 			radius = placement_definition.placement_c2_range()
-			range_material.albedo_color = C2_COLOR if placement_ready else INCOMPLETE_COLOR
+			range_material.albedo_color = C2_COLOR
 	elif is_instance_valid(selected_asset) and selected_asset.active:
 		center = selected_asset.global_position
 		if selected_asset.service_range() > 0.0:

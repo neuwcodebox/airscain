@@ -27,11 +27,11 @@ var candidate_valid: bool = false
 var preview: Node3D
 var range_disc: LabeledRangeRing
 var preview_material := StandardMaterial3D.new()
+var range_material := StandardMaterial3D.new()
 var dependency_refresh_remaining: float = 0.0
 var last_dependency_definition: DefenseDefinition
 var last_dependency_position: Vector3
 var dependency_preview_active: bool = false
-var elevation_guide: PlacementElevationGuide
 var hovered_asset: DefenseUnit
 var range_label_obstacles: Array[Control] = []
 
@@ -120,7 +120,7 @@ func _process(delta: float) -> void:
 	candidate_position = hit.position if selected_threat != null else battlefield.snap_placement_position(hit.position, selected.placement_profile)
 	preview.global_position = candidate_position
 	battlefield.set_placement_light(selected != null, candidate_position)
-	_update_elevation_guide()
+	battlefield.set_placement_contours(selected != null, candidate_position)
 	var result := {"valid": true, "reason": "위협 투입 가능"} if selected_threat != null else _validation()
 	candidate_valid = result.valid
 	if selected != null and selected_threat == null and relocating_unit == null:
@@ -285,20 +285,13 @@ func _create_preview() -> void:
 	range_disc.obstacles = range_label_obstacles
 	wall_material_setup()
 	range_disc.position.y = 1.5
-	range_disc.material_override = preview_material
+	range_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	range_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	range_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	range_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48)
+	range_disc.material_override = range_material
 	preview.add_child(range_disc)
 	range_disc.set_range(LabeledRangeRing.primary_radius(selected), LabeledRangeRing.primary_title(selected))
-	elevation_guide = PlacementElevationGuide.new()
-	elevation_guide.guide_material = preview_material
-	preview.add_child(elevation_guide)
-
-func _update_elevation_guide() -> void:
-	if selected == null:
-		return
-	battlefield.set_placement_contours(true, candidate_position)
-	var altitude := candidate_position.y - battlefield.generator.sea_level
-	var slope := battlefield.generator.slope_degrees_at(candidate_position.x, candidate_position.z, 12.0)
-	elevation_guide.show_measurements(altitude, slope)
 
 func _copy_preview_geometry(source: Node3D, parent_transform: Transform3D) -> void:
 	if not source.visible:

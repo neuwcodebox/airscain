@@ -72,13 +72,31 @@ func test_placement_contours_are_world_local_and_do_not_change_terrain() -> void
 	placement.battlefield = first
 	placement.select(SCENARIO.available_defenses[0])
 	placement.candidate_position = Vector3(100, first.generator.sea_level + 45, 100)
-	placement._update_elevation_guide()
-	assert_true(placement.elevation_guide.label.text.begins_with("해발 45m"))
-	assert_true(placement.elevation_guide.label.no_depth_test)
-	assert_gte(placement.elevation_guide.label.render_priority, 120)
+	first.set_placement_contours(true, placement.candidate_position)
+	assert_null(placement.preview.find_child("ElevationLabel", true, false))
 	assert_eq(material.get_shader_parameter("placement_contours"), true)
 	placement.cancel()
 	assert_eq(material.get_shader_parameter("placement_contours"), false)
+
+func test_placement_range_color_is_independent_of_model_validity() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var placement := add_child_autofree(PlacementController.new()) as PlacementController
+	placement.battlefield = field
+	for definition: DefenseDefinition in [SCENARIO.available_defenses[0], SCENARIO.available_defenses[1]]:
+		placement.select(definition)
+		var material := placement.range_disc.material_override as StandardMaterial3D
+		var original_color := material.albedo_color
+		for valid: bool in [true, false, true]:
+			placement.preview_material.albedo_color = Color.GREEN if valid else Color.RED
+			assert_eq(material.albedo_color, original_color, "범위는 배치 모형의 유효성 색상을 공유하지 않는다")
+		placement.cancel()
+	var overlay := add_child_autofree(C2Overlay.new()) as C2Overlay
+	overlay.preview_placement(SCENARIO.available_defenses[0], Vector3.ZERO, true)
+	for ready: bool in [true, false, true]:
+		overlay.placement_ready = ready
+		overlay._rebuild_range()
+		assert_eq(overlay.range_material.albedo_color, C2Overlay.C2_COLOR)
 
 func test_expired_smoke_can_reuse_slots_without_restoring_old_puffs() -> void:
 	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect

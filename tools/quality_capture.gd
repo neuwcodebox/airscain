@@ -35,7 +35,7 @@ func run() -> void:
 		main.placement.candidate_position = center
 		main.placement.preview.position = center
 		main.placement.preview_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48)
-		main.placement._update_elevation_guide()
+		main.battlefield.set_placement_contours(true, main.placement.candidate_position)
 		await capture("terrain_placement")
 		main.placement.cancel()
 		await capture("terrain_cancelled")

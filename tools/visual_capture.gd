@@ -301,6 +301,29 @@ func run() -> void:
 		assert(main.placement.range_disc.caption.visible)
 		assert(main.c2_overlay.range_ring.caption.visible)
 		_save_capture("/tmp/airscain_range_placement.png")
+		var original_budget := main.session.budget
+		var original_unlimited := main.session.unlimited_budget
+		var operation_color := main.placement.range_disc.caption.modulate
+		var connection_color := main.c2_overlay.range_ring.caption.modulate
+		main.session.unlimited_budget = false
+		main.session.budget = 0
+		main.session.budget_changed.emit(main.session.budget)
+		for frame: int in 10:
+			await process_frame
+		assert(not main.placement.candidate_valid)
+		assert(main.hud.placement_status_label.text.contains("예산이 부족"))
+		assert(main.placement.range_disc.caption.modulate == operation_color)
+		assert(main.c2_overlay.range_ring.caption.modulate == connection_color)
+		assert(main.placement.preview.find_child("ElevationLabel", true, false) == null)
+		assert(main.battlefield.terrain.material_override.get_shader_parameter("placement_contours"))
+		_save_capture("/tmp/airscain_range_placement_invalid.png")
+		main.session.budget = original_budget
+		main.session.budget_changed.emit(main.session.budget)
+		main.session.unlimited_budget = original_unlimited
+		for frame: int in 10:
+			await process_frame
+		assert(main.placement.candidate_valid)
+		assert(main.placement.range_disc.caption.modulate == operation_color)
 		assert(main.placement.request_selected_defense_placement())
 		main._on_asset_selected(main.defenses.back())
 		for frame: int in 8:
