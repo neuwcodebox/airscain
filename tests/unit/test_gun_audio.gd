@@ -4,6 +4,19 @@ class MissileSource:
 	extends Node
 	signal flight_ended(detonated: bool)
 
+func test_single_weapon_voice_uses_category_gain_before_crowding() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var source := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_true(context.play_missile_event(CombatAudio.MISSILE, source))
+	assert_almost_eq(context.source_players[source.get_instance_id()].volume_linear, CombatAudio.MISSILE_VOICE_GAIN, 0.0001)
+	var voice := add_child_autofree(GunAudio.new()) as GunAudio
+	voice.context = context
+	voice.notify_shot()
+	voice._process(GunAudio.CROSSFADE_SECONDS)
+	assert_almost_eq(voice.volume_linear, CombatAudio.GUN_VOICE_GAIN, 0.0001)
+	assert_lte(voice.volume_linear, CombatAudio.GUN_MIX_BUDGET)
+	assert_lte(context.source_players[source.get_instance_id()].volume_linear, CombatAudio.MISSILE_MIX_BUDGET)
+
 func test_missile_groups_keep_four_slots_and_shared_gain_budget() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var sources: Array[MissileSource] = []

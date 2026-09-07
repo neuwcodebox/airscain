@@ -18,7 +18,7 @@ var endings: int = 0
 var shot_pending: bool = false
 var sustain_gain: float = 0.0
 var ending_gain: float = 0.0
-var mix_gain: float = 0.25
+var mix_gain: float = CombatAudio.GUN_VOICE_GAIN
 var audible: bool = false
 var firing_elapsed: float = 0.0
 

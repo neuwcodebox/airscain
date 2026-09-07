@@ -16,8 +16,8 @@ const RETIRE_FADE_SECONDS := 0.25
 const FADE_FLOOR_DB := -40.0
 const MAX_AUDIBLE_MISSILE_GROUPS := 4
 const MISSILE_GROUP_WINDOW := 0.1
-const MISSILE_MIX_BUDGET := 0.65
-const MISSILE_VOICE_GAIN := 0.35
+const MISSILE_MIX_BUDGET := 1.0
+const MISSILE_VOICE_GAIN := 0.75
 
 class MissileGroup:
 	var event_id: StringName
@@ -85,7 +85,8 @@ var prepared_stream_count: int = 0
 var simulation_paused: bool = false
 var gun_airbursts: GunAirburstAudio
 var gun_voices: Dictionary[int, GunAudio] = {}
-const GUN_MIX_BUDGET := 0.65
+const GUN_MIX_BUDGET := 1.8
+const GUN_VOICE_GAIN := 0.75
 const MAX_AUDIBLE_GUNS := 4
 
 func register_gun_voice(voice: GunAudio) -> void:
@@ -108,7 +109,7 @@ func refresh_gun_mix() -> void:
 	for voice: GunAudio in gun_voices.values():
 		if not selected.has(voice) and selected.size() < MAX_AUDIBLE_GUNS:
 			selected.append(voice)
-	var gain := minf(0.25, GUN_MIX_BUDGET / maxf(1.0, selected.size()))
+	var gain := minf(GUN_VOICE_GAIN, GUN_MIX_BUDGET / maxf(1.0, selected.size()))
 	for voice: GunAudio in gun_voices.values():
 		voice.set_mix_gain(gain)
 		voice.set_audible(selected.has(voice))
