@@ -84,6 +84,7 @@ var prepared_stream_count: int = 0
 @export var enabled: bool = true
 var simulation_paused: bool = false
 var simulation_rate: float = 1.0
+var uav_loops: UavLoopAudio
 var cruise_approaches: ThreatApproachAudio
 var approaches: ThreatApproachAudio
 var gun_airbursts: GunAirburstAudio
@@ -121,6 +122,9 @@ func _ready() -> void:
 	if not enabled:
 		return
 	prepared_stream_count = prepare_samples()
+	uav_loops = UavLoopAudio.new()
+	uav_loops.name = "UavLoops"
+	add_child(uav_loops)
 	approaches = ThreatApproachAudio.new()
 	approaches.name = "ThreatApproaches"
 	add_child(approaches)
@@ -153,6 +157,7 @@ static func all_streams() -> Array[AudioStream]:
 	var streams: Array[AudioStream] = GunAudio.all_streams()
 	streams.append(GunAirburstAudio.loop_stream())
 	streams.append_array(ThreatApproachAudio.all_streams())
+	streams.append_array(UavLoopAudio.all_streams())
 	for group: Array in STREAM_GROUPS.values():
 		for candidate: Variant in group:
 			var stream := candidate as AudioStream
@@ -173,6 +178,8 @@ static func uses_sample_playback() -> bool:
 	return OS.has_feature("web")
 
 func _process(delta: float) -> void:
+	if is_instance_valid(uav_loops):
+		uav_loops.update_audio(delta, simulation_paused, simulation_rate, enabled)
 	if is_instance_valid(cruise_approaches):
 		cruise_approaches.update_audio(delta, simulation_paused, simulation_rate, enabled)
 	if is_instance_valid(approaches):
@@ -209,6 +216,8 @@ func _exit_tree() -> void:
 	stop_all()
 
 func stop_all() -> void:
+	if is_instance_valid(uav_loops):
+		uav_loops.reset()
 	if is_instance_valid(cruise_approaches):
 		cruise_approaches.reset()
 	if is_instance_valid(approaches):
@@ -224,6 +233,8 @@ func stop_all() -> void:
 	missile_gains.clear()
 
 func register_threat(threat: ThreatUnit) -> void:
+	if is_instance_valid(uav_loops):
+		uav_loops.register(threat)
 	if is_instance_valid(cruise_approaches):
 		cruise_approaches.register(threat)
 	if is_instance_valid(approaches):

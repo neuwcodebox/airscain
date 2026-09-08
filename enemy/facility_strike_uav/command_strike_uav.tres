@@ -25,6 +25,7 @@ action_duration = 0.0
 
 [resource]
 script = ExtResource("1")
+loop_audio_event = &"uav_heavy"
 id = &"command_strike_uav"
 display_name = "지휘시설 타격 UAV"
 scene = ExtResource("2")

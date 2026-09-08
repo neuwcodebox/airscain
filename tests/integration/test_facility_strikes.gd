@@ -471,3 +471,44 @@ func test_cruise_approach_precedes_actual_collision() -> void:
 	assert_true(audio.voices[0].retiring)
 	audio.update_audio(0.2, false, 1.0, true)
 	assert_false(audio.voices[0].player.playing)
+
+func test_uav_loop_content_roles_and_live_release_envelope() -> void:
+	for id: StringName in [&"recon_uav", &"electronic_warfare_uav", &"decoy_uav"]:
+		assert_eq(entry_for(id).threat_definition.loop_audio_event, &"")
+	for id: StringName in [&"attack_uav", &"swarm_uav", &"battery_strike_uav", &"command_strike_uav", &"support_strike_uav"]:
+		var definition := entry_for(id).threat_definition as AttackUavDefinition
+		var aircraft := definition.scene.instantiate() as AttackUav
+		main.threat_parent.add_child(aircraft)
+		aircraft.setup(9100, definition)
+		var target := target_for(&"weapon")
+		aircraft.global_position = target.global_position + Vector3(800, 120, 0)
+		aircraft.configure_mission(main.objective, main.battlefield, target.global_position, 1.0, target, aircraft.global_position)
+		var audio := UavLoopAudio.new()
+		add_child_autofree(audio)
+		audio.register(aircraft)
+		var started := -1.0
+		var finished := -1.0
+		var maximum := 0.0
+		for tick: int in 1800:
+			aircraft.gameplay_tick(0.05)
+			audio.update_audio(0.05, false, 1.0, true)
+			for voice: UavLoopAudio.Voice in audio.voices:
+				maximum = maxf(maximum, voice.envelope)
+				if voice.player.playing and started < 0.0:
+					started = tick * 0.05
+			if aircraft.resolved_state or aircraft.mission_runtime.effect_applied:
+				finished = tick * 0.05
+				break
+		assert_gt(started, 0.0, String(id))
+		assert_gt(finished, started, String(id))
+		assert_gt(maximum, 0.65, "접근 중 볼륨이 충분히 상승: " + String(id))
+		if definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
+			assert_almost_eq(finished - started, float(UavLoopAudio.LEAD_SECONDS[definition.loop_audio_event]), 2.0, "충돌 예상시간 기반 시작: " + String(id))
+		if definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
+			assert_almost_eq(finished - started, 8.0, 2.0, "투하 예상시간 기반 시작: " + String(id))
+			assert_true(audio.voices[0].player.playing, "투하 후 이탈 꼬리")
+		for tick: int in 50:
+			audio.update_audio(0.05, false, 1.0, true)
+		for voice: UavLoopAudio.Voice in audio.voices:
+			assert_false(voice.player.playing, String(id))
+		aircraft.free()

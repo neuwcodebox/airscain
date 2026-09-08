@@ -126,12 +126,12 @@ func presentation_action_seconds() -> float:
 			return INF
 		var seconds := maxf(0.0, offset.length() - _definition.mission.action_distance) / closing_speed
 		# Nearby buildings may end the flight before the mission target.
-		var projected := global_position + mover.velocity * minf(seconds, 5.5)
+		var projected := global_position + mover.velocity * minf(seconds, 8.5)
 		var impact := battlefield.building_segment_impact(global_position, projected) if _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY else StrikeFlight.surface_impact(battlefield, global_position, projected)
 		if not impact.is_empty():
 			seconds = minf(seconds, global_position.distance_to(impact.position) / mover.velocity.length())
 		return seconds
-	if not is_targetable() or mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS or _definition.mission.released_missile == null:
+	if not is_targetable() or mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS or _definition.mission.type != ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
 		return INF
 	var offset := mission_runtime.navigation_target() - body.global_transform * AircraftStrikeRelease.HARDPOINT
 	var horizontal := Vector3(offset.x, 0.0, offset.z)
@@ -139,6 +139,10 @@ func presentation_action_seconds() -> float:
 	if forward.length_squared() < 1.0 or forward.normalized().dot(horizontal.normalized()) < cos(deg_to_rad(_definition.mission.launch_cone_degrees)):
 		return INF
 	var closing_speed := forward.dot(horizontal.normalized())
+	if _definition.mission.released_missile == null:
+		var gravity := StrikeFlight.GRAVITY
+		var fall_time := (mover.velocity.y + sqrt(maxf(0.0, mover.velocity.y * mover.velocity.y - 2.0 * gravity * offset.y))) / gravity
+		return maxf(0.0, horizontal.length() / closing_speed - fall_time)
 	return maxf(0.0, horizontal.length() - _definition.mission.action_distance) / closing_speed
 
 func presentation_action_completed() -> bool:

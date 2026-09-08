@@ -25,6 +25,7 @@ action_distance = 5.0
 
 [resource]
 script = ExtResource("1")
+loop_audio_event = &"uav_light"
 id = &"swarm_uav"
 display_name = "소형 군집 UAV"
 scene = ExtResource("2")

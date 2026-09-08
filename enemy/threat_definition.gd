@@ -7,6 +7,7 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export var display_name: String
 @export var scene: PackedScene
 @export var approach_audio_event: StringName
+@export var loop_audio_event: StringName
 @export var neutralization_reward: int = 30
 @export var signature_class: StringName = &"air_contact"
 @export_range(0.0, 1.0) var radar_signature: float = 0.7

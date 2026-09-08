@@ -24,6 +24,7 @@ acquisition_range = 220.0
 
 [resource]
 script = ExtResource("1")
+loop_audio_event = &"uav_heavy"
 id = &"battery_strike_uav"
 display_name = "포대 타격 UAV"
 scene = ExtResource("2")
