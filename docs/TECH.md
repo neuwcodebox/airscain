@@ -532,7 +532,7 @@ engagement_score =
 
 `EngagementDoctrine`는 공통 공개 항적 분류 목록과 자산별 `excluded_target_kinds`를 관리한다. `ArmedDefenseUnit`의 공통 capability로 설정을 변경하고 `allows()`에서 종류 제한을 다른 교전 조건과 함께 적용한다. `strike_aircraft`는 `aircraft`, 대형·공격·정찰 UAV 분류는 `uav`, 대레이더 미사일의 `missile`은 `cruise_missile` 종류로 정규화한다. 미사일·기관포·레이저·HPM·요격드론의 후보 선택은 같은 정책을 사용한다. 이미 발사된 요격체의 유도 정책은 바꾸지 않는다. 저장은 제외 종류의 문자열 배열을 보존하며 기존 저장의 누락 필드는 빈 배열, 폐기된 `priority_track_id`는 무시한다.
 
-HUD는 ‘교전 허용 대상’ 아래 6개의 독립 SVG 아이콘 토글을 한 줄로 표시한다. 청록색 배경·테두리·상태 툴팁과 허용 개수로 상태를 설명하고 신호를 통해 선택 자산의 정책만 변경한다. 항적 클릭과 호버는 `TacticalScreenOverlay.track_at_screen()`으로 공개 항적을 조회하며 교전 우선순위를 변경하지 않는다. 훈련의 `TARGET_POLICY` 단계는 로켓 교전 차단을 실제 HUD로 수행하고 훈련 무인기 허용을 유지해야 완료된다.
+HUD는 ‘교전 설정’ 섹션 제목 바로 아래 6개의 독립 SVG 아이콘 토글을 한 줄로 표시한다. 청록색 배경·테두리·상태 툴팁으로 상태를 설명하고 신호를 통해 선택 자산의 정책만 변경한다. 항적 클릭과 호버는 `TacticalScreenOverlay.track_at_screen()`으로 공개 항적을 조회하며 교전 우선순위를 변경하지 않는다. 훈련의 `TARGET_POLICY` 단계는 로켓 교전 차단을 실제 HUD로 수행하고 훈련 무인기 허용을 유지해야 완료된다.
 
 ---
 

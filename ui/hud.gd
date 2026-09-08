@@ -53,7 +53,6 @@ const TARGET_ICONS: Array[Texture2D] = [
 ]
 var target_kind_buttons: Array[Button] = []
 @onready var target_kind_row: HBoxContainer = %TargetKindRow
-@onready var target_policy_summary: Label = %TargetPolicySummary
 const FEEDBACK_DURATION := 3.5
 const METRIC_KEY_COLOR := Color(0.58, 0.68, 0.72)
 const METRIC_VALUE_COLOR := Color(0.86, 0.9, 0.88)
@@ -965,13 +964,8 @@ func _build_target_kind_buttons() -> void:
 		target_kind_buttons.append(button)
 
 func _refresh_target_kind_buttons() -> void:
-	var allowed := 0
 	for index: int in target_kind_buttons.size():
 		var button := target_kind_buttons[index]
 		var enabled := selected_asset.allows_target_kind(EngagementDoctrine.TARGET_KINDS[index])
 		button.set_pressed_no_signal(enabled)
 		button.tooltip_text = "%s\n%s · 클릭하여 %s" % [EngagementDoctrine.TARGET_LABELS[index], "교전 허용" if enabled else "교전 차단", "차단" if enabled else "허용"]
-		if enabled:
-			allowed += 1
-	target_policy_summary.text = "전체 허용" if allowed == target_kind_buttons.size() else ("6종 차단" if allowed == 0 else "%d / %d 허용" % [allowed, target_kind_buttons.size()])
-	target_policy_summary.add_theme_color_override("font_color", METRIC_WARNING_COLOR if allowed == 0 else METRIC_KEY_COLOR)
