@@ -979,7 +979,7 @@ func _refresh_target_kind_buttons() -> void:
 		var enabled := selected_asset.allows_target_kind(EngagementDoctrine.TARGET_KINDS[index])
 		button.set_pressed_no_signal(enabled)
 		button.get_node("AllowedMark").visible = enabled
-		button.tooltip_text = "%s · %s\n클릭하여 %s · 식별된 항적 종류 기준" % [EngagementDoctrine.TARGET_LABELS[index], "교전 허용" if enabled else "교전 차단", "차단" if enabled else "허용"]
+		button.tooltip_text = "%s\n%s · 클릭하여 %s" % [EngagementDoctrine.TARGET_LABELS[index], "교전 허용" if enabled else "교전 차단", "차단" if enabled else "허용"]
 		if enabled:
 			allowed += 1
 	target_policy_summary.text = "전체 허용" if allowed == target_kind_buttons.size() else ("6종 차단" if allowed == 0 else "%d / %d 허용" % [allowed, target_kind_buttons.size()])

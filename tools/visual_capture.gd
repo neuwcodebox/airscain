@@ -64,7 +64,12 @@ func run() -> void:
 		await create_timer(0.3).timeout
 		assert(not battery.allows_target_kind(&"uav"))
 		_save_capture("/tmp/airscain_doctrine_mixed.png")
-		print("DOCTRINE_CAPTURE_OK actual click updated battery policy")
+		for index: int in main.hud.target_kind_buttons.size():
+			var hovered_button := main.hud.target_kind_buttons[index]
+			Input.warp_mouse(root.get_final_transform() * hovered_button.get_global_rect().get_center())
+			await create_timer(1.0).timeout
+			_save_capture("/tmp/airscain_doctrine_tooltip_%d.png" % index)
+		print("DOCTRINE_CAPTURE_OK actual click updated battery policy; captured all six hover tooltips")
 		main.queue_free()
 		await process_frame
 		quit()
