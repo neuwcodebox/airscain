@@ -12,7 +12,7 @@ varying float puff_alpha;
 
 void vertex() {
 	vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb);
-	puff_alpha = trail_alpha(INSTANCE_CUSTOM) * COLOR.a;
+	puff_alpha = trail_alpha(INSTANCE_CUSTOM) * COLOR.a * trail_haze(MODEL_MATRIX[3].xyz + motion.xyz);
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], vec4(MODEL_MATRIX[3].xyz + motion.xyz, 1.0));
 	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
 	// Zero-alpha cards must not keep rasterizing a full billboard until cleanup.

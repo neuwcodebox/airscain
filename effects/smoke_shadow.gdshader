@@ -24,7 +24,7 @@ void vertex() {
 	VERTEX *= sqrt(max(particle_visibility, 0.0));
 	if (trail_enabled) {
 		vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb);
-		VERTEX = VERTEX * motion.w + motion.xyz;
+		VERTEX = VERTEX * motion.w * trail_haze(MODEL_MATRIX[3].xyz + motion.xyz) + motion.xyz;
 	}
 }
 

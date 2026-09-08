@@ -1496,7 +1496,7 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 	var threat := main.director.spawn_one() as AttackUav
 	assert_not_null(threat)
 	assert_same(threat.mission_runtime.target_asset, support)
-	for tick: int in 4500:
+	for tick: int in _flight_step_budget(threat, 1.0 / 30.0):
 		threat.gameplay_tick(1.0 / 30.0)
 		if threat.mission_runtime.effect_applied:
 			break
@@ -1545,7 +1545,7 @@ func test_battery_strike_flies_releases_once_and_damages_only_at_impact() -> voi
 	var battery := _place_hunter_target()
 	main.enemy_knowledge.record_recon(battery)
 	var threat := main.director._spawn_entry(_battery_strike_entry(), 0.4, 0.0) as AttackUav
-	for tick: int in 3600:
+	for tick: int in _flight_step_budget(threat, 1.0 / 30.0):
 		threat.gameplay_tick(1.0 / 30.0)
 		if threat.mission_runtime.effect_applied:
 			break
@@ -1566,7 +1566,7 @@ func test_battery_strike_flies_releases_once_and_damages_only_at_impact() -> voi
 	munitions[0].call("_process", 10.0)
 	assert_eq(battery.integrity, after)
 	assert_eq(main.objective.current_integrity, city_before)
-	for tick: int in 3600:
+	for tick: int in _flight_step_budget(threat, 1.0 / 30.0):
 		threat.gameplay_tick(1.0 / 30.0)
 		if threat.resolved_state:
 			break
@@ -1651,10 +1651,10 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_gt(exhaust.drift_speed, 0.0)
 	assert_gt(exhaust.final_scale, exhaust.initial_scale)
 	assert_true(exhaust.puff_mesh.material is StandardMaterial3D)
-	assert_gte((threat.get_node("Body/EngineLight") as OmniLight3D).light_energy, 8.0)
+	assert_eq((threat.get_node("Body/EngineLight") as OmniLight3D).light_energy, 0.0, "연무 밖의 추진광도 숨깁니다")
 	var integrity_before := main.objective.current_integrity
 	var impact_target := threat.mission_runtime.fixed_target
-	for frame: int in 500:
+	for frame: int in _flight_step_budget(threat, 0.05):
 		threat.gameplay_tick(0.05)
 		if threat.resolved_state:
 			break
@@ -1796,7 +1796,7 @@ func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_ro
 	main.director.enabled = false
 	var approach_angle := atan2(battery.global_position.z, battery.global_position.x)
 	var ballistic := main.director._spawn_entry(main.scenario.threat_entries[9], approach_angle, 0.0) as AttackUav
-	for frame: int in 280:
+	for frame: int in _flight_step_budget(ballistic, 0.1):
 		main._process(0.1)
 		if ballistic.resolved_state:
 			break
@@ -2396,3 +2396,8 @@ func _find_contact(runtime_id: int) -> ThreatUnit:
 		if contact.runtime_id == runtime_id:
 			return contact
 	return null
+
+func _flight_step_budget(threat: AttackUav, delta: float) -> int:
+	var definition := threat.definition as AttackUavDefinition
+	var approach := definition.estimated_approach_seconds(threat.global_position.distance_to(threat.mission_runtime.navigation_target()), threat.speed_multiplier)
+	return ceili((approach * 2.0 + 30.0) / delta)

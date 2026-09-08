@@ -58,7 +58,7 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 			await get_tree().process_frame
 	assert_gt(demo.session.weapon_fire_count, 0, "실제 센서·C2·무장이 발사합니다")
 	assert_gt(demo.session.neutralized_count, 0, "실제 요격체로 시연 위협을 격추합니다")
-	assert_gte(controller.spawn_count, 15)
+	assert_gte(controller.spawn_count, 2, "먼 출발점에서도 상한 안에서 위협을 계속 투입합니다")
 	var readable_approaches := 0
 	for duration: float in visible_seconds.values():
 		if duration >= 2.0:

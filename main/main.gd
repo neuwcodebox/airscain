@@ -289,6 +289,9 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 		training_controller.defense_placed(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
+	var haze := DistantContactHaze.new()
+	threat.add_child(haze)
+	haze.configure(threat, scenario.battlefield_size)
 	combat_audio.register_threat(threat)
 	director.bind_releases(threat)
 	threat.configure_enemy_knowledge(enemy_knowledge)

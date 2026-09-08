@@ -27,7 +27,7 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export_range(1.0, 4.0, 0.1) var high_neutralization_weight: float = 1.0
 
 func spawn_radius_multiplier() -> float:
-	return 0.68
+	return 2.25
 
 func has_resolution_explosion() -> bool:
 	return resolution_profile == null or resolution_profile.explosion

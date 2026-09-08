@@ -291,12 +291,12 @@ func test_variants_require_matching_knowledge_and_join_city_strike_packages() ->
 		main.enemy_knowledge.record_recon(target)
 		assert_gt(main.director.adaptive_entry_weight(entry), 0.0)
 		assert_has(main._sandbox_threat_definitions(), entry.threat_definition)
-		var city := main.scenario.threat_entries[0]
+		var city := entry_for(&"strike_aircraft")
 		var weights: Dictionary[StringName, float] = {id: 1.0, city.threat_definition.id: 1.0}
 		var planner := RaidPlanner.new()
 		var included := false
 		for sample: int in 32:
-			var waves := planner.generate(main.scenario, weights, entry.threat_cost + city.threat_cost, entry.unlock_level, 0.0, 32.0, 1.0, rng)
+			var waves := planner.generate(main.scenario, weights, entry.threat_cost + city.threat_cost, maxi(entry.unlock_level, city.unlock_level), 0.0, 32.0, 1.0, rng)
 			var has_city := false
 			for wave: Dictionary in waves:
 				included = included or StringName(wave.definition_id) == id
@@ -409,13 +409,14 @@ func test_jet_approach_cue_tracks_actual_release_and_restore() -> void:
 	var start_time := -1.0
 	var start_position := 0.0
 	var released_at := -1.0
-	for tick: int in 1800:
+	for tick: int in 7200:
 		var time := float(tick) / 60.0
 		aircraft.gameplay_tick(1.0 / 60.0)
 		audio.update_audio(1.0 / 60.0, false, 1.0, true)
 		if start_time < 0.0 and audio.played_count > 0:
 			start_time = time
 			start_position = audio.voices[0].player.get_playback_position()
+			assert_lt(start_position, 0.1, "자동 생성한 타격기는 접근음 첫 부분부터 재생합니다")
 		if aircraft.mission_runtime.effect_applied:
 			released_at = time
 			break
@@ -430,3 +431,16 @@ func test_jet_approach_cue_tracks_actual_release_and_restore() -> void:
 	audio.register(aircraft)
 	audio.update_audio(1.0, false, 1.0, true)
 	assert_eq(audio.played_count, 1, "투발 후 저장 복원은 접근음을 재시작하지 않습니다")
+
+func test_all_automatic_threat_groups_start_beyond_haze() -> void:
+	main.director.elapsed = 3600.0
+	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+		for angle: float in [0.0, PI * 0.5, PI, PI * 1.5]:
+			var threat := main.director._spawn_entry(entry, angle, float(entry.group_size - 1) * 3.0)
+			assert_gt(Vector2(threat.global_position.x, threat.global_position.z).length(), main.scenario.battlefield_size * DistantContactHaze.END_RATIO, String(entry.threat_definition.id))
+			assert_eq(DistantContactHaze.opacity_at(threat.global_position, main.scenario.battlefield_size), 0.0)
+			var eta := threat.presentation_action_seconds()
+			if is_finite(eta):
+				assert_gt(eta, ThreatApproachAudio.PEAK_SECONDS)
+			main.registry.remove(threat)
+			threat.free()

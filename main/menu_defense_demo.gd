@@ -87,12 +87,7 @@ func hostile_count() -> int:
 
 func _spawn_small_attack() -> void:
 	var entry := main.scenario.threat_entries[0]
-	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
-	var angle := -0.4 + float(spawn_count % 3) * 0.22
-	var position := Vector3(cos(angle), 0, sin(angle)) * 700.0
-	position.y = main.battlefield.flight_surface_height(position.x, position.z) + 90.0
-	threat.global_position = position
-	threat.configure_mission(main.objective, main.battlefield, threat.target_point, 0.55, null, position)
+	main.director._spawn_entry(entry, 0.0, 0.0)
 	spawn_count += 1
 
 func _schedule_city_recovery(_damage: int) -> void:

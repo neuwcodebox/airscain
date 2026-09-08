@@ -7,7 +7,7 @@ enum Mode { ALTITUDE_HOLD, TERRAIN_FOLLOWING, BALLISTIC_ARC }
 @export var speed: float = 30.0
 @export var maximum_speed_multiplier: float = 2.0
 @export var cruise_altitude: float = 70.0
-@export_range(0.5, 3.0, 0.05) var spawn_radius_multiplier: float = 0.68
+@export_range(0.5, 6.0, 0.05) var spawn_radius_multiplier: float = 2.25
 @export var terminal_distance: float = 120.0
 @export var terminal_altitude: float = 2.0
 @export var maximum_turn_rate_degrees: float = 90.0

@@ -50,7 +50,7 @@ func test_pair_timing_and_directions_follow_the_selected_intent() -> void:
 	var repeated := 0
 	var previous: StringName
 	for sample: int in 240:
-		var waves := planner.generate(scenario, _weights(scenario), 4.0, 1, 0.8, 32.0, 1.0, rng)
+		var waves := planner.generate(scenario, _weights(scenario), 4.0, 1, 0.8, 300.0, 1.0, rng)
 		patterns[planner.last_pattern] = true
 		repeated += int(planner.last_pattern == previous)
 		previous = planner.last_pattern

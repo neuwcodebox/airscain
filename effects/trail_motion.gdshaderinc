@@ -16,3 +16,10 @@ float trail_alpha(vec4 data) {
 	float t = clamp((trail_time - data.x) / trail_lifetime, 0.0, 1.0);
 	return smoothstep(0.0, 0.015, t) * (1.0 - smoothstep(0.45, trail_fade_end, t)) * data.z;
 }
+
+// World-radius haze survives detaching a trail from its aircraft.
+uniform float haze_start_radius = 0.0;
+uniform float haze_end_radius = 0.0;
+float trail_haze(vec3 world_position) {
+	return haze_end_radius > haze_start_radius ? 1.0 - smoothstep(haze_start_radius, haze_end_radius, length(world_position.xz)) : 1.0;
+}
