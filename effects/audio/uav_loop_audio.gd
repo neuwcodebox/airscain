@@ -19,6 +19,7 @@ const STREAMS: Dictionary = {
 # Measured -13.71/-9.69/-9.16 LUFS. Light peaks at -30, others at -26 LUFS.
 const GAINS_DB: Dictionary = {LIGHT: -16.29, MEDIUM: -16.31, HEAVY: -16.84}
 const LEAD_SECONDS: Dictionary = {LIGHT: 10.0, MEDIUM: 16.0, HEAVY: 16.0}
+static var _entry_streams: Dictionary[StringName, AudioStreamOggVorbis] = {}
 
 class Source:
 	var threat: ThreatUnit
@@ -54,7 +55,16 @@ static func all_streams() -> Array[AudioStream]:
 	for stream: AudioStreamOggVorbis in STREAMS.values():
 		stream.loop = true
 		result.append(stream)
+	for event: StringName in STREAMS:
+		result.append(entry_stream(event))
 	return result
+
+static func entry_stream(event: StringName) -> AudioStreamOggVorbis:
+	if not _entry_streams.has(event):
+		var stream := (STREAMS[event] as AudioStreamOggVorbis).duplicate() as AudioStreamOggVorbis
+		stream.loop = false
+		_entry_streams[event] = stream
+	return _entry_streams[event]
 
 func _ready() -> void:
 	all_streams()
@@ -64,7 +74,15 @@ func _ready() -> void:
 		voice.player.name = "UavLoop%d" % index
 		voice.player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if CombatAudio.uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(voice.player)
+		voice.player.finished.connect(_finish_entry.bind(voice))
 		voices.append(voice)
+
+func _finish_entry(voice: Voice) -> void:
+	if voice.group_id == 0 or voice.player.stream != entry_stream(voice.event):
+		return
+	# Web Sample loops reuse play()'s offset. Only the first pass may seek.
+	voice.player.stream = STREAMS[voice.event]
+	voice.player.play(0.0)
 
 func register(threat: ThreatUnit) -> void:
 	var event := threat.definition.loop_audio_event
@@ -127,7 +145,7 @@ func update_audio(delta: float, paused: bool, rate: float, enabled: bool) -> voi
 			voice.group_id = id
 			voice.event = group.event
 			voice.envelope = minf(group.envelope, delta / FADE_SECONDS)
-			voice.player.stream = STREAMS[group.event]
+			voice.player.stream = entry_stream(group.event) if CombatAudio.uses_sample_playback() else STREAMS[group.event]
 			voice.player.volume_linear = voice.envelope * db_to_linear(float(GAINS_DB[group.event]))
 			# Re-entry follows the running loop phase, not a replay of an approach cue.
 			voice.player.play(fposmod(simulation_clock, voice.player.stream.get_length()))

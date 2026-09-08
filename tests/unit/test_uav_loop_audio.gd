@@ -47,9 +47,32 @@ func test_loop_ramp_grouping_and_light_loudness() -> void:
 	first.resolve_once(false)
 	tick(audio)
 	assert_true(audible(audio, companion), "묶음 일부가 사라져도 남은 기체는 유지")
-	for stream: AudioStreamOggVorbis in UavLoopAudio.all_streams():
+	for stream: AudioStreamOggVorbis in UavLoopAudio.STREAMS.values():
 		assert_true(stream.loop)
 		assert_has(CombatAudio.all_streams(), stream)
+	for event: StringName in UavLoopAudio.STREAMS:
+		var entry := UavLoopAudio.entry_stream(event)
+		assert_false(entry.loop)
+		assert_same(entry, UavLoopAudio.entry_stream(event), "진입 음원은 매 재생마다 복제하지 않고 공유")
+		assert_has(CombatAudio.all_streams(), entry)
+
+func test_seeked_entry_finishes_then_repeats_the_whole_recording() -> void:
+	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
+	for event: StringName in UavLoopAudio.STREAMS:
+		source(audio, event, 0.0)
+		tick(audio)
+		var voice := audio.voices[0]
+		var group_id := voice.group_id
+		# Exercise the web entry handoff with the native mixer in headless tests.
+		var entry := UavLoopAudio.entry_stream(event)
+		voice.player.stream = entry
+		voice.player.play(entry.get_length() - 0.05)
+		await wait_seconds(0.2)
+		assert_true(voice.player.playing)
+		assert_same(voice.player.stream, UavLoopAudio.STREAMS[event])
+		assert_lt(voice.player.get_playback_position(), 0.4, "첫 진입이 끝나면 파일 처음부터 반복")
+		assert_eq(voice.group_id, group_id, "음원 전환은 묶음과 음성 슬롯을 유지")
+		audio.reset()
 
 func test_louder_candidate_preempts_and_suppressed_source_returns_at_current_volume() -> void:
 	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
