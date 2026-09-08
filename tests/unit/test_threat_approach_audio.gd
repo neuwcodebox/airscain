@@ -65,7 +65,7 @@ func test_pause_speed_kill_and_departure_tail() -> void:
 	audio.update_audio(1.0, true, 1.0, true)
 	assert_eq(audio.played_count, 0)
 	audio.update_audio(0.01, false, 2.0, true)
-	assert_eq(audio.voices[0].player.pitch_scale, 2.0)
+	assert_eq(audio.voices[0].player.pitch_scale, 1.0, "게임 배속과 관계없이 원래 음높이와 재생 속도를 유지합니다")
 	threat.completed = true
 	threat.seconds = INF
 	audio.update_audio(0.01, false, 1.0, true)

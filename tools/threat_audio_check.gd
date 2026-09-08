@@ -46,7 +46,7 @@ func run() -> void:
 		source.seconds = approach.lead_seconds
 	add_child(source)
 	context.register_threat(source)
-	print("THREAT_AUDIO_CHECK start event=%s variant=%d sample=%s" % [event, variant, CombatAudio.uses_sample_playback()])
+	print("THREAT_AUDIO_CHECK start event=%s variant=%d sample=%s" % [event, variant, AudioPlayback.uses_samples()])
 	var elapsed := 0.0
 	var phase := -1
 	while elapsed < retire_at + 0.5:

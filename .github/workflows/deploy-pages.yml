@@ -76,6 +76,13 @@ jobs:
       - name: Import project resources
         run: XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --editor --path . --quit
 
+      - name: Verify audio transport
+        run: |
+          node tests/unit/test_web_sample_playback.js
+          XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --path . \
+            -s addons/gut/gut_cmdln.gd \
+            -gtest=res://tests/unit/test_audio_playback.gd,res://tests/unit/test_gun_audio.gd,res://tests/unit/test_uav_loop_audio.gd,res://tests/unit/test_threat_approach_audio.gd,res://tests/unit/test_game_settings.gd -gexit
+
       - name: Export Web build
         run: |
           mkdir -p build/web

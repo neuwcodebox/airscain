@@ -27,19 +27,9 @@ func _ready() -> void:
 	feedback_player = _create_player("FeedbackPlayer")
 
 static func prepare_samples() -> int:
-	if not uses_sample_playback():
-		return 0
 	var streams: Array[AudioStream] = []
-	for stream: AudioStream in STREAMS.values():
-		if stream not in streams:
-			streams.append(stream)
-	for stream: AudioStream in streams:
-		if not AudioServer.is_stream_registered_as_sample(stream):
-			AudioServer.register_stream_as_sample(stream)
-	return streams.size()
-
-static func uses_sample_playback() -> bool:
-	return OS.has_feature("web")
+	streams.assign(STREAMS.values())
+	return AudioPlayback.prepare_streams(streams)
 
 func connect_buttons(root: Node) -> void:
 	_connect_buttons_recursive(root)
@@ -53,7 +43,7 @@ func play_event(event_id: StringName) -> bool:
 	if event_id != CLICK and click_player != null:
 		click_player.stop()
 	player.stream = STREAMS[event_id]
-	player.play()
+	AudioPlayback.play(player)
 	event_counts[event_id] = event_counts.get(event_id, 0) + 1
 	return true
 
@@ -67,10 +57,9 @@ func stop_all() -> void:
 		feedback_player.stop()
 
 func _create_player(player_name: String) -> AudioStreamPlayer:
-	var player := AudioStreamPlayer.new()
+	var player := AudioPlayback.create_player()
 	player.bus = &"UI"
 	player.name = player_name
-	player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 	player.volume_db = linear_to_db(VOLUME_LINEAR)
 	add_child(player)
 	return player

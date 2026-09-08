@@ -6,7 +6,7 @@
     if (!audio || !audio.Sample || !audio.SampleNode) {
         throw new Error("Unsupported Godot WebAudio sample interface");
     }
-    if (audio.airscainPlaybackVersion === 1) return true;
+    if (audio.airscainPlaybackVersion === 2) return true;
     const proto = audio.SampleNode.prototype;
     for (const method of ["start", "pause", "clear", "setPitchScale", "getSample", "getSampleNodeBus"]) {
         if (typeof proto[method] !== "function") throw new Error("Missing WebAudio method: " + method);
@@ -16,12 +16,21 @@
     // Registered PCM is immutable. Every source can share the same AudioBuffer.
     audio.Sample.prototype.getAudioBuffer = function () { return this._audioBuffer; };
 
+    audio.airscainSetLoopRegion = function (id, loop, begin, end) {
+        // ObjectID is unsigned in the engine but may arrive as signed int64 from GDScript.
+        const sample = audio.Sample.getSampleOrNull(id) || audio.Sample.getSample(BigInt.asUintN(64, BigInt(id)).toString());
+        sample.airscainRegion = { loop, begin, end };
+        return true;
+    };
+
     function bounds(voice) {
         const sample = voice.getSample();
         const duration = sample.getAudioBuffer().duration;
-        const end = sample.loopEnd > 0 ? Math.min(duration, sample.loopEnd / sample.sampleRate) : duration;
-        const begin = Math.max(0, Math.min(end, sample.loopBegin / sample.sampleRate));
-        return { begin, end, loop: sample.loopMode === "forward" && end > begin };
+        const requested = sample.airscainRegion;
+        if (!requested) throw new Error("Prepare audio through AudioPlayback before playing a Sample");
+        const end = Math.min(duration, requested.end);
+        const begin = Math.max(0, Math.min(end, requested.begin));
+        return { begin, end, loop: requested.loop && end > begin };
     }
 
     function position(voice) {
@@ -125,9 +134,10 @@
     // Position is computed from the audio clock, including piecewise rates.
     // Do not attach Godot's frame-counting position worklet to these sources.
     proto.connectPositionWorklet = function (start) {
-        if (start) this.start();
-        return Promise.resolve();
+        // Godot may issue pause/stop immediately after play in the same call.
+        // Defer only initial activation to let those commands settle first.
+        return Promise.resolve().then(() => { if (start) this.start(); });
     };
-    audio.airscainPlaybackVersion = 1;
+    audio.airscainPlaybackVersion = 2;
     return true;
 })(typeof GodotAudio === "undefined" ? null : GodotAudio);

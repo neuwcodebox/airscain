@@ -138,17 +138,15 @@ func _ready() -> void:
 	add_child(gun_airbursts)
 	rng.randomize()
 	for index: int in 8:
-		var player := AudioStreamPlayer.new()
+		var player := AudioPlayback.create_player()
 		player.name = "Voice%d" % index
-		player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(player)
 		players.append(player)
 	# Launches cannot steal alert/explosion voices or cut off another missile.
 	for index: int in MAX_AUDIBLE_MISSILE_GROUPS:
-		var player := AudioStreamPlayer.new()
+		var player := AudioPlayback.create_player()
 		player.name = "MissileVoice%d" % index
 		player.bus = &"Missiles"
-		player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(player)
 		missile_players.append(player)
 		player.finished.connect(_on_missile_voice_finished.bind(player))
@@ -166,26 +164,25 @@ static func all_streams() -> Array[AudioStream]:
 	return streams
 
 static func prepare_samples() -> int:
-	if not uses_sample_playback():
-		return 0
-	var streams := all_streams()
-	for stream: AudioStream in streams:
-		if not AudioServer.is_stream_registered_as_sample(stream):
-			AudioServer.register_stream_as_sample(stream)
-	return streams.size()
-
-static func uses_sample_playback() -> bool:
-	return OS.has_feature("web")
+	return AudioPlayback.prepare_streams(all_streams())
 
 func _process(delta: float) -> void:
+	if not enabled:
+		stop_all()
+		return
+	for player: AudioStreamPlayer in players + missile_players:
+		AudioPlayback.sync(player, simulation_paused)
+	for tween: Tween in fade_tweens.values():
+		AudioPlayback.sync_tween(tween, simulation_paused)
 	if is_instance_valid(uav_loops):
 		uav_loops.update_audio(delta, simulation_paused, simulation_rate, enabled)
 	if is_instance_valid(cruise_approaches):
 		cruise_approaches.update_audio(delta, simulation_paused, simulation_rate, enabled)
 	if is_instance_valid(approaches):
 		approaches.update_audio(delta, simulation_paused, simulation_rate, enabled)
-	if not simulation_paused:
-		missile_clock += delta
+	if simulation_paused:
+		return
+	missile_clock += delta
 	for event_id: StringName in cooldowns.keys():
 		cooldowns[event_id] = maxf(0.0, cooldowns[event_id] - delta)
 	_refresh_missile_mix(delta)
@@ -216,6 +213,12 @@ func _exit_tree() -> void:
 	stop_all()
 
 func stop_all() -> void:
+	var active_guns := gun_voices.values()
+	gun_voices.clear()
+	for voice: GunAudio in active_guns:
+		voice.reset()
+	cooldowns.clear()
+	missile_clock = 0.0
 	if is_instance_valid(uav_loops):
 		uav_loops.reset()
 	if is_instance_valid(cruise_approaches):
@@ -285,7 +288,8 @@ func play_missile_event(event_id: StringName, source: Node, intensity: float = 1
 	var gain := MISSILE_VOICE_GAIN * clampf(intensity, 0.15, 1.0)
 	missile_gains[player.get_instance_id()] = gain
 	player.volume_linear = gain
-	player.play()
+	AudioPlayback.sync(player, simulation_paused)
+	AudioPlayback.play(player)
 	_refresh_missile_mix()
 	event_counts[event_id] = event_counts.get(event_id, 0) + 1
 	last_stream_paths[event_id] = player.stream.resource_path
@@ -307,7 +311,8 @@ func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
 	player.stream = stream
 	player.bus = &"Alerts" if event_id in [CONTACT, PRESSURE, LOW_AMMO] else &"Explosions"
 	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
-	player.play()
+	AudioPlayback.sync(player, simulation_paused)
+	AudioPlayback.play(player)
 	event_counts[event_id] = event_counts.get(event_id, 0) + 1
 	last_stream_paths[event_id] = stream.resource_path
 	return player
@@ -369,6 +374,7 @@ func _retire_missile_source(source_id: int, duration: float) -> void:
 	fade_tweens[player_id] = tween
 	tween.tween_property(player, "volume_db", FADE_FLOOR_DB, duration)
 	tween.tween_callback(_finish_player_fade.bind(player, generation))
+	AudioPlayback.sync_tween(tween, simulation_paused)
 
 func _finish_player_fade(player: AudioStreamPlayer, generation: int) -> void:
 	if not is_instance_valid(player):

@@ -37,13 +37,12 @@ func _ready() -> void:
 	# WebAudio decodes the shared Ogg before combat and schedules its loop
 	# independently of game frames. Do not route this through a WASM stream.
 	stream = sustain_stream()
-	playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if CombatAudio.uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
+	AudioPlayback.configure(self)
 	volume_linear = 0.0
-	ending_player = AudioStreamPlayer.new()
+	ending_player = AudioPlayback.create_player()
 	ending_player.name = "Ending"
 	ending_player.bus = bus
 	ending_player.stream = END_SOUND
-	ending_player.playback_type = playback_type
 	ending_player.volume_linear = 0.0
 	add_child(ending_player)
 
@@ -60,7 +59,7 @@ func notify_shot() -> void:
 	starts += 1
 	context.register_gun_voice(self)
 	if audible and not playing:
-		play()
+		AudioPlayback.play(self)
 
 func set_audible(value: bool) -> void:
 	if audible == value:
@@ -72,10 +71,10 @@ func set_audible(value: bool) -> void:
 		var offset := firing_elapsed
 		if offset >= LOOP_START_SECONDS:
 			offset = LOOP_START_SECONDS + fmod(offset - LOOP_START_SECONDS, stream.get_length() - LOOP_START_SECONDS)
-		play(offset)
+		AudioPlayback.play(self, offset)
 	elif not firing and tail_remaining > 0.0 and not ending_player.playing:
 		ending_player.bus = bus
-		ending_player.play(maxf(0.0, END_SOUND.get_length() + 0.1 - tail_remaining))
+		AudioPlayback.play(ending_player, maxf(0.0, END_SOUND.get_length() + 0.1 - tail_remaining))
 
 func set_mix_gain(value: float) -> void:
 	mix_gain = value
@@ -89,26 +88,26 @@ func _exit_tree() -> void:
 	if is_instance_valid(context):
 		context.unregister_gun_voice(self)
 
+func reset() -> void:
+	stop()
+	ending_player.stop()
+	firing = false
+	audible = false
+	release_remaining = 0.0
+	tail_remaining = 0.0
+	shot_pending = false
+	sustain_gain = 0.0
+	ending_gain = 0.0
+	if is_instance_valid(context):
+		context.unregister_gun_voice(self)
+	_apply_gain()
+
 func _process(delta: float) -> void:
-	if context == null or not context.enabled:
-		stop()
-		ending_player.stop()
-		firing = false
-		audible = false
-		release_remaining = 0.0
-		tail_remaining = 0.0
-		shot_pending = false
-		sustain_gain = 0.0
-		ending_gain = 0.0
-		if is_instance_valid(context):
-			context.unregister_gun_voice(self)
-		_apply_gain()
+	if not is_instance_valid(context) or not context.enabled:
+		reset()
 		return
-	# Reapplying false can recreate WebAudio Sample sources every frame.
-	if stream_paused != context.simulation_paused:
-		stream_paused = context.simulation_paused
-	if ending_player.stream_paused != context.simulation_paused:
-		ending_player.stream_paused = context.simulation_paused
+	AudioPlayback.sync(self, context.simulation_paused)
+	AudioPlayback.sync(ending_player, context.simulation_paused)
 	if context.simulation_paused:
 		return
 	if firing:
@@ -124,7 +123,7 @@ func _process(delta: float) -> void:
 				context.refresh_gun_mix()
 				if audible and not ending_player.playing:
 					ending_player.bus = bus
-					ending_player.play()
+					AudioPlayback.play(ending_player)
 	elif tail_remaining > 0.0:
 		tail_remaining -= delta
 		if tail_remaining <= 0.0:

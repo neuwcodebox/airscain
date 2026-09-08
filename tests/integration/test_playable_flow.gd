@@ -660,12 +660,14 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_false(sandbox.director.enabled)
 
 func test_combat_audio_uses_selected_event_groups_and_routes_combat_feedback() -> void:
+	main.set_process(false)
+	main.combat_audio.simulation_paused = false
 	assert_true(main.combat_audio.enabled)
 	assert_eq(main.combat_audio.players.size(), 8)
 	var expected_playback_type := AudioServer.PLAYBACK_TYPE_SAMPLE if OS.has_feature("web") else AudioServer.PLAYBACK_TYPE_STREAM
 	var expected_prepared_combat_streams := CombatAudio.all_streams().size() if OS.has_feature("web") else 0
 	assert_eq(main.combat_audio.prepared_stream_count, expected_prepared_combat_streams)
-	assert_eq(CombatAudio.all_streams().size(), 35)
+	assert_eq(CombatAudio.all_streams().size(), 32)
 	for player: AudioStreamPlayer in main.combat_audio.players:
 		assert_eq(player.playback_type, expected_playback_type)
 	assert_eq(main.combat_audio.stream_count(CombatAudio.CONTACT), 1)

@@ -65,9 +65,8 @@ static func all_streams() -> Array[AudioStream]:
 func _ready() -> void:
 	for index: int in MAX_VOICES:
 		var voice := Voice.new()
-		voice.player = AudioStreamPlayer.new()
+		voice.player = AudioPlayback.create_player()
 		voice.player.name = "Flyover%d" % index
-		voice.player.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if CombatAudio.uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
 		add_child(voice.player)
 		voices.append(voice)
 
@@ -90,17 +89,14 @@ func update_audio(delta: float, paused: bool, rate: float, enabled: bool) -> voi
 		reset()
 		return
 	for voice: Voice in voices:
-		# Reapplying resume recreates the WebAudio Sample at its start offset.
-		if voice.player.stream_paused != paused:
-			voice.player.stream_paused = paused
-		voice.player.pitch_scale = maxf(0.01, rate)
+		AudioPlayback.sync(voice.player, paused)
 	if paused:
 		return
 	clock += delta
 	cooldown = maxf(0.0, cooldown - delta)
 	for voice: Voice in voices:
 		if voice.retiring:
-			voice.fade_remaining = maxf(0.0, voice.fade_remaining - delta)
+			voice.fade_remaining = maxf(0.0, voice.fade_remaining - delta * rate)
 			voice.player.volume_linear = voice.gain * voice.fade_remaining / retire_seconds
 			if voice.fade_remaining <= 0.0:
 				voice.player.stop()
@@ -139,7 +135,7 @@ func update_audio(delta: float, paused: bool, rate: float, enabled: bool) -> voi
 			voice.player.volume_linear = voice.gain
 			voice.player.stream = streams[next_variant]
 			# Late spawns/restores enter at the corresponding approach position.
-			voice.player.play(lead_seconds - seconds)
+			AudioPlayback.play(voice.player, lead_seconds - seconds)
 			next_variant = (next_variant + 1) % streams.size()
 			cooldown = start_interval
 			played_count += 1

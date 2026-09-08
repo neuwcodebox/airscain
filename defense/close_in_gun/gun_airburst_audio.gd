@@ -24,7 +24,7 @@ var starts: int = 0
 func _ready() -> void:
 	bus = &"Guns"
 	stream = loop_stream()
-	playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE if CombatAudio.uses_sample_playback() else AudioServer.PLAYBACK_TYPE_STREAM
+	AudioPlayback.configure(self)
 	volume_linear = 0.0
 
 func notify_detonation(_position: Vector3, reason: StringName) -> void:
@@ -34,7 +34,7 @@ func notify_detonation(_position: Vector3, reason: StringName) -> void:
 	event_pending = true
 	if not playing:
 		starts += 1
-		play()
+		AudioPlayback.play(self)
 
 func reset() -> void:
 	stop()
@@ -47,8 +47,7 @@ func _process(delta: float) -> void:
 	if context == null or not context.enabled:
 		reset()
 		return
-	if stream_paused != context.simulation_paused:
-		stream_paused = context.simulation_paused
+	AudioPlayback.sync(self, context.simulation_paused)
 	if context.simulation_paused:
 		return
 	if event_pending:

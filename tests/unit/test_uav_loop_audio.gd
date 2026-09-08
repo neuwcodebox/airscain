@@ -50,30 +50,6 @@ func test_loop_ramp_grouping_and_light_loudness() -> void:
 	for stream: AudioStreamOggVorbis in UavLoopAudio.STREAMS.values():
 		assert_true(stream.loop)
 		assert_has(CombatAudio.all_streams(), stream)
-	for event: StringName in UavLoopAudio.STREAMS:
-		var entry := UavLoopAudio.entry_stream(event)
-		assert_false(entry.loop)
-		assert_same(entry, UavLoopAudio.entry_stream(event), "진입 음원은 매 재생마다 복제하지 않고 공유")
-		assert_has(CombatAudio.all_streams(), entry)
-
-func test_seeked_entry_finishes_then_repeats_the_whole_recording() -> void:
-	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
-	for event: StringName in UavLoopAudio.STREAMS:
-		source(audio, event, 0.0)
-		tick(audio)
-		var voice := audio.voices[0]
-		var group_id := voice.group_id
-		# Exercise the web entry handoff with the native mixer in headless tests.
-		var entry := UavLoopAudio.entry_stream(event)
-		voice.player.stream = entry
-		voice.player.play(entry.get_length() - 0.05)
-		await wait_seconds(0.2)
-		assert_true(voice.player.playing)
-		assert_same(voice.player.stream, UavLoopAudio.STREAMS[event])
-		assert_lt(voice.player.get_playback_position(), 0.4, "첫 진입이 끝나면 파일 처음부터 반복")
-		assert_eq(voice.group_id, group_id, "음원 전환은 묶음과 음성 슬롯을 유지")
-		audio.reset()
-
 func test_louder_candidate_preempts_and_suppressed_source_returns_at_current_volume() -> void:
 	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
 	var quiet := source(audio, UavLoopAudio.MEDIUM, 6.0)
@@ -126,8 +102,12 @@ func test_departure_pause_rate_resolution_and_reset() -> void:
 	audio.update_audio(0.5, true, 2.0, true)
 	assert_false(audio.sources[threat.get_instance_id()].departing)
 	assert_true(audio.voices[0].player.stream_paused)
+	var playback_time := audio.playback_clock
+	var simulation_time := audio.simulation_clock
 	audio.update_audio(0.5, false, 2.0, true)
-	assert_eq(audio.voices[0].player.pitch_scale, 2.0)
+	assert_almost_eq(audio.playback_clock - playback_time, 0.5, 0.001)
+	assert_almost_eq(audio.simulation_clock - simulation_time, 1.0, 0.001)
+	assert_eq(audio.voices[0].player.pitch_scale, 1.0, "게임 배속과 관계없이 원래 음높이와 재생 속도를 유지합니다")
 	assert_almost_eq(audio.sources[threat.get_instance_id()].envelope, 0.5, 0.001)
 	threat.resolve_once(true)
 	tick(audio, 11)
