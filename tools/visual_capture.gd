@@ -49,39 +49,22 @@ func run() -> void:
 		main.free()
 		quit(0)
 		return
-	if OS.get_cmdline_user_args().has("--capture-click-priority-only"):
+	if OS.get_cmdline_user_args().has("--capture-doctrine-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
 		AirscainApp.apply_global_font()
 		main.set_process(false)
 		_place_asset(main.scenario.available_defenses[0], 1.0)
 		var battery := main.defenses.back() as MissileBattery
-		battery.set_hold_fire(true)
-		var observation := SensorObservation.new()
-		observation.setup(1, 0.0, Vector3(300, 180, 300), 0.95, 4.0, 3.0, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.95)
-		var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
-		track.state = PlayerTrack.State.CONFIRMED
-		track.affiliation = PlayerTrack.Affiliation.HOSTILE
-		track.affiliation_confidence = 0.95
 		main._on_asset_selected(battery)
-		var point := main.tactical_screen_overlay.track_marker_screen_position(track)
-		Input.warp_mouse(root.get_final_transform() * point)
-		await create_timer(0.4).timeout
-		assert(main.tactical_screen_overlay.priority_hint.visible)
-		_save_capture("/tmp/airscain_priority_hover.png")
-		await _send_left_click(root.get_final_transform() * point)
-		await create_timer(0.2).timeout
-		assert(battery.doctrine.priority_track_id == track.track_id)
-		assert(battery.doctrine.hold_fire)
-		assert(main.selected_asset == battery)
-		_save_capture("/tmp/airscain_priority_assigned.png")
-		track.affiliation = PlayerTrack.Affiliation.NEUTRAL
-		await create_timer(0.2).timeout
-		assert(main.tactical_screen_overlay.priority_label.text == "클릭: 항적 정보")
-		main._clear_selection()
-		await process_frame
-		assert(not main.tactical_screen_overlay.priority_hint.visible)
-		print("CLICK_PRIORITY_CAPTURE_OK hover click hold_fire neutral clear")
+		await create_timer(0.3).timeout
+		_save_capture("/tmp/airscain_doctrine_all.png")
+		var button := main.hud.target_kind_buttons[1]
+		await _send_left_click(root.get_final_transform() * button.get_global_rect().get_center())
+		await create_timer(0.3).timeout
+		assert(not battery.allows_target_kind(&"uav"))
+		_save_capture("/tmp/airscain_doctrine_mixed.png")
+		print("DOCTRINE_CAPTURE_OK actual click updated battery policy")
 		main.queue_free()
 		await process_frame
 		quit()

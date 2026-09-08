@@ -80,6 +80,7 @@ func test_disabled_battery_and_pending_repair_survive_document_restore() -> void
 	facility.global_position = battery.global_position
 	battery.set_automatic_resupply(false)
 	battery.set_hold_fire(true)
+	battery.set_target_kind_allowed(&"uav", false)
 	battery.magazine.rounds = 1
 	battery.magazine.reserve = 3
 	battery.receive_damage(50.0)
@@ -109,6 +110,8 @@ func test_disabled_battery_and_pending_repair_survive_document_restore() -> void
 	assert_eq(restored.magazine.rounds, 1)
 	assert_eq(restored.magazine.reserve, 3)
 	assert_true(restored.doctrine.hold_fire)
+	assert_false(restored.allows_target_kind(&"uav"))
+	assert_true(restored.allows_target_kind(&"rocket"))
 	assert_false(restored.automatic_resupply_enabled())
 	assert_eq(main.session.budget, budget)
 

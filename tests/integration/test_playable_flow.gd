@@ -485,9 +485,9 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_same(training.selected_track, track)
 	assert_eq(training.training_controller.step, TrainingController.Step.SELECT_ASSET)
 	training._on_asset_selected(battery)
-	assert_eq(training.training_controller.step, TrainingController.Step.PRIORITY)
-	training._on_world_selected(Vector3.INF, distant_track_marker)
-	assert_eq(battery.doctrine.priority_track_id, track.track_id)
+	assert_eq(training.training_controller.step, TrainingController.Step.TARGET_POLICY)
+	training._on_target_kind_requested(&"rocket", false)
+	assert_false(battery.allows_target_kind(&"rocket"))
 	assert_eq(training.training_controller.step, TrainingController.Step.DOCTRINE)
 	training._on_asset_selected(battery)
 	assert_true(training.hud.hold_fire_button.button_pressed)
@@ -1129,7 +1129,7 @@ func test_range_ribbon_follows_surface_and_reuses_stationary_geometry() -> void:
 	ring.set_range(300.0, "탐지 범위")
 	assert_ne(ring.mesh, moved)
 
-func test_clicking_hostile_track_prioritizes_without_overriding_engagement_rules() -> void:
+func test_clicking_track_inspects_without_changing_engagement_policy() -> void:
 	var battery := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
 	var observation := SensorObservation.new()
 	observation.setup(1, 0.0, Vector3(300, 180, 300), 0.95, 4.0, 3.0, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.95)
@@ -1137,28 +1137,26 @@ func test_clicking_hostile_track_prioritizes_without_overriding_engagement_rules
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	track.affiliation_confidence = 0.95
 	battery.set_hold_fire(true)
+	battery.set_target_kind_allowed(&"rocket", false)
+	var policy_before := battery.capture_doctrine_state()
 	main._on_asset_selected(battery)
 	var point := main.tactical_screen_overlay.track_marker_screen_position(track)
 	assert_same(main.tactical_screen_overlay.track_at_screen(point), track)
 	main._on_world_selected(Vector3.INF, point)
-	assert_eq(battery.doctrine.priority_track_id, track.track_id)
+	assert_eq(battery.capture_doctrine_state(), policy_before)
 	assert_same(main.selected_asset, battery)
 	assert_true(battery.doctrine.hold_fire)
-	assert_eq(main.hud.selection_kind_label.text, "우선표적")
-	battery.set_priority_track(-1)
+	assert_eq(main.hud.selection_kind_label.text, "교전 검토")
 	main._on_world_selected(track.estimated_position, Vector2(-100, -100))
-	assert_eq(battery.doctrine.priority_track_id, -1, "항적 아래의 지면 클릭은 명령이 아닙니다")
 	for affiliation: int in [PlayerTrack.Affiliation.NEUTRAL, PlayerTrack.Affiliation.FRIENDLY, PlayerTrack.Affiliation.UNKNOWN]:
 		track.affiliation = affiliation
-		battery.set_priority_track(-1)
 		main._on_world_selected(Vector3.INF, point)
-		assert_eq(battery.doctrine.priority_track_id, -1)
 		assert_same(main.selected_track, track)
+		assert_eq(battery.capture_doctrine_state(), policy_before)
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	track.state = PlayerTrack.State.LOST
-	assert_false(TacticalScreenOverlay.can_prioritize(battery, track))
 	main._clear_selection()
-	assert_null(main.tactical_screen_overlay.priority_source)
+	assert_null(main.selected_asset)
 
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
@@ -1351,7 +1349,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
 	main.placement.pick_asset_at(battery.global_position)
 	main._on_world_selected(known_tracks[0].estimated_position)
-	assert_eq(battery.doctrine.priority_track_id, -1, "적성 미확인 항적은 정보만 조회합니다")
+
 	main.hud.hold_fire_requested.emit(true)
 	assert_true(battery.doctrine.hold_fire)
 	main.hud.hold_fire_requested.emit(false)
@@ -2401,3 +2399,22 @@ func _flight_step_budget(threat: AttackUav, delta: float) -> int:
 	var definition := threat.definition as AttackUavDefinition
 	var approach := definition.estimated_approach_seconds(threat.global_position.distance_to(threat.mission_runtime.navigation_target()), threat.speed_multiplier)
 	return ceili((approach * 2.0 + 30.0) / delta)
+
+func test_target_policy_buttons_change_only_the_selected_asset() -> void:
+	var battery := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
+	var other := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
+	main._on_asset_selected(battery)
+	assert_true(main.hud.doctrine_section.visible)
+	assert_eq(main.hud.target_kind_buttons.size(), EngagementDoctrine.TARGET_KINDS.size())
+	var button := main.hud.target_kind_buttons[1]
+	assert_true(button.button_pressed)
+	button.button_pressed = false
+	assert_false(battery.allows_target_kind(&"uav"))
+	assert_true(other.allows_target_kind(&"uav"))
+	assert_string_contains(button.tooltip_text, "교전 차단")
+	main._on_asset_selected(other)
+	assert_true(button.button_pressed)
+	main._on_asset_selected(battery)
+	assert_false(button.button_pressed)
+	button.button_pressed = true
+	assert_true(battery.allows_target_kind(&"uav"))

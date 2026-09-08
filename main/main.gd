@@ -239,6 +239,7 @@ func _connect_flow() -> void:
 	hud.overlay_requested.connect(_on_overlay_requested)
 	hud.hold_fire_requested.connect(_on_hold_fire_requested)
 	hud.engage_unknown_requested.connect(_on_engage_unknown_requested)
+	hud.target_kind_requested.connect(_on_target_kind_requested)
 	hud.munition_mode_requested.connect(_on_munition_mode_requested)
 	hud.resupply_requested.connect(_on_resupply_requested)
 	hud.automatic_resupply_requested.connect(_on_automatic_resupply_requested)
@@ -401,8 +402,6 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 	c2_overlay.select_asset(unit)
 	hud.set_selected_asset(unit, c2_overlay.visible_c2_link_count, c2_overlay.visible_support_link_count)
 	hud.set_selected_track(null)
-	if unit != null and unit.supports_engagement_controls():
-		hud.set_feedback("적성 항적 클릭: 우선표적 지정")
 	if game_mode == GameMode.TRAINING:
 		training_controller.asset_selected(unit)
 
@@ -421,12 +420,10 @@ func _on_overlay_requested(mode: StringName) -> void:
 
 func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.INF) -> void:
 	var nearest_distance := 32.0
-	var direct_track_click := not screen_position.is_finite()
 	selected_track = null
 	var tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
 	if screen_position.is_finite():
 		selected_track = tactical_screen_overlay.track_at_screen(screen_position)
-		direct_track_click = selected_track != null
 	if position.is_finite():
 		for track: PlayerTrack in tracks:
 			if selected_track != null:
@@ -446,11 +443,6 @@ func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.IN
 	track_display.select_track(selected_track)
 	track_display.select_engagement_source(selected_asset)
 	tactical_screen_overlay.select_track(selected_track)
-	if direct_track_click and TacticalScreenOverlay.can_prioritize(selected_asset, selected_track):
-		selected_asset.set_priority_track(selected_track.track_id)
-		hud.set_feedback("우선표적 지정 · 교전 조건 충족 시 우선 공격")
-		if game_mode == GameMode.TRAINING:
-			training_controller.priority_assigned(selected_asset)
 	_refresh_selected_track_panel()
 	if game_mode == GameMode.TRAINING:
 		training_controller.track_selected(selected_track)
@@ -624,7 +616,6 @@ func _set_selected_asset(unit: DefenseUnit) -> void:
 	if selected_asset != null and is_instance_valid(selected_asset):
 		selected_asset.set_selected(false)
 	selected_asset = unit
-	tactical_screen_overlay.select_priority_source(unit)
 	if selected_asset != null and is_instance_valid(selected_asset):
 		selected_asset.set_selected(true)
 
@@ -692,3 +683,11 @@ func _clear_runtime_objects() -> void:
 	c2_overlay.select_asset(null)
 	hud.set_selected_asset(null, 0)
 	hud.set_selected_track(null)
+
+func _on_target_kind_requested(kind: StringName, enabled: bool) -> void:
+	if selected_asset == null or not selected_asset.supports_engagement_controls():
+		return
+	selected_asset.set_target_kind_allowed(kind, enabled)
+	hud.refresh_selected_asset()
+	if game_mode == GameMode.TRAINING:
+		training_controller.target_policy_changed(selected_asset)

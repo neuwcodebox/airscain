@@ -11,21 +11,20 @@ var training_approach_origin: Vector3
 var training_approach_position: Vector3
 var training_approach_text: String = "훈련 표적 진입"
 var training_left_panel: Control
-var priority_source: DefenseUnit
 var placement: PlacementController
 var hovered_track: PlayerTrack
-var priority_hint := PanelContainer.new()
-var priority_label := Label.new()
+var pointer_hint := PanelContainer.new()
+var pointer_label := Label.new()
 var hint_icon := TextureRect.new()
 var hint_separator := HSeparator.new()
 var hint_details := VBoxContainer.new()
 var hint_rows: Array[Label] = []
 
 func _ready() -> void:
-	priority_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	priority_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	priority_label.add_theme_font_size_override("font_size", 18)
-	priority_label.add_theme_color_override("font_color", Color("edf5f8"))
+	pointer_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pointer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pointer_label.add_theme_font_size_override("font_size", 18)
+	pointer_label.add_theme_color_override("font_color", Color("edf5f8"))
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.025, 0.06, 0.08, 0.96)
 	style.border_color = Color("41616d")
@@ -35,11 +34,11 @@ func _ready() -> void:
 	style.content_margin_right = 12
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
-	priority_hint.add_theme_stylebox_override("panel", style)
+	pointer_hint.add_theme_stylebox_override("panel", style)
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_theme_constant_override("separation", 7)
-	priority_hint.add_child(content)
+	pointer_hint.add_child(content)
 	var heading := HBoxContainer.new()
 	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	heading.add_theme_constant_override("separation", 8)
@@ -50,7 +49,7 @@ func _ready() -> void:
 	hint_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	hint_icon.modulate = Color("a7cbd9")
 	heading.add_child(hint_icon)
-	heading.add_child(priority_label)
+	heading.add_child(pointer_label)
 	hint_separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var rule := StyleBoxLine.new()
 	rule.color = Color("304650")
@@ -66,17 +65,8 @@ func _ready() -> void:
 		row.add_theme_font_size_override("font_size", 14)
 		hint_details.add_child(row)
 		hint_rows.append(row)
-	add_child(priority_hint)
-	priority_hint.hide()
-
-static func can_prioritize(unit: DefenseUnit, track: PlayerTrack) -> bool:
-	return is_instance_valid(unit) and unit.supports_engagement_controls() and unit.integrity > 0.0 and track != null and track.state != PlayerTrack.State.LOST and track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3
-
-func select_priority_source(unit: DefenseUnit) -> void:
-	priority_source = unit
-	hovered_track = null
-	priority_hint.hide()
-	queue_redraw()
+	add_child(pointer_hint)
+	pointer_hint.hide()
 
 func track_at_screen(point: Vector2) -> PlayerTrack:
 	var nearest: PlayerTrack
@@ -111,7 +101,7 @@ func hide_training_approach() -> void:
 
 func _process(_delta: float) -> void:
 	hovered_track = null
-	priority_hint.hide()
+	pointer_hint.hide()
 	var mouse := get_viewport().get_mouse_position()
 	var can_hover := placement != null and placement.selected == null and placement.selected_threat == null and get_viewport().get_visible_rect().has_point(mouse) and get_viewport().gui_get_hovered_control() == null
 	var rig := camera.get_parent() as CameraRig if camera != null else null
@@ -120,24 +110,21 @@ func _process(_delta: float) -> void:
 	var asset := placement.asset_at_screen(mouse) if can_hover else null
 	if is_instance_valid(asset):
 		_show_asset_hint(asset, mouse)
-	elif can_hover and is_instance_valid(priority_source) and priority_source.supports_engagement_controls():
+	elif can_hover:
 		hovered_track = track_at_screen(mouse)
 		if hovered_track != null:
-			priority_label.text = "클릭: 우선표적 지정" if can_prioritize(priority_source, hovered_track) else "클릭: 항적 정보"
-			if can_prioritize(priority_source, hovered_track) and priority_source.priority_track_id() == hovered_track.track_id:
-				priority_label.text = "우선표적 지정됨"
-			_show_pointer_hint(priority_label.text, mouse)
+			_show_pointer_hint("클릭: 항적 정보", mouse)
 	queue_redraw()
 
 func _show_pointer_hint(message: String, mouse: Vector2) -> void:
-	priority_label.text = message
+	pointer_label.text = message
 	hint_icon.hide()
 	hint_separator.hide()
 	hint_details.hide()
 	_position_pointer_hint(mouse)
 
 func _show_asset_hint(unit: DefenseUnit, mouse: Vector2) -> void:
-	priority_label.text = unit.definition.display_name
+	pointer_label.text = unit.definition.display_name
 	hint_icon.texture = unit.definition.identity_icon
 	hint_icon.show()
 	var statuses := asset_hint_statuses(unit)
@@ -161,10 +148,10 @@ static func _hint_status_color(status: String) -> Color:
 	return Color("a7bdc8")
 
 func _position_pointer_hint(mouse: Vector2) -> void:
-	priority_hint.reset_size()
+	pointer_hint.reset_size()
 	var extent := get_viewport().get_visible_rect().size
-	priority_hint.position = (mouse + Vector2(20, 24)).clamp(Vector2(8, 8), (extent - priority_hint.size - Vector2(8, 8)).max(Vector2(8, 8)))
-	priority_hint.show()
+	pointer_hint.position = (mouse + Vector2(20, 24)).clamp(Vector2(8, 8), (extent - pointer_hint.size - Vector2(8, 8)).max(Vector2(8, 8)))
+	pointer_hint.show()
 
 static func asset_hint_statuses(unit: DefenseUnit) -> Array[String]:
 	var lines: Array[String] = []
@@ -183,12 +170,6 @@ static func asset_hint_statuses(unit: DefenseUnit) -> Array[String]:
 func _draw() -> void:
 	if camera == null:
 		return
-	if can_prioritize(priority_source, hovered_track):
-		var point := track_marker_screen_position(hovered_track)
-		var color := Color(0.35, 1.0, 0.75)
-		draw_arc(point, 20.0, 0.0, TAU, 32, color, 1.5, true)
-		for direction: Vector2 in [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]:
-			draw_line(point + direction * 16, point + direction * 25, color, 2, true)
 	if training_approach_visible:
 		_draw_training_approach()
 	if player_knowledge == null:

@@ -1,7 +1,7 @@
 class_name TrainingController
 extends Node
 
-enum Step { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, PRIORITY, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, OVERLAY, ALTITUDE, ENERGY, ENERGY_REVIEW, RELOCATE, WAIT_RELOCATE, OPERATIONS, COMPLETE }
+enum Step { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, TARGET_POLICY, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, OVERLAY, ALTITUDE, ENERGY, ENERGY_REVIEW, RELOCATE, WAIT_RELOCATE, OPERATIONS, COMPLETE }
 
 signal selection_clear_requested
 
@@ -96,13 +96,13 @@ func asset_selected(unit: DefenseUnit) -> void:
 	if step == Step.COMMAND and unit == city_command():
 		_set_step(Step.WEAPON)
 	elif step == Step.SELECT_ASSET and unit == _training_battery():
-		_set_step(Step.PRIORITY)
+		_set_step(Step.TARGET_POLICY)
 	elif step == Step.ENERGY_REVIEW and unit == energy_subject:
 		energy_reviewed = true
 		_lesson("전력과 열 확인", "선택 패널에서 전력 수요/공급, 충전과 열을 확인하세요. 전력은 전체 자산의 합계이고 보급·수리는 지역 지원입니다. 수요가 공급보다 크면 일부 자산의 충전이 느려집니다.", true)
 
-func priority_assigned(unit: DefenseUnit) -> void:
-	if step == Step.PRIORITY and unit == _training_battery():
+func target_policy_changed(unit: DefenseUnit) -> void:
+	if step == Step.TARGET_POLICY and unit == _training_battery() and unit.allows_target_kind(&"uav") and not unit.allows_target_kind(&"rocket"):
 		_set_step(Step.DOCTRINE)
 
 func hold_fire_changed(enabled: bool, unit: DefenseUnit) -> void:
@@ -195,8 +195,8 @@ func _set_step(next_step: Step) -> void:
 			_lesson("항적 선택 · 일시정지", "적성 항적 표식을 클릭하세요. 화면 밖 가장자리 표식도 선택할 수 있습니다. 추적 품질과 분류 확신도는 서로 다른 정보입니다.")
 		Step.SELECT_ASSET:
 			_lesson("방어자산 선택", "배치한 미사일 포대를 클릭하세요. 선택 패널에서 탄약과 C2 연결, 사격중지 상태를 확인할 수 있습니다.")
-		Step.PRIORITY:
-			_lesson("우선표적 지정", "포대를 선택한 상태에서 적성 항적을 클릭하세요. 커서에 지정 안내가 나타나며 클릭 즉시 이 포대의 우선표적이 됩니다. 사거리와 사격중지 등 교전 조건은 그대로 적용됩니다.")
+		Step.TARGET_POLICY:
+			_lesson("교전 정책", "교전 허용 대상에서 로켓 아이콘을 눌러 로켓 교전을 차단해 보세요. 밝은 청록색과 체크 표시는 허용, 어두운 아이콘은 차단입니다. 다시 누르면 허용됩니다. 훈련 표적인 무인기는 허용 상태로 두세요.")
 		Step.DOCTRINE:
 			_lesson("자동교전 허용", "미사일 포대를 다시 클릭하고 사격중지를 해제하세요. 해제하면 자동 재생됩니다. 미확인 교전은 분류가 불충분한 물체까지 허용하므로 신중하게 사용하세요.")
 		Step.ENGAGE:
@@ -231,7 +231,7 @@ func _set_step(next_step: Step) -> void:
 			_lesson("다음 작전 준비", "장거리는 고가 탄약과 탄종, 근거리는 기관포·레이저로 역할을 나누세요. 지속 작전은 Esc에서 저장하고 메뉴에서 이어갈 수 있습니다. 자유 모드에서는 위협을 직접 투입해 조합을 시험합니다.", true)
 		Step.COMPLETE:
 			session.set_simulation_speed(1.0)
-			_lesson("훈련 완료", "탐지·C2·우선표적·자동교전, 보급·수리·도시 복구, 고도 계층·전력·재배치를 마쳤습니다. 자유롭게 연습하거나 Esc로 돌아가 지속 작전을 시작하세요.")
+			_lesson("훈련 완료", "탐지·C2·교전 정책·자동교전, 보급·수리·도시 복구, 고도 계층·전력·재배치를 마쳤습니다. 자유롭게 연습하거나 Esc로 돌아가 지속 작전을 시작하세요.")
 
 func city_command() -> DefenseUnit:
 	for unit: DefenseUnit in defenses:

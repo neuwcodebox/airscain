@@ -99,16 +99,12 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		var distance := global_position.distance_to(track.estimated_position)
 		if distance > _definition.attack_range * operational_efficiency():
 			continue
-		var priority := track.track_id == doctrine.priority_track_id
 		var score := cooperative_target_score(track, protected_position, weapon_match(track))
-		if not priority and selected != null and score <= selected_score:
+		if selected != null and score <= selected_score:
 			continue
 		if _building_blocks_aim(turret.global_position, _predicted_aim(track)):
 			line_of_fire_blocked = true
 			continue
-		if priority:
-			line_of_fire_blocked = false
-			return track
 		if score > selected_score:
 			selected = track
 			selected_score = score

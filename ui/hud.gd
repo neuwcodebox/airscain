@@ -9,6 +9,7 @@ signal main_menu_requested
 signal overlay_requested(mode: StringName)
 signal hold_fire_requested(enabled: bool)
 signal engage_unknown_requested(enabled: bool)
+signal target_kind_requested(kind: StringName, enabled: bool)
 signal munition_mode_requested(mode: StringName)
 signal resupply_requested
 signal automatic_resupply_requested(enabled: bool)
@@ -45,6 +46,14 @@ var menu_row_normal: StyleBoxFlat
 var menu_row_hover: StyleBoxFlat
 var menu_row_pressed: StyleBoxFlat
 var menu_row_disabled: StyleBoxFlat
+const TARGET_ICONS: Array[Texture2D] = [
+	preload("res://ui/icons/doctrine_small_uav.svg"), preload("res://ui/icons/doctrine_uav.svg"),
+	preload("res://ui/icons/doctrine_aircraft.svg"), preload("res://ui/icons/doctrine_cruise_missile.svg"),
+	preload("res://ui/icons/doctrine_rocket.svg"), preload("res://ui/icons/doctrine_ballistic_missile.svg"),
+]
+var target_kind_buttons: Array[Button] = []
+@onready var target_kind_row: HBoxContainer = %TargetKindRow
+@onready var target_policy_summary: Label = %TargetPolicySummary
 const FEEDBACK_DURATION := 3.5
 const METRIC_KEY_COLOR := Color(0.58, 0.68, 0.72)
 const METRIC_VALUE_COLOR := Color(0.86, 0.9, 0.88)
@@ -145,6 +154,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	defense_definitions = defenses
 	threat_definitions = threats
 	configured_game_mode = game_mode
+	_build_target_kind_buttons()
 	_style_metric_grid(track_metrics, 48.0)
 	_ensure_menu_row_styles()
 	_style_top_bar()
@@ -385,6 +395,7 @@ func set_selected_asset(unit: DefenseUnit, connection_count: int, support_connec
 		if supports_doctrine:
 			hold_fire_button.set_pressed_no_signal(unit.engagement_hold_fire())
 			engage_unknown_button.set_pressed_no_signal(unit.engagement_engages_unknown())
+			_refresh_target_kind_buttons()
 		_refresh_selected_asset_label()
 	else:
 		_refresh_selection_view()
@@ -478,7 +489,7 @@ func _refresh_track_details() -> void:
 	track_engagement_value.text = str(selected_track_engagement_count)
 
 func _refresh_engagement_review() -> void:
-	selection_kind_label.text = "우선표적" if selected_asset.priority_track_id() == selected_track.track_id else "교전 검토"
+	selection_kind_label.text = "교전 검토"
 	selected_asset_label.text = "자산과 항적"
 	selection_state_label.text = "선택됨"
 	_set_state_color(true)
@@ -919,3 +930,57 @@ func _on_new_seed_pressed() -> void:
 
 func _on_game_over_main_menu_pressed() -> void:
 	main_menu_requested.emit()
+
+func _build_target_kind_buttons() -> void:
+	if not target_kind_buttons.is_empty():
+		return
+	for index: int in EngagementDoctrine.TARGET_KINDS.size():
+		var button := Button.new()
+		button.name = String(EngagementDoctrine.TARGET_KINDS[index])
+		button.custom_minimum_size = Vector2(44, 44)
+		button.toggle_mode = true
+		button.icon = TARGET_ICONS[index]
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.add_theme_constant_override("icon_max_width", 28)
+		for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+			var style := StyleBoxFlat.new()
+			var enabled := state in ["pressed", "hover_pressed"]
+			style.bg_color = Color("173f43") if enabled else Color("101e26")
+			style.border_color = Color("66d7c0") if enabled else Color("354852")
+			if state in ["hover", "hover_pressed", "focus"]:
+				style.border_color = Color("e4f6ec")
+			if state == "focus":
+				style.draw_center = false
+			style.set_border_width_all(2 if state == "focus" else 1)
+			style.set_corner_radius_all(6)
+			style.set_content_margin_all(8)
+			button.add_theme_stylebox_override(state, style)
+		button.add_theme_color_override("icon_normal_color", Color("647981"))
+		button.add_theme_color_override("icon_hover_color", Color("b8cdd2"))
+		button.add_theme_color_override("icon_pressed_color", Color("a2edda"))
+		button.add_theme_color_override("icon_hover_pressed_color", Color("dbfff3"))
+		var check := Label.new()
+		check.name = "AllowedMark"
+		check.text = "✓"
+		check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		check.add_theme_font_size_override("font_size", 12)
+		check.add_theme_color_override("font_color", Color("a2edda"))
+		check.position = Vector2(31, 27)
+		button.add_child(check)
+		button.toggled.connect(func(enabled: bool) -> void: target_kind_requested.emit(EngagementDoctrine.TARGET_KINDS[index], enabled))
+		target_kind_row.add_child(button)
+		target_kind_buttons.append(button)
+
+func _refresh_target_kind_buttons() -> void:
+	var allowed := 0
+	for index: int in target_kind_buttons.size():
+		var button := target_kind_buttons[index]
+		var enabled := selected_asset.allows_target_kind(EngagementDoctrine.TARGET_KINDS[index])
+		button.set_pressed_no_signal(enabled)
+		button.get_node("AllowedMark").visible = enabled
+		button.tooltip_text = "%s · %s\n클릭하여 %s · 식별된 항적 종류 기준" % [EngagementDoctrine.TARGET_LABELS[index], "교전 허용" if enabled else "교전 차단", "차단" if enabled else "허용"]
+		if enabled:
+			allowed += 1
+	target_policy_summary.text = "전체 허용" if allowed == target_kind_buttons.size() else ("6종 차단" if allowed == 0 else "%d / %d 허용" % [allowed, target_kind_buttons.size()])
+	target_policy_summary.add_theme_color_override("font_color", METRIC_WARNING_COLOR if allowed == 0 else METRIC_KEY_COLOR)

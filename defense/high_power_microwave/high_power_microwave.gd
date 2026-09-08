@@ -60,8 +60,6 @@ func _select_track() -> PlayerTrack:
 	var best_score := -INF
 	for track: PlayerTrack in available_tracks():
 		if doctrine.allows(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency():
-			if track.track_id == doctrine.priority_track_id:
-				return track
 			var score := cooperative_target_score(track, battlefield.objective.global_position, 1.0)
 			if score > best_score:
 				selected = track

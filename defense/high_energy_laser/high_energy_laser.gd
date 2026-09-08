@@ -68,8 +68,6 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 			continue
 		if global_position.distance_to(track.estimated_position) > _definition.attack_range * operational_efficiency():
 			continue
-		if track.track_id == doctrine.priority_track_id:
-			return track
 		var target_match := 1.0 if track.classification == &"small_uav" else 0.65
 		var score := cooperative_target_score(track, protected_position, target_match)
 		if score > selected_score:

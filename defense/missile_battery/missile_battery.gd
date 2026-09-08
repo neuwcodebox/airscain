@@ -125,8 +125,6 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		var altitude := track.estimated_position.y - battlefield.terrain_height(track.estimated_position.x, track.estimated_position.z) if battlefield != null else track.estimated_position.y
 		if altitude < _definition.minimum_engagement_altitude or altitude > _definition.maximum_engagement_altitude:
 			continue
-		if track.track_id == doctrine.priority_track_id:
-			return track
 		var match := munition.match_for(track.classification, track.estimated_velocity.length())
 		var urgency := track.track_quality * match / maxf(1.0, track.estimated_position.distance_to(protected_position))
 		if urgency > selected_urgency or (is_equal_approx(urgency, selected_urgency) and distance < selected_distance):
@@ -155,7 +153,7 @@ func munition_for_track(track: PlayerTrack) -> MissileMunitionDefinition:
 		var match := munition.match_for(track.classification, estimated_speed)
 		if match <= 0.0:
 			continue
-		if _preserves_last_round(munition) and not munition.is_preferred(track.classification, estimated_speed) and track.track_id != doctrine.priority_track_id:
+		if _preserves_last_round(munition) and not munition.is_preferred(track.classification, estimated_speed):
 			continue
 		var selection_score := match + (0.25 if munition.is_preferred(track.classification, estimated_speed) else 0.0)
 		if selection_score > selected_match:
@@ -189,7 +187,7 @@ func set_munition_mode(mode: StringName) -> void:
 		munition_mode = mode
 
 func munition_options() -> Array[Dictionary]:
-	var options: Array[Dictionary] = [{"id": &"auto", "label": "자동", "tooltip": "표적에 맞춰 선택 · 마지막 고가탄은 우선 표적용으로 보존\n우선표적 지정·수동 탄종 선택 시 보존 해제", "selected": munition_mode == &"auto"}]
+	var options: Array[Dictionary] = [{"id": &"auto", "label": "자동", "tooltip": "표적에 맞춰 선택 · 마지막 고가탄은 특화 위협용으로 보존\n수동 탄종 선택 시 보존 해제", "selected": munition_mode == &"auto"}]
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		options.append({"id": munition.id, "label": munition.display_name, "tooltip": munition.role_tooltip, "icon": munition.target_icon, "selected": munition_mode == munition.id})
 	return options
@@ -261,7 +259,7 @@ func selection_status_rows() -> Array[Dictionary]:
 			ammunition = "고갈"
 		rows.append({"label": munition.display_name, "value": ammunition, "warning": munition_magazine.is_depleted(), "tooltip": munition.role_tooltip, "icon": munition.target_icon})
 		if _preserves_last_round(munition):
-			rows.append({"label": "최후 1발", "value": "우선 위협·우선표적용", "warning": true})
+			rows.append({"label": "최후 1발", "value": "우선 위협용", "warning": true})
 		if munition_magazine.is_reloading():
 			rows.append({"label": "재장전", "value": "%.1f초" % munition_magazine.reload_remaining})
 	rows.append_array(_selection_task_rows())

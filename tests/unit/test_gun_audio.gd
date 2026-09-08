@@ -347,9 +347,9 @@ func test_actual_round_signal_drives_audio_not_target_or_burst_assignment() -> v
 	gun.setup(1, definition)
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	gun.configure_audio(context)
-	gun.set_priority_track(42)
+	gun.set_target_kind_allowed(&"uav", false)
 	assert_eq(gun.firing_audio.starts, 0)
 	gun.gunfire.round_fired.emit(gun.muzzle.global_position)
-	gun.set_priority_track(43)
+	gun.set_target_kind_allowed(&"uav", true)
 	gun.gunfire.round_fired.emit(gun.muzzle.global_position)
 	assert_eq(gun.firing_audio.starts, 1)

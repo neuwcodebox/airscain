@@ -71,11 +71,11 @@ func refresh() -> void:
 			_track()
 		TrainingController.Step.SELECT_ASSET:
 			_asset(training.training_battery)
-		TrainingController.Step.PRIORITY:
+		TrainingController.Step.TARGET_POLICY:
 			if hud.selected_asset != training.training_battery:
 				_asset(training.training_battery)
 			else:
-				_track()
+				_button(hud.target_kind_buttons[4], "로켓 교전 차단")
 		TrainingController.Step.DOCTRINE:
 			_asset_action(training.training_battery, hud.hold_fire_button, "사격중지 해제")
 		TrainingController.Step.RESUPPLY:

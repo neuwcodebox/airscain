@@ -832,6 +832,27 @@ theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
 theme_override_font_sizes/font_size = 13
 text = "교전 설정"
 
+[node name="TargetPolicyHeading" type="HBoxContainer" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SelectedAssetPanel/VBox/DoctrineSection/TargetPolicyHeading"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.75, 0.83, 0.85, 1)
+theme_override_font_sizes/font_size = 13
+text = "교전 허용 대상"
+
+[node name="TargetPolicySummary" type="Label" parent="SelectedAssetPanel/VBox/DoctrineSection/TargetPolicyHeading"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "전체 허용"
+
+[node name="TargetKindRow" type="HBoxContainer" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
 [node name="HoldFireButton" type="CheckButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
 layout_mode = 2

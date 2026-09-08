@@ -39,11 +39,11 @@ func set_hold_fire(enabled: bool) -> void:
 func set_engage_unknown(enabled: bool) -> void:
 	doctrine.engage_unknown = enabled
 
-func set_priority_track(track_id: int) -> void:
-	doctrine.priority_track_id = track_id
+func set_target_kind_allowed(kind: StringName, enabled: bool) -> void:
+	doctrine.set_target_kind_allowed(kind, enabled)
 
-func priority_track_id() -> int:
-	return doctrine.priority_track_id
+func allows_target_kind(kind: StringName) -> bool:
+	return doctrine.allows_target_kind(kind)
 
 func available_tracks() -> Array[PlayerTrack]:
 	if player_knowledge == null or c2_network == null:
@@ -168,7 +168,7 @@ func capture_doctrine_state() -> Dictionary:
 		"minimum_track_quality": doctrine.minimum_track_quality,
 		"minimum_classification_confidence": doctrine.minimum_classification_confidence,
 		"minimum_affiliation_confidence": doctrine.minimum_affiliation_confidence,
-		"priority_track_id": doctrine.priority_track_id,
+		"excluded_target_kinds": Array(doctrine.excluded_target_kinds),
 	}
 
 func restore_doctrine_state(state: Dictionary) -> void:
@@ -178,4 +178,9 @@ func restore_doctrine_state(state: Dictionary) -> void:
 	doctrine.minimum_track_quality = float(state.get("minimum_track_quality", 0.3))
 	doctrine.minimum_classification_confidence = float(state.get("minimum_classification_confidence", 0.25))
 	doctrine.minimum_affiliation_confidence = float(state.get("minimum_affiliation_confidence", 0.3))
-	doctrine.priority_track_id = int(state.get("priority_track_id", -1))
+	doctrine.excluded_target_kinds.clear()
+	var excluded: Variant = state.get("excluded_target_kinds", [])
+	if excluded is Array:
+		for kind: Variant in excluded:
+			if kind is String or kind is StringName:
+				doctrine.set_target_kind_allowed(StringName(kind), false)

@@ -573,7 +573,7 @@ func test_vertical_departure_survives_save_and_then_resumes_homing() -> void:
 	state.departure_clearance_height = -1.0
 	assert_ne(definition.persistent_projectile_state_validation_error(&"homing_interceptor", state), "")
 
-func test_ciws_skips_building_blocked_priority_and_reports_no_clear_target() -> void:
+func test_ciws_skips_building_blocked_tracks_and_reports_no_clear_target() -> void:
 	_set_departure_test_building()
 	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
 	gun.setup(78, SCENARIO.available_defenses[4])
@@ -581,7 +581,6 @@ func test_ciws_skips_building_blocked_priority_and_reports_no_clear_target() -> 
 	var blocked := _confirmed_track(Vector3(120, 30, 0))
 	var clear := _confirmed_track(Vector3(-120, 30, 0))
 	clear.track_id = blocked.track_id + 1
-	gun.set_priority_track(blocked.track_id)
 	assert_same(gun.select_track([blocked, clear], Vector3.ZERO), clear)
 	assert_false(gun.line_of_fire_blocked)
 	assert_null(gun.select_track([blocked], Vector3.ZERO))
@@ -601,13 +600,12 @@ func test_ciws_lower_ranked_blocked_targets_do_not_replace_clear_selection() -> 
 	blocked.track_quality = 0.4
 	assert_same(gun.select_track([clear, blocked], Vector3.ZERO), clear)
 	assert_false(gun.line_of_fire_blocked)
-	gun.set_priority_track(blocked.track_id)
 	assert_same(gun.select_track([clear, blocked], Vector3.ZERO), clear)
 	assert_false(gun.line_of_fire_blocked)
 	assert_null(gun.select_track([blocked], Vector3.ZERO))
 	assert_true(gun.line_of_fire_blocked)
 
-func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_or_priority_tracks() -> void:
+func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_tracks() -> void:
 	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
 	gun.setup(2, SCENARIO.available_defenses[4])
 	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
@@ -622,8 +620,6 @@ func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_or_priority_t
 	assert_same(gun.select_track(tracks, Vector3.ZERO), second, "현재 배정을 유지해 매 프레임 조준 표적을 바꾸지 않습니다")
 	first.estimated_velocity = -first.estimated_position.normalized() * 160
 	assert_same(gun.select_track(tracks, Vector3.ZERO), first, "빠르게 접근하는 긴급 표적에는 집중 사격을 허용합니다")
-	gun.set_priority_track(second.track_id)
-	assert_same(gun.select_track(tracks, Vector3.ZERO), second)
 
 func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
@@ -632,12 +628,10 @@ func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	var near_objective := _confirmed_track(Vector3(250.0, 0.0, 0.0))
 	var tracks: Array[PlayerTrack] = [near_battery, near_objective]
 	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
-	battery.set_priority_track(near_battery.track_id)
-	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_battery)
 	var coordinator := EngagementCoordinator.new()
 	battery.configure_engagements(coordinator)
 	assert_true(coordinator.try_reserve(near_battery.track_id, 9, 1.0))
-	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_battery)
+	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
 	assert_true(coordinator.try_reserve(near_battery.track_id, 10, 1.0, 2))
 	assert_same(battery.select_track(tracks, Vector3(300.0, 0.0, 0.0)), near_objective)
 	coordinator.free()
@@ -783,9 +777,6 @@ func test_long_range_launcher_selects_and_preserves_specialized_munition() -> vo
 	battery.magazines[&"area_defense"].rounds = 0
 	battery.magazines[&"area_defense"].reserve = 0
 	assert_null(battery.munition_for_track(slow), "자동 모드의 최후 특수탄은 저가 표적에 보존합니다")
-	battery.set_priority_track(slow.track_id)
-	assert_eq(battery.munition_for_track(slow).id, &"high_speed_interceptor")
-	battery.set_priority_track(ballistic.track_id)
 	assert_eq(battery.munition_for_track(ballistic).id, &"high_speed_interceptor")
 	battery.set_munition_mode(&"area_defense")
 	battery.magazines[&"area_defense"].rounds = 2
@@ -1521,12 +1512,12 @@ func test_asset_tooltip_separates_heading_and_statuses_without_stale_rows() -> v
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
 	overlay._show_asset_hint(gun, Vector2(400, 300))
-	assert_eq(overlay.priority_label.text, gun.definition.display_name)
+	assert_eq(overlay.pointer_label.text, gun.definition.display_name)
 	assert_same(overlay.hint_icon.texture, gun.definition.identity_icon)
 	assert_true(overlay.hint_separator.visible)
 	assert_true(overlay.hint_details.visible)
-	assert_gt(overlay.priority_label.get_theme_font_size("font_size"), overlay.hint_rows[0].get_theme_font_size("font_size"))
-	assert_ne(overlay.priority_label.get_theme_color("font_color"), overlay.hint_rows[0].get_theme_color("font_color"))
+	assert_gt(overlay.pointer_label.get_theme_font_size("font_size"), overlay.hint_rows[0].get_theme_font_size("font_size"))
+	assert_ne(overlay.pointer_label.get_theme_color("font_color"), overlay.hint_rows[0].get_theme_color("font_color"))
 	for index: int in 3:
 		assert_true(overlay.hint_rows[index].visible)
 		assert_eq(overlay.hint_rows[index].mouse_filter, Control.MOUSE_FILTER_IGNORE)
@@ -1538,11 +1529,11 @@ func test_asset_tooltip_separates_heading_and_statuses_without_stale_rows() -> v
 	assert_false(overlay.hint_details.visible)
 	assert_false(overlay.hint_separator.visible)
 	assert_true(overlay.hint_icon.visible)
-	overlay._show_pointer_hint("클릭: 우선표적 지정", Vector2(400, 300))
+	overlay._show_pointer_hint("클릭: 항적 정보", Vector2(400, 300))
 	assert_false(overlay.hint_icon.visible)
 	assert_false(overlay.hint_details.visible)
-	assert_eq(overlay.priority_label.text, "클릭: 우선표적 지정")
-	assert_eq(overlay.priority_hint.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	assert_eq(overlay.pointer_label.text, "클릭: 항적 정보")
+	assert_eq(overlay.pointer_hint.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 
 func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() -> void:
 	var manager := autofree(SupportManager.new()) as SupportManager
@@ -1633,3 +1624,66 @@ func _confirmed_track(position: Vector3) -> PlayerTrack:
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	track.affiliation_confidence = 0.8
 	return track
+
+func test_target_policy_filters_classification_without_bypassing_other_rules() -> void:
+	var doctrine := EngagementDoctrine.new()
+	var track := _confirmed_track(Vector3(100, 50, 0))
+	for kind: StringName in EngagementDoctrine.TARGET_KINDS:
+		track.classification = kind
+		assert_true(doctrine.allows(track))
+		doctrine.set_target_kind_allowed(kind, false)
+		assert_false(doctrine.allows(track))
+		doctrine.engage_unknown = true
+		track.classification_confidence = 0.1
+		assert_false(doctrine.allows(track), "미확인 허용도 명시적 종류 차단을 우회하지 않습니다")
+		track.classification_confidence = 0.9
+		doctrine.set_target_kind_allowed(kind, true)
+		assert_true(doctrine.allows(track))
+	doctrine.set_target_kind_allowed(&"aircraft", false)
+	track.classification = &"strike_aircraft"
+	assert_false(doctrine.allows(track))
+	doctrine.set_target_kind_allowed(&"aircraft", true)
+	doctrine.hold_fire = true
+	assert_false(doctrine.allows(track))
+
+func test_battery_and_gun_skip_disallowed_target_kinds() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(1, SCENARIO.available_defenses[0])
+	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
+	gun.setup(2, SCENARIO.available_defenses[4])
+	var track := _confirmed_track(Vector3(100, 50, 0))
+	track.classification = &"uav"
+	var tracks: Array[PlayerTrack] = [track]
+	for unit: ArmedDefenseUnit in [battery, gun]:
+		assert_same(unit.select_track(tracks, Vector3.ZERO), track)
+		unit.set_target_kind_allowed(&"uav", false)
+		assert_null(unit.select_track(tracks, Vector3.ZERO))
+		unit.set_target_kind_allowed(&"uav", true)
+		assert_same(unit.select_track(tracks, Vector3.ZERO), track)
+
+func test_target_policy_round_trip_and_legacy_save_defaults() -> void:
+	var unit := ArmedDefenseUnit.new()
+	var other := ArmedDefenseUnit.new()
+	unit.set_target_kind_allowed(&"uav", false)
+	unit.set_target_kind_allowed(&"rocket", false)
+	assert_true(other.allows_target_kind(&"uav"), "설정은 자산마다 독립적입니다")
+	other.restore_doctrine_state(JSON.parse_string(JSON.stringify(unit.capture_doctrine_state())))
+	assert_false(other.allows_target_kind(&"uav"))
+	assert_false(other.allows_target_kind(&"rocket"))
+	assert_true(other.allows_target_kind(&"aircraft"))
+	other.restore_doctrine_state({"priority_track_id": 42})
+	for kind: StringName in EngagementDoctrine.TARGET_KINDS:
+		assert_true(other.allows_target_kind(kind))
+	assert_false(other.capture_doctrine_state().has("priority_track_id"))
+	unit.free()
+	other.free()
+
+func test_policy_covers_observed_uav_and_missile_variants() -> void:
+	var doctrine := EngagementDoctrine.new()
+	doctrine.set_target_kind_allowed(&"uav", false)
+	doctrine.set_target_kind_allowed(&"cruise_missile", false)
+	for classification: StringName in [&"large_uav", &"strike_uav", &"recon_uav", &"missile"]:
+		var track := _confirmed_track(Vector3(100, 50, 0))
+		track.classification = classification
+		assert_false(doctrine.allows(track))
+	assert_true(doctrine.allows_target_kind(&"small_uav"))
