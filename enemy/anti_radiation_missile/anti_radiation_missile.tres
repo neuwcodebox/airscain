@@ -25,6 +25,7 @@ acquisition_range = 240.0
 
 [resource]
 script = ExtResource("1")
+approach_audio_event = &"missile_approach"
 id = &"anti_radiation_missile"
 display_name = "대레이더미사일"
 scene = ExtResource("2")
