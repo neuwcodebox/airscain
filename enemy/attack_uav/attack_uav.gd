@@ -14,6 +14,7 @@ var mover := ThreatMover.new()
 var mission_runtime := ThreatMissionRuntime.new()
 var _definition: AttackUavDefinition
 var terminal_committed: bool = false
+var recon_scan_remaining: float = 0.0
 
 @onready var body: Node3D = $Body
 
@@ -38,6 +39,11 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 func gameplay_tick(delta: float) -> void:
 	if not active or resolved_state:
 		return
+	if _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and enemy_knowledge != null:
+		recon_scan_remaining -= delta
+		if recon_scan_remaining <= 0.0:
+			recon_scan_remaining = 0.5
+			_record_local_recon()
 	var observed_id := mission_runtime.target_defense_id
 	if mission_runtime.observe_target(global_position):
 		if enemy_knowledge != null:
@@ -98,13 +104,8 @@ func _ground_missed_target() -> void:
 	mission_runtime.fixed_target = point
 
 func _record_local_recon() -> void:
-	var anchor := mission_runtime.target_asset
-	if not is_instance_valid(anchor):
-		return
-	for child: Node in anchor.get_parent().get_children():
-		var asset := child as DefenseUnit
-		if asset != null and asset.active and Vector2(asset.global_position.x - global_position.x, asset.global_position.z - global_position.z).length() <= _definition.mission.action_distance:
-			enemy_knowledge.record_recon(asset)
+	if enemy_knowledge != null:
+		enemy_knowledge.record_recon_area(global_position, _definition.mission.action_distance)
 
 func resolve_once(neutralized: bool) -> bool:
 	if resolved_state:

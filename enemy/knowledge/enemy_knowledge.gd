@@ -8,6 +8,15 @@ var simulation_time: float = 0.0
 var estimates: Dictionary[int, Dictionary] = {}
 var reports: Array[Dictionary] = []
 var recent_outcomes: Array[Dictionary] = []
+var defense_parent: Node3D
+
+func record_recon_area(position: Vector3, radius: float) -> void:
+	if not is_instance_valid(defense_parent):
+		return
+	for child: Node in defense_parent.get_children():
+		var asset := child as DefenseUnit
+		if asset != null and asset.active and Vector2(asset.global_position.x - position.x, asset.global_position.z - position.z).length() <= radius:
+			record_recon(asset)
 
 func reset() -> void:
 	simulation_time = 0.0

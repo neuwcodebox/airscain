@@ -31,6 +31,8 @@ func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefiel
 	threat_parent = threat_parent_value
 	defense_parent = defense_parent_value
 	enemy_knowledge = enemy_knowledge_value
+	if enemy_knowledge != null:
+		enemy_knowledge.defense_parent = defense_parent
 	rng.seed = scenario.world_seed ^ 0x6E624EB7
 	reset()
 
@@ -228,10 +230,15 @@ func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
 		return null
 	var role := mission.knowledge_role()
 	var candidates: Array[DefenseUnit] = []
+	var recon_candidates: Array[DefenseUnit] = []
 	for child: Node in defense_parent.get_children():
 		var unit := child as DefenseUnit
+		if unit != null and unit.active and mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
+			recon_candidates.append(unit)
 		if unit != null and unit.integrity > 0.0 and unit.definition.enemy_knowledge_role() == role:
 			candidates.append(unit)
+	if candidates.is_empty() and mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
+		candidates = recon_candidates
 	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
 
 func _known_target_for_role(role: StringName) -> DefenseUnit:

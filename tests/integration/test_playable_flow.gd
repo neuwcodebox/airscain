@@ -2420,3 +2420,27 @@ func test_target_policy_buttons_change_only_the_selected_asset() -> void:
 	assert_false(button.button_pressed)
 	button.button_pressed = true
 	assert_true(battery.allows_target_kind(&"uav"))
+
+func test_recon_flyby_discovers_unconnected_battery_without_radar_anchor() -> void:
+	main.set_process(false)
+	var battery := _place_hunter_target()
+	main.enemy_knowledge.reset()
+	var definition := preload("res://enemy/recon_uav/recon_uav.tres") as AttackUavDefinition
+	var recon := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(recon)
+	recon.setup(9100, definition)
+	recon.configure_enemy_knowledge(main.enemy_knowledge)
+	recon.global_position = battery.global_position + Vector3(40, 145, 0)
+	recon.configure_mission(main.objective, main.battlefield, battery.global_position + Vector3(1000, 0, 0), 1.0, null, Vector3(2000, 145, 0))
+	assert_true(main.enemy_knowledge.best_estimate_for_role(&"weapon").is_empty())
+	assert_not_null(main.director.choose_target_for(definition.mission), "레이더가 없어도 정찰 경로를 선택합니다")
+	recon.global_position = battery.global_position + Vector3(400, 145, 0)
+	recon.gameplay_tick(0.05)
+	assert_false(main.enemy_knowledge.estimates.has(battery.runtime_id), "정찰 반경 밖에서는 포대를 알아내지 않습니다")
+	recon.global_position = battery.global_position + Vector3(40, 145, 0)
+	recon.gameplay_tick(0.5)
+	assert_false(recon.mission_runtime.effect_applied, "정찰 임무 완료 전의 통과 관측입니다")
+	assert_true(main.enemy_knowledge.estimates.has(battery.runtime_id), "레이더·발사·정찰 목표 참조 없이 시야 안 포대를 관측합니다")
+	var strike := main.director._spawn_entry(_battery_strike_entry(), 0.0, 0.0) as AttackUav
+	assert_same(strike.mission_runtime.target_asset, battery)
+	assert_eq(strike.mission_runtime.phase, ThreatMissionRuntime.Phase.INBOUND)
