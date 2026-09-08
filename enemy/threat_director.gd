@@ -226,19 +226,21 @@ func _register_released_threat(threat: ThreatUnit) -> void:
 	threat_spawned.emit(threat)
 
 func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
-	if mission == null or mission.target_role == ThreatMissionDefinition.TargetRole.CITY or defense_parent == null:
+	if mission == null or defense_parent == null:
+		return null
+	if mission.type != ThreatMissionDefinition.Type.RECONNAISSANCE and mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
 		return null
 	var role := mission.knowledge_role()
 	var candidates: Array[DefenseUnit] = []
-	var recon_candidates: Array[DefenseUnit] = []
 	for child: Node in defense_parent.get_children():
 		var unit := child as DefenseUnit
-		if unit != null and unit.active and mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
-			recon_candidates.append(unit)
-		if unit != null and unit.integrity > 0.0 and unit.definition.enemy_knowledge_role() == role:
+		if unit == null:
+			continue
+		if mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
+			if unit.active:
+				candidates.append(unit)
+		elif unit.integrity > 0.0 and unit.definition.enemy_knowledge_role() == role:
 			candidates.append(unit)
-	if candidates.is_empty() and mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
-		candidates = recon_candidates
 	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
 
 func _known_target_for_role(role: StringName) -> DefenseUnit:

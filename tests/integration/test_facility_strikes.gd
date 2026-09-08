@@ -578,3 +578,19 @@ func test_uav_bombs_confirm_offset_reports_before_release() -> void:
 				assert_lt(target.integrity, target.definition.maximum_integrity, "asset=%s angle=%.1f miss=%.3f impact=%s target=%s" % [target.definition.id, angle, bomb.global_position.distance_to(target.global_position), bomb.global_position, target.global_position])
 				bomb.free()
 			aircraft.free()
+
+func test_recon_routes_treat_radar_and_battery_equally() -> void:
+	var radar := target_for(&"sensor")
+	var battery := target_for(&"weapon")
+	var profile := (preload("res://enemy/recon_uav/recon_uav.tres") as AttackUavDefinition).mission
+	main.director.rng.seed = 73129
+	var selected: Dictionary[int, bool] = {}
+	for attempt: int in 128:
+		var target := main.director.choose_target_for(profile)
+		assert_true(target.active)
+		selected[target.runtime_id] = true
+	assert_has(selected, radar.runtime_id)
+	assert_has(selected, battery.runtime_id, "레이더가 있어도 포대는 같은 정찰 후보입니다")
+	radar.active = false
+	for attempt: int in 32:
+		assert_ne(main.director.choose_target_for(profile), radar)
