@@ -18,7 +18,7 @@ const STREAMS: Dictionary = {
 }
 # Measured -13.71/-9.69/-9.16 LUFS. Light peaks at -30, others at -26 LUFS.
 const GAINS_DB: Dictionary = {LIGHT: -16.29, MEDIUM: -16.31, HEAVY: -16.84}
-const LEAD_SECONDS: Dictionary = {LIGHT: 5.0, MEDIUM: 8.0, HEAVY: 8.0}
+const LEAD_SECONDS: Dictionary = {LIGHT: 15.0, MEDIUM: 24.0, HEAVY: 24.0}
 
 class Source:
 	var threat: ThreatUnit

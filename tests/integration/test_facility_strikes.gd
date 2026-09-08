@@ -481,7 +481,7 @@ func test_uav_loop_content_roles_and_live_release_envelope() -> void:
 		main.threat_parent.add_child(aircraft)
 		aircraft.setup(9100, definition)
 		var target := target_for(&"weapon")
-		aircraft.global_position = target.global_position + Vector3(800, 120, 0)
+		aircraft.global_position = target.global_position + Vector3(1600, 120, 0)
 		aircraft.configure_mission(main.objective, main.battlefield, target.global_position, 1.0, target, aircraft.global_position)
 		var audio := UavLoopAudio.new()
 		add_child_autofree(audio)
@@ -505,7 +505,7 @@ func test_uav_loop_content_roles_and_live_release_envelope() -> void:
 		if definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
 			assert_almost_eq(finished - started, float(UavLoopAudio.LEAD_SECONDS[definition.loop_audio_event]), 2.0, "충돌 예상시간 기반 시작: " + String(id))
 		if definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
-			assert_almost_eq(finished - started, 8.0, 2.0, "투하 예상시간 기반 시작: " + String(id))
+			assert_almost_eq(finished - started, 24.0, 2.0, "투하 예상시간 기반 시작: " + String(id))
 			assert_true(audio.voices[0].player.playing, "투하 후 이탈 꼬리")
 		for tick: int in 50:
 			audio.update_audio(0.05, false, 1.0, true)
