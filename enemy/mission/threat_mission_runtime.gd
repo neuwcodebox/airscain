@@ -33,13 +33,18 @@ func navigation_target() -> Vector3:
 	return fixed_target
 
 func observe_target(unit_position: Vector3) -> bool:
-	if profile.acquisition_range <= 0.0 or phase == Phase.EGRESS or target_defense_id == 0:
+	if profile.acquisition_range <= 0.0 or phase == Phase.EGRESS:
+		return false
+	if target_defense_id == 0 and profile.type != ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
 		return false
 	# Search inside the estimated area before declaring an offset report empty.
 	var confirmation_distance := maxf(profile.acquisition_range * 0.75, (profile.acquisition_range + profile.action_distance) * 0.5)
-	if unit_position.distance_to(fixed_target) > confirmation_distance:
+	var report_distance := unit_position.distance_to(fixed_target)
+	if report_distance > profile.acquisition_range:
 		return false
 	if not is_instance_valid(target_asset) or not target_asset.active or target_asset.global_position.distance_to(unit_position) > profile.acquisition_range:
+		if report_distance > confirmation_distance:
+			return false
 		if profile.type == ThreatMissionDefinition.Type.IMPACT:
 			target_asset = null
 			target_defense_id = 0
@@ -47,9 +52,15 @@ func observe_target(unit_position: Vector3) -> bool:
 			phase = Phase.EGRESS
 		return true
 	fixed_target = target_asset.global_position
+	if profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
+		phase = Phase.ACTING
 	return false
 
 func gameplay_tick(unit_position: Vector3, delta: float, release: ReleaseDecision = ReleaseDecision.USE_DISTANCE) -> bool:
+	# A ballistic release solution for an uncertain report is not confirmation.
+	# ACTING records local acquisition and is already preserved in saved state.
+	if profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT and profile.acquisition_range > 0.0 and phase == Phase.INBOUND:
+		return false
 	var target := navigation_target()
 	var action_distance := unit_position.distance_to(target + Vector3.UP * 2.0)
 	if profile.type == ThreatMissionDefinition.Type.RECONNAISSANCE:

@@ -20,7 +20,7 @@ type = 2
 target_role = 4
 damage = 40.0
 action_distance = 100.0
-acquisition_range = 220.0
+acquisition_range = 550.0
 
 [resource]
 script = ExtResource("1")

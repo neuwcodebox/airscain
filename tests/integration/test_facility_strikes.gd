@@ -549,3 +549,32 @@ func test_cruise_audio_does_not_predict_terrain_collision_during_safe_cruise() -
 		assert_gt(ended_at, started_at, content)
 		assert_almost_eq(ended_at - started_at, 5.0, 1.0, content + " cue precedes real impact")
 		missile.free()
+
+func test_uav_bombs_confirm_offset_reports_before_release() -> void:
+	for definition_index: int in [0]:
+		var target := target_for_index(definition_index)
+		for case: int in 12:
+			var angle := float(case % 4) * 1.5
+			var time_step := 1.0 / 30.0 if case < 4 else 0.1
+			target.complete_repair()
+			var definition := entry_for(&"battery_strike_uav").threat_definition
+			var aircraft := definition.scene.instantiate() as AttackUav
+			main.threat_parent.add_child(aircraft)
+			aircraft.setup(9000, definition)
+			aircraft.global_position = target.global_position + Vector3(cos(angle) * 450.0, 180.0, sin(angle) * 450.0)
+			aircraft.configure_mission(main.objective, main.battlefield, target.global_position + Vector3(26.0, 0.0, 0.0), [1.0, 1.35, 2.0][case / 4], target, aircraft.global_position)
+			for tick: int in 4500:
+				aircraft.gameplay_tick(time_step)
+				if aircraft.mission_runtime.effect_applied:
+					break
+			var bomb: AirStrikeMunition
+			for child: Node in main.threat_parent.get_children():
+				if child is AirStrikeMunition and not child.is_queued_for_deletion():
+					bomb = child as AirStrikeMunition
+			assert_not_null(bomb, "Bomb release: %d / %.1f" % [definition_index, angle])
+			if bomb != null:
+				bomb.managed = true
+				bomb.gameplay_tick(15.0)
+				assert_lt(target.integrity, target.definition.maximum_integrity, "asset=%s angle=%.1f miss=%.3f impact=%s target=%s" % [target.definition.id, angle, bomb.global_position.distance_to(target.global_position), bomb.global_position, target.global_position])
+				bomb.free()
+			aircraft.free()

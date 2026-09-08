@@ -34,3 +34,13 @@ func test_engagement_and_outcome_reports_round_trip() -> void:
 	var restored: EnemyKnowledge = add_child_autofree(EnemyKnowledge.new()) as EnemyKnowledge
 	restored.restore_state(knowledge.capture_state())
 	assert_eq(restored.capture_state(), knowledge.capture_state())
+
+func test_unconfirmed_strike_cannot_release_and_empty_report_is_aborted() -> void:
+	var definition := preload("res://enemy/facility_strike_uav/battery_strike_uav.tres") as AttackUavDefinition
+	var mission := ThreatMissionRuntime.new()
+	mission.setup(definition.mission, null, Vector3.ZERO, null, Vector3(1500, 100, 0))
+	assert_false(mission.gameplay_tick(Vector3(0, 100, 0), 0.1, ThreatMissionRuntime.ReleaseDecision.READY))
+	assert_false(mission.effect_applied, "낙하 궤적이 맞더라도 미확인 표적에는 투하하지 않습니다")
+	assert_true(mission.observe_target(Vector3(0, 100, 0)))
+	assert_eq(mission.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_false(mission.effect_applied)

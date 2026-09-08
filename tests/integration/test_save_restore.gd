@@ -312,7 +312,7 @@ func test_battery_strike_restores_observed_target_without_following_hidden_movem
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
 	var runtime_id := threat.runtime_id
 	var observed := threat.mission_runtime.fixed_target
-	battery.global_position += Vector3(500, 0, 0)
+	battery.global_position += Vector3(threat.mission_runtime.profile.acquisition_range + 200.0, 0, 0)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	assert_eq(main.restore_from_document(document), "")
 	var restored := _find_contact(runtime_id) as AttackUav
