@@ -127,7 +127,14 @@ func presentation_action_seconds() -> float:
 		var seconds := maxf(0.0, offset.length() - _definition.mission.action_distance) / closing_speed
 		# Nearby buildings may end the flight before the mission target.
 		var projected := global_position + mover.velocity * minf(seconds, 16.5)
-		var impact := battlefield.building_segment_impact(global_position, projected) if _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY else StrikeFlight.surface_impact(battlefield, global_position, projected)
+		var impact := battlefield.building_segment_impact(global_position, projected)
+		# Cruise flight actively maintains terrain clearance. A straight descent
+		# extrapolation is not a future terrain impact until terminal guidance.
+		var terminal := terminal_committed or Vector2(offset.x, offset.z).length() <= _definition.movement.terminal_distance
+		if terminal and _definition.mission.target_role != ThreatMissionDefinition.TargetRole.CITY:
+			var terrain_impact := battlefield.terrain_segment_impact(global_position, projected)
+			if not terrain_impact.is_empty() and (impact.is_empty() or global_position.distance_squared_to(terrain_impact.position) < global_position.distance_squared_to(impact.position)):
+				impact = terrain_impact
 		if not impact.is_empty():
 			seconds = minf(seconds, global_position.distance_to(impact.position) / mover.velocity.length())
 		return seconds

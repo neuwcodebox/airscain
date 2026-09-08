@@ -512,3 +512,40 @@ func test_uav_loop_content_roles_and_live_release_envelope() -> void:
 		for voice: UavLoopAudio.Voice in audio.voices:
 			assert_false(voice.player.playing, String(id))
 		aircraft.free()
+
+func test_cruise_audio_does_not_predict_terrain_collision_during_safe_cruise() -> void:
+	for content: String in ["anti_radiation_missile/anti_radiation_missile", "cruise_missile/cruise_missile", "cruise_missile/battery_strike_cruise", "cruise_missile/support_strike_cruise"]:
+		var definition := load("res://enemy/%s.tres" % content) as AttackUavDefinition
+		var missile := definition.scene.instantiate() as AttackUav
+		main.add_child(missile)
+		missile.setup(9001, definition)
+		var position := Vector3(1200.0, 0.0, 0.0)
+		position.y = main.battlefield.flight_surface_height(position.x, position.z) + definition.movement.cruise_altitude
+		missile.global_position = position
+		missile.configure_mission(main.objective, main.battlefield, Vector3.ZERO, 1.0)
+		# A descent over terrain is corrected by the cruise clearance controller.
+		missile.mover.velocity = Vector3(-definition.movement.speed, -20.0, 0.0)
+		var audio := ThreatApproachAudio.new()
+		audio.configure_cruise()
+		add_child_autofree(audio)
+		audio.register(missile)
+		audio.update_audio(0.05, false, 1.0, true)
+		assert_eq(audio.played_count, 0, content + " must not consume its approach cue far away")
+		assert_gt(missile.presentation_action_seconds(), 5.0, content)
+		for tick: int in 120:
+			missile.gameplay_tick(0.05)
+		assert_false(missile.resolved_state, content + " remains in flight after the false projected collision")
+		var started_at := -1.0
+		var ended_at := -1.0
+		for tick: int in 1000:
+			missile.gameplay_tick(0.05)
+			audio.update_audio(0.05, false, 1.0, true)
+			if started_at < 0.0 and audio.played_count > 0:
+				started_at = tick * 0.05
+			if missile.resolved_state:
+				ended_at = tick * 0.05
+				break
+		assert_gte(started_at, 0.0, content)
+		assert_gt(ended_at, started_at, content)
+		assert_almost_eq(ended_at - started_at, 5.0, 1.0, content + " cue precedes real impact")
+		missile.free()

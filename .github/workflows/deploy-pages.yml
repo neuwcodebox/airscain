@@ -82,6 +82,9 @@ jobs:
           XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --path . \
             -s addons/gut/gut_cmdln.gd \
             -gtest=res://tests/unit/test_audio_playback.gd,res://tests/unit/test_gun_audio.gd,res://tests/unit/test_uav_loop_audio.gd,res://tests/unit/test_threat_approach_audio.gd,res://tests/unit/test_game_settings.gd -gexit
+          XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --path . \
+            -s addons/gut/gut_cmdln.gd -gtest=res://tests/integration/test_facility_strikes.gd \
+            -gunit_test_name=test_cruise_audio_does_not_predict_terrain_collision_during_safe_cruise -gexit
 
       - name: Export Web build
         run: |
