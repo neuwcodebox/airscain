@@ -8,11 +8,12 @@ const MAX_VOICES := 2
 const START_INTERVAL := 0.75
 const RETIRE_SECONDS := 0.25
 # Static offsets preserve the recordings' approach/departure envelopes.
-# Measured originals: -16.5/-17.4 LUFS, true peaks -1.3/+0.3 dBFS.
-const GAINS_DB: Array[float] = [-9.5, -8.6]
+# Measured originals: -16.5/-17.4/-6.1 LUFS; each plays at about -26 LUFS.
+const GAINS_DB: Array[float] = [-9.5, -8.6, -19.9]
 const STREAMS: Array[AudioStream] = [
 	preload("res://enemy/strike_aircraft/audio/jet_flyover_1.ogg"),
 	preload("res://enemy/strike_aircraft/audio/jet_flyover_2.ogg"),
+	preload("res://enemy/strike_aircraft/audio/jet_flyover_3.ogg"),
 ]
 
 class Voice:
