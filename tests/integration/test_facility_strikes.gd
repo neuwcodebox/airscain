@@ -399,3 +399,34 @@ func test_lost_missile_reference_and_aircraft_missions_round_trip() -> void:
 		assert_not_null(restored)
 		if restored != null:
 			assert_eq(restored.capture_content_state().mission, state.mission)
+
+func test_jet_approach_cue_tracks_actual_release_and_restore() -> void:
+	main.combat_audio.enabled = true
+	main.combat_audio.set_process(false)
+	var aircraft := main.director._spawn_entry(entry_for(&"strike_aircraft"), 0.0, 0.0) as AttackUav
+	assert_not_null(aircraft)
+	var audio := main.combat_audio.approaches
+	var start_time := -1.0
+	var start_position := 0.0
+	var released_at := -1.0
+	for tick: int in 1800:
+		var time := float(tick) / 60.0
+		aircraft.gameplay_tick(1.0 / 60.0)
+		audio.update_audio(1.0 / 60.0, false, 1.0, true)
+		if start_time < 0.0 and audio.played_count > 0:
+			start_time = time
+			start_position = audio.voices[0].player.get_playback_position()
+		if aircraft.mission_runtime.effect_applied:
+			released_at = time
+			break
+	assert_gte(start_time, 0.0)
+	assert_gt(released_at, start_time)
+	assert_almost_eq(released_at - start_time + start_position, ThreatApproachAudio.PEAK_SECONDS, 0.75, "투발이 음원 최근접 구간에 맞습니다")
+	assert_eq(audio.played_count, 1)
+	assert_true(audio.voices[0].player.playing)
+	var saved := aircraft.capture_state()
+	audio.reset()
+	aircraft.restore_state(saved, main.objective, main.battlefield)
+	audio.register(aircraft)
+	audio.update_audio(1.0, false, 1.0, true)
+	assert_eq(audio.played_count, 1, "투발 후 저장 복원은 접근음을 재시작하지 않습니다")

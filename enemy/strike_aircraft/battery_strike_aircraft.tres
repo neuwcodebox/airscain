@@ -39,6 +39,7 @@ scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 32
 signature_class = &"aircraft"
+approach_audio_event = &"jet_flyover"
 radar_signature = 0.82
 affiliation = 3
 adaptive_knowledge_role = &"weapon"

@@ -41,6 +41,12 @@ func get_aim_position() -> Vector3:
 func get_urgency() -> float:
 	return 0.0
 
+func presentation_action_seconds() -> float:
+	return INF
+
+func presentation_action_completed() -> bool:
+	return false
+
 func presentation_velocity() -> Vector3:
 	return Vector3.ZERO
 

@@ -83,6 +83,8 @@ var rng := RandomNumberGenerator.new()
 var prepared_stream_count: int = 0
 @export var enabled: bool = true
 var simulation_paused: bool = false
+var simulation_rate: float = 1.0
+var approaches: ThreatApproachAudio
 var gun_airbursts: GunAirburstAudio
 var gun_voices: Dictionary[int, GunAudio] = {}
 const GUN_MIX_BUDGET := 1.8
@@ -118,6 +120,9 @@ func _ready() -> void:
 	if not enabled:
 		return
 	prepared_stream_count = prepare_samples()
+	approaches = ThreatApproachAudio.new()
+	approaches.name = "ThreatApproaches"
+	add_child(approaches)
 	gun_airbursts = GunAirburstAudio.new()
 	gun_airbursts.name = "GunAirbursts"
 	gun_airbursts.context = self
@@ -142,6 +147,7 @@ func _ready() -> void:
 static func all_streams() -> Array[AudioStream]:
 	var streams: Array[AudioStream] = GunAudio.all_streams()
 	streams.append(GunAirburstAudio.loop_stream())
+	streams.append_array(ThreatApproachAudio.all_streams())
 	for group: Array in STREAM_GROUPS.values():
 		for candidate: Variant in group:
 			var stream := candidate as AudioStream
@@ -162,6 +168,8 @@ static func uses_sample_playback() -> bool:
 	return OS.has_feature("web")
 
 func _process(delta: float) -> void:
+	if is_instance_valid(approaches):
+		approaches.update_audio(delta, simulation_paused, simulation_rate, enabled)
 	if not simulation_paused:
 		missile_clock += delta
 	for event_id: StringName in cooldowns.keys():
@@ -194,6 +202,8 @@ func _exit_tree() -> void:
 	stop_all()
 
 func stop_all() -> void:
+	if is_instance_valid(approaches):
+		approaches.reset()
 	if is_instance_valid(gun_airbursts):
 		gun_airbursts.reset()
 	for player: AudioStreamPlayer in players + missile_players:
@@ -203,6 +213,10 @@ func stop_all() -> void:
 	source_players.clear()
 	missile_groups.clear()
 	missile_gains.clear()
+
+func register_threat(threat: ThreatUnit) -> void:
+	if is_instance_valid(approaches):
+		approaches.register(threat)
 
 func on_gun_round_detonated(position: Vector3, reason: StringName) -> void:
 	if is_instance_valid(gun_airbursts):

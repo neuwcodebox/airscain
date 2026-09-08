@@ -152,6 +152,7 @@ func _process(delta: float) -> void:
 	var simulation_delta := session.gameplay_delta(delta)
 	day_night.apply_time(session.survival_time)
 	combat_audio.simulation_paused = simulation_delta <= 0.0
+	combat_audio.simulation_rate = session.simulation_speed
 	if simulation_delta <= 0.0:
 		return
 	var gameplay_step_count := ceili(simulation_delta / MAXIMUM_GAMEPLAY_STEP)
@@ -288,6 +289,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 		training_controller.defense_placed(unit)
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
+	combat_audio.register_threat(threat)
 	director.bind_releases(threat)
 	threat.configure_enemy_knowledge(enemy_knowledge)
 	threat.resolved.connect(_on_threat_resolved)
@@ -309,6 +311,7 @@ func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 	if not _objective.definition.required_for_survival:
 		return
 	director.enabled = false
+	combat_audio.stop_all()
 	session.end_game()
 	hud.set_final_stats(_final_statistics())
 	placement.cancel()

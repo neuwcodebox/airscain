@@ -117,6 +117,20 @@ func get_urgency() -> float:
 		return 0.0
 	return 1.0 / maxf(1.0, global_position.distance_to(target_point))
 
+func presentation_action_seconds() -> float:
+	if not is_targetable() or mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS or _definition.mission.released_missile == null:
+		return INF
+	var offset := mission_runtime.navigation_target() - body.global_transform * AircraftStrikeRelease.HARDPOINT
+	var horizontal := Vector3(offset.x, 0.0, offset.z)
+	var forward := Vector3(mover.velocity.x, 0.0, mover.velocity.z)
+	if forward.length_squared() < 1.0 or forward.normalized().dot(horizontal.normalized()) < cos(deg_to_rad(_definition.mission.launch_cone_degrees)):
+		return INF
+	var closing_speed := forward.dot(horizontal.normalized())
+	return maxf(0.0, horizontal.length() - _definition.mission.action_distance) / closing_speed
+
+func presentation_action_completed() -> bool:
+	return mission_runtime.effect_applied
+
 func presentation_velocity() -> Vector3:
 	return mover.velocity
 
