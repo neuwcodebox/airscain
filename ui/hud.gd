@@ -937,12 +937,12 @@ func _build_target_kind_buttons() -> void:
 	for index: int in EngagementDoctrine.TARGET_KINDS.size():
 		var button := Button.new()
 		button.name = String(EngagementDoctrine.TARGET_KINDS[index])
-		button.custom_minimum_size = Vector2(44, 44)
+		button.custom_minimum_size = Vector2(34, 34)
 		button.toggle_mode = true
 		button.icon = TARGET_ICONS[index]
 		button.expand_icon = true
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.add_theme_constant_override("icon_max_width", 28)
+		button.add_theme_constant_override("icon_max_width", 24)
 		for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 			var style := StyleBoxFlat.new()
 			var enabled := state in ["pressed", "hover_pressed"]
@@ -953,21 +953,13 @@ func _build_target_kind_buttons() -> void:
 			if state == "focus":
 				style.draw_center = false
 			style.set_border_width_all(2 if state == "focus" else 1)
-			style.set_corner_radius_all(6)
-			style.set_content_margin_all(8)
+			style.set_corner_radius_all(5)
+			style.set_content_margin_all(5)
 			button.add_theme_stylebox_override(state, style)
 		button.add_theme_color_override("icon_normal_color", Color("647981"))
 		button.add_theme_color_override("icon_hover_color", Color("b8cdd2"))
 		button.add_theme_color_override("icon_pressed_color", Color("a2edda"))
 		button.add_theme_color_override("icon_hover_pressed_color", Color("dbfff3"))
-		var check := Label.new()
-		check.name = "AllowedMark"
-		check.text = "✓"
-		check.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		check.add_theme_font_size_override("font_size", 12)
-		check.add_theme_color_override("font_color", Color("a2edda"))
-		check.position = Vector2(31, 27)
-		button.add_child(check)
 		button.toggled.connect(func(enabled: bool) -> void: target_kind_requested.emit(EngagementDoctrine.TARGET_KINDS[index], enabled))
 		target_kind_row.add_child(button)
 		target_kind_buttons.append(button)
@@ -978,7 +970,6 @@ func _refresh_target_kind_buttons() -> void:
 		var button := target_kind_buttons[index]
 		var enabled := selected_asset.allows_target_kind(EngagementDoctrine.TARGET_KINDS[index])
 		button.set_pressed_no_signal(enabled)
-		button.get_node("AllowedMark").visible = enabled
 		button.tooltip_text = "%s\n%s · 클릭하여 %s" % [EngagementDoctrine.TARGET_LABELS[index], "교전 허용" if enabled else "교전 차단", "차단" if enabled else "허용"]
 		if enabled:
 			allowed += 1

@@ -1729,3 +1729,5 @@ HUD 검증: 구매·복구 메뉴는 표시 입력값이 달라졌을 때만 테
 - 새 SVG 6종은 Godot CLI import로 준비했다. 실제 Compatibility 게임 창에서 전체 허용·일부 차단 화면과 실제 마우스 클릭에 따른 자산 정책 변경을 확인했다 (`tools/visual_capture.gd -- --capture-doctrine-only`, `DOCTRINE_CAPTURE_OK`). 스크립트·런타임 오류 없이 완료했고 `git diff --check`를 통과했다.
 
 - 2026-09-08: 제트기·직선익 프로펠러 무인기·수평 순항미사일·수직 화염 로켓·하강 탄도미사일 실루엣을 적용했다. 종류명을 첫 줄에 표시하는 6종 호버 툴팁을 실제 Compatibility 창에서 각각 캡처해 확인했고, 허용·차단 클릭 검증과 SVG import 및 `git diff --check`를 통과했다.
+
+- 교전 정책 토글은 34×34px, 아이콘 24px, 간격 4px로 구성하고 상태는 청록색 배경·테두리와 툴팁으로 표시한다. 실제 Compatibility 창에서 작은 버튼의 렌더, 허용·차단 클릭과 호버를 검증했으며 `git diff --check`를 통과했다.
