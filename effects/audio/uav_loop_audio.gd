@@ -93,7 +93,9 @@ func update_audio(delta: float, paused: bool, rate: float, enabled: bool) -> voi
 		reset()
 		return
 	for voice: Voice in voices:
-		voice.player.stream_paused = paused
+		# Reapplying resume recreates the WebAudio Sample at its start offset.
+		if voice.player.stream_paused != paused:
+			voice.player.stream_paused = paused
 		voice.player.pitch_scale = maxf(0.01, rate)
 	if paused:
 		return
