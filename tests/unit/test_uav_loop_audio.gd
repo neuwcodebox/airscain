@@ -16,7 +16,7 @@ func source(audio: UavLoopAudio, event: StringName, seconds: float) -> Uav:
 	var threat := add_child_autofree(Uav.new()) as Uav
 	threat.definition = ThreatDefinition.new()
 	threat.definition.loop_audio_event = event
-	threat.seconds = seconds * 3.0
+	threat.seconds = seconds * 2.0
 	audio.register(threat)
 	return threat
 
@@ -33,7 +33,7 @@ func test_loop_ramp_grouping_and_light_loudness() -> void:
 	var first := source(audio, UavLoopAudio.MEDIUM, 9.0)
 	tick(audio)
 	assert_false(audible(audio, first))
-	first.seconds = 12.0
+	first.seconds = 8.0
 	var companion := source(audio, UavLoopAudio.MEDIUM, 4.2)
 	tick(audio)
 	assert_true(audible(audio, first))
@@ -62,7 +62,7 @@ func test_louder_candidate_preempts_and_suppressed_source_returns_at_current_vol
 	assert_false(audible(audio, quiet))
 	assert_true(audible(audio, loud))
 	assert_true(audible(audio, closer))
-	quiet.seconds = 0.3
+	quiet.seconds = 0.2
 	loud.resolve_once(true)
 	tick(audio, 20)
 	assert_true(audible(audio, quiet), "미재생 후보도 현재 볼륨으로 재점유")
@@ -80,7 +80,7 @@ func test_total_cap_and_small_priority_changes_keep_owner() -> void:
 	tick(audio)
 	var newcomer := source(audio, UavLoopAudio.HEAVY, 6.0)
 	tick(audio)
-	newcomer.seconds = 11.7
+	newcomer.seconds = 7.8
 	tick(audio)
 	assert_true(audible(audio, first), "미세한 목표 볼륨 차이에는 기존 슬롯 유지")
 	assert_false(audible(audio, newcomer))

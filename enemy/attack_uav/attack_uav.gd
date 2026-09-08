@@ -126,7 +126,7 @@ func presentation_action_seconds() -> float:
 			return INF
 		var seconds := maxf(0.0, offset.length() - _definition.mission.action_distance) / closing_speed
 		# Nearby buildings may end the flight before the mission target.
-		var projected := global_position + mover.velocity * minf(seconds, 24.5)
+		var projected := global_position + mover.velocity * minf(seconds, 16.5)
 		var impact := battlefield.building_segment_impact(global_position, projected) if _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY else StrikeFlight.surface_impact(battlefield, global_position, projected)
 		if not impact.is_empty():
 			seconds = minf(seconds, global_position.distance_to(impact.position) / mover.velocity.length())
