@@ -118,6 +118,19 @@ func get_urgency() -> float:
 	return 1.0 / maxf(1.0, global_position.distance_to(target_point))
 
 func presentation_action_seconds() -> float:
+	if is_targetable() and _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
+		var target := mission_runtime.navigation_target() + Vector3.UP * 2.0
+		var offset := target - global_position
+		var closing_speed := mover.velocity.dot(offset.normalized())
+		if closing_speed <= 1.0:
+			return INF
+		var seconds := maxf(0.0, offset.length() - _definition.mission.action_distance) / closing_speed
+		# Nearby buildings may end the flight before the mission target.
+		var projected := global_position + mover.velocity * minf(seconds, 5.5)
+		var impact := battlefield.building_segment_impact(global_position, projected) if _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY else StrikeFlight.surface_impact(battlefield, global_position, projected)
+		if not impact.is_empty():
+			seconds = minf(seconds, global_position.distance_to(impact.position) / mover.velocity.length())
+		return seconds
 	if not is_targetable() or mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS or _definition.mission.released_missile == null:
 		return INF
 	var offset := mission_runtime.navigation_target() - body.global_transform * AircraftStrikeRelease.HARDPOINT

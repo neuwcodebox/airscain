@@ -444,3 +444,30 @@ func test_all_automatic_threat_groups_start_beyond_haze() -> void:
 				assert_gt(eta, ThreatApproachAudio.PEAK_SECONDS)
 			main.registry.remove(threat)
 			threat.free()
+
+func test_cruise_approach_precedes_actual_collision() -> void:
+	var entry: ThreatSpawnEntry
+	for candidate: ThreatSpawnEntry in main.scenario.threat_entries:
+		if candidate.threat_definition.id == &"cruise_missile":
+			entry = candidate
+	var missile := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var audio := ThreatApproachAudio.new()
+	audio.configure_cruise()
+	add_child_autofree(audio)
+	audio.register(missile)
+	var started_at := -1.0
+	var ended_at := -1.0
+	for tick: int in 2500:
+		missile.gameplay_tick(0.05)
+		audio.update_audio(0.05, false, 1.0, true)
+		if audio.played_count > 0 and started_at < 0.0:
+			started_at = tick * 0.05
+		if missile.resolved_state:
+			ended_at = tick * 0.05
+			break
+	assert_gt(started_at, 0.0)
+	assert_gt(ended_at, started_at)
+	assert_almost_eq(ended_at - started_at, 5.0, 0.75, "현재 경로의 예상 충돌 약 5초 전 접근음을 시작합니다")
+	assert_true(audio.voices[0].retiring)
+	audio.update_audio(0.2, false, 1.0, true)
+	assert_false(audio.voices[0].player.playing)

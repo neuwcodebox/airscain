@@ -25,6 +25,7 @@ action_duration = 0.0
 
 [resource]
 script = ExtResource("1")
+approach_audio_event = &"missile_approach"
 id = &"cruise_missile"
 display_name = "저고도 순항미사일"
 scene = ExtResource("2")

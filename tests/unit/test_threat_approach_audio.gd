@@ -127,3 +127,51 @@ func test_unconfigured_threats_and_egress_are_silent_and_samples_prepared() -> v
 	for stream: AudioStream in ThreatApproachAudio.all_streams():
 		assert_has(CombatAudio.all_streams(), stream)
 		assert_false((stream as AudioStreamOggVorbis).loop)
+
+func cruise_source(audio: ThreatApproachAudio, seconds: float = 5.0) -> ApproachingThreat:
+	var threat := add_child_autofree(ApproachingThreat.new()) as ApproachingThreat
+	threat.definition = ThreatDefinition.new()
+	threat.definition.approach_audio_event = ThreatApproachAudio.CRUISE_EVENT
+	threat.seconds = seconds
+	audio.register(threat)
+	return threat
+
+func test_cruise_groups_wait_for_last_impact_and_do_not_restart() -> void:
+	var audio := ThreatApproachAudio.new()
+	audio.configure_cruise()
+	add_child_autofree(audio)
+	var first := cruise_source(audio, 5.1)
+	audio.update_audio(0.01, false, 1.0, true)
+	assert_eq(audio.played_count, 0)
+	first.seconds = 5.0
+	audio.update_audio(0.01, false, 1.0, true)
+	var second := cruise_source(audio)
+	audio.update_audio(0.05, false, 1.0, true)
+	assert_eq(audio.played_count, 1, "동시 접근은 한 번만 재생합니다")
+	first.resolve_once(false)
+	assert_false(audio.voices[0].retiring, "다른 미사일이 남으면 유지합니다")
+	second.resolve_once(true)
+	assert_true(audio.voices[0].retiring, "마지막 미사일 격추도 묶음을 종료합니다")
+	audio.update_audio(0.13, false, 1.0, true)
+	assert_false(audio.voices[0].player.playing)
+	audio.update_audio(1.0, false, 1.0, true)
+	assert_eq(audio.played_count, 1)
+
+func test_cruise_separate_groups_cap_and_deleted_members() -> void:
+	var audio := ThreatApproachAudio.new()
+	audio.configure_cruise()
+	add_child_autofree(audio)
+	var first := cruise_source(audio)
+	audio.update_audio(0.01, false, 1.0, true)
+	var second := cruise_source(audio)
+	audio.update_audio(0.2, false, 1.0, true)
+	cruise_source(audio)
+	audio.update_audio(0.2, false, 1.0, true)
+	assert_eq(audio.played_count, 2, "재생 상한에 도달하면 새 묶음은 생략합니다")
+	first.free()
+	assert_true(audio.voices[0].retiring)
+	assert_false(audio.voices[1].retiring)
+	second.resolve_once(false)
+	assert_true(audio.voices[1].retiring)
+	audio.update_audio(0.2, false, 1.0, true)
+	assert_eq(audio.played_count, 2, "생략된 미사일은 나중에 재생하지 않습니다")

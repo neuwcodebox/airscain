@@ -84,6 +84,7 @@ var prepared_stream_count: int = 0
 @export var enabled: bool = true
 var simulation_paused: bool = false
 var simulation_rate: float = 1.0
+var cruise_approaches: ThreatApproachAudio
 var approaches: ThreatApproachAudio
 var gun_airbursts: GunAirburstAudio
 var gun_voices: Dictionary[int, GunAudio] = {}
@@ -123,6 +124,10 @@ func _ready() -> void:
 	approaches = ThreatApproachAudio.new()
 	approaches.name = "ThreatApproaches"
 	add_child(approaches)
+	cruise_approaches = ThreatApproachAudio.new()
+	cruise_approaches.configure_cruise()
+	cruise_approaches.name = "CruiseApproaches"
+	add_child(cruise_approaches)
 	gun_airbursts = GunAirburstAudio.new()
 	gun_airbursts.name = "GunAirbursts"
 	gun_airbursts.context = self
@@ -168,6 +173,8 @@ static func uses_sample_playback() -> bool:
 	return OS.has_feature("web")
 
 func _process(delta: float) -> void:
+	if is_instance_valid(cruise_approaches):
+		cruise_approaches.update_audio(delta, simulation_paused, simulation_rate, enabled)
 	if is_instance_valid(approaches):
 		approaches.update_audio(delta, simulation_paused, simulation_rate, enabled)
 	if not simulation_paused:
@@ -202,6 +209,8 @@ func _exit_tree() -> void:
 	stop_all()
 
 func stop_all() -> void:
+	if is_instance_valid(cruise_approaches):
+		cruise_approaches.reset()
 	if is_instance_valid(approaches):
 		approaches.reset()
 	if is_instance_valid(gun_airbursts):
@@ -215,6 +224,8 @@ func stop_all() -> void:
 	missile_gains.clear()
 
 func register_threat(threat: ThreatUnit) -> void:
+	if is_instance_valid(cruise_approaches):
+		cruise_approaches.register(threat)
 	if is_instance_valid(approaches):
 		approaches.register(threat)
 
