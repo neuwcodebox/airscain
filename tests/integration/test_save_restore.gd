@@ -704,3 +704,38 @@ func _cleanup_save_files() -> void:
 		var path := save_path + suffix
 		if FileAccess.file_exists(path):
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+func test_recon_search_and_flight_restore_without_using_asset_waypoints() -> void:
+	var entry: ThreatSpawnEntry
+	for candidate: ThreatSpawnEntry in main.scenario.threat_entries:
+		if candidate.threat_definition.mission_definition() != null and candidate.threat_definition.mission_definition().area_recon:
+			entry = candidate
+	var recon := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	recon.global_position = Vector3(850, 145, 180)
+	for step: int in 20:
+		main.enemy_knowledge.gameplay_tick(0.1)
+		recon.gameplay_tick(0.1)
+	var id := recon.runtime_id
+	var state := main.enemy_knowledge.capture_state()
+	var flight := recon.reconnaissance.capture_state()
+	var route := recon.mission_runtime.fixed_target
+	var document := main.capture_save_document()
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_contact(id) as AttackUav
+	assert_eq(restored.reconnaissance.capture_state(), flight)
+	assert_eq(main.enemy_knowledge.capture_state(), state)
+	assert_eq(restored.mission_runtime.fixed_target, route)
+	assert_null(restored.mission_runtime.target_asset)
+	var invalid := document.duplicate(true)
+	invalid.payload.world.enemy_knowledge.recon_search.assignments[0].owner = 9999999
+	assert_ne(main.restore_from_document(invalid), "")
+	var legacy := document.duplicate(true)
+	legacy.payload.world.enemy_knowledge.erase("recon_search")
+	legacy.payload.world.enemy_knowledge.erase("recon_sightings")
+	for contact: Dictionary in legacy.payload.world.contacts:
+		contact.content_state.erase("reconnaissance")
+	assert_eq(main.restore_from_document(legacy), "")
+	var migrated := _find_contact(id) as AttackUav
+	migrated.gameplay_tick(0.1)
+	assert_null(migrated.mission_runtime.target_asset)
+	assert_true(main.enemy_knowledge.search.assignments.has(id))

@@ -9,6 +9,7 @@ enum TargetRole { CITY, SENSOR, COMMAND, SUPPORT, WEAPON }
 @export var damage: float = 10.0
 @export var action_distance: float = 5.0
 @export var action_duration: float = 0.0
+@export var area_recon: bool = false
 @export var acquisition_range: float = 0.0
 @export var released_missile: AirLaunchedMissileDefinition
 @export_range(5.0, 60.0) var launch_cone_degrees: float = 25.0
@@ -22,6 +23,8 @@ func knowledge_role() -> StringName:
 	return &""
 
 func validation_error() -> String:
+	if area_recon and type != Type.RECONNAISSANCE:
+		return "구역 정찰은 정찰 임무에서만 사용할 수 있습니다"
 	if not is_finite(launch_cone_degrees) or launch_cone_degrees < 5.0 or launch_cone_degrees > 60.0:
 		return "투발 방향 설정이 올바르지 않습니다"
 	if released_missile != null:

@@ -14,7 +14,7 @@ var mover := ThreatMover.new()
 var mission_runtime := ThreatMissionRuntime.new()
 var _definition: AttackUavDefinition
 var terminal_committed: bool = false
-var recon_scan_remaining: float = 0.0
+var reconnaissance := ReconnaissanceFlight.new()
 
 @onready var body: Node3D = $Body
 
@@ -39,11 +39,9 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 func gameplay_tick(delta: float) -> void:
 	if not active or resolved_state:
 		return
-	if _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and enemy_knowledge != null:
-		recon_scan_remaining -= delta
-		if recon_scan_remaining <= 0.0:
-			recon_scan_remaining = 0.5
-			_record_local_recon()
+	if _definition.mission.area_recon:
+		reconnaissance.advance(self, delta)
+		return
 	var observed_id := mission_runtime.target_defense_id
 	if mission_runtime.observe_target(global_position):
 		if enemy_knowledge != null:
@@ -95,8 +93,6 @@ func gameplay_tick(delta: float) -> void:
 		var released := AircraftStrikeRelease.release(get_parent(), body.global_transform, mission_runtime, mission_target, mover.velocity, battlefield, objective)
 		if released is ThreatUnit:
 			threat_released.emit(released as ThreatUnit)
-	if not had_applied_effect and mission_runtime.effect_applied and enemy_knowledge != null and _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
-		_record_local_recon()
 
 func _ground_missed_target() -> void:
 	var point := mission_runtime.fixed_target
@@ -110,6 +106,8 @@ func _record_local_recon() -> void:
 func resolve_once(neutralized: bool) -> bool:
 	if resolved_state:
 		return false
+	if enemy_knowledge != null:
+		enemy_knowledge.search.release(runtime_id)
 	_release_exhaust_trail()
 	return super.resolve_once(neutralized)
 
@@ -173,6 +171,7 @@ func capture_content_state() -> Dictionary:
 		"movement": mover.capture_state(),
 		"mission": mission_runtime.capture_state(),
 		"terminal_committed": terminal_committed,
+		"reconnaissance": reconnaissance.capture_state(),
 	}
 
 func restore_content_state(state: Dictionary, objective_value: ProtectedObjective, battlefield_value: Battlefield, defense_by_id: Dictionary[int, DefenseUnit] = {}) -> void:
@@ -184,6 +183,7 @@ func restore_content_state(state: Dictionary, objective_value: ProtectedObjectiv
 	mover.restore_state(state.get("movement", {}), _definition.movement, battlefield)
 	mission_runtime.restore_state(state.get("mission", {}), _definition.mission, objective, defense_by_id)
 	terminal_committed = bool(state.get("terminal_committed", false))
+	reconnaissance.restore_state(state.get("reconnaissance", {}))
 	_update_weapon_store()
 
 func _apply_visual_color() -> void:
@@ -220,3 +220,7 @@ func _release_exhaust_trail() -> void:
 func _update_weapon_store() -> void:
 	if body.has_method("set_weapon_released"):
 		body.call("set_weapon_released", _definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT and mission_runtime.effect_applied)
+
+func _exit_tree() -> void:
+	if is_instance_valid(enemy_knowledge):
+		enemy_knowledge.search.release(runtime_id)

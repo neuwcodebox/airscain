@@ -32,7 +32,7 @@ func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefiel
 	defense_parent = defense_parent_value
 	enemy_knowledge = enemy_knowledge_value
 	if enemy_knowledge != null:
-		enemy_knowledge.defense_parent = defense_parent
+		enemy_knowledge.configure_recon(defense_parent, battlefield, scenario.battlefield_size)
 	rng.seed = scenario.world_seed ^ 0x6E624EB7
 	reset()
 
@@ -186,7 +186,9 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	var target_asset: DefenseUnit
 	var mission := entry.threat_definition.mission_definition()
 	var targets_city := entry.threat_definition.shares_city_impact_target()
-	if mission != null:
+	if mission != null and mission.area_recon:
+		target = enemy_knowledge.search_target(threat.runtime_id, spawn_position) if enemy_knowledge != null else Vector3.ZERO
+	elif mission != null:
 		if targets_city:
 			target = battlefield.random_city_building_target(rng)
 		if mission.acquisition_range > 0.0:
@@ -226,20 +228,13 @@ func _register_released_threat(threat: ThreatUnit) -> void:
 	threat_spawned.emit(threat)
 
 func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
-	if mission == null or defense_parent == null:
-		return null
-	if mission.type != ThreatMissionDefinition.Type.RECONNAISSANCE and mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
+	if mission == null or defense_parent == null or mission.area_recon or mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
 		return null
 	var role := mission.knowledge_role()
 	var candidates: Array[DefenseUnit] = []
 	for child: Node in defense_parent.get_children():
 		var unit := child as DefenseUnit
-		if unit == null:
-			continue
-		if mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE:
-			if unit.active:
-				candidates.append(unit)
-		elif unit.integrity > 0.0 and unit.definition.enemy_knowledge_role() == role:
+		if unit != null and unit.integrity > 0.0 and unit.definition.enemy_knowledge_role() == role:
 			candidates.append(unit)
 	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
 

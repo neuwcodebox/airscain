@@ -86,6 +86,12 @@ jobs:
             -s addons/gut/gut_cmdln.gd -gtest=res://tests/integration/test_facility_strikes.gd \
             -gunit_test_name=test_cruise_audio_does_not_predict_terrain_collision_during_safe_cruise -gexit
 
+      - name: Verify reconnaissance
+        run: |
+          XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --path . \
+            -s addons/gut/gut_cmdln.gd \
+            -gtest=res://tests/unit/test_recon_search.gd,res://tests/unit/test_recon_observation.gd,res://tests/unit/test_enemy_knowledge.gd,res://tests/integration/test_facility_strikes.gd,res://tests/integration/test_save_restore.gd -gexit
+
       - name: Export Web build
         run: |
           mkdir -p build/web

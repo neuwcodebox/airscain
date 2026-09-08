@@ -1461,7 +1461,7 @@ func test_mission_roles_choose_matching_deployed_assets() -> void:
 	var recon := main.scenario.threat_entries[2].threat_definition as AttackUavDefinition
 	var support_strike := main.scenario.threat_entries[3].threat_definition as AttackUavDefinition
 	var command_strike := main.scenario.threat_entries[4].threat_definition as AttackUavDefinition
-	assert_same(main.director.choose_target_for(recon.mission), radar_result.unit)
+	assert_null(main.director.choose_target_for(recon.mission), "정찰 경로는 실제 자산 참조를 사용하지 않습니다")
 	assert_same(main.director.choose_target_for(support_strike.mission), support_result.unit)
 	assert_same(main.director.choose_target_for(command_strike.mission), command_result.unit)
 
@@ -1472,20 +1472,19 @@ func test_recon_mission_upgrades_enemy_sensor_estimate() -> void:
 	main.scenario.threat_entries = [main.scenario.threat_entries[2]]
 	main.director.pressure_level = 2
 	var recon := main.director.spawn_one() as AttackUav
-	assert_same(recon.mission_runtime.target_asset, radar)
-	recon.global_position = radar.global_position + Vector3(10.0, 2.0, 0.0)
+	assert_null(recon.mission_runtime.target_asset)
+	recon.global_position = radar.global_position + Vector3(10.0, 145.0, 0.0)
 	recon.mover.setup(recon_definition.movement, main.battlefield, recon.global_position.direction_to(radar.global_position))
-	for frame: int in 90:
+	for frame: int in 30:
+		main.enemy_knowledge.gameplay_tick(0.1)
 		recon.gameplay_tick(0.1)
-		if recon.mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS:
-			break
 	var estimate := main.enemy_knowledge.best_estimate_for_role(&"sensor")
 	assert_false(estimate.is_empty())
 	if estimate.is_empty():
 		return
 	assert_eq(estimate.asset_id, radar.runtime_id)
 	assert_eq(estimate.source, "reconnaissance")
-	assert_eq(recon.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
+	assert_eq(recon.mission_runtime.phase, ThreatMissionRuntime.Phase.ACTING)
 
 func test_facility_strike_releases_weapon_then_egresses() -> void:
 	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
@@ -1604,7 +1603,9 @@ func test_local_recon_reports_nearby_weapons_and_enables_suppression_planning() 
 	recon.configure_enemy_knowledge(main.enemy_knowledge)
 	recon.global_position = battery.global_position + Vector3.UP * 100.0
 	recon.configure_mission(main.objective, main.battlefield, battery.global_position, 1.0, battery, Vector3(1500, 150, 0))
-	recon._record_local_recon()
+	for scan: int in 8:
+		main.enemy_knowledge.gameplay_tick(0.5)
+		recon._record_local_recon()
 	assert_true(main.enemy_knowledge.estimates.has(battery.runtime_id))
 	assert_false(main.enemy_knowledge.estimates.has(distant.runtime_id))
 	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").source, "reconnaissance")
@@ -2430,15 +2431,17 @@ func test_recon_flyby_discovers_unconnected_battery_without_radar_anchor() -> vo
 	main.threat_parent.add_child(recon)
 	recon.setup(9100, definition)
 	recon.configure_enemy_knowledge(main.enemy_knowledge)
-	recon.global_position = battery.global_position + Vector3(40, 145, 0)
+	recon.global_position = battery.global_position + Vector3(-40, 145, 0)
 	recon.configure_mission(main.objective, main.battlefield, battery.global_position + Vector3(1000, 0, 0), 1.0, null, Vector3(2000, 145, 0))
 	assert_true(main.enemy_knowledge.best_estimate_for_role(&"weapon").is_empty())
-	assert_not_null(main.director.choose_target_for(definition.mission), "레이더가 없어도 정찰 경로를 선택합니다")
+	assert_null(main.director.choose_target_for(definition.mission), "정찰은 자산을 경로 목표로 선택하지 않습니다")
 	recon.global_position = battery.global_position + Vector3(400, 145, 0)
 	recon.gameplay_tick(0.05)
 	assert_false(main.enemy_knowledge.estimates.has(battery.runtime_id), "정찰 반경 밖에서는 포대를 알아내지 않습니다")
-	recon.global_position = battery.global_position + Vector3(40, 145, 0)
-	recon.gameplay_tick(0.5)
+	recon.global_position = battery.global_position + Vector3(-40, 145, 0)
+	for step: int in 20:
+		main.enemy_knowledge.gameplay_tick(0.1)
+		recon.gameplay_tick(0.1)
 	assert_false(recon.mission_runtime.effect_applied, "정찰 임무 완료 전의 통과 관측입니다")
 	assert_true(main.enemy_knowledge.estimates.has(battery.runtime_id), "레이더·발사·정찰 목표 참조 없이 시야 안 포대를 관측합니다")
 	var strike := main.director._spawn_entry(_battery_strike_entry(), 0.0, 0.0) as AttackUav

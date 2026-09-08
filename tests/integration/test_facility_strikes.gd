@@ -579,18 +579,37 @@ func test_uav_bombs_confirm_offset_reports_before_release() -> void:
 				bomb.free()
 			aircraft.free()
 
-func test_recon_routes_treat_radar_and_battery_equally() -> void:
+func test_recon_search_routes_ignore_live_asset_layout_and_partition_work() -> void:
 	var radar := target_for(&"sensor")
 	var battery := target_for(&"weapon")
-	var profile := (preload("res://enemy/recon_uav/recon_uav.tres") as AttackUavDefinition).mission
-	main.director.rng.seed = 73129
-	var selected: Dictionary[int, bool] = {}
-	for attempt: int in 128:
-		var target := main.director.choose_target_for(profile)
-		assert_true(target.active)
-		selected[target.runtime_id] = true
-	assert_has(selected, radar.runtime_id)
-	assert_has(selected, battery.runtime_id, "레이더가 있어도 포대는 같은 정찰 후보입니다")
-	radar.active = false
-	for attempt: int in 32:
-		assert_ne(main.director.choose_target_for(profile), radar)
+	var entry := entry_for(&"recon_uav")
+	main.enemy_knowledge.reset()
+	var first := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var route := first.mission_runtime.fixed_target
+	assert_null(first.mission_runtime.target_asset)
+	var second := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	assert_ne(second.mission_runtime.fixed_target, route)
+	first.resolve_once(true)
+	second.resolve_once(true)
+	radar.global_position += Vector3(900, 0, 0)
+	battery.global_position += Vector3(-700, 0, 0)
+	main.enemy_knowledge.reset()
+	var moved := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	assert_eq(moved.mission_runtime.fixed_target, route, "미관측 자산 이동은 정찰 경로를 바꾸지 않습니다")
+
+func test_search_flight_changes_sectors_then_releases_its_reservation() -> void:
+	var recon := main.director._spawn_entry(entry_for(&"recon_uav"), 0.0, 0.0) as AttackUav
+	recon.global_position = Vector3(900, 145, 180)
+	var visited: Dictionary[int, bool] = {}
+	for tick: int in 7000:
+		main.enemy_knowledge.gameplay_tick(0.05)
+		recon.gameplay_tick(0.05)
+		if main.enemy_knowledge.search.assignments.has(recon.runtime_id):
+			visited[main.enemy_knowledge.search.assignments[recon.runtime_id]] = true
+		if recon.mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS:
+			break
+	assert_eq(recon.reconnaissance.completed_sectors, ReconnaissanceFlight.MAX_SECTORS)
+	assert_gte(visited.size(), 4, "구역을 바꾸며 탐색하고 같은 위치만 반복하지 않습니다")
+	assert_gt(main.enemy_knowledge.search.seen.size(), 0)
+	assert_false(main.enemy_knowledge.search.assignments.has(recon.runtime_id))
+	assert_true(recon.mission_runtime.effect_applied)

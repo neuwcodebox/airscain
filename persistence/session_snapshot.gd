@@ -299,6 +299,18 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var enemy_state: Dictionary = world_state.enemy_knowledge
 	if float(enemy_state.get("simulation_time", -1.0)) < 0.0 or not enemy_state.get("estimates", null) is Array or not enemy_state.get("reports", null) is Array or not enemy_state.get("recent_outcomes", null) is Array:
 		return "적 지식 상태가 올바르지 않습니다"
+	var recon_error := EnemyKnowledge.recon_validation_error(enemy_state, scenario.battlefield_size, defense_ids)
+	if not recon_error.is_empty():
+		return recon_error
+	var recon_owners: Dictionary[int, bool] = {}
+	for contact: Dictionary in world_state.contacts:
+		var definition: ThreatDefinition = contact_definitions[StringName(contact.definition_id)]
+		var mission := definition.mission_definition()
+		if mission != null and mission.area_recon and bool(contact.get("active", false)):
+			recon_owners[int(contact.runtime_id)] = true
+	for reservation: Dictionary in enemy_state.get("recon_search", {}).get("assignments", []):
+		if not recon_owners.has(int(reservation.owner)):
+			return "정찰 구역을 소유한 기체가 없습니다"
 	var estimate_ids: Dictionary[int, bool] = {}
 	for estimate: Dictionary in enemy_state.estimates:
 		var asset_id := int(estimate.get("asset_id", 0))

@@ -17,7 +17,8 @@ maximum_climb_rate = 30.0
 [sub_resource type="Resource" id="Mission"]
 script = ExtResource("4")
 type = 1
-target_role = 1
+target_role = 0
+area_recon = true
 damage = 0.0
 action_distance = 85.0
 action_duration = 5.0

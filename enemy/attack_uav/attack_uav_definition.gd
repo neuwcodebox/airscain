@@ -28,6 +28,11 @@ func released_threat_definitions() -> Array[ThreatDefinition]:
 	return [mission.released_missile] if mission.released_missile != null else []
 
 func runtime_state_validation_error(content_state: Dictionary, defense_ids: Dictionary[int, bool]) -> String:
+	if not content_state.get("reconnaissance", {}) is Dictionary:
+		return "정찰 비행 상태가 올바르지 않습니다"
+	var recon_error := ReconnaissanceFlight.validation_error(content_state.get("reconnaissance", {}))
+	if not recon_error.is_empty():
+		return recon_error
 	var movement_state: Dictionary = content_state.get("movement", {})
 	var mission_state: Dictionary = content_state.get("mission", {})
 	var mission_target_id := int(mission_state.get("target_defense_id", 0))

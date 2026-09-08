@@ -5,11 +5,16 @@ extends RefCounted
 const CELL_SIZE := 120.0
 const REVISIT_SECONDS := 120.0
 var extent: float = 1200.0
+var searchable: Dictionary[int, bool] = {}
 var seen: Dictionary[int, float] = {}
 var assignments: Dictionary[int, int] = {}
+var attempted: Dictionary[int, float] = {}
 
-func configure(size: float) -> void:
+func configure(size: float, land_cells: Array[int] = []) -> void:
 	extent = size * 0.5
+	searchable.clear()
+	for cell: int in land_cells:
+		searchable[cell] = true
 
 func width() -> int:
 	return maxi(1, ceili(extent * 2.0 / CELL_SIZE))
@@ -30,7 +35,7 @@ func choose(owner: int, position: Vector3, now: float, clues: Array[Dictionary])
 	var best := -1
 	var best_score := -INF
 	for cell: int in width() * width():
-		if reserved.has(cell):
+		if reserved.has(cell) or (not searchable.is_empty() and not searchable.has(cell)):
 			continue
 		var point := center(cell)
 		var age := maxf(0.0, now - seen[cell]) if seen.has(cell) else REVISIT_SECONDS
@@ -40,9 +45,11 @@ func choose(owner: int, position: Vector3, now: float, clues: Array[Dictionary])
 			if cell_at(report_position) != cell:
 				continue
 			# A freshly searched cell should not repeatedly win on the same report.
-			if seen.get(cell, -1.0) >= float(clue.observed_at):
+			if seen.get(cell, -1.0) >= float(clue.observed_at) and float(clue.confidence) >= 0.85 and float(clue.uncertainty) <= 30.0:
 				continue
 			information += 3.0 * float(clue.confidence) + minf(1.0, float(clue.uncertainty) / CELL_SIZE)
+		if now - attempted.get(cell, -REVISIT_SECONDS) < 30.0:
+			information *= 0.1
 		var distance := Vector2(point.x - position.x, point.z - position.z).length()
 		var score := information / (1.0 + distance / 600.0)
 		if score > best_score:
@@ -59,6 +66,7 @@ func release(owner: int) -> void:
 func reset() -> void:
 	seen.clear()
 	assignments.clear()
+	attempted.clear()
 
 func capture_state() -> Dictionary:
 	var observations: Array[Dictionary] = []
@@ -67,17 +75,23 @@ func capture_state() -> Dictionary:
 	var reservations: Array[Dictionary] = []
 	for owner: int in assignments:
 		reservations.append({"owner": owner, "cell": assignments[owner]})
-	return {"seen": observations, "assignments": reservations}
+	var attempts: Array[Dictionary] = []
+	for cell: int in attempted:
+		attempts.append({"cell": cell, "time": attempted[cell]})
+	return {"seen": observations, "assignments": reservations, "attempted": attempts}
 
 func restore_state(state: Dictionary) -> void:
 	reset()
 	for item: Dictionary in state.get("seen", []):
 		seen[int(item.cell)] = float(item.time)
+	for item: Dictionary in state.get("attempted", []):
+		attempted[int(item.cell)] = float(item.time)
 	for item: Dictionary in state.get("assignments", []):
 		assignments[int(item.owner)] = int(item.cell)
 
 func validation_error(state: Dictionary, now: float) -> String:
-	for key: String in ["seen", "assignments"]:
+	var owners: Dictionary[int, bool] = {}
+	for key: String in ["seen", "assignments", "attempted"]:
 		if not state.get(key, []) is Array:
 			return "정찰 구역 목록이 올바르지 않습니다"
 		var unique: Dictionary[int, bool] = {}
@@ -88,8 +102,10 @@ func validation_error(state: Dictionary, now: float) -> String:
 			if cell < 0 or cell >= width() * width() or unique.has(cell):
 				return "정찰 구역 번호가 올바르지 않습니다"
 			unique[cell] = true
-			if key == "seen" and (not is_finite(float(value.get("time", NAN))) or float(value.time) < 0.0 or float(value.time) > now):
+			if key != "assignments" and (not is_finite(float(value.get("time", NAN))) or float(value.time) < 0.0 or float(value.time) > now):
 				return "정찰 관측 시간이 올바르지 않습니다"
-			if key == "assignments" and int(value.get("owner", 0)) <= 0:
+			if key == "assignments" and (int(value.get("owner", 0)) <= 0 or owners.has(int(value.get("owner", 0)))):
 				return "정찰 구역 소유자가 올바르지 않습니다"
+			if key == "assignments":
+				owners[int(value.owner)] = true
 	return ""
