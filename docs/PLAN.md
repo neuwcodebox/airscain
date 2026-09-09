@@ -1845,3 +1845,12 @@ HUD 검증: 구매·복구 메뉴는 표시 입력값이 달라졌을 때만 테
 - [x] 지원기지 없이 작업이 시작되지 않고, 설치 후 자동 요청으로 예비탄을 보충하는 회귀와 실제 창을 검증한다.
 
 보급 실습용 예비탄 소진 이후 실제 상태 배지를 강조한다. 지원기지 설치는 보급 관찰 단계로 연결하고 SupportManager의 자동 요청 경로로 작업을 접수한다. 완료 안내는 계속 버튼을 누를 때까지 유지한다. 훈련 통합 2개와 안내 8개 테스트, 총 10개와 163개 단언 통과. Compatibility 실제 창에서 수동 사격·보급 명령 없이 탐지(0.9초), 자동 요격, 재보급 대기 확인, 자동 보급, 수리와 도시 복구 완료를 확인했다. 로그: `/tmp/airscain_training_auto_supply_tests.log`, `/tmp/airscain_training_auto_supply_guidance.log`, `/tmp/airscain_training_auto_supply_visual.log`. 실제 재보급 대기 카드와 자산 강조 캡처 확인, diff 검사 통과.
+
+
+## README 교전 장면 촬영
+
+- [x] 자유 모드의 실제 방어시설과 혼합 위협으로 해상 요격 및 근거리 교전을 구성한다.
+- [x] 시점 높이, 초점과 확대를 바꿔 비교하고 도시, 전방 방어망, 공중 요격이 함께 보이는 실제 화면을 대표 이미지로 선택한다.
+- [x] README 이미지와 대체 텍스트, 현재 훈련 소개를 갱신한다.
+
+Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/demo.png`에 반영했다. 오른쪽 아래 도시와 왼쪽 근거리 교전, 위쪽 해상 요격을 함께 배치하며 하단 반복 안내는 촬영 시 숨겼다. 게임 기능이나 무기 성능은 변경하지 않았다. 최종 촬영 로그 `/tmp/airscain_readme_selected.log`의 README_CAPTURE_OK와 이미지 실물, README 경로, PNG 원본 일치 및 diff 검사를 확인했다. 이미지 교체 후 Godot 메타데이터를 갱신했다.
