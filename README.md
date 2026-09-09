@@ -80,12 +80,7 @@ godot --path .
 godot --headless --audio-driver Dummy --path . \
   -s addons/gut/gut_cmdln.gd \
   -gdir=res://tests -ginclude_subdirs -gexit
-node tests/unit/test_web_sample_playback.js
 ```
-
-웹 오디오 어댑터는 Godot 4.7의 Sample 인터페이스를 사용합니다. 엔진 변경 시 공통 전송 테스트와 `tools/audio_playback_check.tscn`의 브라우저 진단을 함께 확인합니다. 게임 배속은 음원의 재생 속도와 음높이를 바꾸지 않습니다.
-
-정찰 경로 진단은 `godot --audio-driver Dummy --path . --script res://tools/recon_search_check.gd`로 실행합니다. 실제 창에서 세 정찰기의 구역 분담·이동을 표시하고 `/tmp/airscain_recon_search_*.png`에 캡처합니다.
 
 ## 문서
 

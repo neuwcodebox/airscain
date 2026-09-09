@@ -1863,3 +1863,11 @@ Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/d
 - [x] 강도 변화, 진입과 이탈, 지원시설 제외, 표시 전환을 회귀와 실제 창으로 검증한다.
 
 영향받는 자산별 PlaneMesh를 공유하고 ShaderMaterial을 재사용하며 움직임은 GPU에서 처리한다. 위치는 아군 자산을 기준으로 한다. 전술 표시 통합 테스트 28개 단언 통과(`/tmp/airscain_electronic_visual_tests.log`). Compatibility 실제 창에서 드롭다운 선택을 통한 영향 없음, 간섭 표시와 움직임, 해제를 확인했다(`/tmp/airscain_electronic_capture.log`, ELECTRONIC_CAPTURE_OK). 새 셰이더 Godot 메타데이터 생성과 diff 검사 통과.
+
+
+## README 개발 안내 정리
+
+- [x] README의 개발과 검증에는 공통 개발 환경과 GUT 테스트 실행법을 남긴다.
+- [x] 정찰 경로와 웹 오디오 개별 진단 절차를 TECH의 해당 기능 설명에 모은다.
+
+문서 변경으로 실행 코드에는 영향이 없다. 안내된 도구 경로의 존재와 diff 검사를 확인했다. 기존 검증 기록은 보존했다.
