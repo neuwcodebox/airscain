@@ -102,7 +102,10 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 	var aircraft := pair[0] as AttackUav
 	var missile := pair[1]
 	assert_false(aircraft.body.get_node("ReleasedStore").visible)
-	assert_gt(aircraft.global_position.distance_to(target.global_position), 400.0, "외곽에서 투발합니다")
+	var release_offset := missile.global_position - aircraft.mission_runtime.fixed_target
+	var release_distance := Vector2(release_offset.x, release_offset.z).length()
+	assert_lte(release_distance, aircraft.mission_runtime.profile.action_distance, "설정된 수평 발사 거리 안에서 투발합니다")
+	assert_gt(release_distance, target.definition.placement_profile.footprint_radius, "표적에 닿기 전에 무장을 분리합니다")
 	assert_gt(missile.global_position.distance_to(aircraft.global_position), 1.0, "기체 중심이 아닌 날개 아래에서 분리합니다")
 	assert_almost_eq(missile.presentation_velocity(), aircraft.presentation_velocity(), Vector3.ONE * 0.001)
 	assert_false(missile.get_node("Flight/Flame").visible)

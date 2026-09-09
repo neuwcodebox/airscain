@@ -2,12 +2,12 @@
 
 ## 고속 타격기 발사 거리 조정
 
-- [x] 도시·레이더 타격기는 650→520m, 포대 타격기는 520→420m, 지휘시설 타격기는 700→560m로 미사일 발사 거리를 줄인다.
+- [x] 미사일 발사 거리를 도시·레이더 타격기 420m, 포대 타격기 340m, 지휘시설 타격기 450m로 설정한다.
 - [x] 실제 투발·명중·이탈과 접근음 회귀를 검증한다.
 
 기체의 종말 접근 전환 거리·획득 반경·속도와 미사일 성능은 유지한다.
 
-검증: 시설 타격·접근음 31개/855개 단언과 도시 타격기 투발·이탈 2개/19개 단언 통과(`/tmp/airscain_strike_range_tests.log`, `/tmp/airscain_city_strike_range_tests.log`). Dummy 오디오의 헤드리스 실제 비행 검사로 확인했고 diff 검사도 통과했다.
+검증: 관련 33개 테스트 통과. 시설 타격·접근음 31개 중 고정 400m 단언은 설정된 수평 발사 거리와 표적 충돌 전 분리를 검증하도록 갱신하고 해당 테스트를 재실행해 통과했다. 도시 타격기 투발·이탈 2개도 통과했다. 로그: `/tmp/airscain_strike_shorter_tests.log`, `/tmp/airscain_strike_shorter_final.log`, `/tmp/airscain_city_strike_shorter_tests.log`. Dummy 오디오의 헤드리스 실제 비행과 diff 검사를 완료했다.
 
 ## 전체 성능 재검토
 
