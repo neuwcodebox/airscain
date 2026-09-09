@@ -1,6 +1,8 @@
 class_name TacticalRangeOverlay
 extends Node3D
 
+const INTERFERENCE_SHADER := preload("res://ui/electronic_interference.gdshader")
+
 const MODE_NONE := &"none"
 const MODE_SENSOR := &"sensor"
 const MODE_WEAPON := &"weapon"
@@ -12,10 +14,13 @@ var defense_parent: Node3D
 var registry: ThreatRegistry
 var support_manager: SupportManager
 var rebuild_remaining: float = 0.0
+var interference_patches: Dictionary[int, MeshInstance3D] = {}
+var interference_plane := PlaneMesh.new()
 var line_mesh := MeshInstance3D.new()
 var line_material := StandardMaterial3D.new()
 
 func _ready() -> void:
+	interference_plane.size = Vector2(140.0, 140.0)
 	line_mesh.name = "Ranges"
 	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	line_material.vertex_color_use_as_albedo = true
@@ -46,7 +51,9 @@ func _process(delta: float) -> void:
 func _rebuild() -> void:
 	if mode == MODE_NONE or defense_parent == null:
 		line_mesh.mesh = null
+		_clear_unused_interference([])
 		return
+	var affected_ids: Array[int] = []
 	var mesh := ImmediateMesh.new()
 	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
 	var vertex_count := 0
@@ -65,9 +72,13 @@ func _rebuild() -> void:
 				if unit.definition.tactical_overlay_mode() == MODE_SUPPORT:
 					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range(), Color(0.36, 1.0, 0.54, 0.86), 96, 0)
 			MODE_ELECTRONIC:
+				if unit.c2_roles() == 0:
+					continue
 				var interference := registry.jamming_at(unit.global_position) if registry != null else 0.0
 				if interference > 0.02:
-					vertex_count += _add_ring(mesh, unit.global_position, lerpf(18.0, 42.0, interference), Color(0.92, 0.3, 1.0, 0.45 + interference * 0.5), 32, 2)
+					affected_ids.append(unit.runtime_id)
+					_update_interference(unit, interference)
+	_clear_unused_interference(affected_ids)
 	if mode == MODE_SUPPORT:
 		vertex_count += _add_support_relations(mesh)
 	if vertex_count > 0:
@@ -75,6 +86,28 @@ func _rebuild() -> void:
 		line_mesh.mesh = mesh
 	else:
 		line_mesh.mesh = null
+
+func _update_interference(unit: DefenseUnit, strength: float) -> void:
+	var patch: MeshInstance3D = interference_patches.get(unit.runtime_id)
+	if patch == null:
+		patch = MeshInstance3D.new()
+		patch.mesh = interference_plane
+		patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var material := ShaderMaterial.new()
+		material.shader = INTERFERENCE_SHADER
+		material.render_priority = 10
+		patch.material_override = material
+		add_child(patch)
+		interference_patches[unit.runtime_id] = patch
+	patch.global_position = unit.global_position + Vector3.UP * 3.0
+	(patch.material_override as ShaderMaterial).set_shader_parameter("strength", strength)
+
+func _clear_unused_interference(affected_ids: Array[int]) -> void:
+	for runtime_id: int in interference_patches.keys():
+		if not affected_ids.has(runtime_id):
+			interference_patches[runtime_id].hide()
+			interference_patches[runtime_id].queue_free()
+			interference_patches.erase(runtime_id)
 
 func _add_support_relations(mesh: ImmediateMesh) -> int:
 	if support_manager == null or support_manager.facilities.is_empty():

@@ -1238,6 +1238,9 @@ func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> 
 	var support_overlay_mesh := (main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh
 	assert_not_null(support_overlay_mesh)
 	assert_gte(support_overlay_mesh.get_aabb().size.x, (support_definition as SupportFacilityDefinition).service_range * 2.0 - 1.0)
+	main.hud._on_overlay_selected(4)
+	var electronic := main.tactical_range_overlay as TacticalRangeOverlay
+	assert_true(electronic.interference_patches.is_empty())
 	var jammer_definition := main.scenario.threat_entries[7].threat_definition
 	var jammer := jammer_definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(jammer)
@@ -1245,11 +1248,36 @@ func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> 
 	jammer.global_position = (radar_result.unit as DefenseUnit).global_position + Vector3(30.0, 70.0, 0.0)
 	main.registry.add(jammer)
 	main.hud._on_overlay_selected(4)
-	assert_eq(main.tactical_range_overlay.get("mode"), &"electronic")
-	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
+	assert_eq(electronic.mode, &"electronic")
+	var radar_id := (radar_result.unit as DefenseUnit).runtime_id
+	assert_true(electronic.interference_patches.has(radar_id))
+	var patch := electronic.interference_patches[radar_id]
+	var strength := float((patch.material_override as ShaderMaterial).get_shader_parameter("strength"))
+	assert_gt(strength, 0.0)
+	assert_true(patch.visible)
+	for unit: DefenseUnit in main.defenses:
+		if unit.c2_roles() == 0:
+			assert_false(electronic.interference_patches.has(unit.runtime_id))
+	jammer.global_position += Vector3(150, 0, 0)
+	electronic._process(0.3)
+	assert_same(electronic.interference_patches[radar_id], patch)
+	assert_lt(float((patch.material_override as ShaderMaterial).get_shader_parameter("strength")), strength)
+	jammer.global_position += Vector3(2000, 0, 0)
+	electronic._process(0.3)
+	assert_true(electronic.interference_patches.is_empty())
+	jammer.global_position -= Vector3(2150, 0, 0)
+	electronic._process(0.3)
+	assert_false(electronic.interference_patches.is_empty())
+	(radar_result.unit as DefenseUnit).active = false
+	electronic._process(0.3)
+	assert_false(electronic.interference_patches.has(radar_id))
+	(radar_result.unit as DefenseUnit).active = true
+	electronic._process(0.3)
+	assert_true(electronic.interference_patches.has(radar_id))
 	main.hud._on_overlay_selected(5)
 	assert_eq(main.tactical_range_overlay.get("mode"), &"none")
 	assert_true(main.c2_overlay.show_all_links)
+	assert_true(electronic.interference_patches.is_empty())
 	main.hud._on_overlay_selected(0)
 	assert_false(main.c2_overlay.show_all_links)
 	assert_eq(main.hud.overlay_option.text, "없음")

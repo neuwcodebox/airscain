@@ -1854,3 +1854,12 @@ HUD 검증: 구매·복구 메뉴는 표시 입력값이 달라졌을 때만 테
 - [x] README 이미지와 대체 텍스트, 현재 훈련 소개를 갱신한다.
 
 Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/demo.png`에 반영했다. 오른쪽 아래 도시와 왼쪽 근거리 교전, 위쪽 해상 요격을 함께 배치하며 하단 반복 안내는 촬영 시 숨겼다. 게임 기능이나 무기 성능은 변경하지 않았다. 최종 촬영 로그 `/tmp/airscain_readme_selected.log`의 README_CAPTURE_OK와 이미지 실물, README 경로, PNG 원본 일치 및 diff 검사를 확인했다. 이미지 교체 후 Godot 메타데이터를 갱신했다.
+
+
+## 전자전 간섭 시각화
+
+- [x] 재밍을 받는 가동 자산 주변에 움직이는 보라색 간섭 물결을 표시한다.
+- [x] 실제 수신 강도를 농도에 반영하고 재밍 해소, 비가동과 모드 전환 시 효과를 정리한다.
+- [x] 강도 변화, 진입과 이탈, 지원시설 제외, 표시 전환을 회귀와 실제 창으로 검증한다.
+
+영향받는 자산별 PlaneMesh를 공유하고 ShaderMaterial을 재사용하며 움직임은 GPU에서 처리한다. 위치는 아군 자산을 기준으로 한다. 전술 표시 통합 테스트 28개 단언 통과(`/tmp/airscain_electronic_visual_tests.log`). Compatibility 실제 창에서 드롭다운 선택을 통한 영향 없음, 간섭 표시와 움직임, 해제를 확인했다(`/tmp/airscain_electronic_capture.log`, ELECTRONIC_CAPTURE_OK). 새 셰이더 Godot 메타데이터 생성과 diff 검사 통과.
