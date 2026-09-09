@@ -19,7 +19,9 @@ var main: AirscainMain
 
 func before_each() -> void:
 	AirscainMain.requested_seed = 73129
-	main = add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
+	main = MAIN_SCENE.instantiate() as AirscainMain
+	main.auto_start_sustained = false
+	add_child_autofree(main)
 	await get_tree().process_frame
 
 func test_result_visual_preparation_preserves_gameplay_and_hidden_panel() -> void:
@@ -308,7 +310,7 @@ func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
 	assert_ne(main.hud.budget_label.get_parent(), main.hud.defense_menu_button.get_parent())
 	assert_false(main.hud.defense_menu_button.flat)
 	assert_eq(main.hud.pressure_label.text, "위협 단계  1")
-	var preparation_hint := "방공 자산을 배치한 뒤 방어를 시작하세요."
+	var preparation_hint := "적이 외곽에서 접근합니다. 방공 자산을 배치하세요."
 	assert_eq(main.hud.feedback_label.text, preparation_hint)
 	assert_false(main.hud.feedback_label.text.contains("Seed"))
 	assert_false(main.hud.feedback_label.text.contains(main.scenario.battlefield_layout().display_name))
@@ -2447,3 +2449,21 @@ func test_recon_flyby_discovers_unconnected_battery_without_radar_anchor() -> vo
 	var strike := main.director._spawn_entry(_battery_strike_entry(), 0.0, 0.0) as AttackUav
 	assert_same(strike.mission_runtime.target_asset, battery)
 	assert_eq(strike.mission_runtime.phase, ThreatMissionRuntime.Phase.INBOUND)
+
+func test_new_sustained_operation_starts_with_hostiles_and_no_start_button() -> void:
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	var operation := MAIN_SCENE.instantiate() as AirscainMain
+	add_child_autofree(operation)
+	operation.set_process(false)
+	assert_true(operation.combat_effect_pool.prepared)
+	assert_eq(operation.session.phase, GameSession.Phase.RUNNING)
+	assert_true(operation.director.enabled)
+	assert_gt(operation.registry.hostile_count(), 0)
+	assert_false(operation.hud.start_button.visible)
+	assert_eq(operation.session.survival_time, 0.0)
+	assert_eq(operation.director.until_spawn, operation.director.raid_interval_at(0.0))
+	var saved := operation.capture_save_document()
+	var count := operation.registry.hostile_count()
+	assert_eq(operation.restore_from_document(saved), "")
+	assert_eq(operation.registry.hostile_count(), count)
+	assert_eq(operation.director.capture_state(), saved.payload.director)

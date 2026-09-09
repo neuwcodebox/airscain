@@ -35,6 +35,12 @@ func run() -> void:
 		await process_frame
 	for index: int in 20:
 		await process_frame
+	var operation := (app as AirscainApp).gameplay
+	assert(operation.session.phase == GameSession.Phase.RUNNING)
+	assert(operation.registry.hostile_count() > 0)
+	assert(not operation.hud.start_button.visible)
+	_save_capture("/tmp/airscain_operation_started.png")
+	print("OPERATION_STARTED time=%.2f hostiles=%d" % [operation.session.survival_time, operation.registry.hostile_count()])
 	app.call("set_pause_menu", true)
 	for index: int in 5:
 		await process_frame

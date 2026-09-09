@@ -33,3 +33,11 @@ func test_haze_follows_radius_independent_of_altitude_and_heading() -> void:
 		var expected := DistantContactHaze.opacity_at(Vector3(radius, 0, 0), 2400.0)
 		assert_almost_eq(DistantContactHaze.opacity_at(Vector3(0, 1800, -radius), 2400.0), expected, 0.0001)
 	assert_gt(DistantContactHaze.opacity_at(Vector3(3000, 0, 0), 2400.0), DistantContactHaze.opacity_at(Vector3(4000, 0, 0), 2400.0))
+
+func test_combat_warmup_includes_released_weapons() -> void:
+	var scenario := preload("res://main/first_scenario.tres")
+	var definitions := CombatVfxWarmup.content_definitions(scenario)
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		assert_has(definitions, entry.threat_definition)
+		for released: ThreatDefinition in entry.threat_definition.released_threat_definitions():
+			assert_has(definitions, released)

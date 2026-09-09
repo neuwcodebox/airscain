@@ -20,6 +20,8 @@ static func generate_world_seed() -> int:
 	last_generated_seed = generated
 	return generated
 
+var auto_start_sustained: bool = true
+
 var scenario: ScenarioDefinition
 var registry := ThreatRegistry.new()
 var objective: ProtectedObjective
@@ -116,7 +118,7 @@ func _ready() -> void:
 	elif game_mode == GameMode.SANDBOX:
 		hud.set_feedback("방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요.", false)
 	else:
-		hud.set_feedback("방공 자산을 배치한 뒤 방어를 시작하세요.", false)
+		hud.set_feedback("적이 외곽에서 접근합니다. 방공 자산을 배치하세요.", false)
 	combat_effect_pool = CombatEffectPool.new()
 	effects_parent.add_child(combat_effect_pool)
 	_prepare_combat_visuals()
@@ -139,6 +141,12 @@ func _prepare_combat_visuals() -> void:
 		panel.add_child(label)
 		await hud.prepare_result_visuals(_final_statistics())
 	await combat_effect_pool.prepare(objective.prepared_smoke_effects, scenario)
+	if game_mode == GameMode.SUSTAINED and auto_start_sustained and session.phase == GameSession.Phase.PREPARATION:
+		_on_start_requested()
+		director.launch_budgeted_raid()
+		director._tick_pending_waves(0.0)
+		director.until_spawn = director.raid_interval_at(0.0)
+		hud.set_feedback("적이 외곽에서 접근합니다. 방공 자산을 배치하세요.", false)
 	if blocker != null:
 		blocker.queue_free()
 

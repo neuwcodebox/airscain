@@ -120,10 +120,11 @@ func restart_game(mode: AirscainMain.GameMode, world_seed: int) -> void:
 		previous_gameplay.queue_free()
 	_create_gameplay(mode, world_seed)
 
-func _create_gameplay(mode: AirscainMain.GameMode, world_seed: int) -> void:
+func _create_gameplay(mode: AirscainMain.GameMode, world_seed: int, auto_start: bool = true) -> void:
 	AirscainMain.requested_mode = mode
 	AirscainMain.requested_seed = world_seed
 	gameplay = GAMEPLAY_SCENE.instantiate() as AirscainMain
+	gameplay.auto_start_sustained = auto_start
 	add_child(gameplay)
 	gameplay.save_path = save_path
 	gameplay.restart_game_requested.connect(restart_game)
@@ -198,7 +199,7 @@ func _on_main_load_pressed() -> void:
 		return
 	var document: Dictionary = result.document
 	var world_seed := int(document.payload.scenario.world_seed)
-	_create_gameplay(AirscainMain.GameMode.SUSTAINED, world_seed)
+	_create_gameplay(AirscainMain.GameMode.SUSTAINED, world_seed, false)
 	while not gameplay.combat_effect_pool.prepared:
 		await get_tree().process_frame
 	error = gameplay.restore_from_document(document)

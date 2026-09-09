@@ -63,6 +63,15 @@ static func content_definitions(scenario: ScenarioDefinition) -> Array[Resource]
 	for definition: ThreatDefinition in scenario.ambient_contacts:
 		if not definitions.has(definition):
 			definitions.append(definition)
+	# Released weapons also acquire runtime haze materials when registered.
+	var index := 0
+	while index < definitions.size():
+		var threat := definitions[index] as ThreatDefinition
+		if threat != null:
+			for released: ThreatDefinition in threat.released_threat_definitions():
+				if not definitions.has(released):
+					definitions.append(released)
+		index += 1
 	return definitions
 
 static func create_content_sample(parent: Node, definition: Resource) -> Node3D:

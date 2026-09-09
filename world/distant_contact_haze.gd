@@ -85,7 +85,9 @@ func _process(_delta: float) -> void:
 func refresh() -> void:
 	if not is_instance_valid(source):
 		return
-	var next_opacity := opacity_at(source.global_position, battlefield_size)
+	apply_opacity(opacity_at(source.global_position, battlefield_size))
+
+func apply_opacity(next_opacity: float) -> void:
 	if is_equal_approx(opacity, next_opacity):
 		return
 	opacity = next_opacity

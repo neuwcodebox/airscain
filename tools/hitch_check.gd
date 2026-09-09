@@ -42,32 +42,38 @@ func run() -> void:
 		quit()
 		return
 	await sample_event("idle", func() -> void: pass)
-	for count: int in [1, 16, 32]:
+	if not OS.get_cmdline_user_args().has("--spawn-only"):
+		for count: int in [1, 16, 32]:
+			for repeat: int in 2:
+				await sample_event("explosions_%d_%d" % [count, repeat], func() -> void:
+					for index: int in count:
+						var point := Vector3((index % 8 - 3.5) * 22, 70, (index / 8 - 1.5) * 22)
+						spawned.append(ExplosionEffect.spawn(main.effects_parent, point, Color.ORANGE, 12)))
+				for effect: ExplosionEffect in spawned:
+					effect._process(effect.duration)
+				spawned.clear()
 		for repeat: int in 2:
-			await sample_event("explosions_%d_%d" % [count, repeat], func() -> void:
-				for index: int in count:
-					var point := Vector3((index % 8 - 3.5) * 22, 70, (index / 8 - 1.5) * 22)
-					spawned.append(ExplosionEffect.spawn(main.effects_parent, point, Color.ORANGE, 12)))
-			for effect: ExplosionEffect in spawned:
-				effect._process(effect.duration)
-			spawned.clear()
-	for repeat: int in 2:
-		await sample_event("city_impact_%d" % repeat, func() -> void:
-			main.objective.apply_building_impact(1, Vector3(0, 45, 0), 45))
-		assert(main.objective.current_integrity > 0, "Impact probe must not open the game-over UI")
-		main.objective.restore_integrity(main.objective.definition.maximum_integrity)
+			await sample_event("city_impact_%d" % repeat, func() -> void:
+				main.objective.apply_building_impact(1, Vector3(0, 45, 0), 45))
+			assert(main.objective.current_integrity > 0, "Impact probe must not open the game-over UI")
+			main.objective.restore_integrity(main.objective.definition.maximum_integrity)
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
 		if OS.get_cmdline_user_args().has("--brief") and entry.threat_definition.id not in [&"attack_uav", &"strike_aircraft", &"radar_strike_aircraft"]:
 			continue
 		for repeat: int in 2:
 			var units: Array[ThreatUnit] = []
 			await sample_event("spawn_%s_%d" % [entry.threat_definition.id, repeat], func() -> void:
-				var unit := entry.threat_definition.scene.instantiate() as ThreatUnit
-				main.threat_parent.add_child(unit)
-				unit.setup(10000, entry.threat_definition)
-				unit.position = Vector3(0, 80, 0)
-				units.append(unit))
+				var unit := main.director._spawn_entry(entry, 0.0, 0.0)
+				unit.position = Vector3(3500, 80, 0)
+				units.append(unit)
+				# Exercise the transparent variant that first appears in the haze.
+				for child: Node in unit.get_children():
+					if child is DistantContactHaze:
+						(child as DistantContactHaze).refresh()
+						(child as DistantContactHaze).set_process(false)
+				unit.position = Vector3(0, 80, 0))
 			for unit: ThreatUnit in units:
+				main.registry.remove(unit)
 				unit.queue_free()
 	await sample_event("city_defeat", func() -> void:
 		main.objective.apply_building_impact(main.objective.current_integrity, Vector3(0, 45, 0), 45))

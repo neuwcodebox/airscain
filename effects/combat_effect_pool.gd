@@ -6,6 +6,8 @@ const EXPLOSION := preload("res://effects/explosion/explosion.tscn")
 const CAPACITY := 32
 var available: Array[ExplosionEffect] = []
 var prepared: bool = false
+# Keep generated material variants alive after their sample nodes are removed.
+var prepared_materials: Array[Material] = []
 
 func _ready() -> void:
 	add_to_group("combat_effect_pool")
@@ -90,15 +92,26 @@ func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition 
 		var definitions := CombatVfxWarmup.content_definitions(scenario)
 		for start: int in range(0, definitions.size(), 4):
 			var models: Array[Node3D] = []
+			var hazes: Array[DistantContactHaze] = []
 			for definition: Resource in definitions.slice(start, mini(start + 4, definitions.size())):
 				var model := CombatVfxWarmup.create_content_sample(self, definition)
 				model.global_position = Vector3(0, 80, 0)
 				models.append(model)
+				if model is ThreatUnit:
+					var haze := DistantContactHaze.new()
+					model.add_child(haze)
+					haze.configure(model, scenario.battlefield_size)
+					hazes.append(haze)
+					for surface: DistantContactHaze.SurfaceFade in haze.surfaces:
+						prepared_materials.append(surface.faded)
 			for local_light: bool in [true, false]:
 				impact_light.visible = local_light
-				for frame: int in 3:
-					await get_tree().process_frame
-					await RenderingServer.frame_post_draw
+				for opacity: float in [1.0, 0.5]:
+					for haze: DistantContactHaze in hazes:
+						haze.apply_opacity(opacity)
+					for frame: int in 3:
+						await get_tree().process_frame
+						await RenderingServer.frame_post_draw
 			for model: Node3D in models:
 				model.queue_free()
 	impact_light.queue_free()
