@@ -1310,6 +1310,24 @@ func test_electronic_warfare_uav_reduces_radar_quality() -> void:
 	jammer.global_position = radar.global_position + Vector3(80.0, 70.0, 0.0)
 	main.registry.add(jammer)
 	assert_lt(radar.signal_quality_for(200.0), baseline_quality * 0.6)
+	var target := main.director._spawn_entry(main.scenario.threat_entries[0], 0.0, 0.0)
+	target.global_position = radar.global_position + Vector3(0, 110, 180)
+	var qualities: Array[float] = []
+	for distance: float in [80.0, 5000.0, 80.0]:
+		jammer.global_position = radar.global_position + Vector3(distance, 70, 0)
+		main.player_knowledge.reset()
+		radar._scan()
+		var target_track: PlayerTrack
+		for track: PlayerTrack in main.player_knowledge.get_active_tracks():
+			if track.estimated_position.distance_to(target.global_position) < 1.0:
+				target_track = track
+		assert_not_null(target_track)
+		if target_track != null:
+			qualities.append(target_track.track_quality)
+	if qualities.size() == 3:
+		assert_gt(qualities[1], qualities[0], "재머 이탈을 다음 스캔에서 반영합니다")
+		assert_almost_eq(qualities[2], qualities[0], 0.000001, "재머 재진입도 새로 계산합니다")
+
 
 func test_radar_emission_enables_anti_radiation_targeting_and_sead_package() -> void:
 	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)

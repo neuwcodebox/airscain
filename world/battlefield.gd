@@ -111,7 +111,7 @@ func build(scenario: ScenarioDefinition) -> void:
 
 func _configure_city_shadow_receivers() -> void:
 	smoke_shadow_materials.clear()
-	var cached: Dictionary[RID, ShaderMaterial] = {}
+	var cached: Dictionary[Array, ShaderMaterial] = {}
 	for child: Node in city_visuals.get_children():
 		if not child is GeometryInstance3D:
 			continue
@@ -119,7 +119,8 @@ func _configure_city_shadow_receivers() -> void:
 		var original := visual.material_override as StandardMaterial3D
 		if original == null or original.emission_enabled or original.albedo_texture != null:
 			continue
-		var key := original.get_rid()
+		# Receiver uniforms depend only on the surface, not its city cell.
+		var key: Array = [original.albedo_color, original.roughness]
 		if not cached.has(key):
 			var material := ShaderMaterial.new()
 			material.shader = preload("res://effects/smoke_shadow_receiver.gdshader")

@@ -1,6 +1,6 @@
 extends SceneTree
 ## Fixed mixed raid CPU/render workload, without combat audio playback.
-## --breakdown attributes simulation costs;
+## --breakdown attributes simulation costs; --geometry counts terrain/collision queries;
 ## --render also measures full frames in an actual window; --night starts at midnight.
 
 const MAIN_SCENE := preload("res://main/main.tscn")
@@ -24,6 +24,33 @@ class ProfiledKnowledge:
 		var result := super.submit_observation(observation)
 		submission_usec += Time.get_ticks_usec() - start
 		return result
+
+class ProfiledBattlefield:
+	extends Battlefield
+	var query_costs: Dictionary[String, int] = {}
+	var query_counts: Dictionary[String, int] = {}
+
+	func terrain_height(x: float, z: float) -> float:
+		var start := Time.get_ticks_usec()
+		var result := super.terrain_height(x, z)
+		_record("terrain_height", start)
+		return result
+
+	func terrain_segment_impact(from_position: Vector3, to_position: Vector3) -> Dictionary:
+		var start := Time.get_ticks_usec()
+		var result := super.terrain_segment_impact(from_position, to_position)
+		_record("terrain_impact", start)
+		return result
+
+	func building_segment_impact(from_position: Vector3, to_position: Vector3) -> Dictionary:
+		var start := Time.get_ticks_usec()
+		var result := super.building_segment_impact(from_position, to_position)
+		_record("building_impact", start)
+		return result
+
+	func _record(label: String, start: int) -> void:
+		query_costs[label] = query_costs.get(label, 0) + Time.get_ticks_usec() - start
+		query_counts[label] = query_counts.get(label, 0) + 1
 
 class ProfiledMain:
 	extends AirscainMain
@@ -96,6 +123,8 @@ func run() -> void:
 		main.day_night.free()
 		main.set_script(ProfiledMain)
 		main.get_node("PlayerKnowledge").set_script(ProfiledKnowledge)
+	if OS.get_cmdline_user_args().has("--geometry"):
+		main.get_node("Battlefield").set_script(ProfiledBattlefield)
 	main.set_process(false)
 	root.add_child(main)
 	main.combat_audio.enabled = false
@@ -122,6 +151,9 @@ func run() -> void:
 	if OS.get_cmdline_user_args().has("--night"):
 		main.session.survival_time = 450.0
 		main.session.next_support_at += 450.0
+	if main.battlefield is ProfiledBattlefield:
+		(main.battlefield as ProfiledBattlefield).query_costs.clear()
+		(main.battlefield as ProfiledBattlefield).query_counts.clear()
 	var render := OS.get_cmdline_user_args().has("--render")
 	var steps := int(PROFILE_DURATION / STEP)
 	for index: int in steps:
@@ -158,6 +190,10 @@ func run() -> void:
 		print("PROFILE_NESTED association_ms=%.3f observation_ms=%.3f" % [float(knowledge.association_usec) / samples_usec.size() / 1000.0, float(knowledge.submission_usec) / samples_usec.size() / 1000.0])
 		for label: String in main.costs:
 			print("PROFILE_COST %s avg_ms=%.3f" % [label, float(main.costs[label]) / samples_usec.size() / 1000.0])
+	if main.battlefield is ProfiledBattlefield:
+		var world := main.battlefield as ProfiledBattlefield
+		for label: String in world.query_costs:
+			print("PROFILE_GEOMETRY %s avg_ms=%.3f calls=%d" % [label, float(world.query_costs[label]) / samples_usec.size() / 1000.0, world.query_counts[label]])
 	if render:
 		frame_samples_usec.sort()
 		var total_frames := 0

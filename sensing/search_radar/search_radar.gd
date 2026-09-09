@@ -45,14 +45,16 @@ func gameplay_tick(delta: float) -> void:
 	_scan()
 
 func signal_quality_for(distance: float) -> float:
-	var effective_range := _definition.detection_range * operational_efficiency()
+	return _signal_quality(distance, _definition.detection_range * operational_efficiency(), _jamming_multiplier())
+
+func _jamming_multiplier() -> float:
+	return 1.0 - registry.jamming_at(global_position) * 0.75 if registry != null else 1.0
+
+func _signal_quality(distance: float, effective_range: float, jamming_multiplier: float) -> float:
 	if effective_range <= 0.0:
 		return 0.0
 	var range_ratio := maxf(0.0, distance) / effective_range
 	var range_factor := 1.0 / (1.0 + pow(range_ratio, _definition.range_exponent))
-	var jamming_multiplier := 1.0
-	if registry != null:
-		jamming_multiplier = 1.0 - registry.jamming_at(global_position) * 0.75
 	return clampf(_definition.sensor_quality * range_factor * jamming_multiplier, 0.0, 1.0)
 
 func altitude_in_envelope(target_position: Vector3) -> bool:
@@ -68,17 +70,21 @@ func _scan() -> void:
 	if enemy_knowledge != null:
 		enemy_knowledge.record_emission(self)
 	var sensor_position := global_position + Vector3.UP * 11.0
+	# These values are common to every contact in this instantaneous scan.
+	var effective_range := _definition.detection_range * operational_efficiency()
+	var jamming_multiplier := _jamming_multiplier()
+	var timestamp := float(player_knowledge.get("simulation_time"))
 	for threat: ThreatUnit in registry.get_active():
 		var target_position := threat.get_aim_position()
 		if not altitude_in_envelope(target_position):
 			continue
 		var distance := sensor_position.distance_to(target_position)
-		if distance > _definition.detection_range * operational_efficiency() or not _has_line_of_sight(sensor_position, target_position):
+		if distance > effective_range or not _has_line_of_sight(sensor_position, target_position):
 			continue
 		var signature := threat.get_sensor_signature()
-		var quality := signal_quality_for(distance) * float(signature.radar_factor)
+		var quality := _signal_quality(distance, effective_range, jamming_multiplier) * float(signature.radar_factor)
 		var observation := SensorObservation.new()
-		observation.setup(runtime_id, float(player_knowledge.get("simulation_time")), target_position, quality, lerpf(5.0, 45.0, 1.0 - quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), quality * 0.55)
+		observation.setup(runtime_id, timestamp, target_position, quality, lerpf(5.0, 45.0, 1.0 - quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), quality * 0.55)
 		player_knowledge.call("submit_observation", observation)
 		_submit_false_echoes(threat, target_position, quality, signature)
 

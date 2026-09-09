@@ -60,14 +60,16 @@ func height_at(x: float, z: float) -> float:
 	var half := size * 0.5
 	var gx := clampf((x + half) / size * float(resolution - 1), 0.0, float(resolution - 1))
 	var gz := clampf((z + half) / size * float(resolution - 1), 0.0, float(resolution - 1))
-	var x0 := mini(int(floor(gx)), resolution - 1)
-	var z0 := mini(int(floor(gz)), resolution - 1)
+	var x0 := int(gx)
+	var z0 := int(gz)
 	var x1 := mini(x0 + 1, resolution - 1)
 	var z1 := mini(z0 + 1, resolution - 1)
 	var tx := gx - float(x0)
 	var tz := gz - float(z0)
-	var a := lerpf(_height(x0, z0), _height(x1, z0), tx)
-	var b := lerpf(_height(x0, z1), _height(x1, z1), tx)
+	var row0 := z0 * resolution
+	var row1 := z1 * resolution
+	var a := lerpf(heights[row0 + x0], heights[row0 + x1], tx)
+	var b := lerpf(heights[row1 + x0], heights[row1 + x1], tx)
 	return lerpf(a, b, tz)
 
 func slope_degrees_at(x: float, z: float, radius: float) -> float:

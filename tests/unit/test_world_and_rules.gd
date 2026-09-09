@@ -1394,3 +1394,36 @@ func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
 	session.set_simulation_speed(4.0)
 	assert_eq(session.gameplay_delta(0.5), 2.0)
 	assert_eq(session.survival_time, 4.0)
+
+func test_height_sampling_preserves_bilinear_surface_and_clamped_edges() -> void:
+	var generator := WorldGenerator.new()
+	generator.size = 20.0
+	generator.resolution = 2
+	generator.heights = PackedFloat32Array([0.0, 10.0, 20.0, 40.0])
+	assert_eq(generator.height_at(-10, -10), 0.0)
+	assert_eq(generator.height_at(10, 10), 40.0)
+	assert_eq(generator.height_at(0, 0), 17.5)
+	assert_eq(generator.height_at(-5, 5), 19.375)
+	assert_eq(generator.height_at(-100, 0), 10.0)
+	assert_eq(generator.height_at(100, 100), 40.0)
+
+func test_city_shadow_receivers_share_equal_surfaces_but_preserve_variants() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	var surfaces: Array[MeshInstance3D] = []
+	for index: int in 4:
+		var visual := MeshInstance3D.new()
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color("aa9274") if index != 2 else Color("78838b")
+		material.roughness = 0.85 if index != 3 else 0.5
+		visual.material_override = material
+		field.city_visuals.add_child(visual)
+		surfaces.append(visual)
+	field._configure_city_shadow_receivers()
+	assert_same(surfaces[0].material_override, surfaces[1].material_override)
+	assert_ne(surfaces[0].material_override, surfaces[2].material_override)
+	assert_ne(surfaces[0].material_override, surfaces[3].material_override)
+	assert_eq(field.smoke_shadow_materials.size(), 3)
+	for index: int in surfaces.size():
+		var material := surfaces[index].material_override as ShaderMaterial
+		assert_eq(material.get_shader_parameter("base_color"), Color("aa9274") if index != 2 else Color("78838b"))
+		assert_almost_eq(float(material.get_shader_parameter("surface_roughness")), 0.85 if index != 3 else 0.5, 0.000001)
