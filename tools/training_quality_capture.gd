@@ -85,15 +85,14 @@ func run() -> void:
 		return
 	var marker: Vector2 = main.tactical_screen_overlay.call("track_marker_screen_position", target)
 	main._on_world_selected(Vector3.INF, marker)
-	main._on_asset_selected(battery)
-	await capture("fire_permission")
-	main._on_asset_selected(battery)
-	main.hud.hold_fire_requested.emit(false)
-	if not await until_step(TrainingController.Step.SUPPORT):
+	assert(not (battery as MissileBattery).doctrine.hold_fire)
+	if not await until_step(TrainingController.Step.SUPPLY_STATUS):
 		return
+	assert(battery.critical_status_text() == "재보급 대기")
+	await capture("supply_waiting")
+	main.hud.training_next_button.pressed.emit()
 	await place_recommended(5)
 	main._on_asset_selected(battery)
-	main.hud.resupply_button.pressed.emit()
 	if not await until_support_read():
 		return
 	main._on_asset_selected(battery)
@@ -107,7 +106,7 @@ func run() -> void:
 	if main.training_controller.step != TrainingController.Step.COMPLETE:
 		fail("Curriculum did not finish")
 		return
-	print("TRAINING_QUALITY_OK live_detection fire_permission interception resupply repair restoration budget=%d" % main.session.budget)
+	print("TRAINING_QUALITY_OK live_detection automatic_interception automatic_resupply repair restoration budget=%d" % main.session.budget)
 	main.queue_free()
 	await process_frame
 	quit(0)

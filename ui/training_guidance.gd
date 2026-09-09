@@ -65,10 +65,9 @@ func refresh() -> void:
 			_button(hud.training_next_button, "계속")
 		TrainingController.Step.SELECT_TRACK:
 			_track()
-		TrainingController.Step.DOCTRINE:
-			_asset_action(training.training_battery, hud.hold_fire_button, "사격중지 해제")
-		TrainingController.Step.RESUPPLY:
-			_asset_action(training.training_battery, hud.resupply_button, "재보급 요청")
+		TrainingController.Step.SUPPLY_STATUS:
+			_asset(training.training_battery)
+			caption = "재보급 대기 확인" if world_target else caption
 		TrainingController.Step.REPAIR:
 			_asset_action(training.training_battery, hud.repair_button, "수리 요청")
 		TrainingController.Step.CITY_RESTORE:

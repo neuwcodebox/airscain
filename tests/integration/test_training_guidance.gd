@@ -84,7 +84,7 @@ func test_track_selection_rejects_unconfirmed_and_non_hostile_contacts() -> void
 	assert_eq(main.training_controller.step, TrainingController.Step.SELECT_TRACK)
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	main.training_controller.track_selected(track)
-	assert_eq(main.training_controller.step, TrainingController.Step.DOCTRINE)
+	assert_eq(main.training_controller.step, TrainingController.Step.ENGAGE)
 
 func test_terrain_obstruction_requires_relocation_then_returns_to_detection() -> void:
 	main.training_controller.next_requested()
@@ -141,4 +141,4 @@ func test_recommended_deployment_confirms_contact_within_ten_seconds() -> void:
 			break
 	assert_eq(main.training_controller.step, TrainingController.Step.SELECT_TRACK)
 	assert_eq(main.session.simulation_speed, 0.0)
-	assert_true(main.training_controller.training_battery.doctrine.hold_fire)
+	assert_false(main.training_controller.training_battery.doctrine.hold_fire)

@@ -405,8 +405,6 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 	c2_overlay.select_asset(unit)
 	hud.set_selected_asset(unit, c2_overlay.visible_c2_link_count, c2_overlay.visible_support_link_count)
 	hud.set_selected_track(null)
-	if game_mode == GameMode.TRAINING:
-		training_controller.asset_selected(unit)
 
 func _on_placement_preview_changed(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
 	c2_overlay.preview_placement(definition, position, active)
@@ -499,8 +497,6 @@ func _on_focus_requested() -> void:
 func _on_hold_fire_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.supports_engagement_controls():
 		selected_asset.set_hold_fire(enabled)
-		if game_mode == GameMode.TRAINING:
-			training_controller.hold_fire_changed(enabled, selected_asset)
 
 func _on_engage_unknown_requested(enabled: bool) -> void:
 	if selected_asset != null and selected_asset.supports_engagement_controls():

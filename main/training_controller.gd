@@ -1,11 +1,11 @@
 class_name TrainingController
 extends Node
 
-enum Step { NONE, CAMERA, RADAR, WEAPON, CONNECT, ACQUIRE, SELECT_TRACK, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, COMPLETE, RELOCATE, WAIT_RELOCATE }
+enum Step { NONE, CAMERA, RADAR, WEAPON, CONNECT, ACQUIRE, SELECT_TRACK, ENGAGE, SUPPLY_STATUS, SUPPORT, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, COMPLETE, RELOCATE, WAIT_RELOCATE }
 
 signal selection_clear_requested
 
-const LESSON_COUNT := 14
+const LESSON_COUNT := 13
 const APPROACH_DISTANCE := 800.0
 
 var step: Step = Step.NONE
@@ -62,8 +62,6 @@ func defense_placed(unit: DefenseUnit) -> void:
 		_set_step(Step.WEAPON)
 	elif step == Step.WEAPON and unit is MissileBattery:
 		training_battery = unit as MissileBattery
-		unit.set_hold_fire(true)
-		hud.refresh_selected_asset()
 		_set_step(Step.CONNECT)
 		_try_observe_approach()
 	elif step == Step.SUPPORT and unit.service_range() > 0.0:
@@ -72,7 +70,7 @@ func defense_placed(unit: DefenseUnit) -> void:
 			hud.set_feedback("포대까지 녹색 지원선이 연결되는 범위 안에 지원기지를 배치하세요.")
 			return
 		selection_clear_requested.emit()
-		_set_step(Step.RESUPPLY)
+		_set_step(Step.WAIT_RESUPPLY)
 
 func tracks_refreshed(_selectable_hostile_count: int) -> void:
 	_try_observe_approach()
@@ -107,15 +105,6 @@ func is_selectable_training_track(track: PlayerTrack) -> bool:
 
 func track_selected(track: PlayerTrack) -> void:
 	if step == Step.SELECT_TRACK and is_selectable_training_track(track):
-		_set_step(Step.DOCTRINE)
-
-func asset_selected(unit: DefenseUnit) -> void:
-	if step == Step.DOCTRINE and unit == _training_battery():
-		_lesson("사격 허용", "선택 패널에서 사격중지를 해제하세요. 포대가 탐지된 적을 자동으로 조준하고 발사합니다.")
-
-func hold_fire_changed(enabled: bool, unit: DefenseUnit) -> void:
-	if step == Step.DOCTRINE and not enabled and unit == _training_battery():
-		session.set_simulation_speed(1.0)
 		_set_step(Step.ENGAGE)
 
 func threat_resolved(threat: ThreatUnit) -> void:
@@ -126,12 +115,12 @@ func threat_resolved(threat: ThreatUnit) -> void:
 		for magazine: WeaponMagazine in battery.magazines.values():
 			magazine.reserve = 0
 		hud.refresh_selected_asset()
-	_set_step(Step.SUPPORT)
+	_set_step(Step.SUPPLY_STATUS)
 
 func support_requested(kind: StringName, unit: DefenseUnit) -> void:
 	if unit != _training_battery():
 		return
-	if kind == &"resupply" and step == Step.RESUPPLY:
+	if kind == &"resupply" and step in [Step.SUPPLY_STATUS, Step.SUPPORT]:
 		session.set_simulation_speed(1.0)
 		_set_step(Step.WAIT_RESUPPLY)
 	elif kind == &"repair" and step == Step.REPAIR:
@@ -163,6 +152,8 @@ func relocation_completed(unit: DefenseUnit) -> void:
 func next_requested() -> void:
 	if step == Step.CAMERA:
 		_set_step(Step.RADAR)
+	elif step == Step.SUPPLY_STATUS:
+		_set_step(Step.SUPPORT)
 	elif step == Step.WAIT_RESUPPLY and support_lesson_completed:
 		var battery := _training_battery()
 		if battery == null:
@@ -183,7 +174,7 @@ func approach_position() -> Vector3:
 func _set_step(next_step: Step) -> void:
 	step = next_step
 	support_lesson_completed = false
-	var playing := step in [Step.ACQUIRE, Step.ENGAGE, Step.SUPPORT, Step.RESUPPLY, Step.WAIT_RESUPPLY, Step.REPAIR, Step.WAIT_REPAIR, Step.CITY_RESTORE, Step.WAIT_RELOCATE, Step.COMPLETE]
+	var playing := step in [Step.ACQUIRE, Step.ENGAGE, Step.SUPPLY_STATUS, Step.SUPPORT, Step.WAIT_RESUPPLY, Step.REPAIR, Step.WAIT_REPAIR, Step.CITY_RESTORE, Step.WAIT_RELOCATE, Step.COMPLETE]
 	session.set_simulation_speed(1.0 if playing else 0.0)
 	match step:
 		Step.CAMERA:
@@ -200,17 +191,15 @@ func _set_step(next_step: Step) -> void:
 			_lesson("접근 감시", "레이더와 포대가 연결됐습니다. 주황색으로 표시했던 방향에서 표적이 접근 중입니다. 레이더가 항적을 만드는 모습을 관찰하세요.")
 		Step.SELECT_TRACK:
 			_lesson("탐지된 표적 확인", "적성 항적이 확인됐습니다. 강조된 항적 표식을 클릭해 표적 정보를 열어보세요.")
-		Step.DOCTRINE:
-			_lesson("사격 허용", "표적을 확인했습니다. 이제 강조된 미사일 포대를 선택하고 사격중지를 해제하세요.")
 		Step.ENGAGE:
-			_lesson("요격 관찰", "사격을 허용했습니다. 표적이 사거리 안에 들어오면 포대가 자동으로 발사합니다. 발사된 미사일과 표적의 움직임을 관찰하세요.")
+			_lesson("요격 관찰", "표적이 사거리 안에 들어오면 포대가 자동으로 발사합니다. 발사된 미사일과 표적의 움직임을 관찰하세요.")
+		Step.SUPPLY_STATUS:
+			_lesson("재보급 대기 확인", "첫 교전이 끝났습니다. 보급 실습을 위해 포대의 예비탄을 소진 상태로 설정했습니다.\n\n포대의 노란 모래시계 표시에 커서를 올려 재보급 대기 상태를 확인하세요. 주변에 지원기지가 없어 보급을 기다리고 있습니다.", true)
 		Step.SUPPORT:
-			_lesson("전투 후 탄약 확보", "첫 교전이 끝났습니다. 보급 실습을 위해 포대의 예비탄을 소진 상태로 설정했습니다.\n\n방공 자산을 열어 통합 지원기지를 포대 근처에 배치하세요. 포대까지 녹색 지원선이 연결되는 위치를 고르세요.")
-		Step.RESUPPLY:
-			hud.set_catalog_expanded(false)
-			_lesson("재보급 요청", "지원기지가 연결됐습니다. 포대를 선택하고 재보급 요청을 누르세요. 요청 비용은 버튼에서 확인할 수 있습니다.")
+			_lesson("지원기지 연결", "방공 자산을 열어 통합 지원기지를 포대 근처에 배치하세요. 포대까지 녹색 지원선이 연결되면 자동으로 재보급을 시작합니다.")
 		Step.WAIT_RESUPPLY:
-			_lesson("탄약 보충 확인", "지원기지가 예비탄을 보충합니다. 포대 선택 패널의 작업 진행도와 예비탄 수량을 확인하세요. 완료되면 예비탄이 채워집니다.")
+			hud.set_catalog_expanded(false)
+			_lesson("탄약 보충 확인", "지원기지가 자동으로 예비탄을 보충합니다. 포대 선택 패널의 작업 진행도와 예비탄 수량을 확인하세요. 완료되면 예비탄이 채워집니다.")
 		Step.REPAIR:
 			_lesson("손상된 포대 수리", "보급이 완료됐습니다. 다음 정비 실습을 위해 포대에 경미한 손상을 적용했습니다.\n\n포대를 선택해 내구도를 확인하고 수리 요청을 누르세요.")
 		Step.WAIT_REPAIR:

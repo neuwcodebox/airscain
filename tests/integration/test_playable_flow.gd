@@ -456,7 +456,7 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	var battery_result := _place_for(training, training.scenario.available_defenses[0])
 	assert_true(battery_result.success)
 	var battery := battery_result.unit as MissileBattery
-	assert_true(battery.doctrine.hold_fire)
+	assert_false(battery.doctrine.hold_fire)
 	assert_eq(training.training_controller.step, TrainingController.Step.CONNECT)
 	training.training_controller.tracks_refreshed(0)
 	assert_eq(training.training_controller.step, TrainingController.Step.CONNECT)
@@ -491,14 +491,15 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_true(distant_track_marker.is_finite())
 	training._on_world_selected(Vector3.INF, distant_track_marker)
 	assert_same(training.selected_track, track)
-	assert_eq(training.training_controller.step, TrainingController.Step.DOCTRINE)
-	training._on_asset_selected(battery)
-	assert_true(training.hud.hold_fire_button.button_pressed)
-	training._on_hold_fire_requested(false)
-	assert_false(battery.doctrine.hold_fire)
 	assert_eq(training.training_controller.step, TrainingController.Step.ENGAGE)
 	assert_eq(training.session.simulation_speed, 1.0)
 	training._on_threat_resolved(threat, true, threat.definition.neutralization_reward)
+	assert_eq(training.training_controller.step, TrainingController.Step.SUPPLY_STATUS)
+	assert_eq(battery.critical_status_text(), "재보급 대기")
+	training.support_manager.gameplay_tick(2.0)
+	assert_true(training.support_manager.tasks.is_empty())
+	assert_eq(training.training_controller.step, TrainingController.Step.SUPPLY_STATUS)
+	training._on_training_next_requested()
 	assert_eq(training.training_controller.step, TrainingController.Step.SUPPORT)
 	assert_false(training.hud.catalog_expanded)
 	assert_true(training.hud.training_panel.visible)
@@ -506,12 +507,13 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(training.session.simulation_speed, 1.0)
 	training.hud.set_catalog_expanded(true)
 	assert_true(_place_for(training, training.scenario.available_defenses[5]).success)
-	assert_eq(training.training_controller.step, TrainingController.Step.RESUPPLY)
+	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY)
 	assert_eq(battery.magazine.reserve, 0)
 	assert_null(training.selected_asset)
 	training._on_asset_selected(battery)
-	assert_false(training.hud.resupply_button.disabled)
-	training._on_resupply_requested()
+	assert_true(battery.automatic_resupply_enabled())
+	training.support_manager.gameplay_tick(1.0)
+	assert_false(bool(training.support_manager.tasks[0].user_requested))
 	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY)
 	assert_eq(training.session.simulation_speed, 1.0)
 	assert_eq(training.support_manager.tasks.size(), 1)
@@ -812,7 +814,7 @@ func test_automatic_resupply_also_advances_the_training_supply_lesson() -> void:
 	assert_true(_place_for(main, main.scenario.available_defenses[5]).success)
 	main.game_mode = AirscainMain.GameMode.TRAINING
 	main.training_controller.training_battery = battery
-	main.training_controller.step = TrainingController.Step.RESUPPLY
+	main.training_controller.step = TrainingController.Step.SUPPORT
 	battery.magazine.reserve = 0
 	battery.set_automatic_resupply(true)
 	main.support_manager.gameplay_tick(0.1)
@@ -1128,7 +1130,7 @@ func test_clicking_track_inspects_without_changing_engagement_policy() -> void:
 	main._on_world_selected(Vector3.INF, point)
 	assert_eq(battery.capture_doctrine_state(), policy_before)
 	assert_same(main.selected_asset, battery)
-	assert_true(battery.doctrine.hold_fire)
+	assert_false(battery.doctrine.hold_fire)
 	assert_eq(main.hud.selection_kind_label.text, "교전 검토")
 	main._on_world_selected(track.estimated_position, Vector2(-100, -100))
 	for affiliation: int in [PlayerTrack.Affiliation.NEUTRAL, PlayerTrack.Affiliation.FRIENDLY, PlayerTrack.Affiliation.UNKNOWN]:
@@ -1352,7 +1354,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	main._on_world_selected(known_tracks[0].estimated_position)
 
 	main.hud.hold_fire_requested.emit(true)
-	assert_true(battery.doctrine.hold_fire)
+	assert_false(battery.doctrine.hold_fire)
 	main.hud.hold_fire_requested.emit(false)
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
