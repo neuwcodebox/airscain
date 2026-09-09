@@ -418,8 +418,6 @@ func _on_placement_preview_changed(definition: DefenseDefinition, position: Vect
 func _on_overlay_requested(mode: StringName) -> void:
 	c2_overlay.set_all_links(mode == &"c2")
 	tactical_range_overlay.call("set_mode", &"none" if mode == &"c2" else mode)
-	if game_mode == GameMode.TRAINING:
-		training_controller.overlay_selected(mode)
 
 func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.INF) -> void:
 	var nearest_distance := 32.0
@@ -692,5 +690,3 @@ func _on_target_kind_requested(kind: StringName, enabled: bool) -> void:
 		return
 	selected_asset.set_target_kind_allowed(kind, enabled)
 	hud.refresh_selected_asset()
-	if game_mode == GameMode.TRAINING:
-		training_controller.target_policy_changed(selected_asset)

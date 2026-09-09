@@ -67,10 +67,7 @@ func run() -> void:
 	await process_frame
 	click.pressed = false
 	Input.parse_input_event(click)
-	assert(main.training_controller.step == TrainingController.Step.COMMAND)
-	var command := main.training_controller.city_command()
-	assert(command != null)
-	main._on_asset_selected(command)
+	assert(main.training_controller.step == TrainingController.Step.WEAPON)
 	var battery := await place_recommended(0)
 	main._refresh_tactical_ui()
 	if not await until_step(TrainingController.Step.SELECT_TRACK):
@@ -87,8 +84,7 @@ func run() -> void:
 	var marker: Vector2 = main.tactical_screen_overlay.call("track_marker_screen_position", target)
 	main._on_world_selected(Vector3.INF, marker)
 	main._on_asset_selected(battery)
-	main._on_target_kind_requested(&"rocket", false)
-	await capture("target_policy")
+	await capture("fire_permission")
 	main._on_asset_selected(battery)
 	main.hud.hold_fire_requested.emit(false)
 	if not await until_step(TrainingController.Step.SUPPORT):
@@ -106,29 +102,10 @@ func run() -> void:
 	main.hud.set_city_menu_expanded(true)
 	await capture("city")
 	main.hud.city_restoration_button.pressed.emit()
-	main.hud.overlay_option.show_popup()
-	await capture("overlay")
-	assert(main.hud.overlay_option.get_popup().get_focused_item() == 5)
-	main.hud.overlay_option.get_popup().hide()
-	main.hud.overlay_option.item_selected.emit(5)
-	var sensor := await place_recommended(3)
-	var energy := await place_recommended(6)
-	main._on_asset_selected(energy)
-	await capture("energy")
-	main.hud.training_next_button.pressed.emit()
-	main._on_asset_selected(sensor)
-	main.hud.relocation_button.pressed.emit()
-	var destination := valid_position(sensor.definition, sensor.global_position + Vector3(50, 0, 40))
-	main.placement.candidate_position = destination
-	main.placement.request_selected_defense_placement()
-	if not await until_step(TrainingController.Step.OPERATIONS):
-		return
-	main.hud.training_next_button.pressed.emit()
-	await capture("complete")
 	if main.training_controller.step != TrainingController.Step.COMPLETE:
 		fail("Curriculum did not finish")
 		return
-	print("TRAINING_QUALITY_OK live_detection target_policy interception resupply repair restoration energy relocation budget=%d" % main.session.budget)
+	print("TRAINING_QUALITY_OK live_detection fire_permission interception resupply repair restoration budget=%d" % main.session.budget)
 	main.queue_free()
 	await process_frame
 	quit(0)

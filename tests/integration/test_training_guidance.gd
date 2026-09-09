@@ -64,3 +64,65 @@ func test_card_moves_beside_a_tall_selection_panel() -> void:
 	guidance.refresh()
 	assert_false(main.hud.selected_asset_panel.get_global_rect().intersects(main.hud.training_panel.get_global_rect()))
 	assert_true(main.hud.training_panel.visible)
+
+func test_observation_steps_do_not_prompt_time_control_clicks() -> void:
+	for step: TrainingController.Step in [TrainingController.Step.ACQUIRE, TrainingController.Step.ENGAGE, TrainingController.Step.WAIT_RESUPPLY, TrainingController.Step.WAIT_REPAIR, TrainingController.Step.WAIT_RELOCATE]:
+		main.training_controller._set_step(step)
+		guidance.refresh()
+		assert_false(guidance.target_rect.has_area())
+		assert_eq(main.session.simulation_speed, 1.0)
+
+func test_track_selection_rejects_unconfirmed_and_non_hostile_contacts() -> void:
+	var track := PlayerTrack.new()
+	main.training_controller._set_step(TrainingController.Step.SELECT_TRACK)
+	main.training_controller.track_selected(track)
+	assert_eq(main.training_controller.step, TrainingController.Step.SELECT_TRACK)
+	track.state = PlayerTrack.State.CONFIRMED
+	track.affiliation = PlayerTrack.Affiliation.FRIENDLY
+	track.affiliation_confidence = 1.0
+	main.training_controller.track_selected(track)
+	assert_eq(main.training_controller.step, TrainingController.Step.SELECT_TRACK)
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	main.training_controller.track_selected(track)
+	assert_eq(main.training_controller.step, TrainingController.Step.DOCTRINE)
+
+func test_terrain_obstruction_requires_relocation_then_returns_to_detection() -> void:
+	main.training_controller.next_requested()
+	guidance.refresh()
+	main.placement.select(main.scenario.available_defenses[1])
+	guidance.refresh()
+	main.placement.candidate_position = guidance.suggestion
+	assert_true(main.placement.request_selected_defense_placement())
+	var radar := main.defenses.back() as SearchRadar
+	main.placement.select(main.scenario.available_defenses[0])
+	guidance.refresh()
+	main.placement.candidate_position = guidance.suggestion
+	assert_true(main.placement.request_selected_defense_placement())
+	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE)
+	main.training_controller.tracks_refreshed(0)
+	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE, "사거리 밖 표적에 사각 해결을 요구하지 않습니다")
+	var threat := main.registry.get_hostile_active()[0]
+	var blocked := Vector3.INF
+	for index: int in 720:
+		var candidate := radar.global_position + Vector3(cos(index * 0.2), 0, sin(index * 0.2)) * (100.0 + float(index % 12) * 45.0)
+		candidate.y = main.battlefield.terrain_height(candidate.x, candidate.z) + 3.0
+		if not radar._has_line_of_sight(radar.global_position + Vector3.UP * 11.0, candidate):
+			blocked = candidate
+			break
+	assert_true(blocked.is_finite())
+	threat.global_position = blocked
+	main.training_controller.tracks_refreshed(0)
+	assert_eq(main.training_controller.step, TrainingController.Step.RELOCATE)
+	assert_eq(main.session.simulation_speed, 0.0)
+	assert_same(main.training_controller.relocation_subject, radar)
+	main._on_asset_selected(radar)
+	main.hud.relocation_button.pressed.emit()
+	guidance.refresh()
+	assert_true(guidance.suggestion.is_finite())
+	assert_true(radar._has_line_of_sight(guidance.suggestion + Vector3.UP * 11.0, threat.get_aim_position()))
+	main.placement.candidate_position = guidance.suggestion
+	assert_true(main.placement.request_selected_defense_placement())
+	assert_eq(main.training_controller.step, TrainingController.Step.WAIT_RELOCATE)
+	main.relocation_manager.gameplay_tick(radar.definition.relocation_duration + 0.1)
+	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE)
+	assert_eq(main.session.simulation_speed, 1.0)

@@ -286,7 +286,7 @@ func _input(event: InputEvent) -> void:
 
 func set_training_lesson(step: int, total: int, title: String, body: String, next_visible: bool = false) -> void:
 	training_panel.visible = true
-	training_title.text = "훈련 %d/%d · %s" % [step, total, title]
+	training_title.text = "훈련 %d/%d: %s" % [step, total, title]
 	var progress := get_node("%TrainingProgress") as ProgressBar
 	progress.max_value = total
 	progress.value = step

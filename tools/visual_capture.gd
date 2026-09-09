@@ -2153,7 +2153,7 @@ func _capture_training_guidance() -> bool:
 	for frame_index: int in 4:
 		await process_frame
 	await _send_left_click(marker_position)
-	if main.selected_track != track or main.training_controller.step != TrainingController.Step.SELECT_ASSET:
+	if main.selected_track != track or main.training_controller.step != TrainingController.Step.DOCTRINE:
 		var selected_id := main.selected_track.track_id if main.selected_track != null else -1
 		push_error("Actual click on the distant track marker did not select it (expected=%d selected=%d step=%d)" % [track.track_id, selected_id, main.training_controller.step])
 		return false

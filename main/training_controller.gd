@@ -1,11 +1,11 @@
 class_name TrainingController
 extends Node
 
-enum Step { NONE, CAMERA, RADAR, COMMAND, WEAPON, CONNECT, ACQUIRE, SELECT_TRACK, SELECT_ASSET, TARGET_POLICY, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, OVERLAY, ALTITUDE, ENERGY, ENERGY_REVIEW, RELOCATE, WAIT_RELOCATE, OPERATIONS, COMPLETE }
+enum Step { NONE, CAMERA, RADAR, WEAPON, CONNECT, ACQUIRE, SELECT_TRACK, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, COMPLETE, RELOCATE, WAIT_RELOCATE }
 
 signal selection_clear_requested
 
-const LESSON_COUNT := 24
+const LESSON_COUNT := 14
 
 var step: Step = Step.NONE
 var training_threat_runtime_id: int = 0
@@ -20,8 +20,6 @@ var hud: Hud
 var tactical_screen_overlay: Node
 var c2_network: C2Network
 var relocation_subject: DefenseUnit
-var energy_subject: DefenseUnit
-var energy_reviewed: bool = false
 var training_battery: MissileBattery
 
 func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, defenses_value: Array[DefenseUnit], registry_value: ThreatRegistry, director_value: ThreatDirector, session_value: GameSession, hud_value: Hud, tactical_screen_overlay_value: Node, network_value: C2Network) -> void:
@@ -47,7 +45,10 @@ func _try_observe_approach() -> void:
 	if step != Step.CONNECT:
 		return
 	var battery := _training_battery()
+	relocation_subject = battery
 	for unit: DefenseUnit in defenses:
+		if unit.definition.id == &"search_radar" and not c2_network.has_command_path(unit, unit.runtime_id):
+			relocation_subject = unit
 		if unit.definition.id == &"search_radar" and c2_network.has_command_path(battery, unit.runtime_id):
 			session.set_simulation_speed(1.0)
 			hud.set_catalog_expanded(false)
@@ -56,52 +57,59 @@ func _try_observe_approach() -> void:
 
 func defense_placed(unit: DefenseUnit) -> void:
 	if step == Step.RADAR and unit.definition.id == &"search_radar":
-		_set_step(Step.COMMAND)
+		_set_step(Step.WEAPON)
 	elif step == Step.WEAPON and unit is MissileBattery:
 		training_battery = unit as MissileBattery
 		unit.set_hold_fire(true)
 		hud.refresh_selected_asset()
 		_set_step(Step.CONNECT)
+		_try_observe_approach()
 	elif step == Step.SUPPORT and unit.service_range() > 0.0:
 		var battery := _training_battery()
 		if battery == null or not unit.supports_position(battery.global_position):
 			hud.set_feedback("포대까지 녹색 지원선이 연결되는 범위 안에 지원기지를 배치하세요.")
 			return
-		for munition_magazine: WeaponMagazine in battery.magazines.values():
-			munition_magazine.reserve = 0
 		selection_clear_requested.emit()
 		_set_step(Step.RESUPPLY)
-	elif step == Step.ALTITUDE and unit.definition.id == &"tracking_radar":
-		relocation_subject = unit
-		_set_step(Step.ENERGY)
-	elif step == Step.ENERGY and unit.power_demand() > 0.0:
-		energy_subject = unit
-		selection_clear_requested.emit()
-		_set_step(Step.ENERGY_REVIEW)
 
-func tracks_refreshed(selectable_hostile_count: int) -> void:
+func tracks_refreshed(_selectable_hostile_count: int) -> void:
 	_try_observe_approach()
-	if step != Step.ACQUIRE or selectable_hostile_count <= 0:
+	if step != Step.ACQUIRE:
 		return
-	session.set_simulation_speed(0.0)
-	_set_step(Step.SELECT_TRACK)
+	var overlay := tactical_screen_overlay as TacticalScreenOverlay
+	for track: PlayerTrack in overlay.player_knowledge.call("get_active_tracks"):
+		if is_selectable_training_track(track):
+			_set_step(Step.SELECT_TRACK)
+			return
+	_check_detection_obstruction()
+
+func _check_detection_obstruction() -> void:
+	for threat: ThreatUnit in registry.get_hostile_active():
+		if threat.runtime_id != training_threat_runtime_id:
+			continue
+		for unit: DefenseUnit in defenses:
+			if not unit is SearchRadar or not unit.active:
+				continue
+			var radar := unit as SearchRadar
+			var definition := radar.definition as SearchRadarDefinition
+			var origin := radar.global_position + Vector3.UP * 11.0
+			if origin.distance_to(threat.get_aim_position()) > definition.detection_range * radar.operational_efficiency():
+				continue
+			if radar.altitude_in_envelope(threat.get_aim_position()) and not radar._has_line_of_sight(origin, threat.get_aim_position()):
+				relocation_subject = radar
+				_set_step(Step.RELOCATE)
+				return
+
+func is_selectable_training_track(track: PlayerTrack) -> bool:
+	return track != null and track.state == PlayerTrack.State.CONFIRMED and track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3
 
 func track_selected(track: PlayerTrack) -> void:
-	if step == Step.SELECT_TRACK and track != null:
-		_set_step(Step.SELECT_ASSET)
+	if step == Step.SELECT_TRACK and is_selectable_training_track(track):
+		_set_step(Step.DOCTRINE)
 
 func asset_selected(unit: DefenseUnit) -> void:
-	if step == Step.COMMAND and unit == city_command():
-		_set_step(Step.WEAPON)
-	elif step == Step.SELECT_ASSET and unit == _training_battery():
-		_set_step(Step.TARGET_POLICY)
-	elif step == Step.ENERGY_REVIEW and unit == energy_subject:
-		energy_reviewed = true
-		_lesson("전력과 열 확인", "선택 패널에서 전력 수요/공급, 충전과 열을 확인하세요. 전력은 전체 자산의 합계이고 보급·수리는 지역 지원입니다. 수요가 공급보다 크면 일부 자산의 충전이 느려집니다.", true)
-
-func target_policy_changed(unit: DefenseUnit) -> void:
-	if step == Step.TARGET_POLICY and unit == _training_battery() and unit.allows_target_kind(&"uav") and not unit.allows_target_kind(&"rocket"):
-		_set_step(Step.DOCTRINE)
+	if step == Step.DOCTRINE and unit == _training_battery():
+		_lesson("사격 허용", "선택 패널에서 사격중지를 해제하세요. 포대가 탐지된 적을 자동으로 조준하고 발사합니다.")
 
 func hold_fire_changed(enabled: bool, unit: DefenseUnit) -> void:
 	if step == Step.DOCTRINE and not enabled and unit == _training_battery():
@@ -112,6 +120,11 @@ func threat_resolved(threat: ThreatUnit) -> void:
 	if threat.runtime_id != training_threat_runtime_id or step != Step.ENGAGE:
 		return
 	session.set_simulation_speed(0.0)
+	var battery := _training_battery()
+	if battery != null:
+		for magazine: WeaponMagazine in battery.magazines.values():
+			magazine.reserve = 0
+		hud.refresh_selected_asset()
 	_set_step(Step.SUPPORT)
 
 func support_requested(kind: StringName, unit: DefenseUnit) -> void:
@@ -140,33 +153,22 @@ func support_completed(kind: StringName, unit: DefenseUnit) -> void:
 
 func city_restored() -> void:
 	if step == Step.CITY_RESTORE:
-		_set_step(Step.OVERLAY)
-
-func overlay_selected(mode: StringName) -> void:
-	if step == Step.OVERLAY and mode == &"c2":
-		session.update_pressure(3)
-		hud.set_pressure(3)
-		_set_step(Step.ALTITUDE)
+		_set_step(Step.COMPLETE)
 
 func relocation_started(unit: DefenseUnit) -> void:
-	if step == Step.RELOCATE and unit == relocation_subject:
-		session.set_simulation_speed(1.0)
+	if step in [Step.CONNECT, Step.RELOCATE] and unit == relocation_subject:
 		_set_step(Step.WAIT_RELOCATE)
 
 func relocation_completed(unit: DefenseUnit) -> void:
 	if step == Step.WAIT_RELOCATE and unit == relocation_subject:
-		session.set_simulation_speed(0.0)
-		_set_step(Step.OPERATIONS)
+		_set_step(Step.CONNECT)
+		_try_observe_approach()
 	elif step == Step.SUPPORT and unit.service_range() > 0.0:
 		defense_placed(unit)
 
 func next_requested() -> void:
 	if step == Step.CAMERA:
 		_set_step(Step.RADAR)
-	elif step == Step.ENERGY_REVIEW and energy_reviewed:
-		_set_step(Step.RELOCATE)
-	elif step == Step.OPERATIONS:
-		_set_step(Step.COMPLETE)
 
 func approach_position() -> Vector3:
 	var position := objective.global_position + Vector3.RIGHT * scenario.battlefield_size * scenario.threat_entries[0].threat_definition.spawn_radius_multiplier()
@@ -175,70 +177,50 @@ func approach_position() -> Vector3:
 
 func _set_step(next_step: Step) -> void:
 	step = next_step
+	var playing := step in [Step.ACQUIRE, Step.ENGAGE, Step.WAIT_RESUPPLY, Step.WAIT_REPAIR, Step.WAIT_RELOCATE, Step.COMPLETE]
+	session.set_simulation_speed(1.0 if playing else 0.0)
 	match step:
 		Step.CAMERA:
-			_lesson("전장 살펴보기", "작전은 이미 시작됐으며 안내와 배치를 위해 자동 일시정지했습니다. 레이더·지휘통제소·포대가 연결되면 자동 재생됩니다. 실전에서는 우측 상단 일시정지를 직접 사용할 수 있습니다.\n\nWASD · 이동\n가운데 버튼 드래그 · 수평·수직 회전\nQ/E · 수평 회전\n휠 · 확대·축소\nBackspace · 위치·줌·각도 초기화\n\n주황색 훈련 표적 진입 표시를 찾아보세요.", true)
+			_lesson("진입 방향 확인", "작전은 이미 시작됐으며 안내와 배치를 위해 자동 일시정지했습니다. 실전에서는 우측 상단 일시정지를 직접 사용할 수 있습니다.\n\n주황색 훈련 표적 진입 표시를 찾아보세요.\nWASD: 이동\n가운데 버튼 드래그: 수평, 수직 회전\n휠: 확대, 축소\nBackspace: 시점 초기화\n\n방향을 확인했으면 계속을 누르세요.", true)
 		Step.RADAR:
-			_lesson("저·중고도 레이더", "상단의 방공 자산을 열어 저·중고도 레이더를 고르세요. 도시와 주황색 진입 표시 사이의 평탄한 지형에 배치하세요. 산 뒤에는 저고도 탐지 사각이 생깁니다.")
-		Step.COMMAND:
-			_lesson("도시 지휘통제소", "도시 중앙 건물 옥상의 지휘통제소를 선택하세요. 처음부터 무료로 제공되며 연결된 센서의 항적을 포대에 전달합니다. 망을 넓힐 때는 지휘통제소를 추가 설치할 수 있습니다.")
+			_lesson("접근로 감시", "방공 자산을 열어 저·중고도 레이더를 선택하세요. 도시와 주황색 진입 표시 사이의 추천 위치에 배치해 접근로를 감시하세요.")
 		Step.WEAPON:
-			_lesson("요격 계층", "미사일 포대를 도시와 주황색 진입 표시 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다. 배치 모드는 우클릭이나 Esc로 종료합니다.")
+			_lesson("요격 포대 배치", "방공 자산에서 미사일 포대를 선택하세요. 레이더 근처의 추천 위치에 놓고 청색 연결선을 확인하세요. 도시의 지휘통제소가 레이더 정보를 포대로 전달합니다.")
 		Step.CONNECT:
-			_lesson("C2 연결 확인", "레이더 → 지휘통제소 → 포대의 청색 연결선을 확인하세요. 연결될 때까지 자동 일시정지를 유지하고, 연결되면 자동 재생해 탐지 관찰로 진행합니다. 연결이 끊겼다면 지휘통제소를 추가하거나 자산을 재배치하세요.")
+			_lesson("끊긴 연결 복구", "청색 연결선이 이어지지 않았습니다. 강조된 자산을 선택하고 재배치를 눌러 추천 위치로 옮기세요.")
 		Step.ACQUIRE:
 			tactical_screen_overlay.call("hide_training_approach")
-			_lesson("탐지 관찰 · 자동 재생", "실제 물체가 보여도 방공망이 탐지하기 전에는 교전할 수 없습니다. 잠정 항적이 확인 항적으로 바뀌면 자동 일시정지됩니다.")
+			hud.set_catalog_expanded(false)
+			_lesson("접근 감시", "레이더와 포대가 연결됐습니다. 주황색으로 표시했던 방향에서 표적이 접근 중입니다. 레이더가 항적을 만드는 모습을 관찰하세요.")
 		Step.SELECT_TRACK:
-			_lesson("항적 선택 · 일시정지", "적성 항적 표식을 클릭하세요. 화면 밖 가장자리 표식도 선택할 수 있습니다. 추적 품질과 분류 확신도는 서로 다른 정보입니다.")
-		Step.SELECT_ASSET:
-			_lesson("방어자산 선택", "배치한 미사일 포대를 클릭하세요. 선택 패널에서 탄약과 C2 연결, 사격중지 상태를 확인할 수 있습니다.")
-		Step.TARGET_POLICY:
-			_lesson("교전 정책", "교전 설정 바로 아래의 로켓 아이콘을 눌러 로켓 교전을 차단해 보세요. 밝은 청록색 테두리는 허용, 어두운 아이콘은 차단입니다. 다시 누르면 허용됩니다. 훈련 표적인 무인기는 허용 상태로 두세요.")
+			_lesson("탐지된 표적 확인", "적성 항적이 확인됐습니다. 강조된 항적 표식을 클릭해 표적 정보를 열어보세요.")
 		Step.DOCTRINE:
-			_lesson("자동교전 허용", "미사일 포대를 다시 클릭하고 사격중지를 해제하세요. 해제하면 자동 재생됩니다. 미확인 교전은 분류가 불충분한 물체까지 허용하므로 신중하게 사용하세요.")
+			_lesson("사격 허용", "표적을 확인했습니다. 이제 강조된 미사일 포대를 선택하고 사격중지를 해제하세요.")
 		Step.ENGAGE:
-			_lesson("자동교전 · 자동 재생", "포대의 선회, 발사관 사출과 요격을 관찰하세요. 표적이 요격되거나 임무를 마치면 자동 일시정지됩니다.")
+			_lesson("요격 관찰", "사격을 허용했습니다. 표적이 사거리 안에 들어오면 포대가 자동으로 발사합니다. 발사된 미사일과 표적의 움직임을 관찰하세요.")
 		Step.SUPPORT:
-			_lesson("통합 지원기지", "방공 자산을 열어 통합 지원기지를 배치하세요. 포대에 녹색 지원선이 연결되어야 합니다. 지역 보급·수리는 260m 안에서만 가능하며 예비탄 소진을 훈련합니다.")
+			_lesson("전투 후 탄약 확보", "첫 교전이 끝났습니다. 보급 실습을 위해 포대의 예비탄을 소진 상태로 설정했습니다.\n\n방공 자산을 열어 통합 지원기지를 포대 근처에 배치하세요. 포대까지 녹색 지원선이 연결되는 위치를 고르세요.")
 		Step.RESUPPLY:
 			hud.set_catalog_expanded(false)
-			_lesson("재보급 요청", "포대를 다시 선택하고 재보급 요청을 누르세요. 요청은 예산을 사용해 지원 대기열에 작업을 넣습니다. 완료까지 시간이 필요합니다.")
+			_lesson("재보급 요청", "지원기지가 연결됐습니다. 포대를 선택하고 재보급 요청을 누르세요. 요청 비용은 버튼에서 확인할 수 있습니다.")
 		Step.WAIT_RESUPPLY:
-			_lesson("보급 완료 관찰 · 재생", "선택 패널의 보급 작업과 탄약을 관찰하세요. 2×·4×로 대기를 줄일 수 있습니다. 보급 완료 후 정지하고 수리 실습용으로 포대에 경미한 손상을 적용합니다.")
+			_lesson("탄약 보충 확인", "보급이 진행 중입니다. 포대 선택 패널의 작업 진행도와 예비탄 수량을 확인하세요. 완료되면 예비탄이 채워집니다.")
 		Step.REPAIR:
-			_lesson("시설 수리 · 일시정지", "손상은 가동 효율을 낮춥니다. 포대를 선택해 수리 요청을 누르세요. 수리도 같은 지역 지원기지의 작업 용량을 사용합니다.")
+			_lesson("손상된 포대 수리", "보급이 완료됐습니다. 다음 정비 실습을 위해 포대에 경미한 손상을 적용했습니다.\n\n포대를 선택해 내구도를 확인하고 수리 요청을 누르세요.")
 		Step.WAIT_REPAIR:
-			_lesson("수리 완료 관찰 · 재생", "지원기지가 포대를 수리하고 있습니다. 가동 상태가 회복되면 자동 정지하고, 다음 도시 복구 실습을 위한 경미한 도시 피해를 적용합니다.")
+			_lesson("수리 결과 확인", "지원기지가 포대를 수리하고 있습니다. 선택 패널에서 내구도가 회복되는지 확인하세요.")
 		Step.CITY_RESTORE:
-			_lesson("도시 기능 복구", "상단 도시 관리를 열고 피해 복구를 누르세요. 도시 복구는 예산을 지불하면 즉시 적용됩니다. 포대 수리와는 별개이며 전투 중에도 사용할 수 있습니다.")
-		Step.OVERLAY:
-			_lesson("방공망 점검", "우측 상단 전술 표시에서 지휘 연결을 선택하세요. 탐지 범위·사거리·지원 범위도 목록에서 바로 선택할 수 있습니다.")
-		Step.ALTITUDE:
-			_lesson("고도별 탐지 계층", "고급 장비를 훈련용으로 해금했습니다. 고고도 레이더를 배치하세요. 120–1500m를 감시하며 저·중고도 레이더와 역할이 다릅니다. 오른쪽 고도 프로파일로 탐지 높이를 확인하세요.")
-		Step.ENERGY:
-			_lesson("전력 기반 방어", "고출력 레이저를 배치하세요. 커서 옆 전력 수요·공급과 배치 후 수치를 확인하세요. 통합 지원기지의 전력은 거리 제한 없는 전역 공급입니다.")
-		Step.ENERGY_REVIEW:
-			hud.set_catalog_expanded(false)
-			_lesson("충전과 열 확인", "방금 배치한 에너지 무기를 선택하세요. 충전·열·전체 수요/공급을 확인하면 다음 단계로 진행할 수 있습니다.")
-		Step.RELOCATE:
-			_lesson("센서 재배치", "배치한 고고도 레이더를 선택하고 재배치 위치 지정을 누른 뒤 다른 빈 지점을 클릭하세요. 이동 중에는 센서가 가동하지 않습니다. 새 위치에서도 C2 연결을 유지하세요.")
-		Step.WAIT_RELOCATE:
-			_lesson("재배치 완료 관찰 · 재생", "철수와 재설치가 진행 중입니다. 시간이 끝나면 센서가 새 위치에서 다시 가동하고 훈련이 일시정지됩니다.")
-		Step.OPERATIONS:
-			_lesson("다음 작전 준비", "장거리는 고가 탄약과 탄종, 근거리는 기관포·레이저로 역할을 나누세요. 지속 작전은 Esc에서 저장하고 메뉴에서 이어갈 수 있습니다. 자유 모드에서는 위협을 직접 투입해 조합을 시험합니다.", true)
+			_lesson("도시 피해 복구", "포대 수리가 완료됐습니다. 마지막으로 도시 복구 실습용 피해를 적용했습니다.\n\n상단 도시 관리를 열고 피해 복구를 누르세요. 예산을 사용해 도시 내구도를 즉시 회복합니다.")
 		Step.COMPLETE:
-			session.set_simulation_speed(1.0)
-			_lesson("훈련 완료", "탐지·C2·교전 정책·자동교전, 보급·수리·도시 복구, 고도 계층·전력·재배치를 마쳤습니다. 자유롭게 연습하거나 Esc로 돌아가 지속 작전을 시작하세요.")
-
-func city_command() -> DefenseUnit:
-	for unit: DefenseUnit in defenses:
-		if unit.definition.id == &"command_post" and Vector2(unit.global_position.x, unit.global_position.z).length() < 1.0:
-			return unit
-	return null
+			_lesson("훈련 완료", "도시 복구까지 마쳤습니다. 레이더와 포대를 연결해 요격하고, 소모된 탄약과 피해를 복구했습니다.\n\nEsc 메뉴에서 메인 메뉴로 돌아가 새 게임을 시작하세요.")
+		Step.RELOCATE:
+			_lesson("탐지 사각 해결", "표적이 탐지거리 안에 들어왔지만 지형에 가려져 있습니다. 강조된 레이더를 선택하고 재배치를 누른 뒤, 접근로가 트인 추천 위치로 옮기세요.")
+		Step.WAIT_RELOCATE:
+			_lesson("자산 재설치", "자산을 옮기고 있습니다. 재설치가 끝나면 연결과 탐지 상태를 다시 확인합니다.")
 
 func _lesson(title: String, body: String, next_visible: bool = false) -> void:
-	hud.set_training_lesson(mini(int(step), LESSON_COUNT), LESSON_COUNT, title, body, next_visible)
+	hud.set_training_lesson(5 if step in [Step.RELOCATE, Step.WAIT_RELOCATE] else mini(int(step), LESSON_COUNT), LESSON_COUNT, title, body, next_visible)
+
 func _spawn_training_threat() -> void:
 	var threat := director._spawn_entry(scenario.threat_entries[0], 0.0, 0.0)
 	if threat == null:

@@ -7,8 +7,6 @@ const PLACEMENT_LESSONS := {
 	TrainingController.Step.RADAR: &"search_radar",
 	TrainingController.Step.WEAPON: &"missile_battery",
 	TrainingController.Step.SUPPORT: &"support_facility",
-	TrainingController.Step.ALTITUDE: &"tracking_radar",
-	TrainingController.Step.ENERGY: &"high_energy_laser",
 }
 
 var training: TrainingController
@@ -32,7 +30,6 @@ func configure(controller: TrainingController, placement_value: PlacementControl
 	rig = camera_rig
 	hud = training.hud
 	card_origin = hud.training_panel.position
-	hud.overlay_option.get_popup().about_to_popup.connect(_on_overlay_popup)
 	label_style.bg_color = Color(0.035, 0.045, 0.055, 0.95)
 	label_style.set_corner_radius_all(4)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -61,19 +58,10 @@ func refresh() -> void:
 		_placement_cue(PLACEMENT_LESSONS[training.step])
 		return
 	match training.step:
-		TrainingController.Step.COMMAND:
-			_asset(training.city_command())
-		TrainingController.Step.CAMERA, TrainingController.Step.OPERATIONS:
+		TrainingController.Step.CAMERA:
 			_button(hud.training_next_button, "계속")
 		TrainingController.Step.SELECT_TRACK:
 			_track()
-		TrainingController.Step.SELECT_ASSET:
-			_asset(training.training_battery)
-		TrainingController.Step.TARGET_POLICY:
-			if hud.selected_asset != training.training_battery:
-				_asset(training.training_battery)
-			else:
-				_button(hud.target_kind_buttons[4], "로켓 교전 차단")
 		TrainingController.Step.DOCTRINE:
 			_asset_action(training.training_battery, hud.hold_fire_button, "사격중지 해제")
 		TrainingController.Step.RESUPPLY:
@@ -82,22 +70,11 @@ func refresh() -> void:
 			_asset_action(training.training_battery, hud.repair_button, "수리 요청")
 		TrainingController.Step.CITY_RESTORE:
 			_button(hud.city_restoration_button if hud.city_menu_expanded else hud.city_menu_button, "피해 복구" if hud.city_menu_expanded else "도시 관리")
-		TrainingController.Step.OVERLAY:
-			_button(hud.overlay_option, "지휘 연결 선택")
-		TrainingController.Step.ENERGY_REVIEW:
-			if training.energy_reviewed:
-				_button(hud.training_next_button, "확인 후 계속")
-			else:
-				_asset(training.energy_subject)
-		TrainingController.Step.RELOCATE:
+		TrainingController.Step.CONNECT, TrainingController.Step.RELOCATE:
 			if placement.relocating_unit == training.relocation_subject and placement.selected != null:
 				_placement_destination(placement.selected)
 			else:
-				_asset_action(training.relocation_subject, hud.relocation_button, "재배치 위치 지정")
-		TrainingController.Step.ACQUIRE, TrainingController.Step.ENGAGE:
-			_button(hud.normal_button, "관찰 중 · 자동 진행")
-		TrainingController.Step.WAIT_RESUPPLY, TrainingController.Step.WAIT_REPAIR, TrainingController.Step.WAIT_RELOCATE:
-			_button(hud.very_fast_button, "완료 대기 · 4×")
+				_asset_action(training.relocation_subject, hud.relocation_button, "재배치")
 
 func _button(control: Control, text: String) -> void:
 	# Menus remain the input owners; never draw a cue for a covered control.
@@ -132,7 +109,7 @@ func _asset(unit: DefenseUnit) -> void:
 func _track() -> void:
 	var overlay := training.tactical_screen_overlay as TacticalScreenOverlay
 	for track: PlayerTrack in overlay.player_knowledge.call("get_active_tracks"):
-		if track.state == PlayerTrack.State.CONFIRMED and track.affiliation == PlayerTrack.Affiliation.HOSTILE:
+		if training.is_selectable_training_track(track):
 			var point := overlay.track_marker_screen_position(track)
 			target_rect = Rect2(point - Vector2.ONE * 22.0, Vector2.ONE * 44.0)
 			caption = "항적 선택"
@@ -146,7 +123,7 @@ func _placement_cue(id: StringName) -> void:
 		return
 	if placement.selected != null:
 		target_rect = Rect2(get_viewport().get_mouse_position() - Vector2.ONE * 16, Vector2.ONE * 32)
-		caption = "우클릭 · 배치 취소"
+		caption = "우클릭: 배치 취소"
 		return
 	if not hud.catalog_expanded:
 		revealed_button = null
@@ -186,20 +163,28 @@ func _find_suggestion(definition: DefenseDefinition) -> Vector3:
 		for unit: DefenseUnit in training.defenses:
 			if unit.definition.id == &"search_radar":
 				near = unit.global_position + Vector3(-60, 0, 45)
-	if training.step == TrainingController.Step.RELOCATE and is_instance_valid(training.relocation_subject):
-		near = training.relocation_subject.global_position + Vector3(65, 0, 40)
+	if training.step in [TrainingController.Step.CONNECT, TrainingController.Step.RELOCATE]:
+		near = Vector3(300, 0, 0)
 	for index: int in 120:
 		var candidate := near + Vector3(cos(index * 0.8), 0, sin(index * 0.8)) * float(index * 2)
 		candidate.y = training.battlefield.terrain_height(candidate.x, candidate.z)
 		candidate = training.battlefield.snap_placement_position(candidate, definition.placement_profile)
 		if not training.battlefield.placement_result(candidate, definition.placement_profile).valid:
 			continue
-		if training.step == TrainingController.Step.WEAPON:
+		if training.step in [TrainingController.Step.WEAPON, TrainingController.Step.CONNECT, TrainingController.Step.RELOCATE]:
 			if not training.c2_network.placement_preview(definition, candidate).ready:
 				continue
 		if training.step == TrainingController.Step.SUPPORT and is_instance_valid(training.training_battery):
 			# Use the definition's support radius, not a separate tutorial rule.
 			if candidate.distance_to(training.training_battery.global_position) > definition.placement_support_range():
+				continue
+		if training.step == TrainingController.Step.RELOCATE and training.relocation_subject is SearchRadar:
+			var radar := training.relocation_subject as SearchRadar
+			var clear := true
+			for threat: ThreatUnit in training.registry.get_hostile_active():
+				if threat.runtime_id == training.training_threat_runtime_id:
+					clear = radar._has_line_of_sight(candidate + Vector3.UP * 11.0, threat.get_aim_position())
+			if not clear:
 				continue
 		return candidate
 	return Vector3.INF
@@ -211,7 +196,7 @@ func _point(position: Vector3, text: String) -> void:
 	var on_screen := not behind and safe.has_point(projected)
 	var point := projected if on_screen else TacticalScreenOverlay.marker_position_in_safe_area(projected, get_viewport_rect().size, behind, 28, 110, 28, 80)
 	target_rect = Rect2(point - Vector2.ONE * 22, Vector2.ONE * 44)
-	caption = text if on_screen else "이쪽으로 이동 · WASD"
+	caption = text if on_screen else "WASD: 이쪽으로 이동"
 	world_target = true
 
 func _avoid_world_menu() -> void:
@@ -248,12 +233,3 @@ func _draw() -> void:
 		return
 	draw_style_box(label_style, Rect2(position, label_size))
 	draw_string(font, position + Vector2(9, 5 + font.get_ascent(15)), caption, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, COLOR)
-
-func _on_overlay_popup() -> void:
-	if training.step == TrainingController.Step.OVERLAY:
-		_focus_overlay_target.call_deferred()
-
-func _focus_overlay_target() -> void:
-	var popup := hud.overlay_option.get_popup()
-	if popup.visible and training.step == TrainingController.Step.OVERLAY:
-		popup.set_focused_item(Hud.OVERLAY_MODES.find(&"c2"))
