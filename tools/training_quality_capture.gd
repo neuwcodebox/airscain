@@ -72,6 +72,8 @@ func run() -> void:
 	main._refresh_tactical_ui()
 	if not await until_step(TrainingController.Step.SELECT_TRACK):
 		return
+	print("TRAINING_DETECTION_SECONDS=%.1f" % main.session.survival_time)
+	assert(main.session.survival_time <= 10.0)
 	var tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
 	var target: PlayerTrack
 	for track: PlayerTrack in tracks:

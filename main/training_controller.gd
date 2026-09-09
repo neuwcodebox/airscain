@@ -6,6 +6,7 @@ enum Step { NONE, CAMERA, RADAR, WEAPON, CONNECT, ACQUIRE, SELECT_TRACK, DOCTRIN
 signal selection_clear_requested
 
 const LESSON_COUNT := 14
+const APPROACH_DISTANCE := 800.0
 
 var step: Step = Step.NONE
 var training_threat_runtime_id: int = 0
@@ -171,8 +172,8 @@ func next_requested() -> void:
 		_set_step(Step.RADAR)
 
 func approach_position() -> Vector3:
-	var position := objective.global_position + Vector3.RIGHT * scenario.battlefield_size * scenario.threat_entries[0].threat_definition.spawn_radius_multiplier()
-	position.y = battlefield.flight_surface_height(position.x, position.z) + 80.0
+	var position := Vector3.RIGHT * APPROACH_DISTANCE
+	position.y = battlefield.flight_surface_height(position.x, position.z) + scenario.threat_entries[0].threat_definition.spawn_altitude()
 	return position
 
 func _set_step(next_step: Step) -> void:
@@ -222,7 +223,9 @@ func _lesson(title: String, body: String, next_visible: bool = false) -> void:
 	hud.set_training_lesson(5 if step in [Step.RELOCATE, Step.WAIT_RELOCATE] else mini(int(step), LESSON_COUNT), LESSON_COUNT, title, body, next_visible)
 
 func _spawn_training_threat() -> void:
-	var threat := director._spawn_entry(scenario.threat_entries[0], 0.0, 0.0)
+	var entry := scenario.threat_entries[0]
+	var edge_offset := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - APPROACH_DISTANCE
+	var threat := director._spawn_entry(entry, 0.0, edge_offset)
 	if threat == null:
 		return
 	training_threat_runtime_id = threat.runtime_id

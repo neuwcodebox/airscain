@@ -100,7 +100,7 @@ func test_terrain_obstruction_requires_relocation_then_returns_to_detection() ->
 	assert_true(main.placement.request_selected_defense_placement())
 	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE)
 	main.training_controller.tracks_refreshed(0)
-	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE, "사거리 밖 표적에 사각 해결을 요구하지 않습니다")
+	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE, "시야가 트인 표적에 사각 해결을 요구하지 않습니다")
 	var threat := main.registry.get_hostile_active()[0]
 	var blocked := Vector3.INF
 	for index: int in 720:
@@ -126,3 +126,19 @@ func test_terrain_obstruction_requires_relocation_then_returns_to_detection() ->
 	main.relocation_manager.gameplay_tick(radar.definition.relocation_duration + 0.1)
 	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE)
 	assert_eq(main.session.simulation_speed, 1.0)
+
+func test_recommended_deployment_confirms_contact_within_ten_seconds() -> void:
+	main.training_controller.next_requested()
+	for index: int in [1, 0]:
+		main.placement.select(main.scenario.available_defenses[index])
+		guidance.refresh()
+		main.placement.candidate_position = guidance.suggestion
+		assert_true(main.placement.request_selected_defense_placement())
+	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE)
+	for tick: int in 100:
+		main._process(0.1)
+		if main.training_controller.step == TrainingController.Step.SELECT_TRACK:
+			break
+	assert_eq(main.training_controller.step, TrainingController.Step.SELECT_TRACK)
+	assert_eq(main.session.simulation_speed, 0.0)
+	assert_true(main.training_controller.training_battery.doctrine.hold_fire)
