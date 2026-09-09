@@ -72,7 +72,7 @@ func run() -> void:
 	assert(command != null)
 	main._on_asset_selected(command)
 	var battery := await place_recommended(0)
-	main.hud.start_requested.emit()
+	main._refresh_tactical_ui()
 	if not await until_step(TrainingController.Step.SELECT_TRACK):
 		return
 	var tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
@@ -87,8 +87,8 @@ func run() -> void:
 	var marker: Vector2 = main.tactical_screen_overlay.call("track_marker_screen_position", target)
 	main._on_world_selected(Vector3.INF, marker)
 	main._on_asset_selected(battery)
-	main._on_world_selected(Vector3.INF, marker)
-	await capture("priority")
+	main._on_target_kind_requested(&"rocket", false)
+	await capture("target_policy")
 	main._on_asset_selected(battery)
 	main.hud.hold_fire_requested.emit(false)
 	if not await until_step(TrainingController.Step.SUPPORT):
@@ -128,7 +128,7 @@ func run() -> void:
 	if main.training_controller.step != TrainingController.Step.COMPLETE:
 		fail("Curriculum did not finish")
 		return
-	print("TRAINING_QUALITY_OK live_detection priority interception resupply repair restoration energy relocation budget=%d" % main.session.budget)
+	print("TRAINING_QUALITY_OK live_detection target_policy interception resupply repair restoration energy relocation budget=%d" % main.session.budget)
 	main.queue_free()
 	await process_frame
 	quit(0)

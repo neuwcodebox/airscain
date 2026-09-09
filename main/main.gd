@@ -114,7 +114,6 @@ func _ready() -> void:
 		guidance.name = "TrainingGuidance"
 		hud.add_child(guidance)
 		guidance.configure(training_controller, placement, camera_rig)
-		training_controller.begin()
 	elif game_mode == GameMode.SANDBOX:
 		hud.set_feedback("방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요.", false)
 	else:
@@ -141,6 +140,8 @@ func _prepare_combat_visuals() -> void:
 		panel.add_child(label)
 		await hud.prepare_result_visuals(_final_statistics())
 	await combat_effect_pool.prepare(objective.prepared_smoke_effects, scenario)
+	if game_mode == GameMode.TRAINING:
+		training_controller.begin()
 	if game_mode == GameMode.SUSTAINED and auto_start_sustained and session.phase == GameSession.Phase.PREPARATION:
 		_on_start_requested()
 		director.launch_budgeted_raid()
@@ -264,15 +265,9 @@ func _connect_flow() -> void:
 	objective.damage_received.connect(_on_objective_damage_audio)
 
 func _on_start_requested() -> void:
-	if game_mode == GameMode.TRAINING and not training_controller.can_start_defense():
-		hud.set_feedback("현재 훈련 단계를 먼저 완료하세요")
-		ui_audio.play_event(UiAudio.ACTION_REJECTED)
-		return
 	if session.start_defense():
 		director.enabled = game_mode == GameMode.SUSTAINED
-		if game_mode == GameMode.TRAINING:
-			training_controller.defense_started()
-		elif game_mode == GameMode.SANDBOX:
+		if game_mode == GameMode.SANDBOX:
 			hud.set_feedback("위협 투입 메뉴에서 공격을 추가할 수 있습니다.", false)
 		else:
 			hud.set_feedback("", false)

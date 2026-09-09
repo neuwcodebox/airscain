@@ -405,6 +405,16 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	await get_tree().process_frame
 	assert_eq(training.game_mode, AirscainMain.GameMode.TRAINING)
 	assert_eq(training.training_controller.step, TrainingController.Step.CAMERA)
+	assert_eq(training.session.phase, GameSession.Phase.RUNNING)
+	assert_false(training.hud.start_button.visible)
+	assert_false(training.hud.feedback_label.text.contains("방어를 시작"))
+	assert_eq(training.session.simulation_speed, 0.0)
+	assert_eq(training.registry.hostile_count(), 1)
+	var initial_threat := training.registry.get_hostile_active()[0]
+	var initial_position := initial_threat.global_position
+	training._process(5.0)
+	assert_eq(training.session.survival_time, 0.0)
+	assert_eq(initial_threat.global_position, initial_position)
 	assert_true(training.hud.training_panel.visible)
 	assert_string_contains(training.hud.training_title.text, "1/%d" % TrainingController.LESSON_COUNT)
 	assert_string_contains(training.hud.training_body.text, "WASD")
@@ -449,19 +459,20 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_true(battery_result.success)
 	var battery := battery_result.unit as MissileBattery
 	assert_true(battery.doctrine.hold_fire)
-	assert_eq(training.training_controller.step, TrainingController.Step.START)
+	assert_eq(training.training_controller.step, TrainingController.Step.CONNECT)
 	var training_radar := radar_result.unit as DefenseUnit
 	training_radar.active = false
-	assert_false(training.training_controller.can_start_defense(), "연결된 센서 없이 훈련을 시작하지 않습니다")
+	training.training_controller.tracks_refreshed(0)
+	assert_eq(training.training_controller.step, TrainingController.Step.CONNECT)
+	assert_eq(training.session.simulation_speed, 0.0)
 	training_radar.active = true
-	assert_true(training.training_controller.can_start_defense())
 	var hostile_count := training.registry.hostile_count()
-	training._on_start_requested()
+	training.training_controller.tracks_refreshed(0)
 	assert_eq(training.training_controller.step, TrainingController.Step.ACQUIRE)
 	assert_false(bool(training.tactical_screen_overlay.get("training_approach_visible")))
 	assert_false(training.hud.catalog_expanded)
 	assert_false(training.director.enabled)
-	assert_eq(training.registry.hostile_count(), hostile_count + 1)
+	assert_eq(training.registry.hostile_count(), hostile_count)
 	var threat: ThreatUnit = training.registry.get_hostile_active().back()
 	assert_gt(threat.global_position.x, training.objective.global_position.x + training.scenario.battlefield_size * 0.55)
 	assert_lte(training.battlefield.terrain_height(threat.global_position.x, threat.global_position.z), training.battlefield.generator.sea_level)

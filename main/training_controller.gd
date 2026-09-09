@@ -1,11 +1,10 @@
 class_name TrainingController
 extends Node
 
-enum Step { NONE, CAMERA, RADAR, COMMAND, WEAPON, START, ACQUIRE, SELECT_TRACK, SELECT_ASSET, TARGET_POLICY, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, OVERLAY, ALTITUDE, ENERGY, ENERGY_REVIEW, RELOCATE, WAIT_RELOCATE, OPERATIONS, COMPLETE }
+enum Step { NONE, CAMERA, RADAR, COMMAND, WEAPON, CONNECT, ACQUIRE, SELECT_TRACK, SELECT_ASSET, TARGET_POLICY, DOCTRINE, ENGAGE, SUPPORT, RESUPPLY, WAIT_RESUPPLY, REPAIR, WAIT_REPAIR, CITY_RESTORE, OVERLAY, ALTITUDE, ENERGY, ENERGY_REVIEW, RELOCATE, WAIT_RELOCATE, OPERATIONS, COMPLETE }
 
 signal selection_clear_requested
 
-const APPROACH_DISTANCE_RATIO := 0.58
 const LESSON_COUNT := 24
 
 var step: Step = Step.NONE
@@ -38,24 +37,22 @@ func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefiel
 	c2_network = network_value
 
 func begin() -> void:
+	session.start_defense()
+	session.set_simulation_speed(0.0)
+	_spawn_training_threat()
 	tactical_screen_overlay.call("show_training_approach", objective.global_position, approach_position())
 	_set_step(Step.CAMERA)
 
-func can_start_defense() -> bool:
-	if step != Step.START:
-		return false
+func _try_observe_approach() -> void:
+	if step != Step.CONNECT:
+		return
 	var battery := _training_battery()
 	for unit: DefenseUnit in defenses:
 		if unit.definition.id == &"search_radar" and c2_network.has_command_path(battery, unit.runtime_id):
-			return true
-	_lesson("C2 연결을 확인하세요", "레이더 → 지휘통제소 → 포대가 연결되어야 시작할 수 있습니다. 청색 연결선을 확인하고, 레이더와 포대 사이에 지휘통제소를 추가해 연결을 보완하세요.")
-	return false
-
-func defense_started() -> void:
-	session.set_simulation_speed(1.0)
-	hud.set_catalog_expanded(false)
-	_set_step(Step.ACQUIRE)
-	_spawn_training_threat()
+			session.set_simulation_speed(1.0)
+			hud.set_catalog_expanded(false)
+			_set_step(Step.ACQUIRE)
+			return
 
 func defense_placed(unit: DefenseUnit) -> void:
 	if step == Step.RADAR and unit.definition.id == &"search_radar":
@@ -64,7 +61,7 @@ func defense_placed(unit: DefenseUnit) -> void:
 		training_battery = unit as MissileBattery
 		unit.set_hold_fire(true)
 		hud.refresh_selected_asset()
-		_set_step(Step.START)
+		_set_step(Step.CONNECT)
 	elif step == Step.SUPPORT and unit.service_range() > 0.0:
 		var battery := _training_battery()
 		if battery == null or not unit.supports_position(battery.global_position):
@@ -83,6 +80,7 @@ func defense_placed(unit: DefenseUnit) -> void:
 		_set_step(Step.ENERGY_REVIEW)
 
 func tracks_refreshed(selectable_hostile_count: int) -> void:
+	_try_observe_approach()
 	if step != Step.ACQUIRE or selectable_hostile_count <= 0:
 		return
 	session.set_simulation_speed(0.0)
@@ -171,7 +169,7 @@ func next_requested() -> void:
 		_set_step(Step.COMPLETE)
 
 func approach_position() -> Vector3:
-	var position := objective.global_position + Vector3.RIGHT * scenario.battlefield_size * APPROACH_DISTANCE_RATIO
+	var position := objective.global_position + Vector3.RIGHT * scenario.battlefield_size * scenario.threat_entries[0].threat_definition.spawn_radius_multiplier()
 	position.y = battlefield.flight_surface_height(position.x, position.z) + 80.0
 	return position
 
@@ -179,15 +177,15 @@ func _set_step(next_step: Step) -> void:
 	step = next_step
 	match step:
 		Step.CAMERA:
-			_lesson("전장 살펴보기", "WASD · 이동\n가운데 버튼 드래그 · 수평·수직 회전\nQ/E · 수평 회전\n휠 · 확대·축소\nBackspace · 위치·줌·각도 초기화\n\n주황색 훈련 표적 진입 표시를 찾아보세요.", true)
+			_lesson("전장 살펴보기", "작전은 이미 시작됐으며 안내와 배치를 위해 자동 일시정지했습니다. 레이더·지휘통제소·포대가 연결되면 자동 재생됩니다. 실전에서는 우측 상단 일시정지를 직접 사용할 수 있습니다.\n\nWASD · 이동\n가운데 버튼 드래그 · 수평·수직 회전\nQ/E · 수평 회전\n휠 · 확대·축소\nBackspace · 위치·줌·각도 초기화\n\n주황색 훈련 표적 진입 표시를 찾아보세요.", true)
 		Step.RADAR:
 			_lesson("저·중고도 레이더", "상단의 방공 자산을 열어 저·중고도 레이더를 고르세요. 도시와 주황색 진입 표시 사이의 평탄한 지형에 배치하세요. 산 뒤에는 저고도 탐지 사각이 생깁니다.")
 		Step.COMMAND:
 			_lesson("도시 지휘통제소", "도시 중앙 건물 옥상의 지휘통제소를 선택하세요. 처음부터 무료로 제공되며 연결된 센서의 항적을 포대에 전달합니다. 망을 넓힐 때는 지휘통제소를 추가 설치할 수 있습니다.")
 		Step.WEAPON:
 			_lesson("요격 계층", "미사일 포대를 도시와 주황색 진입 표시 사이, 지휘통제망 안에 배치하세요. 포대는 사격중지 상태로 준비됩니다. 배치 모드는 우클릭이나 Esc로 종료합니다.")
-		Step.START:
-			_lesson("방어 시작", "화면 하단 중앙의 방어 시작을 누르세요. 레이더·지휘통제소·포대의 연결을 확인한 뒤 통제된 표적 하나가 접근합니다.")
+		Step.CONNECT:
+			_lesson("C2 연결 확인", "레이더 → 지휘통제소 → 포대의 청색 연결선을 확인하세요. 연결될 때까지 자동 일시정지를 유지하고, 연결되면 자동 재생해 탐지 관찰로 진행합니다. 연결이 끊겼다면 지휘통제소를 추가하거나 자산을 재배치하세요.")
 		Step.ACQUIRE:
 			tactical_screen_overlay.call("hide_training_approach")
 			_lesson("탐지 관찰 · 자동 재생", "실제 물체가 보여도 방공망이 탐지하기 전에는 교전할 수 없습니다. 잠정 항적이 확인 항적으로 바뀌면 자동 일시정지됩니다.")
@@ -242,21 +240,10 @@ func city_command() -> DefenseUnit:
 func _lesson(title: String, body: String, next_visible: bool = false) -> void:
 	hud.set_training_lesson(mini(int(step), LESSON_COUNT), LESSON_COUNT, title, body, next_visible)
 func _spawn_training_threat() -> void:
-	if _training_battery() == null or not _has_search_radar():
-		return
 	var threat := director._spawn_entry(scenario.threat_entries[0], 0.0, 0.0)
 	if threat == null:
 		return
 	training_threat_runtime_id = threat.runtime_id
-	threat.global_position = approach_position()
-	if threat is AttackUav:
-		(threat as AttackUav).speed_multiplier = 0.65
-
-func _has_search_radar() -> bool:
-	for defense: DefenseUnit in defenses:
-		if defense.definition.id == &"search_radar":
-			return true
-	return false
 
 func _training_battery() -> MissileBattery:
 	return training_battery if is_instance_valid(training_battery) else null

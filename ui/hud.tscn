@@ -480,7 +480,7 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 18
-text = "포대를 배치한 뒤 방어를 시작하세요"
+text = ""
 horizontal_alignment = 1
 
 [node name="TrainingPanel" type="PanelContainer" parent="."]

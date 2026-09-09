@@ -65,8 +65,6 @@ func refresh() -> void:
 			_asset(training.city_command())
 		TrainingController.Step.CAMERA, TrainingController.Step.OPERATIONS:
 			_button(hud.training_next_button, "계속")
-		TrainingController.Step.START:
-			_button(hud.start_button, "방어 시작")
 		TrainingController.Step.SELECT_TRACK:
 			_track()
 		TrainingController.Step.SELECT_ASSET:
