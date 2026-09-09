@@ -94,12 +94,12 @@ func run() -> void:
 	await place_recommended(5)
 	main._on_asset_selected(battery)
 	main.hud.resupply_button.pressed.emit()
-	if not await until_step(TrainingController.Step.REPAIR):
+	if not await until_support_read():
 		return
 	main._on_asset_selected(battery)
 	await capture("repair")
 	main.hud.repair_button.pressed.emit()
-	if not await until_step(TrainingController.Step.CITY_RESTORE):
+	if not await until_support_read():
 		return
 	main.hud.set_city_menu_expanded(true)
 	await capture("city")
@@ -111,6 +111,22 @@ func run() -> void:
 	main.queue_free()
 	await process_frame
 	quit(0)
+
+func until_support_read() -> bool:
+	for tick: int in 300:
+		main._process(0.1)
+		if main.training_controller.support_lesson_completed:
+			var current_step := main.training_controller.step
+			await capture("support_completed_%d" % current_step)
+			main._process(10.0)
+			assert(main.training_controller.step == current_step)
+			assert(main.session.simulation_speed == 1.0)
+			main.hud.training_next_button.pressed.emit()
+			return true
+		if tick % 15 == 0:
+			await process_frame
+	fail("Support lesson did not complete")
+	return false
 
 func place_recommended(index: int) -> DefenseUnit:
 	main.hud.set_catalog_expanded(true)

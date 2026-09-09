@@ -21,6 +21,7 @@ var hud: Hud
 var tactical_screen_overlay: Node
 var c2_network: C2Network
 var relocation_subject: DefenseUnit
+var support_lesson_completed: bool = false
 var training_battery: MissileBattery
 
 func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, defenses_value: Array[DefenseUnit], registry_value: ThreatRegistry, director_value: ThreatDirector, session_value: GameSession, hud_value: Hud, tactical_screen_overlay_value: Node, network_value: C2Network) -> void:
@@ -120,7 +121,6 @@ func hold_fire_changed(enabled: bool, unit: DefenseUnit) -> void:
 func threat_resolved(threat: ThreatUnit) -> void:
 	if threat.runtime_id != training_threat_runtime_id or step != Step.ENGAGE:
 		return
-	session.set_simulation_speed(0.0)
 	var battery := _training_battery()
 	if battery != null:
 		for magazine: WeaponMagazine in battery.magazines.values():
@@ -139,18 +139,11 @@ func support_requested(kind: StringName, unit: DefenseUnit) -> void:
 		_set_step(Step.WAIT_REPAIR)
 
 func support_completed(kind: StringName, unit: DefenseUnit) -> void:
-	if unit != _training_battery():
+	if unit != _training_battery() or support_lesson_completed:
 		return
-	if step == Step.WAIT_RESUPPLY and kind == &"resupply":
-		session.set_simulation_speed(0.0)
-		unit.receive_damage(unit.definition.maximum_integrity * 0.25)
-		hud.refresh_selected_asset()
-		_set_step(Step.REPAIR)
-	elif step == Step.WAIT_REPAIR and kind == &"repair":
-		session.set_simulation_speed(0.0)
-		if objective.current_integrity > objective.definition.maximum_integrity - objective.definition.restoration_amount:
-			objective.apply_mission_damage(objective.definition.restoration_amount)
-		_set_step(Step.CITY_RESTORE)
+	if (step == Step.WAIT_RESUPPLY and kind == &"resupply") or (step == Step.WAIT_REPAIR and kind == &"repair"):
+		support_lesson_completed = true
+		hud.set_training_lesson(int(step), LESSON_COUNT, "보급 완료" if kind == &"resupply" else "수리 완료", hud.training_description + "\n\n작업이 완료됐습니다. 확인했으면 계속을 누르세요.", true)
 
 func city_restored() -> void:
 	if step == Step.CITY_RESTORE:
@@ -170,6 +163,17 @@ func relocation_completed(unit: DefenseUnit) -> void:
 func next_requested() -> void:
 	if step == Step.CAMERA:
 		_set_step(Step.RADAR)
+	elif step == Step.WAIT_RESUPPLY and support_lesson_completed:
+		var battery := _training_battery()
+		if battery == null:
+			return
+		battery.receive_damage(battery.definition.maximum_integrity * 0.25)
+		hud.refresh_selected_asset()
+		_set_step(Step.REPAIR)
+	elif step == Step.WAIT_REPAIR and support_lesson_completed:
+		if objective.current_integrity > objective.definition.maximum_integrity - objective.definition.restoration_amount:
+			objective.apply_mission_damage(objective.definition.restoration_amount)
+		_set_step(Step.CITY_RESTORE)
 
 func approach_position() -> Vector3:
 	var position := Vector3.RIGHT * APPROACH_DISTANCE
@@ -178,7 +182,8 @@ func approach_position() -> Vector3:
 
 func _set_step(next_step: Step) -> void:
 	step = next_step
-	var playing := step in [Step.ACQUIRE, Step.ENGAGE, Step.WAIT_RESUPPLY, Step.WAIT_REPAIR, Step.WAIT_RELOCATE, Step.COMPLETE]
+	support_lesson_completed = false
+	var playing := step in [Step.ACQUIRE, Step.ENGAGE, Step.SUPPORT, Step.RESUPPLY, Step.WAIT_RESUPPLY, Step.REPAIR, Step.WAIT_REPAIR, Step.CITY_RESTORE, Step.WAIT_RELOCATE, Step.COMPLETE]
 	session.set_simulation_speed(1.0 if playing else 0.0)
 	match step:
 		Step.CAMERA:
@@ -205,11 +210,11 @@ func _set_step(next_step: Step) -> void:
 			hud.set_catalog_expanded(false)
 			_lesson("재보급 요청", "지원기지가 연결됐습니다. 포대를 선택하고 재보급 요청을 누르세요. 요청 비용은 버튼에서 확인할 수 있습니다.")
 		Step.WAIT_RESUPPLY:
-			_lesson("탄약 보충 확인", "보급이 진행 중입니다. 포대 선택 패널의 작업 진행도와 예비탄 수량을 확인하세요. 완료되면 예비탄이 채워집니다.")
+			_lesson("탄약 보충 확인", "지원기지가 예비탄을 보충합니다. 포대 선택 패널의 작업 진행도와 예비탄 수량을 확인하세요. 완료되면 예비탄이 채워집니다.")
 		Step.REPAIR:
 			_lesson("손상된 포대 수리", "보급이 완료됐습니다. 다음 정비 실습을 위해 포대에 경미한 손상을 적용했습니다.\n\n포대를 선택해 내구도를 확인하고 수리 요청을 누르세요.")
 		Step.WAIT_REPAIR:
-			_lesson("수리 결과 확인", "지원기지가 포대를 수리하고 있습니다. 선택 패널에서 내구도가 회복되는지 확인하세요.")
+			_lesson("수리 결과 확인", "지원기지가 포대의 내구도를 회복합니다. 선택 패널에서 수리 결과를 확인하세요.")
 		Step.CITY_RESTORE:
 			_lesson("도시 피해 복구", "포대 수리가 완료됐습니다. 마지막으로 도시 복구 실습용 피해를 적용했습니다.\n\n상단 도시 관리를 열고 피해 복구를 누르세요. 예산을 사용해 도시 내구도를 즉시 회복합니다.")
 		Step.COMPLETE:

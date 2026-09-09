@@ -58,6 +58,9 @@ func refresh() -> void:
 		_placement_cue(PLACEMENT_LESSONS[training.step])
 		return
 	match training.step:
+		TrainingController.Step.WAIT_RESUPPLY, TrainingController.Step.WAIT_REPAIR:
+			if training.support_lesson_completed:
+				_button(hud.training_next_button, "계속")
 		TrainingController.Step.CAMERA:
 			_button(hud.training_next_button, "계속")
 		TrainingController.Step.SELECT_TRACK:
