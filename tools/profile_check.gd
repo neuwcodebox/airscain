@@ -62,6 +62,18 @@ class ProfiledBattery:
 
 class ProfiledC2:
 	extends C2Network
+	func _filter_available(tracks: Array[PlayerTrack], local_ids: Array[int], reachable_ids: Array[int]) -> Array[PlayerTrack]:
+		var start := Time.get_ticks_usec()
+		var result := super._filter_available(tracks, local_ids, reachable_ids)
+		NestedCosts.record("c2_filter", start, tracks.size())
+		return result
+
+	func available_tracks_for_knowledge(unit: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
+		var start := Time.get_ticks_usec()
+		var result := super.available_tracks_for_knowledge(unit, knowledge)
+		NestedCosts.record("c2_available_tracks", start, _view_tracks.size())
+		return result
+
 	func available_tracks_for(unit: DefenseUnit, tracks: Array[PlayerTrack]) -> Array[PlayerTrack]:
 		var start := Time.get_ticks_usec()
 		var result := super.available_tracks_for(unit, tracks)

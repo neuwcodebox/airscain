@@ -48,6 +48,8 @@ func allows_target_kind(kind: StringName) -> bool:
 func available_tracks() -> Array[PlayerTrack]:
 	if player_knowledge == null or c2_network == null:
 		return []
+	if player_knowledge is PlayerKnowledge and c2_network is C2Network:
+		return (c2_network as C2Network).available_tracks_for_knowledge(self, player_knowledge as PlayerKnowledge)
 	var known_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
 	return c2_network.call("available_tracks_for", self, known_tracks)
 

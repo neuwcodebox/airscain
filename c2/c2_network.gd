@@ -13,6 +13,10 @@ var _cached_jamming_epoch: int = -1
 var _reachable_sensor_cache: Dictionary[int, Array] = {}
 var _jamming_refresh_remaining: float = 0.0
 var _jamming_epoch: int = 0
+var _view_source: PlayerKnowledge
+var _view_revision: int = -1
+var _view_tracks: Array[PlayerTrack] = []
+var _track_views: Dictionary[Array, Array] = {}
 
 func configure(registry: ThreatRegistry) -> void:
 	threat_registry = registry
@@ -30,6 +34,9 @@ func reset() -> void:
 	endpoints.clear()
 	_jamming_refresh_remaining = 0.0
 	_jamming_epoch = 0
+	_view_source = null
+	_view_revision = -1
+	_view_tracks.clear()
 	_invalidate_cache()
 
 func register_asset(unit: DefenseUnit) -> void:
@@ -59,10 +66,37 @@ func shared_tracks_for(unit: DefenseUnit, tracks: Array[PlayerTrack]) -> Array[P
 	return result
 
 func available_tracks_for(unit: DefenseUnit, tracks: Array[PlayerTrack]) -> Array[PlayerTrack]:
-	var result: Array[PlayerTrack] = []
-	var shared: Array[PlayerTrack] = []
-	var local_sensor_ids := unit.local_sensor_ids()
+	# Arbitrary caller-owned arrays retain the uncached, immediately live API.
+	return _filter_available(tracks, unit.local_sensor_ids(), _reachable_sensor_ids(unit))
+
+func available_tracks_for_knowledge(unit: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
 	var reachable_sensor_ids := _reachable_sensor_ids(unit)
+	if _view_source != knowledge or _view_revision != knowledge.track_revision:
+		_view_source = knowledge
+		_view_revision = knowledge.track_revision
+		_view_tracks = knowledge.get_active_tracks()
+		_track_views.clear()
+	# Components share the same reachable sensors. Local priority is part of the
+	# key, copied so later endpoint edits cannot mutate a dictionary key.
+	var local_sensor_ids := unit.local_sensor_ids().duplicate()
+	var key: Array = [reachable_sensor_ids, local_sensor_ids]
+	if not _track_views.has(key):
+		_track_views[key] = _filter_available(_view_tracks, local_sensor_ids, reachable_sensor_ids)
+	var cached: Array[PlayerTrack] = _track_views[key]
+	return cached.duplicate()
+
+func _filter_available(tracks: Array[PlayerTrack], local_sensor_ids: Array[int], reachable_sensor_ids: Array[int]) -> Array[PlayerTrack]:
+	var result: Array[PlayerTrack] = []
+	if local_sensor_ids.is_empty():
+		if reachable_sensor_ids.is_empty():
+			return result
+		for track: PlayerTrack in tracks:
+			for sensor_id: int in track.contributing_sensor_ids:
+				if reachable_sensor_ids.has(sensor_id):
+					result.append(track)
+					break
+		return result
+	var shared: Array[PlayerTrack] = []
 	for track: PlayerTrack in tracks:
 		if _has_any_sensor(track, local_sensor_ids):
 			result.append(track)
@@ -187,6 +221,7 @@ func _refresh_cache_if_topology_changed() -> void:
 
 func _rebuild_reachable_cache() -> void:
 	_reachable_sensor_cache.clear()
+	_track_views.clear()
 	var visited: Dictionary[int, bool] = {}
 	for start: DefenseUnit in endpoints:
 		var start_id := start.get_instance_id()
@@ -219,3 +254,4 @@ func _rebuild_reachable_cache() -> void:
 func _invalidate_cache() -> void:
 	_topology_dirty = true
 	_reachable_sensor_cache.clear()
+	_track_views.clear()

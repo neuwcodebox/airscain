@@ -16,8 +16,12 @@ signal track_removed(track_id: int)
 var simulation_time: float = 0.0
 var next_track_id: int = 1
 var tracks: Array[PlayerTrack] = []
+# Changes to owned observations/lifecycle invalidate shared C2 membership views.
+# Moving estimates remain live through the PlayerTrack references in those views.
+var track_revision: int = 0
 
 func reset() -> void:
+	track_revision += 1
 	simulation_time = 0.0
 	next_track_id = 1
 	tracks.clear()
@@ -30,9 +34,11 @@ func gameplay_tick(delta: float) -> void:
 		var unobserved_time := simulation_time - track.last_observed_at
 		track.predict(delta, unobserved_time, coast_after, lost_after)
 		if track.state != previous_state:
+			track_revision += 1
 			track_state_changed.emit(track, previous_state)
 		if unobserved_time >= remove_after:
 			tracks.remove_at(index)
+			track_revision += 1
 			track_removed.emit(track.track_id)
 
 func submit_observation(observation: SensorObservation) -> PlayerTrack:
@@ -44,10 +50,12 @@ func submit_observation(observation: SensorObservation) -> PlayerTrack:
 			track.state = PlayerTrack.State.CONFIRMED
 		next_track_id += 1
 		tracks.append(track)
+		track_revision += 1
 		track_created.emit(track)
 	else:
 		var previous_state := track.state
 		track.apply_observation(observation, confirmation_threshold, maximum_association_speed)
+		track_revision += 1
 		if track.state != previous_state:
 			track_state_changed.emit(track, previous_state)
 	track_updated.emit(track)
@@ -105,6 +113,7 @@ func restore_state(data: Dictionary) -> void:
 		var track := PlayerTrack.new()
 		track.restore_state(track_data)
 		tracks.append(track)
+		track_revision += 1
 		track_created.emit(track)
 		track_updated.emit(track)
 
