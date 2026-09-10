@@ -1130,7 +1130,7 @@ func test_clicking_track_inspects_without_changing_engagement_policy() -> void:
 	main._on_world_selected(Vector3.INF, point)
 	assert_eq(battery.capture_doctrine_state(), policy_before)
 	assert_same(main.selected_asset, battery)
-	assert_false(battery.doctrine.hold_fire)
+	assert_true(battery.doctrine.hold_fire, "항적 조회는 기존 사격중지를 유지합니다")
 	assert_eq(main.hud.selection_kind_label.text, "교전 검토")
 	main._on_world_selected(track.estimated_position, Vector2(-100, -100))
 	for affiliation: int in [PlayerTrack.Affiliation.NEUTRAL, PlayerTrack.Affiliation.FRIENDLY, PlayerTrack.Affiliation.UNKNOWN]:
@@ -1382,7 +1382,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	main._on_world_selected(known_tracks[0].estimated_position)
 
 	main.hud.hold_fire_requested.emit(true)
-	assert_false(battery.doctrine.hold_fire)
+	assert_true(battery.doctrine.hold_fire, "유지된 무장 선택에 사격중지 명령을 적용합니다")
 	main.hud.hold_fire_requested.emit(false)
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
