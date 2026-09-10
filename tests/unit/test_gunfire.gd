@@ -18,6 +18,100 @@ class MovingTarget:
 	func presentation_velocity() -> Vector3:
 		return velocity
 
+class ExhaustiveRuntime:
+	extends GunfireRuntime
+	func _candidate_indices(snapshot: TargetSnapshot, _start: Vector3, _end: Vector3, _radius: float) -> PackedInt32Array:
+		return snapshot.indices
+
+func test_spatial_candidates_match_exhaustive_combat_across_motion_and_lifecycle() -> void:
+	for seed_value: int in [12, 73129, 901]:
+		var spatial := _runtime()
+		var exhaustive := add_child_autofree(ExhaustiveRuntime.new()) as GunfireRuntime
+		spatial.registry = ThreatRegistry.new()
+		exhaustive.registry = ThreatRegistry.new()
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var actual_events: Array[Array] = []
+		var expected_events: Array[Array] = []
+		spatial.round_detonated.connect(func(position: Vector3, reason: StringName) -> void: actual_events.append([position, reason]))
+		exhaustive.round_detonated.connect(func(position: Vector3, reason: StringName) -> void: expected_events.append([position, reason]))
+		var pairs: Array[Array] = []
+		for index: int in 100:
+			var position := Vector3(rng.randf_range(-320, 320), rng.randf_range(60, 160), rng.randf_range(-320, 320))
+			var velocity := Vector3(rng.randf_range(-300, 300), rng.randf_range(-70, 70), rng.randf_range(-300, 300))
+			pairs.append(_target_pair(spatial, exhaustive, index, position, velocity))
+		for index: int in 100:
+			var target := pairs[index][0] as MovingTarget
+			var offset := Vector3(rng.randf_range(-30, 30), 0, rng.randf_range(-30, 30))
+			var round := _round(target.position + offset, -offset.normalized() * 620, rng.randf_range(0, 0.1))
+			spatial.rounds.append(round.duplicate())
+			exhaustive.rounds.append(round.duplicate())
+		watch_signals(spatial)
+		watch_signals(exhaustive)
+		for step: int in 40:
+			if step == 8:
+				# Both removed targets and later registrations must be visible next step.
+				spatial.registry.remove(pairs[0][0])
+				exhaustive.registry.remove(pairs[0][1])
+				pairs.append(_target_pair(spatial, exhaustive, 200, Vector3(-64, 100, 64), Vector3(250, 0, -250)))
+			var delta := 0.035 if step % 3 == 0 else 0.01
+			spatial.gameplay_tick(delta)
+			exhaustive.gameplay_tick(delta)
+			assert_eq(spatial.capture_state(), exhaustive.capture_state(), "seed %d step %d surviving rounds" % [seed_value, step])
+			assert_eq(spatial.bursts, exhaustive.bursts, "detonation positions, reasons and order stay unchanged")
+			assert_eq(actual_events, expected_events)
+			for pair: Array in pairs:
+				var actual := pair[0] as MovingTarget
+				var expected := pair[1] as MovingTarget
+				assert_eq(actual.health, expected.health)
+				actual.position += actual.velocity * delta
+				expected.position += expected.velocity * delta
+		assert_eq(get_signal_emit_count(spatial, "round_fired"), get_signal_emit_count(exhaustive, "round_fired"))
+		assert_eq(get_signal_emit_count(spatial, "round_detonated"), get_signal_emit_count(exhaustive, "round_detonated"))
+		var damaged := 0
+		for pair: Array in pairs:
+			if (pair[0] as MovingTarget).health < 2.0:
+				damaged += 1
+		assert_gt(damaged, 0, "the differential workload must exercise actual hits")
+
+func _target_pair(spatial: GunfireRuntime, exhaustive: GunfireRuntime, id_value: int, position: Vector3, velocity: Vector3) -> Array:
+	var pair: Array[MovingTarget] = []
+	for runtime: GunfireRuntime in [spatial, exhaustive]:
+		var target := add_child_autofree(MovingTarget.new()) as MovingTarget
+		target.setup(id_value, THREAT.threat_entries[1].threat_definition)
+		target.position = position
+		target.velocity = velocity
+		target.health = 2.0
+		runtime.registry.add(target)
+		pair.append(target)
+	return pair
+
+func test_spatial_query_keeps_boundary_crossings_and_registry_tie_order() -> void:
+	var runtime := _runtime()
+	runtime.registry = ThreatRegistry.new()
+	for index: int in 80:
+		var target := add_child_autofree(MovingTarget.new()) as MovingTarget
+		target.setup(index, THREAT.threat_entries[1].threat_definition)
+		target.position = Vector3(1000 + index * 90, 100, 1000)
+		target.velocity = Vector3.ZERO
+		target.health = 100
+		runtime.registry.add(target)
+	var first := runtime.registry.get_active()[0] as MovingTarget
+	var last := runtime.registry.get_active()[-1] as MovingTarget
+	# Initial target positions straddle a negative cell boundary and converge
+	# at the round's closest point with equal fractions in this integration step.
+	first.position = Vector3(-65, 100, -65)
+	last.position = Vector3(-63, 100, -65)
+	first.velocity = Vector3(100, 0, 0)
+	last.velocity = Vector3(-100, 0, 0)
+	var round := _round(Vector3(-64, 100, -71), Vector3(0, 0, 600))
+	round.age = 0.1
+	runtime.rounds.append(round)
+	runtime.gameplay_tick(0.02)
+	assert_true(runtime.rounds.is_empty())
+	assert_eq(first.health, 100.0)
+	assert_eq(last.health, 98.0, "equal closest fractions keep the last registry candidate")
+
 func _runtime() -> GunfireRuntime:
 	return add_child_autofree(GunfireRuntime.new()) as GunfireRuntime
 

@@ -18,6 +18,67 @@ var glows: MultiMeshInstance3D
 var flashes: MultiMeshInstance3D
 var smoke: MultiMeshInstance3D
 
+class TargetSnapshot:
+	extends RefCounted
+	# One snapshot per integration step, shared by all rounds. Later weapons must
+	# see damage/spawns from earlier weapons, so it is not cached across ticks.
+	const CELL_SIZE := 64.0
+	const LINEAR_LIMIT := 64
+	var targets: Array[ThreatUnit] = []
+	var positions := PackedVector3Array()
+	var velocities := PackedVector3Array()
+	var reaches := PackedFloat32Array()
+	var indices := PackedInt32Array()
+	var cells: Dictionary[Vector3i, Array] = {}
+	var max_reach: float = 0.0
+
+	func _init(registry_value: ThreatRegistry, delta: float) -> void:
+		if registry_value == null:
+			return
+		targets = registry_value.get_active()
+		var sampled_positions := PackedVector3Array()
+		var sampled_velocities := PackedVector3Array()
+		var sampled_reaches := PackedFloat32Array()
+		for target: ThreatUnit in targets:
+			sampled_positions.append(target.get_aim_position())
+			var velocity := target.presentation_velocity()
+			sampled_velocities.append(velocity)
+			sampled_reaches.append(velocity.length() * delta)
+		positions = sampled_positions
+		velocities = sampled_velocities
+		reaches = sampled_reaches
+		indices = PackedInt32Array(range(targets.size()))
+		if targets.size() > LINEAR_LIMIT:
+			for index: int in targets.size():
+				var position := sampled_positions[index]
+				max_reach = maxf(max_reach, sampled_reaches[index])
+				var cell := Vector3i((position / CELL_SIZE).floor())
+				if not cells.has(cell):
+					cells[cell] = []
+				cells[cell].append(index)
+
+	func candidates(start: Vector3, end: Vector3, radius: float) -> PackedInt32Array:
+		if targets.size() <= LINEAR_LIMIT:
+			return indices
+		# A target's initial position may be outside the round's swept bounds.
+		# Expand by its maximum possible movement, including partial/delayed steps.
+		var padding := Vector3.ONE * (radius + max_reach + 0.001)
+		var first := Vector3i(((start.min(end) - padding) / CELL_SIZE).floor())
+		var last := Vector3i(((start.max(end) + padding) / CELL_SIZE).floor())
+		var span := last - first + Vector3i.ONE
+		if float(span.x) * span.y * span.z >= targets.size():
+			return indices
+		var result := PackedInt32Array()
+		for x: int in range(first.x, last.x + 1):
+			for y: int in range(first.y, last.y + 1):
+				for z: int in range(first.z, last.z + 1):
+					var cell := Vector3i(x, y, z)
+					if cells.has(cell):
+						result.append_array(cells[cell])
+		# Preserve the registry's tie order; each point belongs to exactly one cell.
+		result.sort()
+		return result
+
 func _ready() -> void:
 	top_level = true
 	global_transform = Transform3D.IDENTITY
@@ -96,17 +157,13 @@ func _step(delta: float) -> void:
 		bursts[index].age = float(bursts[index].age) + delta
 		if float(bursts[index].age) >= 0.85:
 			bursts.remove_at(index)
-	var targets: Array[ThreatUnit] = []
-	if registry != null:
-		targets = registry.get_active()
-	var target_positions := PackedVector3Array()
-	var target_steps := PackedVector3Array()
-	var target_reaches := PackedFloat32Array()
-	for target: ThreatUnit in targets:
-		target_positions.append(target.get_aim_position())
-		var target_velocity := target.presentation_velocity()
-		target_steps.append(target_velocity)
-		target_reaches.append(target_velocity.length() * delta)
+	if rounds.is_empty():
+		return
+	var snapshot := TargetSnapshot.new(registry, delta)
+	var targets := snapshot.targets
+	var target_positions := snapshot.positions
+	var target_steps := snapshot.velocities
+	var target_reaches := snapshot.reaches
 	for index: int in range(rounds.size() - 1, -1, -1):
 		var round := rounds[index]
 		var previous_age := float(round.age)
@@ -136,7 +193,7 @@ func _step(delta: float) -> void:
 		if float(round.age) >= ARM_TIME:
 			var armed_fraction := clampf((ARM_TIME - maxf(0, previous_age)) / maxf(0.00001, travel_time), 0, 1)
 			var round_reach := start.distance_to(end) + float(round.radius)
-			for target_index: int in targets.size():
+			for target_index: int in _candidate_indices(snapshot, start, end, float(round.radius)):
 				var offset := start - target_positions[target_index]
 				# Conservative swept sphere: moving targets can enter the fuze this step.
 				var reach := round_reach + target_reaches[target_index] + 0.001
@@ -158,7 +215,10 @@ func _step(delta: float) -> void:
 			_detonate(round.position, reason)
 			rounds.remove_at(index)
 			if is_instance_valid(victim):
-				victim.receive_damage(float(round.damage))
+					victim.receive_damage(float(round.damage))
+
+func _candidate_indices(snapshot: TargetSnapshot, start: Vector3, end: Vector3, radius: float) -> PackedInt32Array:
+	return snapshot.candidates(start, end, radius)
 
 func _detonate(position: Vector3, reason: StringName) -> void:
 	if bursts.size() >= CAPACITY:
