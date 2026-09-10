@@ -3,9 +3,11 @@ extends SceneTree
 ## --breakdown attributes simulation costs; --geometry counts terrain/collision queries;
 ## --render also measures full frames in an actual window; --night starts at midnight.
 ## --detail adds nested targeting/C2 timings; --render-probe uses paired exclusions.
+## --compare-smoke-proxies compares sphere/impostor geometry on one frozen scene.
 ## Timings are inclusive. Nested measurements must not be added to parent costs.
 
 const MAIN_SCENE := preload("res://main/main.tscn")
+const SHADOW_EXPERIMENT := preload("res://tools/smoke_shadow_experiment.gd")
 const STEP := 0.05
 const PROFILE_DURATION := 20.0
 const THREATS_PER_TYPE := 10
@@ -312,6 +314,8 @@ func run() -> void:
 		root.get_texture().get_image().save_png("/tmp/airscain_profile_combat.png")
 	if OS.get_cmdline_user_args().has("--render-probe"):
 		await _render_probe()
+	if OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
+		await _compare_smoke_proxies()
 	main.combat_audio.call("stop_all")
 	main.free()
 	main = null
@@ -449,6 +453,46 @@ func _freeze(node: Node) -> void:
 		(node as GPUParticles3D).speed_scale = 0.0
 	for child: Node in node.get_children():
 		_freeze(child)
+
+func _compare_smoke_proxies() -> void:
+	_freeze(main)
+	var proxies: Array[GeometryInstance3D] = []
+	var original_meshes: Array[Mesh] = []
+	var impostor_meshes: Array[Mesh] = []
+	for node: Node in main.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := node as GeometryInstance3D
+		if geometry.layers != SmokeShadowFactory.SMOKE_LAYER:
+			continue
+		var mesh: Mesh
+		if geometry is MultiMeshInstance3D:
+			mesh = (geometry as MultiMeshInstance3D).multimesh.mesh
+		elif geometry is GPUParticles3D:
+			mesh = (geometry as GPUParticles3D).draw_pass_1
+		if not mesh is SphereMesh:
+			continue
+		var source := mesh.surface_get_material(0) as ShaderMaterial
+		if source == null or source.shader != SmokeShadowFactory.SHADOW_SHADER:
+			continue
+		proxies.append(geometry)
+		original_meshes.append(mesh)
+		impostor_meshes.append(SHADOW_EXPERIMENT.make_impostor(mesh as SphereMesh))
+	print("PROFILE_SHADOW_COMPARE proxy_nodes=%d" % proxies.size())
+	# ABBA, repeated: identical particle buffers, ages, camera and map dimensions.
+	for repeat: int in 2:
+		for variant: String in ["sphere", "impostor", "impostor", "sphere"]:
+			for index: int in proxies.size():
+				var mesh := original_meshes[index] if variant == "sphere" else impostor_meshes[index]
+				if proxies[index] is MultiMeshInstance3D:
+					(proxies[index] as MultiMeshInstance3D).multimesh.mesh = mesh
+				else:
+					(proxies[index] as GPUParticles3D).draw_pass_1 = mesh
+			await _sample_render("shadow_%s/r%d" % [variant, repeat])
+			root.get_texture().get_image().save_png("/tmp/airscain_shadow_%s.png" % variant)
+	for index: int in proxies.size():
+		if proxies[index] is MultiMeshInstance3D:
+			(proxies[index] as MultiMeshInstance3D).multimesh.mesh = original_meshes[index]
+		else:
+			(proxies[index] as GPUParticles3D).draw_pass_1 = original_meshes[index]
 
 func _sample_render(label: String) -> void:
 	var samples: Array[int] = []
