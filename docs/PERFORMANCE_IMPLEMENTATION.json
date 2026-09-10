@@ -809,5 +809,149 @@
         "PROFILE_RESULT remaining_contacts=206 remaining_tracks=143 city_integrity=8520"
       ]
     }
+  },
+  "combined_optimizations": {
+    "baseline_commit": "f598d16",
+    "optimized_commit": "464365d",
+    "baseline_tool_adjustment": "Only seed/seconds parsing and PROFILE_CONFIG output matched to current diagnostic; gameplay files unchanged.",
+    "runs": {
+      "before_large_1": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=headless renderer=gl_compatibility adapter= max_fps=0",
+        "PROFILE_VIEW size=(64, 64) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=73129 steps=400 step_seconds=0.05 large=true night=false",
+        "PROFILE_PROGRESS steps=100 contacts=319 tracks=240",
+        "PROFILE_PROGRESS steps=200 contacts=247 tracks=182",
+        "PROFILE_PROGRESS steps=300 contacts=229 tracks=131",
+        "PROFILE_PROGRESS steps=400 contacts=206 tracks=143",
+        "PROFILE_OK samples=400 avg_ms=52.968 p95_ms=113.512 max_ms=170.739 contacts=364 tracks=303 projectiles=159 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=158",
+        "PROFILE_RESULT remaining_contacts=206 remaining_tracks=143 city_integrity=8520"
+      ],
+      "after_large_1": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=headless renderer=gl_compatibility adapter= max_fps=0",
+        "PROFILE_VIEW size=(64, 64) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=73129 steps=400 step_seconds=0.05 large=true night=false",
+        "PROFILE_PROGRESS steps=100 contacts=319 tracks=240",
+        "PROFILE_PROGRESS steps=200 contacts=247 tracks=182",
+        "PROFILE_PROGRESS steps=300 contacts=229 tracks=131",
+        "PROFILE_PROGRESS steps=400 contacts=206 tracks=143",
+        "PROFILE_OK samples=400 avg_ms=41.708 p95_ms=89.154 max_ms=135.387 contacts=364 tracks=303 projectiles=157 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=158",
+        "PROFILE_RESULT remaining_contacts=206 remaining_tracks=143 city_integrity=8520"
+      ],
+      "after_large_2": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=headless renderer=gl_compatibility adapter= max_fps=0",
+        "PROFILE_VIEW size=(64, 64) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=73129 steps=400 step_seconds=0.05 large=true night=false",
+        "PROFILE_PROGRESS steps=100 contacts=319 tracks=240",
+        "PROFILE_PROGRESS steps=200 contacts=247 tracks=182",
+        "PROFILE_PROGRESS steps=300 contacts=229 tracks=131",
+        "PROFILE_PROGRESS steps=400 contacts=206 tracks=143",
+        "PROFILE_OK samples=400 avg_ms=42.584 p95_ms=88.928 max_ms=131.956 contacts=364 tracks=303 projectiles=159 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=158",
+        "PROFILE_RESULT remaining_contacts=206 remaining_tracks=143 city_integrity=8520"
+      ],
+      "before_large_2": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=headless renderer=gl_compatibility adapter= max_fps=0",
+        "PROFILE_VIEW size=(64, 64) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=73129 steps=400 step_seconds=0.05 large=true night=false",
+        "PROFILE_PROGRESS steps=100 contacts=319 tracks=240",
+        "PROFILE_PROGRESS steps=200 contacts=247 tracks=182",
+        "PROFILE_PROGRESS steps=300 contacts=229 tracks=131",
+        "PROFILE_PROGRESS steps=400 contacts=206 tracks=143",
+        "PROFILE_OK samples=400 avg_ms=53.386 p95_ms=114.446 max_ms=172.146 contacts=364 tracks=303 projectiles=159 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=158",
+        "PROFILE_RESULT remaining_contacts=206 remaining_tracks=143 city_integrity=8520"
+      ],
+      "before_night_long": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=headless renderer=gl_compatibility adapter= max_fps=0",
+        "PROFILE_VIEW size=(64, 64) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=90210 steps=1200 step_seconds=0.05 large=true night=true",
+        "PROFILE_PROGRESS steps=100 contacts=328 tracks=230",
+        "PROFILE_PROGRESS steps=200 contacts=243 tracks=162",
+        "PROFILE_PROGRESS steps=300 contacts=232 tracks=140",
+        "PROFILE_PROGRESS steps=400 contacts=219 tracks=143",
+        "PROFILE_PROGRESS steps=500 contacts=194 tracks=132",
+        "PROFILE_PROGRESS steps=600 contacts=185 tracks=90",
+        "PROFILE_PROGRESS steps=700 contacts=164 tracks=74",
+        "PROFILE_PROGRESS steps=800 contacts=129 tracks=44",
+        "PROFILE_PROGRESS steps=900 contacts=103 tracks=34",
+        "PROFILE_PROGRESS steps=1000 contacts=75 tracks=27",
+        "PROFILE_PROGRESS steps=1100 contacts=61 tracks=20",
+        "PROFILE_PROGRESS steps=1200 contacts=51 tracks=18",
+        "PROFILE_OK samples=1200 avg_ms=28.757 p95_ms=86.539 max_ms=159.139 contacts=364 tracks=267 projectiles=205 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=157",
+        "PROFILE_RESULT remaining_contacts=51 remaining_tracks=18 city_integrity=8300"
+      ],
+      "after_night_long": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=headless renderer=gl_compatibility adapter= max_fps=0",
+        "PROFILE_VIEW size=(64, 64) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=90210 steps=1200 step_seconds=0.05 large=true night=true",
+        "PROFILE_PROGRESS steps=100 contacts=328 tracks=230",
+        "PROFILE_PROGRESS steps=200 contacts=243 tracks=162",
+        "PROFILE_PROGRESS steps=300 contacts=232 tracks=140",
+        "PROFILE_PROGRESS steps=400 contacts=219 tracks=143",
+        "PROFILE_PROGRESS steps=500 contacts=194 tracks=132",
+        "PROFILE_PROGRESS steps=600 contacts=185 tracks=90",
+        "PROFILE_PROGRESS steps=700 contacts=164 tracks=74",
+        "PROFILE_PROGRESS steps=800 contacts=129 tracks=44",
+        "PROFILE_PROGRESS steps=900 contacts=103 tracks=34",
+        "PROFILE_PROGRESS steps=1000 contacts=75 tracks=27",
+        "PROFILE_PROGRESS steps=1100 contacts=61 tracks=20",
+        "PROFILE_PROGRESS steps=1200 contacts=51 tracks=18",
+        "PROFILE_OK samples=1200 avg_ms=23.529 p95_ms=70.492 max_ms=150.794 contacts=364 tracks=267 projectiles=205 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=157",
+        "PROFILE_RESULT remaining_contacts=51 remaining_tracks=18 city_integrity=8300"
+      ],
+      "before_render": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=X11 renderer=gl_compatibility adapter=D3D12 (NVIDIA GeForce RTX 3060) max_fps=0",
+        "PROFILE_VIEW size=(1600, 900) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=73129 steps=400 step_seconds=0.05 large=true night=false",
+        "PROFILE_PROGRESS steps=100 contacts=316 tracks=240",
+        "PROFILE_PROGRESS steps=200 contacts=245 tracks=183",
+        "PROFILE_PROGRESS steps=300 contacts=230 tracks=131",
+        "PROFILE_PROGRESS steps=400 contacts=206 tracks=143",
+        "PROFILE_OK samples=400 avg_ms=62.706 p95_ms=130.511 max_ms=531.740 contacts=364 tracks=303 projectiles=78 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=161",
+        "PROFILE_RESULT remaining_contacts=206 remaining_tracks=143 city_integrity=8520",
+        "PROFILE_RENDER avg_ms=410.228 p50_ms=386.064 p95_ms=708.376 max_ms=889.950"
+      ],
+      "after_render": [
+        "PROFILE_ENV godot=4.7.2-stable (official) display=X11 renderer=gl_compatibility adapter=D3D12 (NVIDIA GeForce RTX 3060) max_fps=0",
+        "PROFILE_VIEW size=(1600, 900) msaa=1 scale=1.00",
+        "PROFILE_CONFIG seed=73129 steps=400 step_seconds=0.05 large=true night=false",
+        "PROFILE_PROGRESS steps=100 contacts=316 tracks=240",
+        "PROFILE_PROGRESS steps=200 contacts=245 tracks=183",
+        "PROFILE_PROGRESS steps=300 contacts=230 tracks=131",
+        "PROFILE_PROGRESS steps=400 contacts=206 tracks=143",
+        "PROFILE_OK samples=400 avg_ms=48.123 p95_ms=96.529 max_ms=483.180 contacts=364 tracks=303 projectiles=78 defenses=45",
+        "PROFILE_WORKLOAD peak_gun_rounds=161",
+        "PROFILE_RESULT remaining_contacts=206 remaining_tracks=143 city_integrity=8520",
+        "PROFILE_RENDER avg_ms=377.484 p50_ms=357.388 p95_ms=687.807 max_ms=910.331"
+      ]
+    }
+  },
+  "validation": {
+    "full_gut": {
+      "scripts": 26,
+      "tests": 420,
+      "assertions": 60944,
+      "passed": true,
+      "log": "/tmp/airscain_optimization_full_final.log",
+      "sha256": "a2ad786b0b3945cd768e2befaed4a1c2be43c518dcb6e3ed3923ade387907fa1"
+    },
+    "web_release_export": {
+      "passed": true,
+      "output": "/tmp/airscain-optimization-web/index.html",
+      "includes": "res://tracking/track_spatial_index.gdc",
+      "published": false,
+      "browser_runtime_tested": false
+    },
+    "visual_review": {
+      "platform": "Godot 4.7.2 X11 WSL/Mesa D3D12 Compatibility, 1600x900, MSAA 2x",
+      "before": "/tmp/airscain_combined_before_render.png",
+      "after": "/tmp/airscain_combined_after_render.png",
+      "scope": "Final combat view, visible smoke trails/shadows/terrain/city/UI; no pixel-identical claim for wall-clock VFX."
+    }
   }
 }
