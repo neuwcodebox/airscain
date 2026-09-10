@@ -1,5 +1,7 @@
 # 대규모 교전 성능 측정
 
+현재 코드의 재측정과 병목별 비용은 [2026-09-10 난전 분석](PERFORMANCE_2026-09-10.md), 원본 수치는 [측정 데이터](PERFORMANCE_2026-09-10.json)에 정리했다. 아래는 이전 변경의 조건별 측정 기록이다.
+
 ## 시간대별 하늘 비용 진단
 
 `godot --audio-driver Dummy --path . --script res://tools/day_night_capture.gd -- --sky-benchmark`로 비교한다. 1920×1080 WSL Compatibility, seed 73129의 준비 완료된 정지 전장에서 UI/오디오를 끄고 전술/하늘 점검 각도를 측정한다. 야간 구름·달·별을 포함한 실제 하늘과 기본 ProceduralSkyMaterial의 별도 Sky를 참조→실제→실제→참조 순서로 교차한다. 구간마다 30프레임을 버리고 180프레임의 중앙값/p95를 기록한다. 매 프레임 작전 시계를 진행하며 같은 바다/도시/조명 코드를 실행한다. 참조는 기존 버전 전체가 아닌 하늘 표현만의 비용 비교다. GPU timestamp나 대규모 교전·웹 성능을 뜻하지 않는다.
