@@ -1,5 +1,94 @@
 extends GutTest
 
+class ExhaustiveKnowledge:
+	extends PlayerKnowledge
+	func _association_candidates(_observation: SensorObservation) -> PackedInt32Array:
+		return PackedInt32Array(range(tracks.size()))
+
+class IndexedKnowledge:
+	extends PlayerKnowledge
+	var narrowed_queries: int = 0
+	func _association_candidates(observation: SensorObservation) -> PackedInt32Array:
+		var result := super._association_candidates(observation)
+		if result.size() < tracks.size():
+			narrowed_queries += 1
+		return result
+
+func test_spatial_association_matches_exhaustive_observation_streams() -> void:
+	for seed_value: int in [71, 73129]:
+		var actual := autofree(IndexedKnowledge.new()) as IndexedKnowledge
+		var expected := autofree(ExhaustiveKnowledge.new()) as ExhaustiveKnowledge
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var classes: Array[StringName] = [&"air_contact", &"uav", &"rocket"]
+		for frame: int in 18:
+			actual.gameplay_tick(0.1)
+			expected.gameplay_tick(0.1)
+			for sensor: int in range(1, 4):
+				for index: int in 96:
+					var position := Vector3((index % 16) * 180 - 1350, 100 + (index % 5) * 120, (index / 16) * 220 - 550)
+					position += Vector3(index % 5 * 10, 0, 20) * actual.simulation_time
+					position += Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(-5, 5))
+					var timestamp := actual.simulation_time
+					if frame % 7 == 0:
+						timestamp += 0.3
+					elif frame % 5 == 0:
+						timestamp -= 0.15
+					var observation := SensorObservation.new()
+					observation.setup(sensor, timestamp, position, 0.85, 8.0, 0.1, classes[index % classes.size()], ThreatDefinition.Affiliation.HOSTILE, 0.3)
+					var result := actual.submit_observation(observation)
+					var reference := expected.submit_observation(observation)
+					assert_eq(result.track_id, reference.track_id, "seed %d frame %d sensor %d observation %d" % [seed_value, frame, sensor, index])
+					if result.track_id != reference.track_id:
+						return
+			assert_eq(JSON.stringify(actual.capture_state()).sha256_text(), JSON.stringify(expected.capture_state()).sha256_text(), "all tracked estimates and sensor evidence stay identical")
+			if frame == 9:
+				var saved := actual.capture_state()
+				(saved.tracks as Array).reverse()
+				actual.restore_state(saved)
+				expected.restore_state(saved)
+			elif frame == 12:
+				actual.gameplay_tick(5.0)
+				expected.gameplay_tick(5.0)
+			elif frame == 15:
+				actual.reset()
+				expected.reset()
+		assert_gt(actual.narrowed_queries, 0, "the stream must exercise spatial pruning")
+
+func test_spatial_association_preserves_ties_and_current_sensor_exclusions() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	for index: int in 80:
+		var track := PlayerTrack.new()
+		track.track_id = 100 - index
+		track.estimated_position = Vector3(-5 if index == 0 else 5, 100, 0) if index < 2 else Vector3(index * 100, 100, 2000)
+		track.state = PlayerTrack.State.CONFIRMED
+		knowledge.tracks.append(track)
+	var observation := SensorObservation.new()
+	observation.setup(99, 0.0, Vector3(0, 100, 0), 0.9, 5.0, 0.1, &"uav")
+	assert_same(knowledge._associate(observation), knowledge.tracks[0], "ties retain array order, not lowest track ID")
+	knowledge.tracks[0].sensor_observed_at[99] = 0.0
+	assert_same(knowledge._associate(observation), knowledge.tracks[1], "current same-scan exclusion still applies")
+	knowledge.tracks[1].classification = &"rocket"
+	assert_null(knowledge._associate(observation))
+
+func test_association_index_is_current_inside_observation_callbacks() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var inspect := func(track: PlayerTrack) -> void:
+		var probe := SensorObservation.new()
+		probe.setup(9999, knowledge.simulation_time, track.estimated_position, 0.9, 5.0, 0.1)
+		assert_same(knowledge._associate(probe), track, "observation callbacks see new cell membership immediately")
+	knowledge.track_created.connect(inspect)
+	knowledge.track_updated.connect(inspect)
+	for index: int in 80:
+		var observation := SensorObservation.new()
+		observation.setup(1, 0.0, Vector3(index * 220 - 8800, 100, 0), 0.9, 5.0, 0.1)
+		knowledge.submit_observation(observation)
+	knowledge.gameplay_tick(0.2)
+	for track: PlayerTrack in knowledge.tracks.duplicate():
+		var observation := SensorObservation.new()
+		observation.setup(1, knowledge.simulation_time, track.estimated_position + Vector3(120, 0, 0), 0.9, 5.0, 0.1)
+		knowledge.submit_observation(observation)
+
 func test_association_pruning_matches_nearest_compatible_unsampled_track() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
 	var rng := RandomNumberGenerator.new()

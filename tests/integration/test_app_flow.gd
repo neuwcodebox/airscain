@@ -138,7 +138,7 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	assert_true((app.get("pause_save_button") as Button).disabled)
 	app.call("set_pause_menu", false)
 	assert_false(pause_menu.visible)
-	assert_eq(gameplay.session.simulation_speed, 1.0)
+	assert_eq(gameplay.session.simulation_speed, 0.0, "훈련의 기존 정지 상태를 복원합니다")
 	app.call("return_to_main_menu")
 	assert_true(main_menu.visible)
 	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS)

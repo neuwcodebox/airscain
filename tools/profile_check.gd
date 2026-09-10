@@ -4,6 +4,7 @@ extends SceneTree
 ## --render also measures full frames in an actual window; --night starts at midnight.
 ## --detail adds nested targeting/C2 timings; --render-probe uses paired exclusions.
 ## --compare-smoke-proxies compares sphere/impostor geometry on one frozen scene.
+## --seed=N and --seconds=N vary the reproducible workload (defaults: 73129, 20).
 ## Timings are inclusive. Nested measurements must not be added to parent costs.
 
 const MAIN_SCENE := preload("res://main/main.tscn")
@@ -91,12 +92,18 @@ class ProfiledKnowledge:
 	var submission_usec: int = 0
 	var observation_count: int = 0
 	var association_candidates: int = 0
+	var association_input_tracks: int = 0
+
+	func _association_candidates(observation: SensorObservation) -> PackedInt32Array:
+		var result := super._association_candidates(observation)
+		association_candidates += result.size()
+		return result
 
 	func _associate(observation: SensorObservation) -> PlayerTrack:
 		var start := Time.get_ticks_usec()
 		var result := super._associate(observation)
 		association_usec += Time.get_ticks_usec() - start
-		association_candidates += tracks.size()
+		association_input_tracks += tracks.size()
 		return result
 
 	func submit_observation(observation: SensorObservation) -> PlayerTrack:
@@ -207,6 +214,21 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	var workload_seed := 73129
+	var duration := PROFILE_DURATION
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--seed="):
+			var value := argument.trim_prefix("--seed=")
+			if not value.is_valid_int():
+				_fail("seed must be an integer")
+				return
+			workload_seed = value.to_int()
+		elif argument.begins_with("--seconds="):
+			var value := argument.trim_prefix("--seconds=")
+			if not value.is_valid_float() or not is_finite(value.to_float()) or value.to_float() < STEP:
+				_fail("seconds must be finite and at least one step")
+				return
+			duration = value.to_float()
 	# Override only in memory so saved user preferences cannot cap or resize a run.
 	var settings := PlayerSettings.instance()
 	settings.values = PlayerSettings.DEFAULTS.duplicate()
@@ -217,7 +239,7 @@ func run() -> void:
 	if OS.get_cmdline_user_args().has("--gpu-timing"):
 		RenderingServer.viewport_set_measure_render_time(root.get_viewport_rid(), true)
 	print("PROFILE_ENV godot=%s display=%s renderer=%s adapter=%s max_fps=%d" % [Engine.get_version_info().string, DisplayServer.get_name(), RenderingServer.get_current_rendering_method(), RenderingServer.get_video_adapter_name(), Engine.max_fps])
-	AirscainMain.requested_seed = 73129
+	AirscainMain.requested_seed = workload_seed
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	if OS.get_cmdline_user_args().has("--breakdown"):
@@ -264,7 +286,8 @@ func run() -> void:
 	var render := OS.get_cmdline_user_args().has("--render")
 	if main is ProfiledMain:
 		(main as ProfiledMain).costs.clear()
-	var steps := int(PROFILE_DURATION / STEP)
+	var steps := int(duration / STEP)
+	print("PROFILE_CONFIG seed=%d steps=%d step_seconds=%.2f large=%s night=%s" % [workload_seed, steps, STEP, OS.get_cmdline_user_args().has("--large"), OS.get_cmdline_user_args().has("--night")])
 	for index: int in steps:
 		if main is ProfiledMain:
 			(main as ProfiledMain).tick_costs.clear()
@@ -306,7 +329,7 @@ func run() -> void:
 	if main is ProfiledMain:
 		var knowledge := main.player_knowledge as ProfiledKnowledge
 		print("PROFILE_NESTED association_ms=%.3f observation_ms=%.3f" % [float(knowledge.association_usec) / samples_usec.size() / 1000.0, float(knowledge.submission_usec) / samples_usec.size() / 1000.0])
-		print("PROFILE_ASSOCIATION observations=%d candidate_visits=%d" % [knowledge.observation_count, knowledge.association_candidates])
+		print("PROFILE_ASSOCIATION observations=%d candidate_visits=%d input_tracks=%d" % [knowledge.observation_count, knowledge.association_candidates, knowledge.association_input_tracks])
 		for label: String in main.costs:
 			print("PROFILE_COST %s avg_ms=%.3f" % [label, float(main.costs[label]) / samples_usec.size() / 1000.0])
 		var trace := FileAccess.open("/tmp/airscain_profile_steps.json", FileAccess.WRITE)
