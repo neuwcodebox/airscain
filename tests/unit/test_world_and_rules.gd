@@ -1076,8 +1076,16 @@ func test_raid_pacing_rises_gradually_and_stays_bounded() -> void:
 	var director: ThreatDirector = autofree(ThreatDirector.new()) as ThreatDirector
 	director.scenario = SCENARIO
 	assert_eq(director.pressure_level_at(0.0), 1)
-	assert_eq(director.pressure_level_at(89.9), 1)
-	assert_eq(director.pressure_level_at(90.0), 2)
+	var pressure_step := SCENARIO.pressure_step_duration
+	assert_eq(director.pressure_level_at(pressure_step - 0.1), 1)
+	assert_eq(director.pressure_level_at(pressure_step), 2)
+	assert_eq(director.pressure_level_at(pressure_step * 2.0), 3)
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		if entry.unlock_level != 1 or entry.raid_role != ThreatSpawnEntry.RaidRole.STRIKE:
+			continue
+		var distance := SCENARIO.battlefield_size * entry.threat_definition.spawn_radius_multiplier()
+		var approach_time := entry.threat_definition.estimated_approach_seconds(distance, 1.0)
+		assert_eq(director.pressure_level_at(approach_time + SCENARIO.recovery_duration), 1, "첫 공습의 도시 접근과 정비 호흡 동안 1단계를 유지한다")
 	assert_eq(director.spawn_interval_at(0.0), 24.0)
 	assert_lt(director.spawn_interval_at(450.0), director.spawn_interval_at(0.0))
 	assert_gte(director.spawn_interval_at(10000.0), 14.0)
