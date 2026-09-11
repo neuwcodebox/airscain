@@ -143,7 +143,7 @@ func launch_budgeted_raid() -> void:
 		var weight := adaptive_entry_weight(entry)
 		var role := entry.threat_definition.adaptive_knowledge_role
 		if entry.raid_role == ThreatSpawnEntry.RaidRole.SUPPRESSION and not role.is_empty():
-			var estimate := enemy_knowledge.best_estimate_for_role(role) if enemy_knowledge != null else {}
+			var estimate := enemy_knowledge.best_estimate_for_role(role, _mission_assignments()) if enemy_knowledge != null else {}
 			if estimate.is_empty() or float(estimate.confidence) < 0.2:
 				weight = 0.0
 		weights[entry.threat_definition.id] = weight
@@ -210,7 +210,7 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 		if targets_city:
 			target = battlefield.random_city_building_target(rng)
 		if mission.acquisition_range > 0.0:
-			var estimate := enemy_knowledge.best_estimate_for_role(mission.knowledge_role()) if enemy_knowledge != null else {}
+			var estimate := enemy_knowledge.best_estimate_for_role(mission.knowledge_role(), _mission_assignments()) if enemy_knowledge != null else {}
 			if not estimate.is_empty():
 				target = SaveDocument.vector3_from_data(estimate.estimated_position)
 				for child: Node in defense_parent.get_children():
@@ -218,7 +218,11 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 					if candidate != null and candidate.runtime_id == int(estimate.asset_id):
 						target_asset = candidate
 		elif entry.threat_definition.requires_role_knowledge:
-			target_asset = _known_target_for_role(entry.threat_definition.adaptive_knowledge_role)
+			var estimate := enemy_knowledge.best_estimate_for_role(entry.threat_definition.adaptive_knowledge_role, _mission_assignments()) if enemy_knowledge != null else {}
+			if not estimate.is_empty():
+				target = SaveDocument.vector3_from_data(estimate.estimated_position)
+			if mission.type != ThreatMissionDefinition.Type.RECONNAISSANCE:
+				target_asset = _known_target_for_role(entry.threat_definition.adaptive_knowledge_role)
 		else:
 			target_asset = choose_target_for(mission)
 	if target_override is Vector3:
@@ -275,7 +279,7 @@ func choose_target_for(mission: ThreatMissionDefinition) -> DefenseUnit:
 	return candidates[rng.randi_range(0, candidates.size() - 1)] if not candidates.is_empty() else null
 
 func _known_target_for_role(role: StringName) -> DefenseUnit:
-	var estimate := enemy_knowledge.best_estimate_for_role(role)
+	var estimate := enemy_knowledge.best_estimate_for_role(role, _mission_assignments())
 	if estimate.is_empty():
 		return null
 	var target_id := int(estimate.asset_id)
@@ -310,7 +314,7 @@ func adaptive_entry_weight(entry: ThreatSpawnEntry) -> float:
 		return weight
 	var definition := entry.threat_definition
 	if not definition.adaptive_knowledge_role.is_empty():
-		var estimate := enemy_knowledge.best_estimate_for_role(definition.adaptive_knowledge_role)
+		var estimate := enemy_knowledge.best_estimate_for_role(definition.adaptive_knowledge_role, _mission_assignments())
 		if estimate.is_empty() and definition.requires_role_knowledge:
 			return 0.0
 		if not estimate.is_empty():
@@ -392,3 +396,12 @@ static func opening_state_validation_error(state: Dictionary) -> String:
 	if state.opening_raid_complete and not state.opening_raid_started:
 		return "시작하지 않은 첫 공습이 완료되었습니다"
 	return ""
+
+func _mission_assignments() -> Dictionary[int, int]:
+	var result: Dictionary[int, int] = {}
+	if registry != null:
+		for threat: ThreatUnit in registry.get_active():
+			var target_id := threat.assigned_target_id()
+			if target_id > 0:
+				result[target_id] = result.get(target_id, 0) + 1
+	return result

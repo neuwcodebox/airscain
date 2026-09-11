@@ -44,3 +44,11 @@ func test_unconfirmed_strike_cannot_release_and_empty_report_is_aborted() -> voi
 	assert_true(mission.observe_target(Vector3(0, 100, 0)))
 	assert_eq(mission.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_false(mission.effect_applied)
+
+func test_strike_assignments_prefer_other_reports_and_cap_duplicate_targets() -> void:
+	var knowledge := autofree(EnemyKnowledge.new()) as EnemyKnowledge
+	knowledge.estimates[1] = {"asset_id": 1, "role": "weapon", "confidence": 0.95}
+	knowledge.estimates[2] = {"asset_id": 2, "role": "weapon", "confidence": 0.65}
+	assert_eq(knowledge.best_estimate_for_role(&"weapon", {1: 1}).asset_id, 2)
+	assert_true(knowledge.best_estimate_for_role(&"weapon", {1: 2, 2: 2}).is_empty())
+	assert_true(knowledge.best_estimate_for_role(&"sensor").is_empty())

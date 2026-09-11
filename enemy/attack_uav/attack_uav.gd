@@ -56,7 +56,7 @@ func gameplay_tick(delta: float) -> void:
 	var holding_for_recon := _definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE and mission_runtime.phase == ThreatMissionRuntime.Phase.ACTING
 	if holding_for_recon:
 		orbit_angle = fposmod(orbit_angle + delta * 0.45, TAU)
-		var orbit_radius := clampf(_definition.mission.action_distance * 0.82, 45.0, 320.0)
+		var orbit_radius := clampf(_definition.mission.action_distance * _definition.mission.orbit_radius_ratio, 45.0, 320.0)
 		var orbit_target := mission_target + Vector3(cos(orbit_angle) * orbit_radius, _definition.movement.cruise_altitude, sin(orbit_angle) * orbit_radius)
 		mover.advance(self, body, orbit_target, speed_multiplier, delta, true)
 	else:
@@ -224,3 +224,6 @@ func _update_weapon_store() -> void:
 func _exit_tree() -> void:
 	if is_instance_valid(enemy_knowledge):
 		enemy_knowledge.search.release(runtime_id)
+
+func assigned_target_id() -> int:
+	return mission_runtime.target_defense_id if mission_runtime.phase != ThreatMissionRuntime.Phase.EGRESS else 0

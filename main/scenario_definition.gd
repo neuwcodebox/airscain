@@ -14,6 +14,7 @@ extends Resource
 @export var ambient_contacts: Array[ThreatDefinition] = []
 @export var ambient_contacts_per_type: int = 4
 @export var initial_spawn_interval: float = 12.0
+@export_range(0.0, 1.0) var asset_suppression_chance: float = 0.35
 @export var initial_raid_interval: float = 24.0
 @export var minimum_raid_interval: float = 14.0
 @export var raid_interval_pressure_reduction: float = 0.6
@@ -28,6 +29,8 @@ extends Resource
 @export var attack_window_reward: int = 120
 
 func validation_error() -> String:
+	if not is_finite(asset_suppression_chance) or asset_suppression_chance < 0.0 or asset_suppression_chance > 1.0:
+		return "자산 제압 편성 확률이 올바르지 않습니다"
 	if battlefield_size <= 0.0 or terrain_resolution < 2 or city_size <= 0.0 or city_size >= battlefield_size:
 		return "전장 생성 설정이 올바르지 않습니다"
 	if battlefield_layouts.is_empty():

@@ -123,10 +123,16 @@ func discard_estimate_at(asset_id: int, searched_position: Vector3, search_range
 	if not estimate.is_empty() and SaveDocument.vector3_from_data(estimate.estimated_position).distance_to(searched_position) <= search_range:
 		estimates.erase(asset_id)
 
-func best_estimate_for_role(role: StringName) -> Dictionary:
+func best_estimate_for_role(role: StringName, assignments: Dictionary[int, int] = {}) -> Dictionary:
 	var best: Dictionary = {}
+	var best_score := -1.0
 	for estimate: Dictionary in estimates.values():
-		if StringName(estimate.role) == role and (best.is_empty() or float(estimate.confidence) > float(best.confidence)):
+		var assigned: int = assignments.get(int(estimate.asset_id), 0)
+		if StringName(estimate.role) != role or assigned >= 2:
+			continue
+		var score := float(estimate.confidence) / (1.0 + 4.0 * assigned)
+		if score > best_score:
+			best_score = score
 			best = estimate
 	return best
 

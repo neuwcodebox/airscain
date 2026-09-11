@@ -34,6 +34,17 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 			weight *= 0.18
 		candidates.append({"pattern": pattern, "pairs": pairs, "weight": weight})
 	var selected := _weighted_dictionary(candidates, rng)
+	# Eligible pairs already satisfy observation weights, budget and arrival limits.
+	var asset_pairs: Array[Dictionary] = []
+	for candidate: Dictionary in candidates:
+		if candidate.pattern != &"suppression":
+			continue
+		for pair: Dictionary in candidate.pairs:
+			var mission := (pair.lead as ThreatSpawnEntry).threat_definition.mission_definition()
+			if mission != null and mission.target_role != ThreatMissionDefinition.TargetRole.CITY:
+				asset_pairs.append(pair)
+	if level >= 4 and not asset_pairs.is_empty() and rng.randf() < scenario.asset_suppression_chance:
+		selected = {"pattern": &"suppression", "pairs": asset_pairs, "weight": 1.0}
 	last_pattern = selected.pattern
 	var waves: Array[Dictionary] = []
 	var spent := 0.0
@@ -61,6 +72,16 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 		anchor_eta = _eta(strike, scenario, speed)
 	# Fill around the main effort, with at most one optional scout/decoy.
 	var has_auxiliary := last_pattern != &"concentration"
+	if not has_auxiliary and asset_pairs.is_empty() and level >= 2 and rng.randf() < 0.5:
+		var scouts: Array[ThreatSpawnEntry] = []
+		for entry: ThreatSpawnEntry in entries:
+			if entry.raid_role == ThreatSpawnEntry.RaidRole.RECON:
+				scouts.append(entry)
+		var scout := _pick_entry(scouts, weights, budget - spent, rng)
+		if scout != null:
+			waves.append(_wave(scout, 0.0, angle + 0.3))
+			spent += _cost(scout)
+			has_auxiliary = true
 	while waves.size() < MAX_GROUPS:
 		var pool: Array[ThreatSpawnEntry] = []
 		for entry: ThreatSpawnEntry in entries:

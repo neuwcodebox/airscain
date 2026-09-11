@@ -20,7 +20,8 @@ type = 1
 target_role = 0
 damage = 0.0
 action_distance = 300.0
-action_duration = 24.0
+action_duration = 45.0
+orbit_radius_ratio = 0.4
 
 [resource]
 script = ExtResource("1")
@@ -31,6 +32,9 @@ neutralization_reward = 16
 signature_class = &"large_uav"
 radar_signature = 0.8
 affiliation = 3
+adaptive_knowledge_role = &"sensor"
+adaptive_knowledge_weight = 2.0
+requires_role_knowledge = true
 jamming_range = 520.0
 jamming_strength = 0.78
 flare_effectiveness = 0.3

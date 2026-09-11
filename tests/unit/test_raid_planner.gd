@@ -120,3 +120,24 @@ func _entry(id: StringName) -> ThreatSpawnEntry:
 		if entry.threat_definition.id == id:
 			return entry
 	return null
+
+func test_asset_suppression_priority_still_requires_eligible_observed_entries() -> void:
+	var scenario := SCENARIO.duplicate() as ScenarioDefinition
+	scenario.asset_suppression_chance = 1.0
+	var planner := RaidPlanner.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	for sample: int in 20:
+		var waves := planner.generate(scenario, _weights(scenario), 25.0, 12, 0.0, 300.0, 1.0, rng)
+		var asset_strike := false
+		for wave: Dictionary in waves:
+			var entry := _entry(StringName(wave.definition_id))
+			var mission := entry.threat_definition.mission_definition()
+			asset_strike = asset_strike or (entry.raid_role == ThreatSpawnEntry.RaidRole.SUPPRESSION and mission != null and mission.target_role != ThreatMissionDefinition.TargetRole.CITY)
+		assert_true(asset_strike)
+	var unknown_weights := _weights(scenario)
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		if entry.threat_definition.requires_role_knowledge:
+			unknown_weights[entry.threat_definition.id] = 0.0
+	for wave: Dictionary in planner.generate(scenario, unknown_weights, 25.0, 12, 0.0, 300.0, 1.0, rng):
+		assert_false(_entry(StringName(wave.definition_id)).threat_definition.requires_role_knowledge)

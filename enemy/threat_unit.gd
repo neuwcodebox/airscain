@@ -120,3 +120,6 @@ func restore_state(state: Dictionary, objective_value: ProtectedObjective, battl
 
 func restore_content_state(_state: Dictionary, _objective: ProtectedObjective, _battlefield: Battlefield, _defense_by_id: Dictionary[int, DefenseUnit] = {}) -> void:
 	pass
+
+func assigned_target_id() -> int:
+	return 0
