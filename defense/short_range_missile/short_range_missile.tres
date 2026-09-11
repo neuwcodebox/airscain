@@ -27,7 +27,7 @@ small_target_match = 0.62
 magazine_capacity = 4
 reserve_ammunition = 20
 reload_duration = 6.0
-resupply_cost = 14
+resupply_cost = 22
 resupply_work = 6.0
 
 [resource]
@@ -37,7 +37,7 @@ id = &"short_range_missile"
 display_name = "단거리 미사일 포대"
 purchase_tooltip = "저고도 위협을 빠르게 근접 요격합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."
 scene = ExtResource("2")
-price = 150
+price = 170
 unlock_pressure_level = 2
 placement_profile = SubResource("PlacementProfile")
 preview_range = 190.0

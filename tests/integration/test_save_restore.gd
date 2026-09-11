@@ -92,6 +92,15 @@ func test_disabled_battery_and_pending_repair_survive_document_restore() -> void
 	var facility_id := facility.runtime_id
 	var budget := main.session.budget
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var invalid := document.duplicate(true)
+	invalid.payload.world.support.tasks[0].repair_amount = INF
+	assert_ne(main.restore_from_document(invalid), "")
+	var legacy := document.duplicate(true)
+	legacy.version = 24
+	legacy.payload.world.support.tasks[0].erase("repair_amount")
+	var migrated := SessionSnapshot.migrate_content(legacy.payload, 24, main.scenario)
+	assert_eq(float(migrated.world.support.tasks[0].repair_amount), battery.definition.maximum_integrity)
+	assert_false(legacy.payload.world.support.tasks[0].has("repair_amount"))
 	assert_eq(main.restore_from_document(document), "")
 	var restored := _find_defense(id) as MissileBattery
 	var restored_facility := _find_defense(facility_id)
@@ -108,7 +117,8 @@ func test_disabled_battery_and_pending_repair_survive_document_restore() -> void
 	restored_facility.complete_repair()
 	main.support_manager.gameplay_tick(100.0)
 	assert_true(restored.active)
-	assert_eq(restored.integrity, restored.definition.maximum_integrity)
+	assert_eq(restored.integrity, 50.0, "수리 요청 뒤 추가 피해는 결제된 복구량에 포함되지 않는다")
+	assert_true(restored.can_request_repair())
 	assert_eq(restored.magazine.rounds, 1)
 	assert_eq(restored.magazine.reserve, 3)
 	assert_true(restored.doctrine.hold_fire)
@@ -131,7 +141,7 @@ func test_resupply_order_and_fractional_credit_survive_document_restore() -> voi
 	assert_eq(main.restore_from_document(document), "")
 	var restored := main.support_manager.consumers[id] as CloseInGun
 	assert_eq(restored.magazine.ordered_reserve, 1)
-	assert_eq(restored.magazine.resupply_credit, 76)
+	assert_eq(restored.magazine.resupply_credit, restored.magazine.reserve_capacity - restored.magazine.resupply_pack_cost)
 	main.support_manager.gameplay_tick(4.0)
 	assert_eq(restored.magazine.reserve, 79)
 	assert_eq(main.session.budget, budget - 1)

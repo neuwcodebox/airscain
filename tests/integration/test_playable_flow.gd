@@ -1204,20 +1204,20 @@ func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
 	main.registry.clear()
 	var threat := main.director._spawn_entry(main.scenario.threat_entries[7], 0.0, 0.0) as AttackUav
 	var mission_target := threat.mission_runtime.navigation_target()
-	var expected_orbit_radius := (threat.definition as AttackUavDefinition).mission.action_distance * 0.82
+	var expected_orbit_radius := (threat.definition as AttackUavDefinition).mission.action_distance * (threat.definition as AttackUavDefinition).mission.orbit_radius_ratio
 	threat.global_position = mission_target + Vector3(expected_orbit_radius, 115.0, 0.0)
 	threat.mission_runtime.phase = ThreatMissionRuntime.Phase.ACTING
 	var starting_position := threat.global_position
 	var minimum_agl := INF
-	var minimum_city_distance := INF
+	var peak_jamming := 0.0
 	for frame: int in 80:
 		threat.gameplay_tick(0.1)
 		minimum_agl = minf(minimum_agl, threat.global_position.y - main.battlefield.terrain_height(threat.global_position.x, threat.global_position.z))
-		minimum_city_distance = minf(minimum_city_distance, Vector2(threat.global_position.x - main.objective.global_position.x, threat.global_position.z - main.objective.global_position.z).length())
+		peak_jamming = maxf(peak_jamming, main.registry.jamming_at(mission_target))
 	assert_gt(threat.global_position.distance_to(starting_position), 0.1)
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.ACTING)
 	assert_gt(minimum_agl, 100.0)
-	assert_gt(minimum_city_distance, main.objective.exclusion_radius)
+	assert_gt(peak_jamming, 0.1, "전자전기는 체공 대상에 유효한 간섭을 준다")
 
 func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> void:
 	var radar_definition := main.scenario.available_defenses[1]

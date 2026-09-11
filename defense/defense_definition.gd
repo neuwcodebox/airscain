@@ -11,8 +11,10 @@ extends Resource
 @export var placement_profile: PlacementProfile
 @export var preview_range: float = 300.0
 @export var maximum_integrity: float = 100.0
-@export var repair_cost: int = 10
-@export var repair_work: float = 16.0
+@export var repair_cost: int = 4
+@export var repair_work: float = 136.0
+@export var repair_dispatch_work: float = 24.0
+@export var repair_price_ratio: float = 0.25
 @export var mobile: bool = false
 @export var relocation_duration: float = 0.0
 
@@ -21,6 +23,8 @@ func validation_error() -> String:
 		return "방어 수단 Definition의 필수 참조가 없습니다"
 	if price < 0 or unlock_pressure_level < 1 or preview_range <= 0.0 or maximum_integrity <= 0.0 or repair_cost < 0 or repair_work <= 0.0:
 		return "방어 수단 가격 또는 범위가 올바르지 않습니다"
+	if not is_finite(repair_dispatch_work) or repair_dispatch_work < 0.0 or not is_finite(repair_price_ratio) or repair_price_ratio < 0.0:
+		return "수리 작업 또는 비용 비율이 올바르지 않습니다"
 	if mobile and relocation_duration <= 0.0:
 		return "이동형 자산의 재배치 시간이 올바르지 않습니다"
 	return placement_profile.validation_error()
@@ -77,3 +81,8 @@ func engagement_reservation_kind() -> StringName:
 
 func persistent_projectile_state_validation_error(_projectile_type: StringName, _state: Dictionary) -> String:
 	return "지원하지 않는 방어 발사체 형식입니다"
+
+func repair_amount_validation_error(value: Variant) -> String:
+	if not (value is float or value is int) or not is_finite(float(value)) or float(value) <= 0.0 or float(value) > maximum_integrity:
+		return "수리 복구량이 올바르지 않습니다"
+	return ""

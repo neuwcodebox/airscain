@@ -422,11 +422,11 @@ func test_successful_purchase_is_atomic_and_overlap_failure_costs_nothing() -> v
 	var position := _find_valid_position(SCENARIO.available_defenses[0].placement_profile)
 	var first: Dictionary = session.request_placement(SCENARIO.available_defenses[0], position, battlefield, defenses, registry, projectiles)
 	assert_true(first.success)
-	assert_eq(session.budget, 200)
+	assert_eq(session.budget, 400 - SCENARIO.available_defenses[0].price)
 	assert_eq(session.defense_count, 1)
 	var second: Dictionary = session.request_placement(SCENARIO.available_defenses[0], position, battlefield, defenses, registry, projectiles)
 	assert_false(second.success)
-	assert_eq(session.budget, 200)
+	assert_eq(session.budget, 400 - SCENARIO.available_defenses[0].price)
 	assert_eq(session.defense_count, 1)
 
 func test_insufficient_budget_does_not_change_world_state() -> void:
@@ -1127,10 +1127,10 @@ func test_balance_damage_breakpoints_and_full_supply_prices() -> void:
 	var short_definition := SCENARIO.available_defenses[8] as MissileBatteryDefinition
 	var long_definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
 	assert_eq(short_definition.munitions[0].interceptor_damage, 100.0)
-	assert_eq(short_definition.munitions[0].resupply_cost, 14)
+	assert_eq(short_definition.munitions[0].resupply_cost, 22)
 	assert_lt(long_definition.munitions[0].interceptor_damage, 140.0)
 	assert_gte(long_definition.munitions[1].interceptor_damage, 140.0)
-	assert_eq((SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost, 4)
+	assert_eq((SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost, 8)
 
 func test_gun_stock_reduction_preserves_legacy_inventory_and_unit_price() -> void:
 	var definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
@@ -1145,7 +1145,7 @@ func test_gun_stock_reduction_preserves_legacy_inventory_and_unit_price() -> voi
 	saved.magazine.reserve = 0
 	gun.restore_content_state(saved)
 	assert_eq(gun.magazine.rounds, 120, "기존 저장의 재고는 삭제하지 않습니다")
-	assert_eq(gun.resupply_cost(), 6, "구버전 재고도 묶음당 단가는 같습니다")
+	assert_eq(gun.resupply_cost(), 12, "구버전 재고도 현재 묶음당 단가를 적용합니다")
 
 func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
@@ -1162,9 +1162,9 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
 	assert_true(gun.request_resupply())
-	assert_eq(support_session.budget, 96)
+	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost)
 	assert_false(gun.request_resupply())
-	assert_eq(support_session.budget, 96)
+	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost)
 	assert_eq(manager.task_status(gun), "재보급 진행")
 	manager.gameplay_tick(1.0)
 	var saved_state := manager.capture_state()
@@ -1339,11 +1339,11 @@ func test_support_tasks_require_a_nearby_operational_facility() -> void:
 	gun.global_position += Vector3.RIGHT
 	assert_false(gun.can_request_repair())
 	assert_false(gun.request_repair())
-	assert_eq(support_session.budget, 96)
+	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost)
 	gun.global_position -= Vector3.RIGHT
 	assert_true(gun.can_request_repair())
 	assert_true(gun.request_repair())
-	assert_eq(support_session.budget, 86)
+	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost - gun.repair_cost())
 
 func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
@@ -1372,7 +1372,7 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	assert_not_null(gun.damage_smoke)
 	assert_almost_eq(gun.c2_link_range(), (SCENARIO.available_defenses[4] as CloseInGunDefinition).c2_range * 0.5, 0.0001)
 	assert_true(gun.request_repair())
-	assert_eq(support_session.budget, 90)
+	assert_eq(support_session.budget, 100 - gun.repair_cost())
 	assert_eq(manager.task_status(gun), "수리 진행")
 	manager.gameplay_tick(1.0)
 	var saved_tasks := manager.capture_state()
@@ -1381,7 +1381,7 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	manager.register_asset(facility)
 	manager.register_asset(gun)
 	manager.restore_state(saved_tasks)
-	manager.gameplay_tick(2.9)
+	manager.gameplay_tick(gun.repair_work() / facility.support_capacity() - 1.1)
 	assert_eq(gun.integrity, 50.0)
 	manager.gameplay_tick(0.2)
 	assert_eq(gun.integrity, gun.definition.maximum_integrity)
@@ -1687,3 +1687,33 @@ func test_policy_covers_observed_uav_and_missile_variants() -> void:
 		track.classification = classification
 		assert_false(doctrine.allows(track))
 	assert_true(doctrine.allows_target_kind(&"small_uav"))
+
+func test_repair_time_scales_with_damage_and_later_damage_is_not_free() -> void:
+	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(500, SCENARIO.available_defenses[5])
+	var unit := add_child_autofree(DefenseUnit.new()) as DefenseUnit
+	unit.setup(501, SCENARIO.available_defenses[0])
+	var manager := autofree(SupportManager.new()) as SupportManager
+	var support_session := autofree(GameSession.new()) as GameSession
+	support_session.reset(1000)
+	manager.configure(support_session)
+	manager.register_asset(facility)
+	manager.register_asset(unit)
+	var prior_cost := 0
+	for damage: float in [0.1, 0.5, 1.0]:
+		unit.integrity = unit.definition.maximum_integrity * (1.0 - damage)
+		assert_gt(unit.repair_cost(), prior_cost)
+		prior_cost = unit.repair_cost()
+		var seconds := unit.repair_work() / facility.support_capacity()
+		if damage == 0.1:
+			assert_between(seconds, 6.0, 10.0)
+		elif damage == 0.5:
+			assert_between(seconds, 15.0, 25.0)
+		else:
+			assert_between(seconds, 30.0, 45.0)
+	unit.integrity = unit.definition.maximum_integrity * 0.9
+	assert_true(manager.request_repair(unit))
+	unit.receive_damage(1000.0)
+	manager.gameplay_tick(100.0)
+	assert_almost_eq(unit.operational_ratio(), 0.1, 0.0001)
+	assert_false(unit.active, "복구량이 기능 회복 기준에 못 미치면 계속 정지한다")

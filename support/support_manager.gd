@@ -73,7 +73,10 @@ func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float, user
 		return false
 	if kind == RESUPPLY:
 		unit.reserve_resupply()
-	tasks.append({"kind": kind, "target_defense_id": unit.runtime_id, "remaining_work": work, "user_requested": user_requested})
+	var task := {"kind": kind, "target_defense_id": unit.runtime_id, "remaining_work": work, "user_requested": user_requested}
+	if kind == REPAIR:
+		task.repair_amount = unit.definition.maximum_integrity - unit.integrity
+	tasks.append(task)
 	task_requested.emit(StringName(kind), unit)
 	return true
 
@@ -155,7 +158,7 @@ func _complete_task(index: int) -> void:
 			target.complete_resupply()
 			completed = true
 		elif String(task.kind) == REPAIR:
-			target.complete_repair()
+			target.complete_repair(float(task.repair_amount))
 			completed = true
 	tasks.remove_at(index)
 	if completed:
@@ -205,4 +208,5 @@ func restore_state(state: Dictionary) -> void:
 			"target_defense_id": int(task.target_defense_id),
 			"remaining_work": float(task.remaining_work),
 			"user_requested": bool(task.user_requested),
+			"repair_amount": float(task.get("repair_amount", 0.0)),
 		})

@@ -4,9 +4,22 @@ extends RefCounted
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
-	if version >= 23:
+	if version >= 25:
 		return payload
 	var result := payload.duplicate(true)
+	var repair_definitions: Dictionary[StringName, DefenseDefinition] = {}
+	if scenario != null:
+		repair_definitions = defense_definition_map(scenario)
+	var legacy_repairs: Dictionary[int, float] = {}
+	for state: Dictionary in result.get("world", {}).get("defenses", []):
+		var definition: DefenseDefinition = repair_definitions.get(StringName(state.get("definition_id", "")))
+		if definition != null:
+			legacy_repairs[int(state.get("runtime_id", 0))] = definition.maximum_integrity - float(state.get("integrity", 0.0))
+	for task: Dictionary in result.get("world", {}).get("support", {}).get("tasks", []):
+		if String(task.get("kind", "")) == SupportManager.REPAIR and not task.has("repair_amount"):
+			task.repair_amount = legacy_repairs.get(int(task.get("target_defense_id", 0)), 0.0)
+	if version >= 23:
+		return result
 	if result.get("director") is Dictionary and not result.director.has("opening_raid_started"):
 		var state: Dictionary = result.director
 		var level := int(state.get("pressure_level", 1))
@@ -150,6 +163,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var defense_definitions := defense_definition_map(scenario)
 	var contact_definitions := contact_definition_map(scenario)
 	var defense_ids: Dictionary[int, bool] = {}
+	var repair_definitions_by_id: Dictionary[int, DefenseDefinition] = {}
 	var sensor_ids: Dictionary[int, bool] = {}
 	var armed_ids: Dictionary[int, bool] = {}
 	var mobile_ids: Dictionary[int, bool] = {}
@@ -164,6 +178,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "방공망 runtime ID가 올바르지 않습니다"
 		defense_ids[runtime_id] = true
 		var definition: DefenseDefinition = defense_definitions[definition_id]
+		repair_definitions_by_id[runtime_id] = definition
 		reservation_kinds[runtime_id] = definition.engagement_reservation_kind()
 		if definition.mobile:
 			mobile_ids[runtime_id] = true
@@ -280,6 +295,10 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "지원 작업 종류가 올바르지 않습니다"
 		if not defense_ids.has(target_defense_id) or (kind == SupportManager.RESUPPLY and not armed_ids.has(target_defense_id)) or support_targets.has(target_defense_id) or float(task.get("remaining_work", 0.0)) <= 0.0:
 			return "재보급 작업 대상 또는 작업량이 올바르지 않습니다"
+		if kind == SupportManager.REPAIR:
+			var repair_error := repair_definitions_by_id[target_defense_id].repair_amount_validation_error(task.get("repair_amount"))
+			if not repair_error.is_empty():
+				return repair_error
 		support_targets[target_defense_id] = true
 	var relocation_state: Dictionary = world_state.relocations
 	if not relocation_state.get("tasks", null) is Array:

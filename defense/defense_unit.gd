@@ -237,10 +237,10 @@ func operational_status_text() -> String:
 	return "상태 기능정지 · 내구도 %d%%" % roundi(ratio * 100.0)
 
 func repair_cost() -> int:
-	return definition.repair_cost
+	return definition.repair_cost + ceili(definition.price * definition.repair_price_ratio * (1.0 - operational_ratio()))
 
 func repair_work() -> float:
-	return definition.repair_work * (1.0 - operational_ratio())
+	return definition.repair_dispatch_work + definition.repair_work * (1.0 - operational_ratio())
 
 func can_request_repair() -> bool:
 	return support_manager != null and integrity < definition.maximum_integrity and support_manager.task_status(self).is_empty() and support_manager.can_service(self) and (relocation_manager == null or relocation_manager.task_status(self).is_empty())
@@ -251,9 +251,9 @@ func request_repair() -> bool:
 func can_request_relocation() -> bool:
 	return definition.mobile and active and relocation_manager != null and relocation_manager.task_status(self).is_empty() and (support_manager == null or support_manager.task_status(self).is_empty())
 
-func complete_repair() -> void:
-	integrity = definition.maximum_integrity
-	active = true
+func complete_repair(amount: float = INF) -> void:
+	integrity = minf(definition.maximum_integrity, integrity + maxf(0.0, amount))
+	active = operational_ratio() >= 0.35
 	_refresh_damage_visual()
 
 func capture_state() -> Dictionary:
