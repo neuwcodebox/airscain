@@ -1,5 +1,5 @@
 extends SceneTree
-## Same missile trail, age and camera: bounded turbulence versus quiet reference.
+## Same missile trail, age and camera: continuous slow diffusion versus quiet reference.
 func _init() -> void:
 	call_deferred("run")
 
@@ -26,7 +26,7 @@ func run() -> void:
 	trail.sample_world_segment(Vector3(-160, 180, 400), Vector3(160, 180, 400))
 	main.camera_rig.camera.global_position = Vector3(0, 255, 680)
 	main.camera_rig.camera.look_at(Vector3(0, 180, 400))
-	for age: float in [2.0, 8.0, 14.0]:
+	for age: float in [2.0, 8.0, 14.0, 18.0, 20.0]:
 		trail._process(age - trail._elapsed)
 		for strength: float in [0.0, trail.turbulence_strength]:
 			trail.smoke_material.set_shader_parameter("trail_turbulence_strength", strength)

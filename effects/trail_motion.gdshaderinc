@@ -13,13 +13,13 @@ vec4 trail_motion(vec4 data, vec3 encoded_drift, vec3 origin) {
 	vec3 drift = (encoded_drift - vec3(0.5)) * 4.0 * trail_drift_speed * age;
 	if (trail_turbulence_strength > 0.0) {
 		// Neighboring puffs share a smoothly warped field, not independent jitter.
-		// Bounded displacement: time changes phase, never speed or travel radius.
+		// Diffusion keeps growing through fade-out; slower phase prevents rising travel speed.
 		vec3 q = origin * 0.18;
-		float phase = trail_time * 0.22;
+		float phase = data.x * 0.22 + 0.88 * log(1.0 + age * 0.25);
 		vec3 warp = sin(q.zxy * 0.73 + vec3(phase * 0.7, -phase * 0.6, phase * 0.5));
 		vec3 large = sin(vec3(dot(q, vec3(0.8, 0.4, 1.1)), dot(q, vec3(-0.7, 1.0, 0.5)), dot(q, vec3(1.0, -0.6, 0.3))) + warp + vec3(phase, -phase * 0.8, phase * 0.6));
 		vec3 small = sin(q.yzx * 2.3 + warp * 1.2 + vec3(-phase * 1.1, phase * 0.9, phase));
-		float growth = smoothstep(0.4, 6.0, age);
+		float growth = sqrt(1.0 + age * 0.5) - 1.0;
 		drift += (large + small * 0.28) * trail_turbulence_strength * growth;
 	}
 	return vec4(drift, scale);

@@ -111,7 +111,8 @@ func _process(delta: float) -> void:
 	smoke_material.set_shader_parameter("trail_time", _elapsed)
 	shadow_material.set_shader_parameter("trail_time", _elapsed)
 	if _bounds_dirty:
-		var margin := puff_mesh.size.length() * maxf(initial_scale, final_scale) * 1.3 + lifetime * drift_speed * 2.0 + turbulence_strength * 1.28
+		var turbulence_extent := turbulence_strength * 1.28 * (sqrt(1.0 + lifetime * 0.5) - 1.0)
+		var margin := puff_mesh.size.length() * maxf(initial_scale, final_scale) * 1.3 + lifetime * drift_speed * 2.0 + turbulence_extent
 		multimesh.custom_aabb = _bounds.grow(margin)
 		shadow_particles.multimesh.custom_aabb = multimesh.custom_aabb
 		_bounds_dirty = false
