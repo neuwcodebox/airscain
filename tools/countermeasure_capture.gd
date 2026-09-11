@@ -53,6 +53,8 @@ func run() -> void:
 			interceptor.gameplay_tick(delta)
 		var camera := main.camera_rig.camera
 		camera.global_position = aircraft.global_position + Vector3(-45, 25, 160)
+		if OS.get_cmdline_user_args().has("--sides"):
+			camera.global_position = aircraft.global_position + Vector3(-45, 160, 100)
 		camera.look_at(aircraft.global_position + Vector3.LEFT * 35)
 		if aircraft.countermeasure_charges_remaining < definition.countermeasure_charges and released_at < 0:
 			released_at = Time.get_ticks_msec()

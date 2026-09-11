@@ -6,6 +6,7 @@ const SMOKE_LIFETIME := 12.0
 const HEAD_COUNT := 4
 const RELEASE_INTERVAL := 0.14
 const DRAG := 0.85
+const LATERAL_EJECTION_SPEED := 24.0
 var elapsed: float = 0.0
 var duration: float = 0.0
 var flare_positions: Array[Vector3] = []
@@ -94,11 +95,14 @@ func _process(delta: float) -> void:
 
 func _emit_flare(index: int, origin: Vector3, inherited_velocity: Vector3) -> void:
 	var forward := inherited_velocity.normalized() if inherited_velocity.length() > 1.0 else Vector3.FORWARD
-	var side := forward.cross(Vector3.UP).normalized() * (-1.0 if index % 2 == 0 else 1.0)
+	var right := forward.cross(Vector3.UP)
+	if right.length_squared() < 0.0001:
+		right = Vector3.RIGHT
+	var side := right.normalized() * (-1.0 if index % 2 == 0 else 1.0)
 	var position := origin - forward * 3.0 + side * 2.0
 	flare_positions[index] = position
 	release_positions[index] = position
-	flare_velocities[index] = inherited_velocity + side * 12.0 - Vector3.UP * 2.0
+	flare_velocities[index] = inherited_velocity + side * LATERAL_EJECTION_SPEED - Vector3.UP * 2.0
 	flare_ages[index] = 0.0
 	released_count += 1
 	_update_head(index)

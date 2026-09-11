@@ -125,6 +125,27 @@ func test_flares_release_in_sequence_from_the_moving_source() -> void:
 	assert_eq(burst.released_count, 2, "기체 소실 후 허공에서 추가 사출하지 않는다")
 	assert_gt(burst.flare_ages[0], 1.0, "이미 사출된 플레어는 독립적으로 움직인다")
 
+func test_flares_spread_on_both_sides_of_different_flight_directions() -> void:
+	var scene := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
+	var directions: Array[Vector3] = [Vector3.RIGHT, Vector3.FORWARD, Vector3(1, 0.4, 1).normalized(), Vector3.UP]
+	for forward: Vector3 in directions:
+		var right := forward.cross(Vector3.UP).normalized() if forward != Vector3.UP else Vector3.RIGHT
+		var burst := add_child_autofree(scene.instantiate()) as CountermeasureBurst
+		var origin := Vector3(150, 200, 350)
+		burst.position = origin
+		burst.setup(&"flare", forward * 96.0)
+		burst._process(1.0)
+		for index: int in CountermeasureBurst.HEAD_COUNT:
+			var side := -1.0 if index % 2 == 0 else 1.0
+			var release_offset := (burst.release_positions[index] - origin).dot(right) * side
+			var spread := (burst.flare_positions[index] - origin).dot(right) * side
+			assert_gt(release_offset, 0.0, "사출구는 진행 방향 기준 좌우를 번갈아 사용한다")
+			assert_gt(spread, release_offset, "양쪽 플레어가 각각 기체 중심선 바깥으로 퍼진다")
+			assert_gt(burst.flare_velocities[index].dot(right) * side, 0.0)
+		var before := burst.flare_velocities[0].dot(right)
+		burst._process(0.5)
+		assert_lt(absf(burst.flare_velocities[0].dot(right)), absf(before), "측방 속도는 가속하지 않고 감쇠한다")
+
 func test_flare_sequence_and_drag_are_independent_of_frame_size() -> void:
 	var scene := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
 	var coarse := add_child_autofree(scene.instantiate()) as CountermeasureBurst
