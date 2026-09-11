@@ -20,7 +20,7 @@ maximum_climb_rate = 35.0
 script = ExtResource("4")
 type = 0
 target_role = 0
-damage = 10.0
+damage = 15.0
 action_distance = 5.0
 
 [resource]
