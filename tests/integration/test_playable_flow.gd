@@ -1462,6 +1462,9 @@ func test_swarm_entry_spawns_a_close_formation_package() -> void:
 	main.registry.clear()
 	main.scenario.threat_entries = [main.scenario.threat_entries[1]]
 	main.director.elapsed = 120.0
+	main.director.opening_raid_started = true
+	main.director.opening_raid_complete = true
+	main.director.pressure_started_at = main.director.elapsed
 	main.director.pressure_level = 2
 	main.director.enabled = true
 	main.director.until_spawn = 0.0
@@ -2494,3 +2497,26 @@ func test_new_sustained_operation_starts_with_hostiles_and_no_start_button() -> 
 	assert_eq(operation.restore_from_document(saved), "")
 	assert_eq(operation.registry.hostile_count(), count)
 	assert_eq(operation.director.capture_state(), saved.payload.director)
+
+func test_first_raid_reaches_city_before_escalation_and_gets_a_full_rest() -> void:
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	var operation := MAIN_SCENE.instantiate() as AirscainMain
+	add_child_autofree(operation)
+	operation.set_process(false)
+	var opening_finished_at := -1.0
+	var active_during_rest := false
+	for step: int in 1200:
+		operation._process(0.5)
+		if operation.director.opening_raid_complete:
+			if opening_finished_at < 0.0:
+				opening_finished_at = operation.director.pressure_started_at - operation.scenario.recovery_duration
+			if operation.director.pressure_level == 1:
+				active_during_rest = active_during_rest or operation.registry.hostile_count() > 0
+		if operation.director.pressure_level >= 2 or operation.session.phase == GameSession.Phase.GAME_OVER:
+			break
+	assert_gt(opening_finished_at, 0.0, "실제 첫 공습이 격추·명중·이탈로 끝나야 한다")
+	assert_false(active_during_rest)
+	assert_eq(operation.director.pressure_level, 2)
+	assert_gte(operation.director.elapsed - opening_finished_at, operation.scenario.recovery_duration)
+	assert_eq(operation.session.current_pressure, 2)
+	assert_eq(operation.hud.pressure_label.text, "위협 단계  2")

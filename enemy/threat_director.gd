@@ -22,6 +22,10 @@ var pending_waves: Array[Dictionary] = []
 var in_recovery: bool = false
 var completed_attack_windows: int = 0
 var raid_planner := RaidPlanner.new()
+var opening_raid_started: bool = false
+var opening_raid_complete: bool = false
+var opening_threat_ids: Array[int] = []
+var pressure_started_at: float = 0.0
 
 func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D, enemy_knowledge_value: EnemyKnowledge) -> void:
 	scenario = scenario_value
@@ -45,6 +49,10 @@ func reset() -> void:
 	pending_waves.clear()
 	in_recovery = false
 	completed_attack_windows = 0
+	opening_raid_started = false
+	opening_raid_complete = false
+	opening_threat_ids.clear()
+	pressure_started_at = 0.0
 	raid_planner.last_pattern = &""
 	pressure_changed.emit(pressure_level)
 
@@ -53,6 +61,7 @@ func gameplay_tick(delta: float) -> void:
 		return
 	elapsed += delta
 	_tick_pending_waves(delta)
+	_finish_opening_raid_if_ready()
 	var new_level := pressure_level_at(elapsed)
 	if new_level != pressure_level:
 		pressure_level = new_level
@@ -66,7 +75,7 @@ func gameplay_tick(delta: float) -> void:
 			recovery_started.emit(completed_attack_windows)
 		else:
 			until_spawn = maxf(until_spawn, scenario.initial_spawn_interval)
-	if in_recovery:
+	if in_recovery or (opening_raid_started and pressure_level < 2):
 		return
 	until_spawn -= delta
 	if until_spawn > 0.0:
@@ -87,20 +96,24 @@ func _tick_pending_waves(delta: float) -> void:
 			continue
 		var entry := _entry_for_definition(StringName(String(wave.definition_id)))
 		if entry != null:
-			_spawn_group(entry, float(wave.angle))
+			_spawn_group(entry, float(wave.angle), bool(wave.get("opening_raid", false)))
 		pending_waves.remove_at(index)
 
-func _spawn_group(entry: ThreatSpawnEntry, group_angle: float) -> void:
+func _spawn_group(entry: ThreatSpawnEntry, group_angle: float, opening_raid: bool = false) -> void:
 	var group_target: Variant = null
 	if entry.threat_definition.shares_city_impact_target():
 		group_target = battlefield.random_city_building_target(rng)
 	for group_index: int in entry.group_size:
 		if registry.hostile_count() >= scenario.active_threat_cap:
 			return
-		_spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target)
+		var threat := _spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target)
+		if opening_raid and threat != null:
+			opening_threat_ids.append(threat.runtime_id)
 
 func pressure_level_at(time_seconds: float) -> int:
-	return 1 + int(floor(time_seconds / scenario.pressure_step_duration))
+	if not opening_raid_complete or time_seconds < pressure_started_at:
+		return 1
+	return 2 + int(floor((time_seconds - pressure_started_at) / scenario.pressure_step_duration))
 
 func spawn_interval_at(time_seconds: float) -> float:
 	return raid_interval_at(time_seconds)
@@ -140,7 +153,12 @@ func launch_budgeted_raid() -> void:
 	else:
 		approach_angle += rng.randf_range(-0.35, 0.35)
 	var max_delay := minf(32.0, maxf(0.0, remaining_attack - 0.05))
-	pending_waves.append_array(raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng))
+	var waves := raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng)
+	if not opening_raid_started and not waves.is_empty():
+		opening_raid_started = true
+		for wave: Dictionary in waves:
+			wave["opening_raid"] = true
+	pending_waves.append_array(waves)
 
 func adaptive_approach_angle() -> float:
 	var known_angles: Array[float] = []
@@ -217,12 +235,30 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	return threat
 
 func bind_releases(threat: ThreatUnit) -> void:
-	if not threat.threat_released.is_connected(_register_released_threat):
-		threat.threat_released.connect(_register_released_threat)
+	var release_callback := _register_released_threat.bind(threat)
+	if not threat.threat_released.is_connected(release_callback):
+		threat.threat_released.connect(release_callback)
+	if not threat.resolved.is_connected(_on_threat_resolved):
+		threat.resolved.connect(_on_threat_resolved)
 
-func _register_released_threat(threat: ThreatUnit) -> void:
+func _on_threat_resolved(threat: ThreatUnit, _neutralized: bool, _reward: int) -> void:
+	opening_threat_ids.erase(threat.runtime_id)
+	_finish_opening_raid_if_ready()
+
+func _finish_opening_raid_if_ready() -> void:
+	if not opening_raid_started or opening_raid_complete or not opening_threat_ids.is_empty():
+		return
+	for wave: Dictionary in pending_waves:
+		if bool(wave.get("opening_raid", false)):
+			return
+	opening_raid_complete = true
+	pressure_started_at = elapsed + scenario.recovery_duration
+
+func _register_released_threat(threat: ThreatUnit, source: ThreatUnit) -> void:
 	threat.setup(next_runtime_id, threat.definition)
 	next_runtime_id += 1
+	if opening_threat_ids.has(source.runtime_id):
+		opening_threat_ids.append(threat.runtime_id)
 	bind_releases(threat)
 	registry.add(threat)
 	threat_spawned.emit(threat)
@@ -310,6 +346,10 @@ func capture_state() -> Dictionary:
 		"in_recovery": in_recovery,
 		"completed_attack_windows": completed_attack_windows,
 		"last_raid_pattern": String(raid_planner.last_pattern),
+		"opening_raid_started": opening_raid_started,
+		"opening_raid_complete": opening_raid_complete,
+		"opening_threat_ids": opening_threat_ids.duplicate(),
+		"pressure_started_at": pressure_started_at,
 	}
 
 func restore_state(state: Dictionary) -> void:
@@ -321,8 +361,34 @@ func restore_state(state: Dictionary) -> void:
 	rng.state = int(state.rng_state)
 	pending_waves.clear()
 	for wave: Dictionary in state.get("pending_waves", []):
-		pending_waves.append({"definition_id": String(wave.definition_id), "remaining": float(wave.remaining), "angle": float(wave.angle)})
+		pending_waves.append(wave.duplicate(true))
 	in_recovery = bool(state.in_recovery)
 	completed_attack_windows = int(state.completed_attack_windows)
+	opening_raid_started = bool(state.opening_raid_started)
+	opening_raid_complete = bool(state.opening_raid_complete)
+	opening_threat_ids.assign(state.opening_threat_ids)
+	pressure_started_at = float(state.pressure_started_at)
 	raid_planner.last_pattern = StringName(state.get("last_raid_pattern", ""))
 	pressure_changed.emit(pressure_level)
+
+static func opening_state_validation_error(state: Dictionary) -> String:
+	if not state.get("opening_raid_started") is bool or not state.get("opening_raid_complete") is bool or not state.get("opening_threat_ids") is Array:
+		return "첫 공습 상태가 올바르지 않습니다"
+	var start: Variant = state.get("pressure_started_at")
+	if not (start is float or start is int) or not is_finite(float(start)):
+		return "위협 단계 시작 시간이 올바르지 않습니다"
+	var ids: Dictionary[int, bool] = {}
+	for id: Variant in state.opening_threat_ids:
+		if not (id is int or id is float) or not is_finite(float(id)) or float(id) != float(int(id)) or int(id) <= 0 or ids.has(int(id)):
+			return "첫 공습 위협 ID가 올바르지 않습니다"
+		ids[int(id)] = true
+	var has_pending := false
+	for wave: Variant in state.pending_waves:
+		if not wave is Dictionary or not wave.get("opening_raid", false) is bool:
+			return "첫 공습 예약 상태가 올바르지 않습니다"
+		has_pending = has_pending or bool(wave.get("opening_raid", false))
+	if (not state.opening_raid_started or state.opening_raid_complete) and (not ids.is_empty() or has_pending):
+		return "첫 공습 진행과 남은 위협이 일치하지 않습니다"
+	if state.opening_raid_complete and not state.opening_raid_started:
+		return "시작하지 않은 첫 공습이 완료되었습니다"
+	return ""

@@ -1076,16 +1076,15 @@ func test_raid_pacing_rises_gradually_and_stays_bounded() -> void:
 	var director: ThreatDirector = autofree(ThreatDirector.new()) as ThreatDirector
 	director.scenario = SCENARIO
 	assert_eq(director.pressure_level_at(0.0), 1)
+	assert_eq(director.pressure_level_at(10000.0), 1, "첫 공습 전 대기 시간은 단계를 올리지 않는다")
+	director.opening_raid_started = true
+	director.opening_raid_complete = true
+	director.pressure_started_at = 200.0
 	var pressure_step := SCENARIO.pressure_step_duration
-	assert_eq(director.pressure_level_at(pressure_step - 0.1), 1)
-	assert_eq(director.pressure_level_at(pressure_step), 2)
-	assert_eq(director.pressure_level_at(pressure_step * 2.0), 3)
-	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
-		if entry.unlock_level != 1 or entry.raid_role != ThreatSpawnEntry.RaidRole.STRIKE:
-			continue
-		var distance := SCENARIO.battlefield_size * entry.threat_definition.spawn_radius_multiplier()
-		var approach_time := entry.threat_definition.estimated_approach_seconds(distance, 1.0)
-		assert_eq(director.pressure_level_at(approach_time + SCENARIO.recovery_duration), 1, "첫 공습의 도시 접근과 정비 호흡 동안 1단계를 유지한다")
+	assert_eq(director.pressure_level_at(199.9), 1)
+	assert_eq(director.pressure_level_at(200.0), 2)
+	assert_eq(director.pressure_level_at(200.0 + pressure_step - 0.1), 2)
+	assert_eq(director.pressure_level_at(200.0 + pressure_step), 3)
 	assert_eq(director.spawn_interval_at(0.0), 24.0)
 	assert_lt(director.spawn_interval_at(450.0), director.spawn_interval_at(0.0))
 	assert_gte(director.spawn_interval_at(10000.0), 14.0)
@@ -1435,3 +1434,75 @@ func test_city_shadow_receivers_share_equal_surfaces_but_preserve_variants() -> 
 		var material := surfaces[index].material_override as ShaderMaterial
 		assert_eq(material.get_shader_parameter("base_color"), Color("aa9274") if index != 2 else Color("78838b"))
 		assert_almost_eq(float(material.get_shader_parameter("surface_roughness")), 0.85 if index != 3 else 0.5, 0.000001)
+
+func test_opening_raid_waits_for_every_member_and_delayed_group() -> void:
+	var director := autofree(ThreatDirector.new()) as ThreatDirector
+	director.scenario = SCENARIO
+	director.enabled = true
+	director.opening_raid_started = true
+	director.opening_threat_ids.assign([1, 2])
+	director.until_spawn = 10000.0
+	var first := autofree(ThreatUnit.new()) as ThreatUnit
+	first.setup(1, SCENARIO.threat_entries[0].threat_definition)
+	var second := autofree(ThreatUnit.new()) as ThreatUnit
+	second.setup(2, SCENARIO.threat_entries[0].threat_definition)
+	director.bind_releases(first)
+	director.bind_releases(second)
+	director.gameplay_tick(600.0)
+	assert_eq(director.pressure_level, 1)
+	first.resolve_once(true)
+	assert_false(director.opening_raid_complete)
+	director.pending_waves.append({"definition_id": "attack_uav", "remaining": 10.0, "angle": 0.0, "opening_raid": true})
+	second.resolve_once(false)
+	assert_false(director.opening_raid_complete, "아직 출발하지 않은 첫 공습 그룹도 기다린다")
+	director.pending_waves.clear()
+	director.gameplay_tick(1.0)
+	assert_true(director.opening_raid_complete)
+	var start := director.pressure_started_at
+	assert_eq(start, director.elapsed + SCENARIO.recovery_duration)
+	director.gameplay_tick(SCENARIO.recovery_duration - 0.1)
+	assert_eq(director.pressure_level, 1)
+	director.gameplay_tick(0.1)
+	assert_eq(director.pressure_level, 2, "기다린 시간만큼 단계를 몰아서 올리지 않는다")
+	director.gameplay_tick(SCENARIO.pressure_step_duration)
+	assert_eq(director.pressure_level, 3)
+	assert_eq(director.pressure_started_at, start)
+	director.reset()
+	assert_false(director.opening_raid_started)
+	assert_false(director.opening_raid_complete)
+	assert_true(director.opening_threat_ids.is_empty())
+	assert_eq(director.pressure_level_at(10000.0), 1)
+
+func test_opening_raid_wait_and_rest_are_paused_with_director() -> void:
+	var director := autofree(ThreatDirector.new()) as ThreatDirector
+	director.scenario = SCENARIO
+	director.opening_raid_started = true
+	director.opening_raid_complete = true
+	director.pressure_started_at = SCENARIO.recovery_duration
+	director.gameplay_tick(1000.0)
+	assert_eq(director.elapsed, 0.0)
+	assert_eq(director.pressure_level, 1)
+
+func test_opening_raid_includes_released_threats_but_not_unrelated_contacts() -> void:
+	var director := autofree(ThreatDirector.new()) as ThreatDirector
+	director.scenario = SCENARIO
+	director.registry = ThreatRegistry.new()
+	director.opening_raid_started = true
+	director.next_runtime_id = 3
+	var source := autofree(ThreatUnit.new()) as ThreatUnit
+	source.setup(1, SCENARIO.threat_entries[0].threat_definition)
+	director.opening_threat_ids.append(1)
+	director.bind_releases(source)
+	director.bind_releases(source)
+	var released := autofree(ThreatUnit.new()) as ThreatUnit
+	released.definition = source.definition
+	source.threat_released.emit(released)
+	assert_eq(director.opening_threat_ids, [1, 3])
+	source.resolve_once(false)
+	assert_false(director.opening_raid_complete)
+	var unrelated := autofree(ThreatUnit.new()) as ThreatUnit
+	unrelated.setup(99, source.definition)
+	director.registry.add(unrelated)
+	released.resolve_once(true)
+	assert_true(director.opening_raid_complete, "다른 공습이나 환경 접촉은 첫 공습 종료를 막지 않는다")
+	assert_eq(director.pressure_started_at, SCENARIO.recovery_duration)

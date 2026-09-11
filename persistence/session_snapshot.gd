@@ -4,9 +4,28 @@ extends RefCounted
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
-	if version >= 22:
+	if version >= 23:
 		return payload
 	var result := payload.duplicate(true)
+	if result.get("director") is Dictionary and not result.director.has("opening_raid_started"):
+		var state: Dictionary = result.director
+		var level := int(state.get("pressure_level", 1))
+		var elapsed := float(state.get("elapsed", 0.0))
+		state.opening_raid_started = level >= 2 or elapsed > 0.0
+		state.opening_raid_complete = level >= 2
+		state.opening_threat_ids = []
+		state.pressure_started_at = elapsed - float(level - 2) * scenario.pressure_step_duration if level >= 2 else 0.0
+		if level == 1:
+			var definitions := contact_definition_map(scenario)
+			for contact: Dictionary in result.world.get("contacts", []):
+				var definition: ThreatDefinition = definitions.get(StringName(contact.get("definition_id", "")))
+				if definition != null and definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
+					state.opening_threat_ids.append(int(contact.get("runtime_id", 0)))
+			for wave: Dictionary in state.get("pending_waves", []):
+				wave["opening_raid"] = true
+			state.opening_raid_started = state.opening_raid_started or not state.opening_threat_ids.is_empty() or not state.get("pending_waves", []).is_empty()
+	if version >= 22:
+		return result
 	if result.get("director") is Dictionary:
 		result.director.last_raid_pattern = ""
 	if version >= 21:
@@ -163,6 +182,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var content_error := definition.runtime_state_validation_error(state.get("content_state", {}))
 		if not content_error.is_empty():
 			return "%s: %s" % [definition_id, content_error]
+	var contact_ids: Dictionary[int, bool] = {}
 	for state: Dictionary in world_state.contacts:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not contact_definitions.has(definition_id):
@@ -173,6 +193,8 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if countermeasure_charges < 0 or countermeasure_charges > contact_definitions[definition_id].countermeasure_charges:
 			return "위협 대응책 상태가 올바르지 않습니다"
 		var contact_definition: ThreatDefinition = contact_definitions[definition_id]
+		if contact_definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
+			contact_ids[int(state.get("runtime_id", 0))] = true
 		var content_error := contact_definition.runtime_state_validation_error(state.get("content_state", {}), defense_ids)
 		if not content_error.is_empty():
 			return "%s: %s" % [definition_id, content_error]
@@ -292,6 +314,12 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		return "공습 생성 이력이 올바르지 않습니다"
 	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"
+	var opening_error := ThreatDirector.opening_state_validation_error(director_state)
+	if not opening_error.is_empty():
+		return opening_error
+	for id: Variant in director_state.opening_threat_ids:
+		if not contact_ids.has(int(id)):
+			return "첫 공습이 존재하지 않는 위협을 참조합니다"
 	for wave: Dictionary in director_state.pending_waves:
 		var definition_id := StringName(String(wave.get("definition_id", "")))
 		if not contact_definitions.has(definition_id) or float(wave.get("remaining", -1.0)) < 0.0 or not is_finite(float(wave.get("angle", NAN))):

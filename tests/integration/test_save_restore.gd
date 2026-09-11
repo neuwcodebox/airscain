@@ -741,3 +741,85 @@ func test_recon_search_and_flight_restore_without_using_asset_waypoints() -> voi
 	migrated.gameplay_tick(0.1)
 	assert_null(migrated.mission_runtime.target_asset)
 	assert_true(main.enemy_knowledge.search.assignments.has(id))
+
+func test_opening_raid_members_pending_groups_and_rest_round_trip() -> void:
+	main.director.enabled = true
+	main.director.launch_budgeted_raid()
+	var scheduled := main.director.pending_waves.duplicate(true)
+	assert_false(scheduled.is_empty())
+	var pending_document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(pending_document), "")
+	assert_eq(main.director.pending_waves, pending_document.payload.director.pending_waves)
+	main.director._tick_pending_waves(32.0)
+	var ids := main.director.opening_threat_ids.duplicate()
+	assert_false(ids.is_empty())
+	main.director.gameplay_tick(240.0)
+	assert_eq(main.director.pressure_level, 1)
+	assert_true(main.director.pending_waves.is_empty(), "첫 공습이 끝나기 전에 다음 자동 공습을 편성하지 않는다")
+	var active_document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(active_document), "")
+	assert_eq(main.director.opening_threat_ids, ids)
+	for threat: ThreatUnit in main.registry.get_hostile_active():
+		threat.resolve_once(threat.runtime_id % 2 == 0)
+	assert_true(main.director.opening_raid_complete)
+	assert_true(main.director.opening_threat_ids.is_empty())
+	main.director.gameplay_tick(main.scenario.recovery_duration * 0.5)
+	var rest_document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var start := main.director.pressure_started_at
+	assert_eq(main.restore_from_document(rest_document), "")
+	assert_eq(main.director.pressure_started_at, start)
+	assert_eq(main.director.pressure_level, 1)
+	main.director.gameplay_tick(main.scenario.recovery_duration * 0.5)
+	assert_eq(main.director.pressure_level, 2)
+	assert_eq(main.session.current_pressure, 2)
+	assert_eq(main.hud.pressure_label.text, "위협 단계  2")
+	var escalated_document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(escalated_document), "")
+	main.director.gameplay_tick(main.scenario.pressure_step_duration)
+	assert_eq(main.director.pressure_level, 3)
+
+func test_invalid_opening_raid_state_does_not_mutate_operation() -> void:
+	main.director.launch_budgeted_raid()
+	main.director._tick_pending_waves(32.0)
+	var document := main.capture_save_document()
+	var expected := main.director.capture_state()
+	for invalid_ids: Array in [[999999], [1, 1], [0], [1.5]]:
+		var invalid := document.duplicate(true)
+		invalid.payload.director.opening_threat_ids = invalid_ids
+		assert_ne(main.restore_from_document(invalid), "")
+		assert_eq(main.director.capture_state(), expected)
+	var invalid := document.duplicate(true)
+	invalid.payload.director.pressure_started_at = NAN
+	assert_ne(main.restore_from_document(invalid), "")
+	assert_eq(main.director.capture_state(), expected)
+
+func test_version_22_preserves_existing_pressure_without_catching_up() -> void:
+	var document := main.capture_save_document()
+	document.version = 22
+	for key: String in ["opening_raid_started", "opening_raid_complete", "opening_threat_ids", "pressure_started_at"]:
+		document.payload.director.erase(key)
+	document.payload.director.elapsed = 1000.0
+	document.payload.director.pressure_level = 5
+	document.payload.director.enabled = true
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(main.director.pressure_level_at(1000.0), 5)
+	main.director.until_spawn = 10000.0
+	main.director.gameplay_tick(main.scenario.pressure_step_duration - 0.1)
+	assert_eq(main.director.pressure_level, 5)
+	main.director.gameplay_tick(0.1)
+	assert_eq(main.director.pressure_level, 6)
+	assert_false(document.payload.director.has("opening_raid_started"))
+
+func test_version_22_first_stage_waits_for_existing_hostiles() -> void:
+	main.director.spawn_one()
+	main.director.schedule_archetype(main.scenario.raid_archetypes[0], 0.0)
+	var document := main.capture_save_document()
+	document.version = 22
+	for key: String in ["opening_raid_started", "opening_raid_complete", "opening_threat_ids", "pressure_started_at"]:
+		document.payload.director.erase(key)
+	assert_eq(main.restore_from_document(document), "")
+	assert_false(main.director.opening_threat_ids.is_empty())
+	assert_false(main.director.opening_raid_complete)
+	assert_eq(main.director.pressure_level_at(10000.0), 1)
+	for wave: Dictionary in main.director.pending_waves:
+		assert_true(wave.opening_raid)
