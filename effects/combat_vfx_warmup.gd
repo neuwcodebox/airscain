@@ -121,7 +121,11 @@ static func create_transient_samples(parent: Node3D, position_value: Vector3) ->
 		var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
 		parent.add_child(burst)
 		burst.global_position = position_value
-		burst.call("setup", kind)
+		burst.call("setup", kind, Vector3(90, 0, 0))
+		burst.call("_process", 0.3)
+		for child: Node in burst.get_children():
+			if child is LingeringSmokeTrail:
+				(child as LingeringSmokeTrail)._process(0.3)
 		samples.append(burst)
 	for sample: Node3D in samples:
 		sample.process_mode = Node.PROCESS_MODE_DISABLED

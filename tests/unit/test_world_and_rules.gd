@@ -936,7 +936,7 @@ func test_transient_glows_use_soft_cards_without_realtime_light_shadows() -> voi
 	var miss: Node = add_child_autofree(preload("res://effects/interceptor_miss/interceptor_miss.tscn").instantiate())
 	assert_true((miss.get_node("Flash") as MeshInstance3D).mesh is QuadMesh)
 	var countermeasure: Node = add_child_autofree(preload("res://effects/countermeasure_burst/countermeasure_burst.tscn").instantiate())
-	assert_true((countermeasure.get_node("Flares") as GPUParticles3D).draw_pass_1 is QuadMesh)
+	assert_true((countermeasure.get_node("Flares") as MultiMeshInstance3D).multimesh.mesh is QuadMesh)
 
 func test_explosion_timeline_layers_expand_and_retire_in_order() -> void:
 	var initial := ExplosionTimeline.sample(0.0, 10.0)
@@ -1055,9 +1055,11 @@ func test_flare_and_chaff_can_defeat_matching_seekers_with_finite_charges() -> v
 	definition.countermeasure_charges = 2
 	threat.setup(8, definition)
 	assert_true(threat.try_defeat_seeker(1.0, 0.0, 0.5))
+	threat.gameplay_tick(1.0)
 	assert_false(threat.try_defeat_seeker(0.0, 1.0, 0.5))
 	assert_true(threat.try_defeat_seeker(0.0, 1.0, 0.3))
 	assert_eq(threat.countermeasure_charges_remaining, 0)
+	threat.gameplay_tick(1.0)
 	assert_false(threat.try_defeat_seeker(1.0, 1.0, 0.0))
 
 func test_neutral_contact_does_not_award_budget_or_hostile_statistics() -> void:

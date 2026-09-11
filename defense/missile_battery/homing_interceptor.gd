@@ -30,6 +30,8 @@ var radar_sensitivity: float = 0.65
 var countermeasure_attempted: bool = false
 var countermeasure_decoy_active: bool = false
 var countermeasure_decoy_position: Vector3
+var countermeasure_decoy_remaining: float = 0.0
+var countermeasure_decoy_velocity := Vector3.ZERO
 var reacquisition_remaining: float = -1.0
 var reacquisition_reason: String = "표적 소실"
 var target_destroyed_abort: bool = false
@@ -95,6 +97,12 @@ func gameplay_tick(delta: float) -> void:
 				return
 			_coast_without_target(delta)
 			return
+	if countermeasure_decoy_active:
+		countermeasure_decoy_position += countermeasure_decoy_velocity * delta
+		countermeasure_decoy_remaining = maxf(0.0, countermeasure_decoy_remaining - delta)
+		if countermeasure_decoy_remaining <= 0.0:
+			countermeasure_decoy_active = false
+			closest_guidance_distance = INF
 	var previous := global_position
 	var guidance_point := countermeasure_decoy_position if countermeasure_decoy_active else INTERCEPT_GUIDANCE.lead_point(global_position, speed, target_track.estimated_position, target_track.estimated_velocity, 1.8)
 	var desired := global_position.direction_to(guidance_point)
@@ -112,16 +120,23 @@ func gameplay_tick(delta: float) -> void:
 	if smoke != null:
 		smoke.sample_world_segment(previous, global_position)
 	if not countermeasure_attempted:
-		var countermeasure_target := _countermeasure_target()
-		if countermeasure_target != null and global_position.distance_to(countermeasure_target.get_aim_position()) <= 120.0:
-			countermeasure_attempted = true
-			if countermeasure_target.try_defeat_seeker(infrared_sensitivity, radar_sensitivity, rng.randf()):
-				var countermeasure_type := countermeasure_target.effective_countermeasure_type(infrared_sensitivity, radar_sensitivity)
-				countermeasure_decoy_position = _decoy_position(countermeasure_target)
-				countermeasure_decoy_active = true
-				closest_guidance_distance = INF
-				_spawn_countermeasure(countermeasure_decoy_position, countermeasure_type)
-				return
+		var target := _countermeasure_target()
+		if target != null:
+			var offset := target.get_aim_position() - global_position
+			var closing := maxf(0.0, (velocity - target.presentation_velocity()).dot(offset.normalized()))
+			if offset.length() <= clampf(closing * 1.2, 120.0, 360.0):
+				countermeasure_attempted = true
+				var response := target.respond_to_seeker(infrared_sensitivity, radar_sensitivity, rng.randf())
+				if bool(response.get("released", false)):
+					_spawn_countermeasure(response.position, StringName(response.kind), target.presentation_velocity())
+				if bool(response.get("defeated", false)):
+					countermeasure_decoy_position = _decoy_position(target)
+					countermeasure_decoy_velocity = target.presentation_velocity() * 0.35
+					countermeasure_decoy_remaining = 1.2
+					countermeasure_decoy_active = true
+					closest_guidance_distance = INF
+					return
+
 	if _resolve_proximity_intercept(previous):
 		return
 	var guidance_distance := global_position.distance_to(target_track.estimated_position)
@@ -233,14 +248,14 @@ func _spawn_detonation(color: Color, radius: float) -> void:
 		return
 	ExplosionEffect.spawn(parent as Node3D, global_position, color, radius)
 
-func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName) -> void:
+func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName, source_velocity: Vector3 = Vector3.ZERO) -> void:
 	var parent := get_parent()
 	if parent == null:
 		return
 	var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
 	parent.add_child(burst)
 	burst.global_position = position
-	burst.call("setup", countermeasure_type)
+	burst.call("setup", countermeasure_type, source_velocity)
 
 func _release_smoke_trail() -> void:
 	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
@@ -349,6 +364,8 @@ func _try_retarget() -> bool:
 	reacquisition_reason = "표적 소실"
 	countermeasure_attempted = false
 	countermeasure_decoy_active = false
+	countermeasure_decoy_remaining = 0.0
+	countermeasure_decoy_velocity = Vector3.ZERO
 	closest_guidance_distance = INF
 	target_changed.emit(previous_track_id, selected.track_id, remaining_lifetime)
 	return true
@@ -377,6 +394,8 @@ func capture_state() -> Dictionary:
 		"countermeasure_attempted": countermeasure_attempted,
 		"countermeasure_decoy_active": countermeasure_decoy_active,
 		"countermeasure_decoy_position": SaveDocument.vector3_to_data(countermeasure_decoy_position),
+		"countermeasure_decoy_remaining": countermeasure_decoy_remaining,
+		"countermeasure_decoy_velocity": SaveDocument.vector3_to_data(countermeasure_decoy_velocity),
 		"reacquisition_remaining": reacquisition_remaining,
 		"reacquisition_reason": reacquisition_reason,
 		"target_destroyed_abort": target_destroyed_abort,
@@ -415,6 +434,8 @@ func restore_state(state: Dictionary, track: PlayerTrack, registry_value: Threat
 	countermeasure_attempted = bool(state.get("countermeasure_attempted", false))
 	countermeasure_decoy_active = bool(state.get("countermeasure_decoy_active", false))
 	countermeasure_decoy_position = SaveDocument.vector3_from_data(state.get("countermeasure_decoy_position", [0.0, 0.0, 0.0]))
+	countermeasure_decoy_remaining = float(state.get("countermeasure_decoy_remaining", 1.2 if countermeasure_decoy_active else 0.0))
+	countermeasure_decoy_velocity = SaveDocument.vector3_from_data(state.get("countermeasure_decoy_velocity", [0, 0, 0]))
 	reacquisition_remaining = float(state.get("reacquisition_remaining", 0.0 if bool(state.get("target_resolved", false)) else -1.0))
 	reacquisition_reason = String(state.get("reacquisition_reason", state.get("target_resolution_reason", "표적 소실")))
 	target_destroyed_abort = bool(state.get("target_destroyed_abort", state.get("target_destroyed_coast", false)))

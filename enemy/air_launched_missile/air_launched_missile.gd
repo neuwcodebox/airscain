@@ -17,6 +17,7 @@ func launch(target: Vector3, objective: ProtectedObjective, battlefield: Battlef
 	flight.configure_flight(StrikeFlight.Mode.MISSILE, velocity, battlefield)
 
 func gameplay_tick(delta: float) -> void:
+	super.gameplay_tick(delta)
 	if not is_targetable():
 		return
 	flight.gameplay_tick(delta)

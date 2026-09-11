@@ -43,6 +43,7 @@ radar_signature = 0.92
 affiliation = 3
 flare_effectiveness = 0.8
 chaff_effectiveness = 0.65
+countermeasure_evasion_distance = 110.0
 countermeasure_charges = 4
 maximum_health = 180.0
 movement = SubResource("Movement")

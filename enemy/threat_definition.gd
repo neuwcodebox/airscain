@@ -18,6 +18,7 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 @export_range(0.0, 1.0) var jamming_strength: float = 0.0
 @export_range(0.0, 1.0) var flare_effectiveness: float = 0.0
 @export_range(0.0, 1.0) var chaff_effectiveness: float = 0.0
+@export var countermeasure_evasion_distance: float = 0.0
 @export var countermeasure_charges: int = 0
 @export_range(0.0, 2.0) var electronic_vulnerability: float = 1.0
 @export_range(0.1, 1.0) var missile_fuze_response: float = 1.0
@@ -69,8 +70,25 @@ func validation_error() -> String:
 		return "기만 반사 설정이 올바르지 않습니다"
 	if jamming_range < 0.0 or jamming_strength < 0.0 or jamming_strength > 1.0 or (jamming_strength > 0.0 and jamming_range <= 0.0):
 		return "재밍 설정이 올바르지 않습니다"
+	if not is_finite(countermeasure_evasion_distance) or countermeasure_evasion_distance < 0.0:
+		return "회피 기동 거리가 올바르지 않습니다"
 	if flare_effectiveness < 0.0 or flare_effectiveness > 1.0 or chaff_effectiveness < 0.0 or chaff_effectiveness > 1.0 or countermeasure_charges < 0 or electronic_vulnerability < 0.0 or electronic_vulnerability > 2.0:
 		return "대응책 설정이 올바르지 않습니다"
 	if adaptive_knowledge_weight < 0.0 or high_neutralization_weight < 1.0 or requires_role_knowledge and adaptive_knowledge_role.is_empty():
 		return "적응형 공격 가중치 설정이 올바르지 않습니다"
+	return ""
+
+func countermeasure_state_validation_error(state: Dictionary) -> String:
+	for key: String in ["cooldown", "evasion"]:
+		var value: Variant = state.get(key, 0.0)
+		if not (value is float or value is int) or not is_finite(float(value)) or float(value) < 0.0 or float(value) > 1.6:
+			return "대응탄 시간 상태가 올바르지 않습니다"
+	if String(state.get("kind", "")) not in ["", "flare", "chaff"]:
+		return "대응탄 종류가 올바르지 않습니다"
+	var origin: Variant = state.get("origin", [0, 0, 0])
+	if not origin is Array or origin.size() != 3:
+		return "대응탄 위치가 올바르지 않습니다"
+	for value: Variant in origin:
+		if not (value is float or value is int) or not is_finite(float(value)):
+			return "대응탄 위치가 올바르지 않습니다"
 	return ""

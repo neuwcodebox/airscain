@@ -37,6 +37,7 @@ func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	_apply_visual_color()
 
 func gameplay_tick(delta: float) -> void:
+	super.gameplay_tick(delta)
 	if not active or resolved_state:
 		return
 	if _definition.mission.area_recon:
@@ -58,10 +59,10 @@ func gameplay_tick(delta: float) -> void:
 		orbit_angle = fposmod(orbit_angle + delta * 0.45, TAU)
 		var orbit_radius := clampf(_definition.mission.action_distance * _definition.mission.orbit_radius_ratio, 45.0, 320.0)
 		var orbit_target := mission_target + Vector3(cos(orbit_angle) * orbit_radius, _definition.movement.cruise_altitude, sin(orbit_angle) * orbit_radius)
-		mover.advance(self, body, orbit_target, speed_multiplier, delta, true)
+		mover.advance(self, body, _evasive_target(orbit_target), speed_multiplier, delta, true)
 	else:
 		var preserving_egress_altitude := mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS
-		mover.advance(self, body, target_point, speed_multiplier, delta, preserving_egress_altitude, terminal_committed)
+		mover.advance(self, body, _evasive_target(target_point), speed_multiplier, delta, preserving_egress_altitude, terminal_committed)
 	if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
 		var building_impact := battlefield.building_segment_impact(previous_position, global_position)
 		if _definition.mission.target_role != ThreatMissionDefinition.TargetRole.CITY:
@@ -227,3 +228,11 @@ func _exit_tree() -> void:
 
 func assigned_target_id() -> int:
 	return mission_runtime.target_defense_id if mission_runtime.phase != ThreatMissionRuntime.Phase.EGRESS else 0
+
+func _evasive_target(point: Vector3) -> Vector3:
+	if countermeasure_evasion <= 0.0 or definition.countermeasure_evasion_distance <= 0.0:
+		return point
+	var forward := Vector3(mover.velocity.x, 0, mover.velocity.z).normalized()
+	var side := forward.cross(Vector3.UP) * (1.0 if countermeasure_charges_remaining % 2 == 0 else -1.0)
+	var offset := side * definition.countermeasure_evasion_distance * sin(countermeasure_evasion / 1.6 * PI)
+	return Vector3(global_position.x, point.y, global_position.z) + forward * 220.0 + offset

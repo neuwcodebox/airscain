@@ -51,6 +51,15 @@ func runtime_state_validation_error(content_state: Dictionary) -> String:
 func persistent_projectile_state_validation_error(projectile_type: StringName, state: Dictionary) -> String:
 	if projectile_type != &"homing_interceptor":
 		return super.persistent_projectile_state_validation_error(projectile_type, state)
+	var decoy_time: Variant = state.get("countermeasure_decoy_remaining", 0.0)
+	if not (decoy_time is float or decoy_time is int) or not is_finite(float(decoy_time)) or float(decoy_time) < 0.0 or float(decoy_time) > 1.2:
+		return "기만체 재포착 시간이 올바르지 않습니다"
+	var decoy_velocity: Variant = state.get("countermeasure_decoy_velocity", [0, 0, 0])
+	if not decoy_velocity is Array or decoy_velocity.size() != 3:
+		return "기만체 속도가 올바르지 않습니다"
+	for value: Variant in decoy_velocity:
+		if not (value is float or value is int) or not is_finite(float(value)):
+			return "기만체 속도가 올바르지 않습니다"
 	var maximum_lifetime := float(state.get("maximum_lifetime", 0.0))
 	var age := float(state.get("age", -1.0))
 	var clearance: Variant = state.get("departure_clearance_height", 0.0)

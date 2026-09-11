@@ -193,6 +193,11 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if countermeasure_charges < 0 or countermeasure_charges > contact_definitions[definition_id].countermeasure_charges:
 			return "위협 대응책 상태가 올바르지 않습니다"
 		var contact_definition: ThreatDefinition = contact_definitions[definition_id]
+		if not state.get("countermeasure", {}) is Dictionary:
+			return "대응탄 문서가 올바르지 않습니다"
+		var countermeasure_error := contact_definition.countermeasure_state_validation_error(state.get("countermeasure", {}))
+		if not countermeasure_error.is_empty():
+			return countermeasure_error
 		if contact_definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
 			contact_ids[int(state.get("runtime_id", 0))] = true
 		var content_error := contact_definition.runtime_state_validation_error(state.get("content_state", {}), defense_ids)
