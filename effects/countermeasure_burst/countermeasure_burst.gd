@@ -1,10 +1,11 @@
 class_name CountermeasureBurst
 extends Node3D
 
-const BURN_DURATION := 3.6
+const BURN_DURATION := 4.0
+const SMOKE_LIFETIME := 12.0
 const HEAD_COUNT := 4
 var elapsed: float = 0.0
-var duration: float = 9.0
+var duration: float = 0.0
 var flare_positions: Array[Vector3] = []
 var flare_velocities: Array[Vector3] = []
 var smoke_trails: Array[LingeringSmokeTrail] = []
@@ -13,6 +14,7 @@ static var smoke_mesh: QuadMesh
 func setup(countermeasure_type: StringName, source_velocity: Vector3 = Vector3.ZERO) -> void:
 	elapsed = 0.0
 	var uses_flare := countermeasure_type == &"flare"
+	duration = BURN_DURATION + SMOKE_LIFETIME + 0.5 if uses_flare else maxf($Chaff.lifetime, $ChaffGlints.lifetime) + 0.5
 	$Flares.visible = uses_flare
 	$Chaff.emitting = not uses_flare
 	$ChaffGlints.emitting = not uses_flare
@@ -33,10 +35,10 @@ func setup(countermeasure_type: StringName, source_velocity: Vector3 = Vector3.Z
 		flare_velocities.append(velocity)
 		var trail := LingeringSmokeTrail.new()
 		trail.puff_mesh = _smoke_mesh()
-		trail.amount = 160
-		trail.lifetime = 4.5
+		trail.amount = 512
+		trail.lifetime = SMOKE_LIFETIME
 		trail.initial_scale = 0.55
-		trail.final_scale = 1.8
+		trail.final_scale = 3.2
 		trail.sample_spacing = 0.35
 		trail.drift_speed = 0.12
 		add_child(trail)

@@ -1,5 +1,12 @@
 # PLAN.md
 
+## 대응탄 잔류 효과
+
+- [x] 플레어는 4초 연소와 12초 잔류 연기를 분리한다. 채프는 15초 동안 천천히 가라앉으며 후반에 감쇠한다.
+- [x] 부모 효과가 잔류 입자를 잘라 없애지 않는지 검증하고 실제 창에서 방출 2초·8초·12초 모습을 확인한다.
+
+관련 71개 테스트·7,816개 단언 통과(`/tmp/airscain_residue_final_tests.log`). 실제 창의 8초·12초 캡처에서 연소 종료 후 연기와 채프가 남고 후반에 옅어지는 것을 확인했다(`/tmp/airscain_residue_final_visual.log`, `tools/countermeasure_capture.gd -- --linger`). 부모는 마지막 표본 수명 이후 정리하며 교란 판정 시간은 유지한다.
+
 ## 타격·전자전·대응탄·유지보수 조정
 
 [구현 기준·가격표·비교 결과](BALANCE_COMBAT_AND_ECONOMY.md)를 먼저 문서화하고 실행 단위별로 구현·검증했다. 원본 교전·전자전·웹 측정은 [JSON](BALANCE_COMBAT_AND_ECONOMY.json)에 보존한다.

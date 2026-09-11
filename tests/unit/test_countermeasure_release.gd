@@ -73,3 +73,33 @@ func test_expired_decoy_resumes_guidance_without_teleporting() -> void:
 	assert_false(interceptor.countermeasure_decoy_active)
 	assert_false(interceptor.is_queued_for_deletion())
 	assert_almost_eq(interceptor.position.distance_to(before), interceptor.speed * 0.02, 0.001)
+
+func test_residue_outlives_burning_and_parent_waits_for_particle_expiry() -> void:
+	var scene := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
+	var flare := add_child_autofree(scene.instantiate()) as CountermeasureBurst
+	flare.setup(&"flare", Vector3(150,0,0))
+	for tick: int in 360:
+		flare._process(1.0 / 30.0)
+		for trail: LingeringSmokeTrail in flare.smoke_trails:
+			trail._process(1.0 / 30.0)
+	assert_false(flare.get_node("Flares").visible)
+	assert_false(flare.is_queued_for_deletion())
+	for trail: LingeringSmokeTrail in flare.smoke_trails:
+		assert_gt(trail.active_puff_count(), 0, "연소 종료 뒤에도 잔류 연기가 남는다")
+		assert_gt(flare.duration, CountermeasureBurst.BURN_DURATION + trail.lifetime)
+		assert_lt(trail.emitted_sample_count, trail.amount, "연소 궤적이 슬롯 부족으로 일찍 지워지지 않는다")
+	var chaff := add_child_autofree(scene.instantiate()) as CountermeasureBurst
+	chaff.setup(&"chaff")
+	chaff._process(12.0)
+	assert_false(chaff.is_queued_for_deletion())
+	for name: String in ["Chaff", "ChaffGlints"]:
+		var particles := chaff.get_node(name) as GPUParticles3D
+		assert_gt(particles.lifetime, 12.0)
+		assert_gt(chaff.duration, particles.lifetime)
+		var ramp := (particles.process_material as ParticleProcessMaterial).color_ramp as GradientTexture1D
+		assert_gt(ramp.gradient.sample(0.5).a, ramp.gradient.sample(0.9).a)
+		assert_eq(ramp.gradient.sample(1.0).a, 0.0)
+	flare._process(flare.duration)
+	chaff._process(chaff.duration)
+	assert_true(flare.is_queued_for_deletion())
+	assert_true(chaff.is_queued_for_deletion())
