@@ -141,3 +141,34 @@ func test_asset_suppression_priority_still_requires_eligible_observed_entries() 
 			unknown_weights[entry.threat_definition.id] = 0.0
 	for wave: Dictionary in planner.generate(scenario, unknown_weights, 25.0, 12, 0.0, 300.0, 1.0, rng):
 		assert_false(_entry(StringName(wave.definition_id)).threat_definition.requires_role_knowledge)
+
+func test_jamming_escort_arrives_with_the_main_effort() -> void:
+	var scenario := SCENARIO.duplicate() as ScenarioDefinition
+	scenario.asset_suppression_chance = 1.0
+	var weights: Dictionary[StringName, float] = {}
+	var jammer: ThreatSpawnEntry
+	var strike: ThreatSpawnEntry
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		weights[entry.threat_definition.id] = 0.0
+		if entry.threat_definition.jamming_strength > 0.0:
+			jammer = entry
+		if entry.threat_definition.id == &"attack_uav":
+			strike = entry
+	weights[jammer.threat_definition.id] = 1.0
+	weights[strike.threat_definition.id] = 1.0
+	var planner := RaidPlanner.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 712
+	var checked := 0
+	for sample: int in 60:
+		var waves := planner.generate(scenario, weights, 5.0, 8, 0.0, 300.0, 1.0, rng)
+		if planner.last_pattern != &"suppression":
+			continue
+		checked += 1
+		var arrival: Dictionary = {}
+		for wave: Dictionary in waves:
+			var entry := jammer if String(wave.definition_id) == String(jammer.threat_definition.id) else strike
+			var distance := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - (scenario.city_size * 0.5 + 260.0)
+			arrival[entry.threat_definition.id] = float(wave.remaining) + entry.threat_definition.estimated_approach_seconds(distance, 1.0)
+		assert_between(float(arrival[strike.threat_definition.id]) - float(arrival[jammer.threat_definition.id]), 1.999, 5.001)
+	assert_gt(checked, 10)

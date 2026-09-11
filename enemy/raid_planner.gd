@@ -24,6 +24,8 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 					if _cost(lead) + _cost(strike) > budget or not _matches_pair(pattern, lead, strike):
 						continue
 					var gap := rng.randf_range(0.0, 2.0) if pattern == &"layered" else (rng.randf_range(6.0, 12.0) if pattern == &"diversion" else rng.randf_range(10.0, 18.0))
+					if pattern == &"suppression" and lead.threat_definition.jamming_strength > 0.0:
+						gap = rng.randf_range(2.0, 5.0)
 					var delays := _pair_delays(_eta(lead, scenario, speed), _eta(strike, scenario, speed), gap)
 					if maxf(delays.x, delays.y) <= max_delay:
 						pairs.append({"lead": lead, "strike": strike, "delays": delays, "weight": weights[lead.threat_definition.id] * weights[strike.threat_definition.id]})
