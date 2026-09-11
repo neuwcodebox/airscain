@@ -44,6 +44,9 @@ func run() -> void:
 	var released_at := -1
 	var sequence_capture := 0
 	var capture_at: Array[float] = [0.0, 0.16, 0.32, 0.5]
+	var flutter_capture := OS.get_cmdline_user_args().has("--flutter")
+	if flutter_capture:
+		capture_at = [0.6, 0.7, 0.8]
 	for frame: int in 240:
 		var delta := main.get_process_delta_time()
 		aircraft.gameplay_tick(delta)
@@ -65,10 +68,11 @@ func run() -> void:
 			interceptor.queue_free()
 		await process_frame
 		await RenderingServer.frame_post_draw
-		if OS.get_cmdline_user_args().has("--sequence") and released_at >= 0 and sequence_capture < capture_at.size():
+		if (OS.get_cmdline_user_args().has("--sequence") or flutter_capture) and released_at >= 0 and sequence_capture < capture_at.size():
 			var burst := main.projectile_parent.get_node("CountermeasureBurst") as CountermeasureBurst
 			if burst.elapsed >= capture_at[sequence_capture]:
-				root.get_texture().get_image().save_png("/tmp/airscain_flare_sequence_%d.png" % sequence_capture)
+				var capture_kind := "flutter" if flutter_capture else "sequence"
+				root.get_texture().get_image().save_png("/tmp/airscain_flare_%s_%d.png" % [capture_kind, sequence_capture])
 				print("SEQUENCE_CAPTURE age=", burst.elapsed, " released=", burst.released_count, " origins=", burst.release_positions)
 				sequence_capture += 1
 		if released_at >= 0 and Time.get_ticks_msec() - released_at >= 1100:
