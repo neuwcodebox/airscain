@@ -42,8 +42,10 @@ func run() -> void:
 	interceptor.position = aircraft.position + Vector3.LEFT * 220.0
 	interceptor.configure(track, main.registry, munition, Vector3.RIGHT, 941)
 	var released_at := -1
+	var sequence_capture := 0
+	var capture_at: Array[float] = [0.0, 0.16, 0.32, 0.5]
 	for frame: int in 240:
-		var delta := minf(main.get_process_delta_time(), 0.05)
+		var delta := main.get_process_delta_time()
 		aircraft.gameplay_tick(delta)
 		track.estimated_position = aircraft.position
 		track.estimated_velocity = aircraft.presentation_velocity()
@@ -61,6 +63,12 @@ func run() -> void:
 			interceptor.queue_free()
 		await process_frame
 		await RenderingServer.frame_post_draw
+		if OS.get_cmdline_user_args().has("--sequence") and released_at >= 0 and sequence_capture < capture_at.size():
+			var burst := main.projectile_parent.get_node("CountermeasureBurst") as CountermeasureBurst
+			if burst.elapsed >= capture_at[sequence_capture]:
+				root.get_texture().get_image().save_png("/tmp/airscain_flare_sequence_%d.png" % sequence_capture)
+				print("SEQUENCE_CAPTURE age=", burst.elapsed, " released=", burst.released_count, " origins=", burst.release_positions)
+				sequence_capture += 1
 		if released_at >= 0 and Time.get_ticks_msec() - released_at >= 1100:
 			root.get_texture().get_image().save_png("/tmp/airscain_flare_burn_and_smoke.png")
 			print("FLARE_CAPTURE_OK failed defeat still releases visible flare and smoke; charges=", aircraft.countermeasure_charges_remaining)

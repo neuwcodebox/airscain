@@ -103,3 +103,42 @@ func test_residue_outlives_burning_and_parent_waits_for_particle_expiry() -> voi
 	chaff._process(chaff.duration)
 	assert_true(flare.is_queued_for_deletion())
 	assert_true(chaff.is_queued_for_deletion())
+
+func test_flares_release_in_sequence_from_the_moving_source() -> void:
+	var source := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	source.setup(900, ThreatDefinition.new())
+	source.position = Vector3(0, 200, 0)
+	var burst := add_child_autofree(preload("res://effects/countermeasure_burst/countermeasure_burst.tscn").instantiate()) as CountermeasureBurst
+	burst.position = source.position
+	burst.setup(&"flare", Vector3(100,0,0), source)
+	assert_eq(burst.released_count, 1)
+	source.position.x = 10.0
+	burst._process(0.1)
+	assert_eq(burst.released_count, 1)
+	source.position.x = 20.0
+	burst._process(0.1)
+	assert_eq(burst.released_count, 2)
+	assert_gt(burst.release_positions[1].x, burst.release_positions[0].x + 8.0)
+	assert_lt(burst.flare_ages[1], burst.flare_ages[0])
+	source.active = false
+	burst._process(1.0)
+	assert_eq(burst.released_count, 2, "기체 소실 후 허공에서 추가 사출하지 않는다")
+	assert_gt(burst.flare_ages[0], 1.0, "이미 사출된 플레어는 독립적으로 움직인다")
+
+func test_flare_sequence_and_drag_are_independent_of_frame_size() -> void:
+	var scene := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
+	var coarse := add_child_autofree(scene.instantiate()) as CountermeasureBurst
+	var fine := add_child_autofree(scene.instantiate()) as CountermeasureBurst
+	coarse.setup(&"flare", Vector3(100,0,0))
+	fine.setup(&"flare", Vector3(100,0,0))
+	coarse._process(0.7)
+	for tick: int in 70:
+		fine._process(0.01)
+	assert_eq(coarse.released_count, CountermeasureBurst.HEAD_COUNT)
+	assert_eq(fine.released_count, coarse.released_count)
+	for index: int in CountermeasureBurst.HEAD_COUNT:
+		assert_lt(coarse.flare_positions[index].distance_to(fine.flare_positions[index]), 0.002)
+		assert_lt(coarse.flare_velocities[index].distance_to(fine.flare_velocities[index]), 0.002)
+		assert_lt(coarse.flare_positions[index].y, coarse.release_positions[index].y)
+		assert_gt(coarse.flare_velocities[index].x, 0.0)
+		assert_lt(coarse.flare_velocities[index].x, 100.0)

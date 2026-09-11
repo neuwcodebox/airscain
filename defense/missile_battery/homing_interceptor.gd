@@ -128,7 +128,7 @@ func gameplay_tick(delta: float) -> void:
 				countermeasure_attempted = true
 				var response := target.respond_to_seeker(infrared_sensitivity, radar_sensitivity, rng.randf())
 				if bool(response.get("released", false)):
-					_spawn_countermeasure(response.position, StringName(response.kind), target.presentation_velocity())
+					_spawn_countermeasure(response.position, StringName(response.kind), target.presentation_velocity(), target)
 				if bool(response.get("defeated", false)):
 					countermeasure_decoy_position = _decoy_position(target)
 					countermeasure_decoy_velocity = target.presentation_velocity() * 0.35
@@ -248,14 +248,14 @@ func _spawn_detonation(color: Color, radius: float) -> void:
 		return
 	ExplosionEffect.spawn(parent as Node3D, global_position, color, radius)
 
-func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName, source_velocity: Vector3 = Vector3.ZERO) -> void:
+func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName, source_velocity: Vector3 = Vector3.ZERO, source_unit: ThreatUnit = null) -> void:
 	var parent := get_parent()
 	if parent == null:
 		return
 	var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
 	parent.add_child(burst)
 	burst.global_position = position
-	burst.call("setup", countermeasure_type, source_velocity)
+	burst.call("setup", countermeasure_type, source_velocity, source_unit)
 
 func _release_smoke_trail() -> void:
 	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
