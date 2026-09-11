@@ -23,7 +23,7 @@ void vertex() {
 	float particle_visibility = smoothstep(0.02, 0.35, alpha) * opacity_ratio;
 	VERTEX *= sqrt(max(particle_visibility, 0.0));
 	if (trail_enabled) {
-		vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb);
+		vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb, MODEL_MATRIX[3].xyz);
 		VERTEX = VERTEX * motion.w * trail_haze(MODEL_MATRIX[3].xyz + motion.xyz) + motion.xyz;
 	}
 }

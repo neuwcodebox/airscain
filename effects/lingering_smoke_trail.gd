@@ -19,6 +19,7 @@ const FADE_END_RATIO := 0.88
 @export_range(1.0, 40.0, 0.5) var release_fade_duration: float = 16.0
 @export_range(0.1, 2.0, 0.1) var transparent_cleanup_delay: float = 0.5
 @export var emitting: bool = true
+@export_range(0.0, 4.0, 0.1) var turbulence_strength: float = 0.0
 
 var release_remaining: float = -1.0
 var release_elapsed: float = 0.0
@@ -110,7 +111,7 @@ func _process(delta: float) -> void:
 	smoke_material.set_shader_parameter("trail_time", _elapsed)
 	shadow_material.set_shader_parameter("trail_time", _elapsed)
 	if _bounds_dirty:
-		var margin := puff_mesh.size.length() * maxf(initial_scale, final_scale) * 1.3 + lifetime * drift_speed * 2.0
+		var margin := puff_mesh.size.length() * maxf(initial_scale, final_scale) * 1.3 + lifetime * drift_speed * 2.0 + turbulence_strength * 1.28
 		multimesh.custom_aabb = _bounds.grow(margin)
 		shadow_particles.multimesh.custom_aabb = multimesh.custom_aabb
 		_bounds_dirty = false
@@ -186,6 +187,7 @@ func _configure_motion(material: ShaderMaterial) -> void:
 	material.set_shader_parameter("trail_initial_scale", initial_scale)
 	material.set_shader_parameter("trail_final_scale", final_scale)
 	material.set_shader_parameter("trail_drift_speed", drift_speed)
+	material.set_shader_parameter("trail_turbulence_strength", turbulence_strength)
 
 func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> void:
 	var slot := _next_slot

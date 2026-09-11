@@ -122,10 +122,12 @@ static func create_transient_samples(parent: Node3D, position_value: Vector3) ->
 		parent.add_child(burst)
 		burst.global_position = position_value
 		burst.call("setup", kind, Vector3(90, 0, 0))
-		burst.call("_process", 0.3)
+		# Include the last sequential flare and advance smoke past birth fade-in.
+		var preview_age := CountermeasureBurst.RELEASE_INTERVAL * (CountermeasureBurst.HEAD_COUNT - 1) + 0.3
+		burst.call("_process", preview_age)
 		for child: Node in burst.get_children():
 			if child is LingeringSmokeTrail:
-				(child as LingeringSmokeTrail)._process(0.3)
+				(child as LingeringSmokeTrail)._process(preview_age)
 		samples.append(burst)
 	for sample: Node3D in samples:
 		sample.process_mode = Node.PROCESS_MODE_DISABLED

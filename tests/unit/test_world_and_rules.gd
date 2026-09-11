@@ -840,6 +840,8 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 			assert_not_null(material.get_shader_parameter("puff_texture"))
 			assert_true(trail.multimesh.use_custom_data)
 			assert_eq(material.get_shader_parameter("trail_lifetime"), trail.lifetime)
+			assert_eq(material.get_shader_parameter("trail_turbulence_strength"), trail.turbulence_strength)
+			assert_eq(trail.shadow_material.get_shader_parameter("trail_turbulence_strength"), trail.turbulence_strength)
 			assert_eq(trail.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 			var shadow := trail.get_node("SmokeShadow") as MultiMeshInstance3D
 			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
@@ -1545,7 +1547,8 @@ func test_transient_warmup_has_visible_world_space_trails_without_simulation() -
 				var smoke := child as LingeringSmokeTrail
 				assert_gt(smoke.active_puff_count(), 0)
 				assert_gt(smoke.shadow_particles.multimesh.visible_instance_count, 0)
-				assert_true(smoke.multimesh.custom_aabb.has_point(position))
+				# Moving flares emit downstream; bounds must remain in the fixture's world region.
+				assert_lt(smoke.multimesh.custom_aabb.get_center().distance_to(position), 150.0)
 				assert_gt(smoke._elapsed, 0.0)
 				assert_lt(smoke._elapsed, smoke.lifetime)
 	assert_gt(trail_count, 0)

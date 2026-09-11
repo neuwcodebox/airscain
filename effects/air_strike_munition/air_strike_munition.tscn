@@ -75,6 +75,7 @@ shadow_emission_stride = 2
 initial_scale = 0.5
 final_scale = 1.8
 drift_speed = 0.15
+turbulence_strength = 2.4
 sample_spacing = 1.5
 particles_per_sample = 1
 sample_radius = 0.15
