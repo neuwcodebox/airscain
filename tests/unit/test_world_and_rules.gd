@@ -1506,3 +1506,58 @@ func test_opening_raid_includes_released_threats_but_not_unrelated_contacts() ->
 	released.resolve_once(true)
 	assert_true(director.opening_raid_complete, "다른 공습이나 환경 접촉은 첫 공습 종료를 막지 않는다")
 	assert_eq(director.pressure_started_at, SCENARIO.recovery_duration)
+
+func test_visual_warmup_reveals_authored_flashes_without_firing_live_weapons() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var prepared_flash_count := 0
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		var sample := CombatVfxWarmup.create_content_sample(parent, definition) as DefenseUnit
+		for child: Node in sample.find_children("*", "GeometryInstance3D", true, false):
+			if not child.get_meta("warmup_visible", false):
+				continue
+			prepared_flash_count += 1
+			assert_true((child as GeometryInstance3D).visible)
+			var live := definition.scene.instantiate() as DefenseUnit
+			parent.add_child(live)
+			live.setup(1, definition)
+			assert_false((live.get_node(sample.get_path_to(child)) as GeometryInstance3D).visible)
+			if sample is MissileBattery:
+				assert_eq((sample as MissileBattery)._ready_round_count(), (live as MissileBattery)._ready_round_count())
+			live.free()
+		sample.free()
+	assert_gt(prepared_flash_count, 0)
+
+func test_transient_warmup_has_visible_world_space_trails_without_simulation() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var position := Vector3(400, 80, 200)
+	var samples := CombatVfxWarmup.create_transient_samples(parent, position)
+	var trail_count := 0
+	for sample: Node3D in samples:
+		assert_eq(sample.process_mode, Node.PROCESS_MODE_DISABLED)
+		if sample is HomingInterceptor:
+			assert_null((sample as HomingInterceptor).registry)
+			assert_null((sample as HomingInterceptor).target_track)
+		for child: Node in sample.find_children("*", "MultiMeshInstance3D", true, false):
+			if child is LingeringSmokeTrail:
+				trail_count += 1
+				var smoke := child as LingeringSmokeTrail
+				assert_gt(smoke.active_puff_count(), 0)
+				assert_gt(smoke.shadow_particles.multimesh.visible_instance_count, 0)
+				assert_true(smoke.multimesh.custom_aabb.has_point(position))
+				assert_gt(smoke._elapsed, 0.0)
+				assert_lt(smoke._elapsed, smoke.lifetime)
+	assert_gt(trail_count, 0)
+
+func test_transient_warmup_retains_materials_after_samples_are_removed() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var pool := add_child_autofree(CombatEffectPool.new()) as CombatEffectPool
+	var samples := CombatVfxWarmup.create_transient_samples(parent, Vector3(0, 80, 0))
+	pool._retain_sample_materials(samples)
+	var count := pool.prepared_materials.size()
+	assert_gt(count, 0)
+	pool._retain_sample_materials(samples)
+	assert_eq(pool.prepared_materials.size(), count)
+	for sample: Node3D in samples:
+		sample.free()
+	for material: Material in pool.prepared_materials:
+		assert_true(is_instance_valid(material))

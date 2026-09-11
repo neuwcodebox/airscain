@@ -139,7 +139,7 @@ func _prepare_combat_visuals() -> void:
 		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		panel.add_child(label)
 		await hud.prepare_result_visuals(_final_statistics())
-	await combat_effect_pool.prepare(objective.prepared_smoke_effects, scenario)
+	await combat_effect_pool.prepare(objective.prepared_smoke_effects, scenario, battlefield)
 	if game_mode == GameMode.TRAINING:
 		training_controller.begin()
 	if game_mode == GameMode.SUSTAINED and auto_start_sustained and session.phase == GameSession.Phase.PREPARATION:

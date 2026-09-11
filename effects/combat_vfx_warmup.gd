@@ -89,7 +89,48 @@ static func create_content_sample(parent: Node, definition: Resource) -> Node3D:
 		unit.setup(1, content)
 		model = unit
 	model.process_mode = Node.PROCESS_MODE_DISABLED
+	for visual: Node in model.find_children("*", "GeometryInstance3D", true, false):
+		if visual.get_meta("warmup_visible", false):
+			(visual as GeometryInstance3D).visible = true
 	return model
+
+static func create_transient_samples(parent: Node3D, position_value: Vector3) -> Array[Node3D]:
+	var samples: Array[Node3D] = []
+	for scene: PackedScene in [INTERCEPTOR_SCENE, STRIKE_SCENE, DRONE_SCENE]:
+		var model := scene.instantiate() as Node3D
+		parent.add_child(model)
+		model.global_position = position_value
+		model.process_mode = Node.PROCESS_MODE_DISABLED
+		for child: Node in model.find_children("*", "MultiMeshInstance3D", true, false):
+			if child is LingeringSmokeTrail:
+				var smoke := child as LingeringSmokeTrail
+				smoke.sample_world_segment(position_value + Vector3.LEFT * 20, position_value + Vector3.RIGHT * 20)
+				# Birth alpha is zero; render after fade-in, not invisible cards.
+				smoke._process(minf(1.0, smoke.lifetime * 0.25))
+		samples.append(model)
+	var laser := LASER_SCENE.instantiate() as LaserPulse
+	parent.add_child(laser)
+	laser.setup(position_value + Vector3.LEFT * 20, position_value + Vector3.RIGHT * 20)
+	samples.append(laser)
+	var miss := MISS_SCENE.instantiate() as InterceptorMissEffect
+	parent.add_child(miss)
+	miss.global_position = position_value
+	miss.setup(Color.ORANGE, "지형 충돌 · 유도 상실 · 표적 소실 · 요격 실패")
+	samples.append(miss)
+	for kind: StringName in [&"flare", &"chaff"]:
+		var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
+		parent.add_child(burst)
+		burst.global_position = position_value
+		burst.call("setup", kind)
+		samples.append(burst)
+	for sample: Node3D in samples:
+		sample.process_mode = Node.PROCESS_MODE_DISABLED
+		for child: Node in sample.find_children("*", "GPUParticles3D", true, false):
+			var particles := child as GPUParticles3D
+			particles.process_mode = Node.PROCESS_MODE_ALWAYS
+			particles.preprocess = 0.2
+			particles.restart()
+	return samples
 
 func _render_samples() -> void:
 	for node: Node in get_children():

@@ -37,7 +37,7 @@ func _recycle(effect: ExplosionEffect) -> void:
 	effect.reparent(self, false)
 	available.append(effect)
 
-func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition = null) -> void:
+func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition = null, battlefield: Battlefield = null) -> void:
 	if DisplayServer.get_name() == "headless":
 		prepared = true
 		return
@@ -114,5 +114,62 @@ func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition 
 						await RenderingServer.frame_post_draw
 			for model: Node3D in models:
 				model.queue_free()
+	# Transient effects use the real camera, local lights and smoke-shadow target.
+	# Rendering only the app's tiny SubViewport leaves WebGL variants cold.
+	var transients := CombatVfxWarmup.create_transient_samples(self, Vector3(0, 80, 0))
+	_retain_sample_materials(transients)
+	if battlefield != null and battlefield.smoke_shadow_projection != null:
+		battlefield.smoke_shadow_projection.update_projection()
+	for local_light: bool in [true, false]:
+		impact_light.visible = local_light
+		for model: Node3D in transients:
+			for child: Node in model.find_children("*", "Light3D", true, false):
+				(child as Light3D).visible = local_light
+		for frame: int in 3:
+			await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+	var fading := available.back() as ExplosionEffect
+	var released_trails: Array[LingeringSmokeTrail] = []
+	for model: Node3D in transients:
+		if model is HomingInterceptor:
+			released_trails.append(model.get_node("SmokeTrail") as LingeringSmokeTrail)
+			(model as HomingInterceptor)._self_destruct()
+		else:
+			model.queue_free()
 	impact_light.queue_free()
+	# The real release/detonation path also changes the renderer's state as
+	# the impact light ends. Prime that transition with no gameplay listeners.
+	while fading.visible and fading.elapsed < ExplosionTimeline.LIGHT_DURATION + 0.5:
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+	fading.deactivate()
+	if not available.has(fading):
+		_recycle(fading)
+	for trail: LingeringSmokeTrail in released_trails:
+		if is_instance_valid(trail):
+			trail.queue_free()
 	prepared = true
+
+func _retain_sample_materials(samples: Array[Node3D]) -> void:
+	for sample: Node3D in samples:
+		for child: Node in sample.find_children("*", "GeometryInstance3D", true, false):
+			var meshes: Array[Mesh] = []
+			var geometry := child as GeometryInstance3D
+			_keep_material(geometry.material_override)
+			if child is MeshInstance3D:
+				meshes.append((child as MeshInstance3D).mesh)
+			elif child is MultiMeshInstance3D:
+				meshes.append((child as MultiMeshInstance3D).multimesh.mesh)
+			elif child is GPUParticles3D:
+				var particles := child as GPUParticles3D
+				_keep_material(particles.process_material)
+				for draw_pass: int in particles.draw_passes:
+					meshes.append(particles.get_draw_pass_mesh(draw_pass))
+			for mesh: Mesh in meshes:
+				if mesh != null:
+					for surface: int in mesh.get_surface_count():
+						_keep_material(mesh.surface_get_material(surface))
+
+func _keep_material(material: Material) -> void:
+	if material != null and not prepared_materials.has(material):
+		prepared_materials.append(material)

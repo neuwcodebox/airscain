@@ -117,6 +117,7 @@ material_override = SubResource("CapMaterial")
 position = Vector3(0, 0, -7.5)
 
 [node name="MuzzleFlash" type="MeshInstance3D" parent="."]
+metadata/warmup_visible = true
 visible = false
 mesh = SubResource("FlashMesh")
 material_override = SubResource("FlashMaterial")
