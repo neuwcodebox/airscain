@@ -4,6 +4,7 @@ extends Resource
 enum Mode { ALTITUDE_HOLD, TERRAIN_FOLLOWING, BALLISTIC_ARC }
 
 @export var mode := Mode.ALTITUDE_HOLD
+@export var smooth_flight: bool = false
 @export var speed: float = 30.0
 @export var maximum_speed_multiplier: float = 2.0
 @export var cruise_altitude: float = 70.0

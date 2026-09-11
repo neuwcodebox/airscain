@@ -34,6 +34,9 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		desired_position.y = battlefield.flight_surface_height(target.x, target.z) + profile.terminal_altitude
 		if force_terminal:
 			desired_position.y = maxf(desired_position.y, target.y + profile.terminal_altitude)
+	if profile.smooth_flight:
+		_advance_smooth(unit, body, target, effective_speed_multiplier, delta, preserve_target_altitude)
+		return
 	var desired_direction := unit.global_position.direction_to(desired_position)
 	if desired_direction.length_squared() <= 0.0001:
 		return
@@ -61,6 +64,33 @@ func advance(unit: Node3D, body: Node3D, target: Vector3, speed_multiplier: floa
 		if unit.global_position.y < safety_height:
 			unit.global_position.y = safety_height
 			velocity.y = maxf(0.0, velocity.y)
+	if velocity.length_squared() > 0.001:
+		body.look_at(unit.global_position + velocity.normalized(), Vector3.UP)
+
+func _advance_smooth(unit: Node3D, body: Node3D, target: Vector3, multiplier: float, delta: float, egress: bool) -> void:
+	var offset := Vector3(target.x - unit.global_position.x, 0, target.z - unit.global_position.z)
+	if offset.length_squared() < 0.001:
+		return
+	var forward := Vector3(velocity.x, 0, velocity.z).normalized()
+	var desired := offset.normalized()
+	var angle := forward.angle_to(desired)
+	forward = forward.slerp(desired, minf(1.0, deg_to_rad(profile.maximum_turn_rate_degrees) * delta / maxf(angle, 0.0001))).normalized()
+	# A missile carrier retains most of its cruise clearance during approach.
+	# Horizontal turns and vertical acceleration are independent, including egress.
+	var approach := smoothstep(profile.terminal_distance, 0.0, offset.length()) if not egress else 0.0
+	var clearance := lerpf(profile.cruise_altitude, maxf(profile.terminal_altitude, profile.cruise_altitude * 0.7), approach)
+	var height := battlefield.flight_surface_height(unit.global_position.x, unit.global_position.z) + clearance
+	var lookahead := maxf(profile.terrain_lookahead, profile.speed * multiplier * 3.0)
+	for fraction: float in [0.25, 0.5, 1.0]:
+		var ahead := unit.global_position + forward * lookahead * fraction
+		height = maxf(height, battlefield.flight_surface_height(ahead.x, ahead.z) + clearance)
+	if egress:
+		height = maxf(height, target.y)
+	var vertical := clampf((height - unit.global_position.y) * 0.6, -profile.maximum_climb_rate, profile.maximum_climb_rate)
+	var previous := velocity
+	velocity = forward * profile.speed * multiplier
+	velocity.y = move_toward(previous.y, vertical, profile.maximum_climb_rate * 0.35 * delta)
+	unit.global_position += (previous + velocity) * (delta * 0.5)
 	if velocity.length_squared() > 0.001:
 		body.look_at(unit.global_position + velocity.normalized(), Vector3.UP)
 

@@ -12,6 +12,7 @@
 [sub_resource type="Resource" id="Movement"]
 script = ExtResource("3")
 mode = 0
+smooth_flight = true
 speed = 115.0
 maximum_speed_multiplier = 1.25
 cruise_altitude = 250.0
@@ -27,7 +28,7 @@ script = ExtResource("4")
 type = 2
 target_role = 1
 damage = 45.0
-action_distance = 420.0
+action_distance = 470.0
 released_missile = ExtResource("5")
 acquisition_range = 950.0
 
