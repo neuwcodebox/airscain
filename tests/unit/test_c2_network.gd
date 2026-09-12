@@ -184,11 +184,15 @@ func test_owned_track_view_updates_after_observations_and_local_sensor_changes()
 	var shared := _observe(fixture.knowledge, 1, Vector3.ZERO)
 	var hidden := _observe(fixture.knowledge, 99, Vector3(200, 0, 0))
 	var local := _observe(fixture.knowledge, 3, Vector3(400, 0, 0))
-	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared])
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared], "초기 local/shared view")
 	assert_same(_observe(fixture.knowledge, 1, hidden.estimated_position), hidden)
-	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared, hidden])
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared, hidden], "공유 관측 갱신 뒤 view")
 	fixture.first.sensor_ids.append(99)
-	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [hidden, local, shared])
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [hidden, local, shared], "센서 99를 local 목록에 추가한 뒤 우선순위")
+	fixture.first.sensor_ids = [3]
+	var restored := fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge)
+	assert_eq(restored, [local, shared, hidden], "센서 99를 제거하면 이전 local/shared 구분으로 복귀합니다")
+	assert_eq(restored, fixture.network.available_tracks_for(fixture.first, fixture.knowledge.get_active_tracks()), "센서 제거 뒤 cached view와 직접 filter가 일치합니다")
 
 func test_owned_track_view_updates_after_command_and_endpoint_topology_changes() -> void:
 	var fixture := _owned_view_fixture()

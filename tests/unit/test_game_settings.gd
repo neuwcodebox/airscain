@@ -8,6 +8,7 @@ var previous_msaa: Viewport.MSAA
 var previous_render_scale: float
 var previous_window_mode: DisplayServer.WindowMode
 var previous_window_size: Vector2i
+var previous_window_position: Vector2i
 
 func before_each() -> void:
 	previous_audio_state.clear()
@@ -22,6 +23,7 @@ func before_each() -> void:
 	previous_render_scale = get_tree().root.scaling_3d_scale
 	previous_window_mode = DisplayServer.window_get_mode()
 	previous_window_size = DisplayServer.window_get_size()
+	previous_window_position = DisplayServer.window_get_position()
 	previous_values = PlayerSettings.instance().values.duplicate()
 	previous_path = PlayerSettings.instance().settings_path
 	PlayerSettings.instance().settings_path = "user://test_settings_%d.cfg" % get_instance_id()
@@ -43,6 +45,7 @@ func after_each() -> void:
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(previous_window_mode)
 		DisplayServer.window_set_size(previous_window_size)
+		DisplayServer.window_set_position(previous_window_position)
 
 func test_audio_categories_route_to_master() -> void:
 	assert_eq(AudioServer.get_bus_index("Master"), 0)
@@ -53,17 +56,31 @@ func test_audio_categories_route_to_master() -> void:
 		if name != "Master":
 			assert_eq(AudioServer.get_bus_send(index), &"Master")
 
-func test_audio_volume_only_changes_the_selected_category() -> void:
+func test_each_audio_volume_changes_only_the_selected_category() -> void:
 	var settings := PlayerSettings.instance()
-	var ui_index := AudioServer.get_bus_index("UI")
-	var missile_index := AudioServer.get_bus_index("Missiles")
-	settings.set_value("ui", 0.0)
-	assert_true(AudioServer.is_bus_mute(ui_index))
-	assert_false(AudioServer.is_bus_mute(0))
-	settings.set_value("ui", 0.5)
-	assert_false(AudioServer.is_bus_mute(ui_index))
-	assert_almost_eq(AudioServer.get_bus_volume_db(ui_index), linear_to_db(0.5), 0.001)
-	assert_almost_eq(AudioServer.get_bus_volume_db(missile_index), 0.0, 0.001)
+	var cases: Array[Dictionary] = [
+		{"key": "master", "bus": &"Master", "unaffected": &"Missiles"},
+		{"key": "missile", "bus": &"Missiles", "unaffected": &"Guns"},
+		{"key": "gun", "bus": &"Guns", "unaffected": &"Missiles"},
+		{"key": "explosion", "bus": &"Explosions", "unaffected": &"Alerts"},
+		{"key": "alert", "bus": &"Alerts", "unaffected": &"Explosions"},
+		{"key": "ui", "bus": &"UI", "unaffected": &"Missiles"},
+	]
+	for case: Dictionary in cases:
+		settings.values = PlayerSettings.DEFAULTS.duplicate()
+		settings.apply_audio()
+		var key := String(case.key)
+		var bus := StringName(case.bus)
+		var unaffected := StringName(case.unaffected)
+		var bus_index := AudioServer.get_bus_index(bus)
+		var unaffected_index := AudioServer.get_bus_index(unaffected)
+		settings.set_value(key, 0.0)
+		assert_true(AudioServer.is_bus_mute(bus_index), "%s=0은 %s 버스를 음소거합니다" % [key, bus])
+		assert_false(AudioServer.is_bus_mute(unaffected_index), "%s 변경은 %s 버스의 mute를 바꾸지 않습니다" % [key, unaffected])
+		settings.set_value(key, 0.5)
+		assert_false(AudioServer.is_bus_mute(bus_index), "%s>0은 %s 버스 음소거를 해제합니다" % [key, bus])
+		assert_almost_eq(AudioServer.get_bus_volume_db(bus_index), linear_to_db(0.5), 0.001, "%s가 %s 버스 음량을 제어합니다" % [key, bus])
+		assert_almost_eq(AudioServer.get_bus_volume_db(unaffected_index), 0.0, 0.001, "%s 변경은 %s 버스 음량을 유지합니다" % [key, unaffected])
 
 func test_display_preferences_apply_to_runtime() -> void:
 	var preferences := PlayerSettings.instance()
@@ -116,6 +133,11 @@ func test_invalid_control_and_audio_values_keep_safe_limits() -> void:
 	PlayerSettings.instance().set_value("ui", NAN)
 	assert_eq(PlayerSettings.instance().values.zoom, 0.25)
 	assert_eq(PlayerSettings.instance().values.ui, 1.0)
+	assert_eq(PlayerSettings.instance().save_preferences(), OK)
+	PlayerSettings.instance().values.clear()
+	PlayerSettings.instance().load_preferences()
+	assert_eq(PlayerSettings.instance().values.zoom, 0.25, "제한된 zoom 경계값을 저장·복원합니다")
+	assert_eq(PlayerSettings.instance().values.ui, 1.0, "비유한 audio 입력 대신 안전한 값을 저장·복원합니다")
 
 func test_combat_events_route_to_the_matching_audio_category() -> void:
 	var combat := add_child_autofree(CombatAudio.new()) as CombatAudio
@@ -126,7 +148,8 @@ func test_combat_events_route_to_the_matching_audio_category() -> void:
 	assert_not_null(_player_with_stream_on_bus(combat, &"Missiles"))
 	assert_true(combat.play_event(CombatAudio.EXPLOSION))
 	assert_not_null(_player_with_stream_on_bus(combat, &"Explosions"))
-	assert_eq((combat.get_node("GunAirbursts") as AudioStreamPlayer).bus, &"Guns")
+	combat.on_gun_round_detonated(Vector3.ZERO, &"timeout")
+	assert_not_null(_playing_player_on_bus(combat, &"Guns"), "기관포 자폭 통지는 Guns 버스에서 재생됩니다")
 
 func test_ui_players_route_to_the_ui_category() -> void:
 	var ui := add_child_autofree(UiAudio.new()) as UiAudio
@@ -179,6 +202,12 @@ func test_invalid_config_values_keep_safe_defaults() -> void:
 func _player_with_stream_on_bus(root: Node, bus: StringName) -> AudioStreamPlayer:
 	for player: AudioStreamPlayer in _players_on_bus(root, bus):
 		if player.stream != null:
+			return player
+	return null
+
+func _playing_player_on_bus(root: Node, bus: StringName) -> AudioStreamPlayer:
+	for player: AudioStreamPlayer in _players_on_bus(root, bus):
+		if player.playing:
 			return player
 	return null
 

@@ -39,6 +39,10 @@ func test_shared_tween_stays_frozen_while_paused_and_completes_after_resume() ->
 	tween.custom_step(0.2)
 	assert_almost_eq(player.volume_linear, 0.0, 0.001)
 	assert_false(tween.is_running())
+	await get_tree().process_frame
+	AudioPlayback.sync_tween(tween, false)
+	assert_almost_eq(player.volume_linear, 0.0, 0.001, "완료한 tween을 다시 동기화해도 최종값을 유지합니다")
+	assert_false(tween.is_running(), "완료한 tween은 재개되지 않습니다")
 
 func test_combat_pause_pauses_active_voices_and_new_retirement_fades() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
@@ -62,6 +66,32 @@ func test_combat_pause_pauses_active_voices_and_new_retirement_fades() -> void:
 	context.simulation_paused = false
 	_advance_combat_audio(context, 0.1)
 	assert_false(missile.stream_paused)
+	assert_true(fade.is_running())
+	fade.custom_step(CombatAudio.RETIRE_FADE_SECONDS + 0.1)
+	assert_false(missile.playing)
+	assert_true(context.fade_tweens.is_empty())
+
+func test_signal_less_source_tree_exit_retires_missile_voice() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	context.set_process(false)
+	var source := Node.new()
+	add_child(source)
+	var source_id := source.get_instance_id()
+	assert_true(context.play_missile_event(CombatAudio.LONG_MISSILE, source))
+	var missile := context.source_players[source_id] as AudioStreamPlayer
+	context.simulation_paused = true
+	_advance_combat_audio(context, 0.0)
+	source.queue_free()
+	await get_tree().process_frame
+	assert_false(is_instance_valid(source), "signal 없는 source가 scene tree에서 제거됩니다")
+	assert_false(context.source_players.has(source_id), "tree_exiting이 source 소유권을 해제합니다")
+	var fade := context.fade_tweens.get(missile.get_instance_id()) as Tween
+	assert_not_null(fade, "마지막 source 제거는 미사일 voice 퇴역 감쇠를 시작합니다")
+	if fade == null:
+		return
+	assert_false(fade.is_running(), "정지 중 생성된 퇴역 감쇠는 진행하지 않습니다")
+	context.simulation_paused = false
+	_advance_combat_audio(context, 0.0)
 	assert_true(fade.is_running())
 	fade.custom_step(CombatAudio.RETIRE_FADE_SECONDS + 0.1)
 	assert_false(missile.playing)

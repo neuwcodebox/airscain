@@ -157,8 +157,9 @@ func test_camera_clears_terrain_during_movement_rotation_and_zoom() -> void:
 			rig.zoom_distance = rig.minimum_zoom
 			rig.focus_on(Vector3(800, 0, -800))
 			var position := rig.camera.global_position
-			assert_gte(position.y, float(rig.terrain_height.call(position.x, position.z)) + CameraRig.TERRAIN_CLEARANCE)
-			assert_true(rig.camera.global_basis.is_finite())
+			var case_name := "pitch %.4f, yaw %.4f" % [pitch, yaw]
+			assert_gte(position.y, float(rig.terrain_height.call(position.x, position.z)) + CameraRig.TERRAIN_CLEARANCE, case_name + "의 지형 여유 높이")
+			assert_true(rig.camera.global_basis.is_finite(), case_name + "의 유한 camera basis")
 
 func test_sky_tilt_preserves_safe_position_and_crosses_horizon_continuously() -> void:
 	rig.configure_for_battlefield(2400.0, func(_x: float, _z: float) -> float: return 240.0)
@@ -170,17 +171,34 @@ func test_sky_tilt_preserves_safe_position_and_crosses_horizon_continuously() ->
 	var maximum_position_error := 0.0
 	var maximum_direction_step := 0.0
 	var lowest_height := INF
+	var maximum_position_error_step := -1
+	var maximum_position_error_pitch := 0.0
+	var maximum_direction_step_index := -1
+	var maximum_direction_step_pitch := 0.0
+	var lowest_height_step := -1
+	var lowest_height_pitch := 0.0
 	for step: int in 150:
 		rig.pitch_radians = lerpf(CameraRig.MINIMUM_ORBIT_PITCH, CameraRig.MINIMUM_PITCH, float(step + 1) / 150.0)
 		_refresh_camera_geometry()
 		var direction := -rig.camera.global_basis.z
-		maximum_position_error = maxf(maximum_position_error, rig.camera.global_position.distance_to(safe_position))
-		maximum_direction_step = maxf(maximum_direction_step, direction.angle_to(previous_direction))
-		lowest_height = minf(lowest_height, rig.camera.global_position.y)
+		var position_error := rig.camera.global_position.distance_to(safe_position)
+		if not is_finite(position_error) or position_error > maximum_position_error:
+			maximum_position_error = position_error if is_finite(position_error) else INF
+			maximum_position_error_step = step + 1
+			maximum_position_error_pitch = rig.pitch_radians
+		var direction_step := direction.angle_to(previous_direction)
+		if not is_finite(direction_step) or direction_step > maximum_direction_step:
+			maximum_direction_step = direction_step if is_finite(direction_step) else INF
+			maximum_direction_step_index = step + 1
+			maximum_direction_step_pitch = rig.pitch_radians
+		if not is_finite(rig.camera.global_position.y) or rig.camera.global_position.y < lowest_height:
+			lowest_height = rig.camera.global_position.y if is_finite(rig.camera.global_position.y) else -INF
+			lowest_height_step = step + 1
+			lowest_height_pitch = rig.pitch_radians
 		previous_direction = direction
-	assert_lt(maximum_position_error, 0.001, "지평선 위로 기울여도 안전한 카메라 위치를 유지합니다")
-	assert_lt(maximum_direction_step, 0.04, "지평선 통과 중 시선 방향이 튀지 않습니다")
-	assert_gte(lowest_height, 240.0 + CameraRig.TERRAIN_CLEARANCE)
+	assert_lt(maximum_position_error, 0.001, "최대 위치 오차 step %d, pitch %.4f" % [maximum_position_error_step, maximum_position_error_pitch])
+	assert_lt(maximum_direction_step, 0.04, "최대 시선 변화 step %d, pitch %.4f" % [maximum_direction_step_index, maximum_direction_step_pitch])
+	assert_gte(lowest_height, 240.0 + CameraRig.TERRAIN_CLEARANCE, "최저 높이 step %d, pitch %.4f" % [lowest_height_step, lowest_height_pitch])
 	assert_gt(previous_direction.y, 0.8, "Middle drag can look well above the horizon")
 	rig.pitch_radians = 0.0
 	_refresh_camera_geometry()

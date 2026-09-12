@@ -12,6 +12,10 @@ func test_sky_state_is_owned_per_world_and_restores_from_elapsed_time() -> void:
 	var first := _cycle_fixture()
 	var second := _cycle_fixture()
 	assert_ne(first.sky, second.sky)
+	var first_cloud_noise := first.sky.get_shader_parameter("cloud_noise") as Texture2D
+	var second_cloud_noise := second.sky.get_shader_parameter("cloud_noise") as Texture2D
+	assert_not_null(first_cloud_noise, "하늘 구름에는 공유 noise texture가 필요합니다")
+	assert_same(first_cloud_noise, second_cloud_noise, "독립 SkyMaterial은 같은 cloud noise texture를 재사용합니다")
 	first.cycle.apply_time(450.0, true)
 	assert_eq(float(first.sky.get_shader_parameter("sky_clock")), 450.0)
 	assert_eq(float(second.sky.get_shader_parameter("sky_clock")), 0.0)
@@ -56,13 +60,21 @@ func test_horizon_color_changes_without_large_twilight_steps() -> void:
 	fixture.cycle.apply_time(250.0, true)
 	var previous: Color = fixture.sky.get_shader_parameter("horizon_color")
 	var maximum_step := 0.0
+	var maximum_step_elapsed := 250.0
 	for index: int in 400:
 		var elapsed := 250.0 + (index + 1) * 0.1
 		fixture.cycle.apply_time(elapsed, true)
 		var horizon: Color = fixture.sky.get_shader_parameter("horizon_color")
-		maximum_step = maxf(maximum_step, _color_distance(previous, horizon))
+		var color_step := _color_distance(previous, horizon)
+		if not is_finite(color_step):
+			maximum_step = INF
+			maximum_step_elapsed = elapsed
+			break
+		if color_step > maximum_step:
+			maximum_step = color_step
+			maximum_step_elapsed = elapsed
 		previous = horizon
-	assert_lt(maximum_step, 0.01, "250~290초 황혼 구간의 0.1초당 horizon 색 변화량")
+	assert_lt(maximum_step, 0.01, "250~290초 황혼 구간의 최대 horizon 색 변화량 (%.1f초)" % maximum_step_elapsed)
 
 func test_clock_wraps_and_repeats_saved_elapsed_time() -> void:
 	assert_almost_eq(DayNightCycle.hour_at(0.0), 9.0, 0.001)
@@ -124,22 +136,34 @@ func test_twilight_shadows_fade_continuously_in_both_directions() -> void:
 		fixture.cycle.apply_time(interval.x, true)
 		var previous := fixture.sun.shadow_opacity
 		var maximum_step := 0.0
-		var monotonic := true
-		var always_visible := true
-		var always_enabled := true
+		var maximum_step_elapsed := interval.x
+		var monotonic_failure_elapsed := -1.0
+		var visibility_failure_elapsed := -1.0
+		var enabled_failure_elapsed := -1.0
 		for index: int in 280:
-			fixture.cycle.apply_time(interval.x + (index + 1) * 0.1, true)
+			var elapsed := interval.x + (index + 1) * 0.1
+			fixture.cycle.apply_time(elapsed, true)
 			var opacity := fixture.sun.shadow_opacity
-			always_enabled = always_enabled and fixture.sun.shadow_enabled
-			always_visible = always_visible and fixture.sun.visible
-			maximum_step = maxf(maximum_step, absf(opacity - previous))
-			monotonic = monotonic and (opacity <= previous if interval.x < 300.0 else opacity >= previous)
+			if not fixture.sun.shadow_enabled and enabled_failure_elapsed < 0.0:
+				enabled_failure_elapsed = elapsed
+			if not fixture.sun.visible and visibility_failure_elapsed < 0.0:
+				visibility_failure_elapsed = elapsed
+			var opacity_step := absf(opacity - previous)
+			if not is_finite(opacity_step):
+				maximum_step = INF
+				maximum_step_elapsed = elapsed
+			elif opacity_step > maximum_step:
+				maximum_step = opacity_step
+				maximum_step_elapsed = elapsed
+			var follows_direction := opacity <= previous if interval.x < 300.0 else opacity >= previous
+			if not follows_direction and monotonic_failure_elapsed < 0.0:
+				monotonic_failure_elapsed = elapsed
 			previous = opacity
 		var case_name := "%d~%d초" % [int(interval.x), int(interval.y)]
-		assert_true(always_enabled, case_name + " 황혼 중 shadow mode를 바꾸지 않습니다")
-		assert_true(always_visible, case_name + " 가시적인 태양을 숨기지 않습니다")
-		assert_true(monotonic, case_name + " shadow opacity가 한 방향으로 변합니다")
-		assert_lt(maximum_step, 0.01, case_name + " 0.1초당 shadow opacity 변화량")
+		assert_lt(enabled_failure_elapsed, 0.0, case_name + " 황혼 중 shadow mode 최초 위반 시각 %.1f초" % enabled_failure_elapsed)
+		assert_lt(visibility_failure_elapsed, 0.0, case_name + " 가시적인 태양 최초 숨김 시각 %.1f초" % visibility_failure_elapsed)
+		assert_lt(monotonic_failure_elapsed, 0.0, case_name + " shadow opacity 방향 최초 위반 시각 %.1f초" % monotonic_failure_elapsed)
+		assert_lt(maximum_step, 0.01, case_name + " 최대 0.1초당 shadow opacity 변화 시각 %.1f초" % maximum_step_elapsed)
 	fixture.cycle.apply_time(450.0)
 	assert_eq(fixture.sun.shadow_opacity, 0.0)
 

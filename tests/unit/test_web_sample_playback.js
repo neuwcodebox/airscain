@@ -146,6 +146,23 @@ test('stale ended events cannot stop a resumed source', async () => {
     assert.equal(f.nodes.length, 2);
 });
 
+test('a stale ended event leaves active completion delivery intact', async () => {
+    const f = fixture();
+    const voice = await f.play();
+    const stale = [...f.nodes[0].listeners][0];
+    voice.pause(true);
+    voice.pause(false);
+    stale();
+    assert.equal(voice.clears, 0, 'stale source does not complete the voice');
+    const activeEnded = [...f.nodes[1].listeners][0];
+    activeEnded();
+    activeEnded();
+    voice.clear();
+    assert.equal(voice.clears, 1, 'active completion is delivered exactly once after a stale event');
+    voice.pause(false);
+    assert.equal(f.nodes.length, 2, 'completed voice cannot resume');
+});
+
 test('completion of the active source is delivered once', async () => {
     const f = fixture();
     const voice = await f.play();
