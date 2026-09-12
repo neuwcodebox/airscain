@@ -9,7 +9,6 @@ const STRIKE_PROFILE_PATHS: Array[String] = [
 	"strike_aircraft",
 	"battery_strike_aircraft",
 	"radar_strike_aircraft",
-	"command_strike_aircraft",
 ]
 
 func test_strike_egress_preserves_position_and_vertical_acceleration() -> void:

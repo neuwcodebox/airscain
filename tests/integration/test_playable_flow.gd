@@ -235,7 +235,7 @@ func test_new_operation_starts_in_preparation_with_ambient_contacts_and_budget()
 func test_scenario_exposes_required_defense_and_threat_content() -> void:
 	for definition_id: StringName in [&"missile_battery", &"search_radar", &"command_post", &"tracking_radar", &"close_in_gun", &"support_facility", &"high_energy_laser", &"long_range_missile", &"short_range_missile", &"high_power_microwave", &"interceptor_drone_defense"]:
 		assert_not_null(_defense_definition_for(main, definition_id), String(definition_id))
-	for definition_id: StringName in [&"attack_uav", &"swarm_uav", &"recon_uav", &"support_strike_uav", &"command_strike_uav", &"cruise_missile", &"decoy_uav", &"electronic_warfare_uav", &"anti_radiation_missile", &"ballistic_missile", &"rocket", &"strike_aircraft", &"battery_strike_uav"]:
+	for definition_id: StringName in [&"attack_uav", &"swarm_uav", &"defense_strike_uav", &"small_defense_strike_uav", &"recon_uav", &"support_strike_uav", &"cruise_missile", &"decoy_uav", &"electronic_warfare_uav", &"anti_radiation_missile", &"ballistic_missile", &"rocket", &"strike_aircraft", &"battery_strike_uav"]:
 		assert_not_null(_threat_entry_for(main, definition_id), String(definition_id))
 	assert_eq(_threat_entry_for(main, &"swarm_uav").group_size, 4)
 
@@ -1562,17 +1562,17 @@ func test_swarm_entry_spawns_a_close_formation_package() -> void:
 
 func test_mission_roles_choose_matching_deployed_assets() -> void:
 	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
-	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
 	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
+	var weapon_result := _place_for(main, _defense_definition_for(main, &"missile_battery"))
 	assert_true(radar_result.success)
-	assert_true(command_result.success)
 	assert_true(support_result.success)
+	assert_true(weapon_result.success)
 	var recon := _threat_entry_for(main, &"recon_uav").threat_definition as AttackUavDefinition
 	var support_strike := _threat_entry_for(main, &"support_strike_uav").threat_definition as AttackUavDefinition
-	var command_strike := _threat_entry_for(main, &"command_strike_uav").threat_definition as AttackUavDefinition
+	var defense_strike := _threat_entry_for(main, &"defense_strike_uav").threat_definition as AttackUavDefinition
 	assert_null(main.director.choose_target_for(recon.mission), "정찰 경로는 실제 자산 참조를 사용하지 않습니다")
 	assert_same(main.director.choose_target_for(support_strike.mission), support_result.unit)
-	assert_same(main.director.choose_target_for(command_strike.mission), command_result.unit)
+	assert_same(main.director.choose_target_for(defense_strike.mission), weapon_result.unit)
 
 func test_recon_mission_upgrades_enemy_sensor_estimate() -> void:
 	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
@@ -1970,7 +1970,7 @@ func test_procedural_planning_ignores_unobserved_asset_changes_and_limits_late_w
 	var expected := main.director.capture_state()
 	for wave: Dictionary in main.director.pending_waves:
 		assert_lte(float(wave.remaining), 5.0)
-		assert_false(String(wave.definition_id) in ["support_strike_uav", "command_strike_uav", "anti_radiation_missile"])
+		assert_false(String(wave.definition_id) in ["support_strike_uav", "defense_strike_uav", "small_defense_strike_uav", "anti_radiation_missile"])
 	main.director.restore_state(state)
 	for unit: DefenseUnit in main.defenses:
 		unit.global_position += Vector3(250.0, 0.0, 100.0)

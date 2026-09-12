@@ -45,7 +45,9 @@ func run() -> void:
 	target.receive_damage(40.0)
 	main.enemy_knowledge.record_recon(target)
 	var hunter := main.director._spawn_entry(entry, 0.5, 0.0) as AttackUav
-	for tick: int in 3600:
+	var threat_definition := hunter.definition as AttackUavDefinition
+	var approach_seconds := threat_definition.estimated_approach_seconds(hunter.global_position.distance_to(target.global_position), hunter.speed_multiplier)
+	for tick: int in ceili((approach_seconds * 1.5 + 30.0) * 30.0):
 		hunter.gameplay_tick(1.0 / 30.0)
 		if hunter.global_position.distance_to(target.global_position) < maxf(190.0, hunter.mission_runtime.profile.action_distance * 1.4):
 			break

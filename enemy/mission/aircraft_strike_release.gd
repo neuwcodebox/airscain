@@ -10,12 +10,17 @@ static func ready(profile: ThreatMissionDefinition, body_transform: Transform3D,
 	var offset := target - body_transform * HARDPOINT
 	var horizontal := Vector3(offset.x, 0.0, offset.z)
 	var forward := Vector3(velocity.x, 0.0, velocity.z)
-	if forward.length_squared() < 1.0:
-		return false
 	if profile.released_missile != null:
+		if forward.length_squared() < 1.0:
+			return false
 		return horizontal.length() <= profile.action_distance and forward.normalized().dot(horizontal.normalized()) >= cos(deg_to_rad(profile.launch_cone_degrees))
 	var gravity := StrikeFlight.GRAVITY
 	var fall_time := (velocity.y + sqrt(maxf(0.0, velocity.y * velocity.y - 2.0 * gravity * offset.y))) / gravity
+	# A bomb carrier spawned very close to its target can finish its descent
+	# directly above it without retaining horizontal speed. A vertical drop is a
+	# valid solution there; missile carriers still require a forward heading.
+	if forward.length_squared() < 1.0:
+		return fall_time > 0.0 and horizontal.length() <= BOMB_RELEASE_TOLERANCE
 	# Leave margin inside the smallest asset's impact radius for the hardpoint
 	# offset and the difference between target elevation and sloping terrain.
 	return fall_time > 0.0 and (horizontal - forward * fall_time).length() <= maxf(BOMB_RELEASE_TOLERANCE, forward.length() * delta)

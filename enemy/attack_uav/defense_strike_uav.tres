@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="AttackUavDefinition" load_steps=8 format=3]
+
+[ext_resource path="res://enemy/attack_uav/attack_uav_definition.gd" type="Script" id="1"]
+[ext_resource path="res://enemy/attack_uav/attack_uav.tscn" type="PackedScene" id="2"]
+[ext_resource path="res://enemy/movement/threat_movement_definition.gd" type="Script" id="3"]
+[ext_resource path="res://enemy/mission/threat_mission_definition.gd" type="Script" id="4"]
+
+[ext_resource type="Resource" path="res://effects/aircraft_resolution.tres" id="Resolution"]
+
+[sub_resource type="Resource" id="Movement"]
+script = ExtResource("3")
+mode = 0
+speed = 30.0
+cruise_altitude = 70.0
+terminal_distance = 120.0
+maximum_turn_rate_degrees = 90.0
+maximum_climb_rate = 35.0
+
+[sub_resource type="Resource" id="Mission"]
+script = ExtResource("4")
+type = 0
+target_role = 4
+damage = 30.0
+action_distance = 5.0
+acquisition_range = 420.0
+
+[resource]
+script = ExtResource("1")
+loop_audio_event = &"uav_medium"
+id = &"defense_strike_uav"
+display_name = "방공자산 자폭 UAV"
+scene = ExtResource("2")
+resolution_profile = ExtResource("Resolution")
+neutralization_reward = 14
+signature_class = &"uav"
+radar_signature = 0.72
+affiliation = 3
+adaptive_knowledge_role = &"weapon"
+adaptive_knowledge_weight = 1.5
+requires_role_knowledge = true
+maximum_health = 100.0
+movement = SubResource("Movement")
+mission = SubResource("Mission")
+visual_color = Color(0.56, 0.20, 0.12, 1)

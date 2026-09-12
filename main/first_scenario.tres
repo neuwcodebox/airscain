@@ -15,7 +15,7 @@
 [ext_resource path="res://defense/high_energy_laser/high_energy_laser.tres" type="Resource" id="13"]
 [ext_resource path="res://enemy/recon_uav/recon_uav.tres" type="Resource" id="14"]
 [ext_resource path="res://enemy/facility_strike_uav/support_strike_uav.tres" type="Resource" id="15"]
-[ext_resource path="res://enemy/facility_strike_uav/command_strike_uav.tres" type="Resource" id="16"]
+[ext_resource path="res://enemy/attack_uav/defense_strike_uav.tres" type="Resource" id="16"]
 [ext_resource path="res://enemy/cruise_missile/cruise_missile.tres" type="Resource" id="17"]
 [ext_resource path="res://enemy/raid_archetype_definition.gd" type="Script" id="18"]
 [ext_resource path="res://enemy/decoy_uav/decoy_uav.tres" type="Resource" id="19"]
@@ -34,7 +34,7 @@
 [ext_resource path="res://enemy/cruise_missile/support_strike_cruise.tres" type="Resource" id="32"]
 [ext_resource path="res://enemy/strike_aircraft/battery_strike_aircraft.tres" type="Resource" id="33"]
 [ext_resource path="res://enemy/strike_aircraft/radar_strike_aircraft.tres" type="Resource" id="34"]
-[ext_resource path="res://enemy/strike_aircraft/command_strike_aircraft.tres" type="Resource" id="35"]
+[ext_resource path="res://enemy/swarm_uav/small_defense_strike_uav.tres" type="Resource" id="35"]
 
 [sub_resource type="Resource" id="RuggedHarborLayout"]
 script = ExtResource("29")
@@ -96,12 +96,12 @@ selection_weight = 0.35
 group_size = 1
 threat_cost = 3.0
 
-[sub_resource type="Resource" id="CommandStrikeEntry"]
+[sub_resource type="Resource" id="DefenseStrikeUavEntry"]
 script = ExtResource("5")
 raid_role = 3
 threat_definition = ExtResource("16")
-unlock_level = 4
-selection_weight = 0.3
+unlock_level = 3
+selection_weight = 0.35
 group_size = 1
 threat_cost = 3.0
 
@@ -240,15 +240,14 @@ selection_weight = 0.24
 group_size = 1
 threat_cost = 6.0
 
-[sub_resource type="Resource" id="command_strike_aircraft_entry"]
+[sub_resource type="Resource" id="small_defense_strike_uav_entry"]
 script = ExtResource("5")
 raid_role = 3
-attack_layer = 1
 threat_definition = ExtResource("35")
-unlock_level = 8
-selection_weight = 0.18
-group_size = 1
-threat_cost = 7.0
+unlock_level = 4
+selection_weight = 0.32
+group_size = 3
+threat_cost = 1.5
 
 [resource]
 script = ExtResource("1")
@@ -260,7 +259,7 @@ battlefield_layouts = Array[ExtResource("29")]([SubResource("RuggedHarborLayout"
 starting_budget = 1900
 objective_definition = ExtResource("2")
 available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23"), ExtResource("24"), ExtResource("25")])
-threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("CommandStrikeEntry"), SubResource("CruiseMissileEntry"), SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry"), SubResource("BallisticMissileEntry"), SubResource("RocketSalvoEntry"), SubResource("StrikeAircraftEntry"), SubResource("BatteryStrikeEntry"), SubResource("battery_strike_cruise_entry"), SubResource("support_strike_cruise_entry"), SubResource("battery_strike_aircraft_entry"), SubResource("radar_strike_aircraft_entry"), SubResource("command_strike_aircraft_entry")])
+threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("DefenseStrikeUavEntry"), SubResource("CruiseMissileEntry"), SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry"), SubResource("BallisticMissileEntry"), SubResource("RocketSalvoEntry"), SubResource("StrikeAircraftEntry"), SubResource("BatteryStrikeEntry"), SubResource("battery_strike_cruise_entry"), SubResource("support_strike_cruise_entry"), SubResource("battery_strike_aircraft_entry"), SubResource("radar_strike_aircraft_entry"), SubResource("small_defense_strike_uav_entry")])
 raid_archetypes = Array[ExtResource("18")]([SubResource("ReconSaturationStrikeRaid"), SubResource("DeceptionSeadStrikeRaid"), SubResource("MixedBallisticAirRaid")])
 ambient_contacts = Array[ExtResource("9")]([ExtResource("9")])
 ambient_contacts_per_type = 4
