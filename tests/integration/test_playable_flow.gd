@@ -302,6 +302,8 @@ func test_time_control_buttons_are_the_only_speed_state_indicator() -> void:
 	var fast_button := main.hud.get_node("%FastButton") as Button
 	var very_fast_button := main.hud.get_node("%VeryFastButton") as Button
 	assert_null(main.hud.get_node_or_null("%SpeedLabel"))
+	assert_eq(normal_button.text, "1×")
+	assert_eq([normal_button.custom_minimum_size, fast_button.custom_minimum_size, very_fast_button.custom_minimum_size], [Vector2(40.0, 36.0), Vector2(40.0, 36.0), Vector2(40.0, 36.0)], "배속 버튼은 같은 최소 크기를 사용합니다")
 	assert_true(normal_button.button_pressed)
 	assert_false(pause_button.button_pressed)
 	var selected_style := normal_button.get_theme_stylebox("pressed") as StyleBoxFlat
