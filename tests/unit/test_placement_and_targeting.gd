@@ -1224,6 +1224,28 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	assert_eq(gun.magazine.rounds, gun.magazine.capacity)
 	assert_eq(manager.task_status(gun), "")
 
+func test_support_task_detail_uses_shared_capacity_and_hides_waiting_time() -> void:
+	var fixture := _gun_support_fixture()
+	var manager: SupportManager = fixture.manager
+	var first: CloseInGun = fixture.gun
+	var guns: Array[CloseInGun] = [first]
+	for runtime_id: int in [3, 4]:
+		var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+		gun.setup(runtime_id, _defense(&"close_in_gun"))
+		gun.configure_support(manager)
+		manager.register_asset(gun)
+		guns.append(gun)
+	for gun: CloseInGun in guns:
+		gun.magazine.reserve = 0
+		assert_true(gun.request_resupply())
+	assert_eq(manager.task_detail_status(guns[0]), "재보급 진행 · 6.0초")
+	assert_eq(manager.task_detail_status(guns[1]), "재보급 진행 · 6.0초")
+	assert_eq(manager.task_detail_status(guns[2]), "재보급 대기")
+	manager.gameplay_tick(1.0)
+	assert_eq(manager.task_detail_status(guns[0]), "재보급 진행 · 5.0초")
+	assert_eq(manager.task_detail_status(guns[1]), "재보급 진행 · 5.0초")
+	assert_eq(manager.task_detail_status(guns[2]), "재보급 대기")
+
 func _gun_support_fixture() -> Dictionary:
 	var manager := autofree(SupportManager.new()) as SupportManager
 	var support_session := autofree(GameSession.new()) as GameSession
@@ -1443,7 +1465,9 @@ func test_repair_task_round_trip_uses_damaged_facility_capacity() -> void:
 	assert_true(gun.request_repair())
 	assert_eq(support_session.budget, 100 - gun.repair_cost())
 	assert_eq(manager.task_status(gun), "수리 진행")
+	assert_eq(manager.task_detail_status(gun), "수리 진행 · 92.0초")
 	manager.gameplay_tick(1.0)
+	assert_eq(manager.task_detail_status(gun), "수리 진행 · 91.0초")
 	var saved_tasks := manager.capture_state()
 	assert_eq(saved_tasks.tasks[0].kind, SupportManager.REPAIR)
 	manager.reset()
@@ -1791,11 +1815,11 @@ func test_repair_time_scales_with_damage_and_later_damage_is_not_free() -> void:
 		prior_cost = unit.repair_cost()
 		var seconds := unit.repair_work() / facility.support_capacity()
 		if damage == 0.1:
-			assert_between(seconds, 6.0, 10.0, "%s repair duration" % case_label)
+			assert_almost_eq(seconds, 18.8, 0.0001, "%s repair duration" % case_label)
 		elif damage == 0.5:
-			assert_between(seconds, 15.0, 25.0, "%s repair duration" % case_label)
+			assert_almost_eq(seconds, 46.0, 0.0001, "%s repair duration" % case_label)
 		else:
-			assert_between(seconds, 30.0, 45.0, "%s repair duration" % case_label)
+			assert_almost_eq(seconds, 80.0, 0.0001, "%s repair duration" % case_label)
 	unit.integrity = unit.definition.maximum_integrity * 0.9
 	assert_true(manager.request_repair(unit))
 	unit.receive_damage(1000.0)

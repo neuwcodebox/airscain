@@ -171,6 +171,16 @@ func task_status(unit: DefenseUnit) -> String:
 			return "%s 진행" % label if _task_is_active(index) else "%s 대기" % label
 	return ""
 
+func task_detail_status(unit: DefenseUnit) -> String:
+	for index: int in tasks.size():
+		if int(tasks[index].target_defense_id) != unit.runtime_id:
+			continue
+		var status := task_status(unit)
+		if not _task_is_active(index):
+			return status
+		return "%s · %.1f초" % [status, _task_remaining_seconds(index)]
+	return ""
+
 func automatic_resupply_status(unit: DefenseUnit) -> String:
 	if not automatic_resupply_enabled(unit):
 		return ""
@@ -189,6 +199,18 @@ func _task_is_active(task_index: int) -> bool:
 		if service_facility_for(_task_target(index)) == facility:
 			earlier_assignments += 1
 	return earlier_assignments < facility.support_slots()
+
+func _task_remaining_seconds(task_index: int) -> float:
+	var facility := service_facility_for(_task_target(task_index))
+	if facility == null or not _task_is_active(task_index):
+		return INF
+	var assigned_count := 0
+	for index: int in tasks.size():
+		if service_facility_for(_task_target(index)) == facility:
+			assigned_count += 1
+	var active_count := mini(facility.support_slots(), assigned_count)
+	var work_per_second := facility.support_capacity() / float(active_count)
+	return maxf(0.0, float(tasks[task_index].remaining_work)) / work_per_second
 
 func capture_state() -> Dictionary:
 	var ids := automatic_resupply_ids.keys()

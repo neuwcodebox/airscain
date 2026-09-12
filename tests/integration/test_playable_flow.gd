@@ -2139,7 +2139,13 @@ func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> v
 	assert_eq(main.ui_audio.played_count(UiAudio.ACTION_COMPLETE), completion_count + 1, "자동 요청은 옵션을 끄거나 복원해도 완료음을 내지 않습니다")
 	gun.integrity = gun.definition.maximum_integrity * 0.5
 	assert_true(main.support_manager.request_repair(gun))
+	main.hud.refresh_selected_asset()
+	_assert_metric_displayed(main.hud.asset_metrics, "지원 작업", "수리 진행 · 46.0초")
+	main.support_manager.gameplay_tick(1.0)
+	main.hud.refresh_selected_asset()
+	_assert_metric_displayed(main.hud.asset_metrics, "지원 작업", "수리 진행 · 45.0초")
 	main.support_manager.gameplay_tick(100.0)
+	main.hud.refresh_selected_asset()
 	assert_eq(main.ui_audio.played_count(UiAudio.ACTION_COMPLETE), completion_count + 2, "수동 수리 완료음은 유지합니다")
 	assert_true(main.hud.relocation_button.visible)
 	assert_false(main.hud.relocation_button.disabled)
