@@ -1175,6 +1175,7 @@ func test_raid_interval_and_budget_scale_with_pressure_but_remain_bounded() -> v
 	var director := autofree(ThreatDirector.new()) as ThreatDirector
 	director.scenario = SCENARIO
 	director.opening_raid_started = true
+	assert_eq(director.automatic_raid_interval_at(0.0), 30.0)
 	director.opening_raid_complete = true
 	director.pressure_started_at = 200.0
 	assert_eq(director.spawn_interval_at(0.0), 24.0)
@@ -1191,6 +1192,7 @@ func test_threat_speed_growth_caps_at_the_scenario_maximum() -> void:
 
 func test_scenario_attack_window_and_initial_spawn_timing_are_authored() -> void:
 	assert_eq(SCENARIO.initial_spawn_interval, 12.0)
+	assert_eq(SCENARIO.opening_raid_interval, 30.0)
 	assert_eq(SCENARIO.attack_window_duration, 75.0)
 	assert_eq(SCENARIO.recovery_duration, 45.0)
 

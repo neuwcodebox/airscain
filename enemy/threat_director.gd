@@ -77,12 +77,15 @@ func gameplay_tick(delta: float) -> void:
 				launch_budgeted_raid(true)
 		else:
 			until_spawn = maxf(until_spawn, scenario.initial_spawn_interval)
-	if in_recovery or (opening_raid_started and pressure_level < 2):
+	if in_recovery:
 		return
 	until_spawn -= delta
 	if until_spawn > 0.0:
 		return
-	until_spawn += raid_interval_at(elapsed)
+	var interval := automatic_raid_interval_at(elapsed)
+	until_spawn = fposmod(until_spawn, interval)
+	if is_zero_approx(until_spawn):
+		until_spawn = interval
 	launch_budgeted_raid()
 
 func _should_recover() -> bool:
@@ -131,6 +134,11 @@ func spawn_interval_at(time_seconds: float) -> float:
 func raid_interval_at(time_seconds: float) -> float:
 	var completed_pressure_steps := float(pressure_level_at(time_seconds) - 1)
 	return maxf(scenario.minimum_raid_interval, scenario.initial_raid_interval - completed_pressure_steps * scenario.raid_interval_pressure_reduction)
+
+func automatic_raid_interval_at(time_seconds: float) -> float:
+	if opening_raid_started and not opening_raid_complete:
+		return scenario.opening_raid_interval
+	return raid_interval_at(time_seconds)
 
 func threat_budget_at(time_seconds: float) -> float:
 	return 3.0 + float(pressure_level_at(time_seconds)) + performance_budget_adjustment()

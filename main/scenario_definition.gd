@@ -17,6 +17,7 @@ extends Resource
 @export_range(0.0, 1.0) var asset_suppression_chance: float = 0.35
 @export var recon_followup_window: float = 90.0
 @export_range(0.0, 1.0) var recon_followup_suppression_chance: float = 0.75
+@export var opening_raid_interval: float = 30.0
 @export var initial_raid_interval: float = 24.0
 @export var minimum_raid_interval: float = 14.0
 @export var raid_interval_pressure_reduction: float = 0.6
@@ -47,7 +48,7 @@ func validation_error() -> String:
 		if not layout_error.is_empty():
 			return layout_error
 		layout_ids[layout.id] = true
-	if starting_budget < 0 or initial_spawn_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
+	if starting_budget < 0 or initial_spawn_interval <= 0.0 or opening_raid_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
 		return "보호 목표 Definition이 없습니다"

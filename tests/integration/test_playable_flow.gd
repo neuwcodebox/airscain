@@ -2030,6 +2030,18 @@ func test_each_recovery_stages_one_remote_raid_for_the_next_attack_window() -> v
 		assert_false(main.director.pending_waves.is_empty(), "정비 구간 %d의 다음 공습 편성" % window_index)
 		assert_eq(main.director.completed_attack_windows, window_index + 1, "정비 구간 %d 집계" % window_index)
 
+func test_opening_ingress_keeps_dispatching_level_one_raids() -> void:
+	main.registry.clear()
+	main.director.opening_raid_started = true
+	main.director.opening_raid_complete = false
+	main.director.opening_threat_ids = [9001]
+	main.director.enabled = true
+	main.director.until_spawn = 0.0
+	main.director.gameplay_tick(0.1)
+	assert_false(main.director.pending_waves.is_empty(), "첫 공습 접근 중에도 다음 1단계 공습을 편성합니다")
+	assert_eq(main.director.until_spawn, main.scenario.opening_raid_interval - 0.1)
+	assert_eq(main.director.opening_threat_ids, [9001], "후속 공습은 단계 상승을 막는 첫 공습 소속이 아닙니다")
+
 func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> void:
 	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
 	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
@@ -2749,7 +2761,7 @@ func test_new_sustained_operation_starts_with_hostiles_and_no_start_button() -> 
 	assert_gt(operation.registry.hostile_count(), 0)
 	assert_false(operation.hud.start_button.visible)
 	assert_eq(operation.session.survival_time, 0.0)
-	assert_eq(operation.director.until_spawn, operation.director.raid_interval_at(0.0))
+	assert_eq(operation.director.until_spawn, operation.director.automatic_raid_interval_at(0.0))
 	var saved := operation.capture_save_document()
 	var count := operation.registry.hostile_count()
 	assert_eq(operation.restore_from_document(saved), "")

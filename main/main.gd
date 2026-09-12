@@ -146,7 +146,7 @@ func _prepare_combat_visuals() -> void:
 		_on_start_requested()
 		director.launch_budgeted_raid()
 		director._tick_pending_waves(0.0)
-		director.until_spawn = director.raid_interval_at(0.0)
+		director.until_spawn = director.automatic_raid_interval_at(0.0)
 		hud.set_feedback("적이 외곽에서 접근합니다. 방공 자산을 배치하세요.", false)
 	if blocker != null:
 		blocker.queue_free()

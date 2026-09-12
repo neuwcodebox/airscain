@@ -267,6 +267,7 @@ initial_spawn_interval = 12.0
 asset_suppression_chance = 0.35
 recon_followup_window = 90.0
 recon_followup_suppression_chance = 0.75
+opening_raid_interval = 30.0
 initial_raid_interval = 24.0
 minimum_raid_interval = 14.0
 raid_interval_pressure_reduction = 0.6
