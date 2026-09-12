@@ -42,18 +42,16 @@ class CapabilityConsumerDouble:
 		replenished = true
 
 class TrackProviderDouble:
-	extends Node
-
-	var tracks: Array[PlayerTrack] = []
-
-	func get_active_tracks() -> Array[PlayerTrack]:
-		return tracks
+	extends PlayerKnowledge
 
 class C2NetworkDouble:
-	extends Node
+	extends C2Network
 
 	func available_tracks_for(_defense: DefenseUnit, tracks: Array[PlayerTrack]) -> Array[PlayerTrack]:
 		return tracks
+
+	func available_tracks_for_knowledge(_defense: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
+		return knowledge.get_active_tracks()
 
 var battlefield: Battlefield
 var objective: ProtectedObjective

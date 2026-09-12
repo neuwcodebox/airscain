@@ -1,7 +1,7 @@
 class_name TrackDisplay
 extends Node3D
 
-var player_knowledge: Node
+var player_knowledge: PlayerKnowledge
 var markers: Dictionary[int, TrackMarker] = {}
 var defense_parent: Node3D
 var engagement_coordinator: EngagementCoordinator
@@ -31,15 +31,15 @@ func _ready() -> void:
 	engagement_distance_label.visible = false
 	add_child(engagement_distance_label)
 
-func configure(player_knowledge_value: Node, defense_parent_value: Node3D, coordinator: EngagementCoordinator) -> void:
+func configure(player_knowledge_value: PlayerKnowledge, defense_parent_value: Node3D, coordinator: EngagementCoordinator) -> void:
 	player_knowledge = player_knowledge_value
 	defense_parent = defense_parent_value
 	engagement_coordinator = coordinator
-	player_knowledge.connect("track_created", _on_track_created)
-	player_knowledge.connect("track_updated", _on_track_updated)
-	player_knowledge.connect("track_state_changed", _on_track_state_changed)
-	player_knowledge.connect("track_removed", _on_track_removed)
-	var existing_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	player_knowledge.track_created.connect(_on_track_created)
+	player_knowledge.track_updated.connect(_on_track_updated)
+	player_knowledge.track_state_changed.connect(_on_track_state_changed)
+	player_knowledge.track_removed.connect(_on_track_removed)
+	var existing_tracks := player_knowledge.get_active_tracks()
 	for track: PlayerTrack in existing_tracks:
 		_on_track_created(track)
 

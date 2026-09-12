@@ -1,3 +1,4 @@
+class_name AltitudeProfile
 extends Control
 
 const MAX_ALTITUDE := 1500.0
@@ -6,14 +7,14 @@ const MEDIUM_CEILING := 450.0
 const TICK_ALTITUDES := [0.0, 100.0, 180.0, 300.0, 450.0, 750.0, 1000.0, 1250.0, 1500.0]
 
 var camera: Camera3D
-var player_knowledge: Node
+var player_knowledge: PlayerKnowledge
 var objective: Node3D
 var battlefield_size: float = 1800.0
 var refresh_remaining: float = 0.0
 var track_markers: Array[Dictionary] = []
 var projectile_markers: Array[Dictionary] = []
 
-func configure(camera_value: Camera3D, knowledge_value: Node, objective_value: Node3D, battlefield_size_value: float) -> void:
+func configure(camera_value: Camera3D, knowledge_value: PlayerKnowledge, objective_value: Node3D, battlefield_size_value: float) -> void:
 	camera = camera_value
 	player_knowledge = knowledge_value
 	objective = objective_value
@@ -30,7 +31,7 @@ func refresh_snapshot() -> void:
 	track_markers.clear()
 	projectile_markers.clear()
 	if player_knowledge != null:
-		for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
+		for track: PlayerTrack in player_knowledge.get_active_tracks():
 			track_markers.append({
 				"position": track.estimated_position,
 				"state": int(track.state),

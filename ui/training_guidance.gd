@@ -110,7 +110,7 @@ func _asset(unit: DefenseUnit) -> void:
 
 func _track() -> void:
 	var overlay := training.tactical_screen_overlay as TacticalScreenOverlay
-	for track: PlayerTrack in overlay.player_knowledge.call("get_active_tracks"):
+	for track: PlayerTrack in overlay.player_knowledge.get_active_tracks():
 		if training.is_selectable_training_track(track):
 			var point := overlay.track_marker_screen_position(track)
 			target_rect = Rect2(point - Vector2.ONE * 22.0, Vector2.ONE * 44.0)

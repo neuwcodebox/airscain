@@ -2,17 +2,17 @@ class_name ArmedDefenseUnit
 extends DefenseUnit
 
 var battlefield: Battlefield
-var player_knowledge: Node
-var c2_network: Node
+var player_knowledge: PlayerKnowledge
+var c2_network: C2Network
 var engagement_coordinator: EngagementCoordinator
 var doctrine := EngagementDoctrine.new()
 var magazine := WeaponMagazine.new()
 
-func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: Node) -> void:
+func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: PlayerKnowledge) -> void:
 	battlefield = battlefield_value
 	player_knowledge = player_knowledge_value
 
-func configure_c2(network: Node) -> void:
+func configure_c2(network: C2Network) -> void:
 	c2_network = network
 
 func configure_engagements(coordinator: EngagementCoordinator) -> void:
@@ -48,10 +48,7 @@ func allows_target_kind(kind: StringName) -> bool:
 func available_tracks() -> Array[PlayerTrack]:
 	if player_knowledge == null or c2_network == null:
 		return []
-	if player_knowledge is PlayerKnowledge and c2_network is C2Network:
-		return (c2_network as C2Network).available_tracks_for_knowledge(self, player_knowledge as PlayerKnowledge)
-	var known_tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
-	return c2_network.call("available_tracks_for", self, known_tracks)
+	return c2_network.available_tracks_for_knowledge(self, player_knowledge)
 
 func is_track_available_for_engagement(track: PlayerTrack, maximum_concurrent: int = 1) -> bool:
 	return engagement_coordinator == null or definition.engagement_reservation_kind() == EngagementCoordinator.FIRE_SUPPORT or engagement_coordinator.reservation_count(track.track_id, EngagementCoordinator.INTERCEPTOR) < maximum_concurrent

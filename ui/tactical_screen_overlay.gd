@@ -4,7 +4,7 @@ extends Control
 const EDGE_MARGIN := 20.0
 
 var camera: Camera3D
-var player_knowledge: Node
+var player_knowledge: PlayerKnowledge
 var selected_track_id: int = -1
 var training_approach_visible: bool = false
 var training_approach_origin: Vector3
@@ -71,14 +71,14 @@ func _ready() -> void:
 func track_at_screen(point: Vector2) -> PlayerTrack:
 	var nearest: PlayerTrack
 	var distance := 34.0
-	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
+	for track: PlayerTrack in player_knowledge.get_active_tracks():
 		var screen := track_marker_screen_position(track)
 		if screen.is_finite() and screen.distance_to(point) < distance:
 			distance = screen.distance_to(point)
 			nearest = track
 	return nearest
 
-func configure(camera_value: Camera3D, knowledge: Node, left_panel: Control = null) -> void:
+func configure(camera_value: Camera3D, knowledge: PlayerKnowledge, left_panel: Control = null) -> void:
 	camera = camera_value
 	player_knowledge = knowledge
 	training_left_panel = left_panel
@@ -175,7 +175,7 @@ func _draw() -> void:
 	if player_knowledge == null:
 		return
 	var viewport_size := size
-	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
+	for track: PlayerTrack in player_knowledge.get_active_tracks():
 		if track.state == PlayerTrack.State.TENTATIVE or _is_on_screen(track.estimated_position + Vector3.UP * 12.0, viewport_size):
 			continue
 		var marker := track_marker_screen_position(track)

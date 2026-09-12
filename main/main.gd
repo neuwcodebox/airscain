@@ -36,7 +36,7 @@ var combat_effect_pool: CombatEffectPool
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
 @onready var player_knowledge: PlayerKnowledge = $PlayerKnowledge
-@onready var c2_network: Node = $C2Network
+@onready var c2_network: C2Network = $C2Network
 @onready var engagement_coordinator: EngagementCoordinator = $EngagementCoordinator
 @onready var support_manager: SupportManager = $SupportManager
 @onready var power_manager: PowerManager = $PowerManager
@@ -47,7 +47,7 @@ var combat_effect_pool: CombatEffectPool
 @onready var ui_audio: UiAudio = $UiAudio
 @onready var track_display: TrackDisplay = $WorldObjects/TacticalTracks
 @onready var c2_overlay: C2Overlay = $WorldObjects/C2Overlay
-@onready var tactical_range_overlay: Node = $WorldObjects/TacticalRangeOverlay
+@onready var tactical_range_overlay: TacticalRangeOverlay = $WorldObjects/TacticalRangeOverlay
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var training_controller: TrainingController = $TrainingController
 @onready var camera_rig: CameraRig = $CameraRig
@@ -60,7 +60,7 @@ var combat_effect_pool: CombatEffectPool
 @onready var placement: PlacementController = $PlacementController
 @onready var hud: Hud = $UI/HUD
 @onready var tactical_screen_overlay: TacticalScreenOverlay = $UI/TacticalScreenOverlay
-@onready var altitude_profile: Control = $UI/AltitudeProfile
+@onready var altitude_profile: AltitudeProfile = $UI/AltitudeProfile
 
 var day_night := DayNightCycle.new()
 
@@ -91,13 +91,13 @@ func _ready() -> void:
 	support_manager.configure(session)
 	relocation_manager.configure(battlefield)
 	enemy_knowledge.reset()
-	player_knowledge.call("reset")
-	c2_network.call("reset")
-	c2_network.call("configure", registry)
+	player_knowledge.reset()
+	c2_network.reset()
+	c2_network.configure(registry)
 	track_display.configure(player_knowledge, defense_parent, engagement_coordinator)
 	var range_label_obstacles: Array[Control] = [hud.catalog, hud.city_menu, hud.selected_asset_panel, hud.placement_hint_panel, hud.training_panel, altitude_profile]
 	c2_overlay.configure(c2_network, support_manager, range_label_obstacles, battlefield)
-	tactical_range_overlay.call("configure", defense_parent, registry, support_manager)
+	tactical_range_overlay.configure(defense_parent, registry, support_manager)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager, range_label_obstacles)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
@@ -105,7 +105,7 @@ func _ready() -> void:
 	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge, hud.training_panel)
 	tactical_screen_overlay.placement = placement
-	altitude_profile.call("configure", camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
+	altitude_profile.configure(camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	training_controller.configure(scenario, battlefield, objective, defenses, registry, director, session, hud, tactical_screen_overlay, c2_network)
 	_connect_flow()
 	_deploy_initial_defenses()
@@ -171,8 +171,8 @@ func _process(delta: float) -> void:
 
 func _gameplay_step(delta: float) -> void:
 	director.gameplay_tick(delta)
-	player_knowledge.call("gameplay_tick", delta)
-	c2_network.call("gameplay_tick", delta)
+	player_knowledge.gameplay_tick(delta)
+	c2_network.gameplay_tick(delta)
 	engagement_coordinator.gameplay_tick(delta)
 	support_manager.gameplay_tick(delta)
 	relocation_manager.gameplay_tick(delta)
@@ -275,7 +275,7 @@ func _on_start_requested() -> void:
 func _on_defense_placed(unit: DefenseUnit) -> void:
 	defenses.append(unit)
 	unit.configure_player_knowledge(battlefield, player_knowledge)
-	c2_network.call("register_asset", unit)
+	c2_network.register_asset(unit)
 	unit.configure_c2(c2_network)
 	unit.configure_audio(combat_audio)
 	unit.configure_engagements(engagement_coordinator)
@@ -415,12 +415,12 @@ func _on_placement_preview_changed(definition: DefenseDefinition, position: Vect
 
 func _on_overlay_requested(mode: StringName) -> void:
 	c2_overlay.set_all_links(mode == &"c2")
-	tactical_range_overlay.call("set_mode", &"none" if mode == &"c2" else mode)
+	tactical_range_overlay.set_mode(&"none" if mode == &"c2" else mode)
 
 func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.INF) -> void:
 	var nearest_distance := 32.0
 	selected_track = null
-	var tracks: Array[PlayerTrack] = player_knowledge.call("get_active_tracks")
+	var tracks: Array[PlayerTrack] = player_knowledge.get_active_tracks()
 	if screen_position.is_finite():
 		selected_track = tactical_screen_overlay.track_at_screen(screen_position)
 	if position.is_finite():
@@ -453,7 +453,7 @@ func _refresh_selected_track_panel() -> void:
 func _refresh_tactical_ui() -> void:
 	var hostile_count := 0
 	var selectable_hostile_count := 0
-	for track: PlayerTrack in player_knowledge.call("get_active_tracks"):
+	for track: PlayerTrack in player_knowledge.get_active_tracks():
 		if track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3:
 			hostile_count += 1
 			if track.state != PlayerTrack.State.TENTATIVE:
@@ -664,9 +664,9 @@ func _clear_runtime_objects() -> void:
 	defenses.clear()
 	registry.clear()
 	battlefield.clear_occupancy()
-	player_knowledge.call("reset")
-	track_display.call("reset")
-	c2_network.call("reset")
+	player_knowledge.reset()
+	track_display.reset()
+	c2_network.reset()
 	engagement_coordinator.reset()
 	support_manager.reset()
 	power_manager.reset()

@@ -106,8 +106,8 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 		elif child is InterceptorDrone and not child.is_queued_for_deletion():
 			projectile_states.append((child as InterceptorDrone).capture_state())
 	for child: Node in main.threat_parent.get_children():
-		if child.get_script() == AIR_STRIKE_MUNITION_SCRIPT and not child.is_queued_for_deletion():
-			projectile_states.append(child.call("capture_state") as Dictionary)
+		if child is AirStrikeMunition and not child.is_queued_for_deletion():
+			projectile_states.append((child as AirStrikeMunition).capture_state())
 	return {
 		"scenario": {
 			"world_seed": main.scenario.world_seed,
@@ -124,7 +124,7 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 			"relocations": main.relocation_manager.capture_state(),
 			"enemy_knowledge": main.enemy_knowledge.capture_state(),
 		},
-		"player_knowledge": main.player_knowledge.call("capture_state"),
+		"player_knowledge": main.player_knowledge.capture_state(),
 		"director": main.director.capture_state(),
 	}
 
@@ -315,7 +315,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			var strike_target_id := int(projectile_state.get("target_defense_id", 0))
 			if strike_target_id != 0 and not defense_ids.has(strike_target_id):
 				return "공대지 탄의 타격 대상이 올바르지 않습니다"
-			var strike_error := AIR_STRIKE_MUNITION_SCRIPT.state_validation_error(projectile_state)
+			var strike_error: String = AirStrikeMunition.state_validation_error(projectile_state)
 			if not strike_error.is_empty():
 				return strike_error
 			continue

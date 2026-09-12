@@ -223,10 +223,10 @@ func _expire(color: Color, reason: String) -> void:
 	var parent := get_parent()
 	if parent != null:
 		_spawn_detonation(color, 7.0)
-		var effect := MISS_EFFECT_SCENE.instantiate() as Node3D
+		var effect := MISS_EFFECT_SCENE.instantiate() as InterceptorMissEffect
 		parent.add_child(effect)
 		effect.global_position = global_position
-		effect.call("setup", color, reason)
+		effect.setup(color, reason)
 	_release_smoke_trail()
 	queue_free()
 
@@ -252,10 +252,10 @@ func _spawn_countermeasure(position: Vector3, countermeasure_type: StringName, s
 	var parent := get_parent()
 	if parent == null:
 		return
-	var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
+	var burst := COUNTERMEASURE_SCENE.instantiate() as CountermeasureBurst
 	parent.add_child(burst)
 	burst.global_position = position
-	burst.call("setup", countermeasure_type, source_velocity, source_unit)
+	burst.setup(countermeasure_type, source_velocity, source_unit)
 
 func _release_smoke_trail() -> void:
 	var smoke := get_node_or_null("SmokeTrail") as LingeringSmokeTrail

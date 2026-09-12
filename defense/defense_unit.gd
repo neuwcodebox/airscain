@@ -21,8 +21,8 @@ var relocation_manager: RelocationManager
 var enemy_knowledge: EnemyKnowledge
 var damage_smoke: DamageSmokeEffect
 var prepared_damage_smoke: DamageSmokeEffect
-var status_marker: Node3D
-var identity_marker: Node3D
+var status_marker: UnitStatusMarker
+var identity_marker: UnitIdentityMarker
 var pointer_target: AssetPointerTarget
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
@@ -58,10 +58,10 @@ func configure_combat(_registry: ThreatRegistry, _projectile_parent: Node3D) -> 
 func configure_audio(_audio: CombatAudio) -> void:
 	pass
 
-func configure_player_knowledge(_battlefield: Battlefield, _player_knowledge: Node) -> void:
+func configure_player_knowledge(_battlefield: Battlefield, _player_knowledge: PlayerKnowledge) -> void:
 	pass
 
-func configure_c2(_network: Node) -> void:
+func configure_c2(_network: C2Network) -> void:
 	pass
 
 func configure_engagements(_coordinator: EngagementCoordinator) -> void:
@@ -115,7 +115,7 @@ func engagement_engages_unknown() -> bool:
 
 func set_selected(enabled: bool) -> void:
 	_ensure_identity_marker()
-	identity_marker.call("set_selected", enabled)
+	identity_marker.set_selected(enabled)
 
 func set_hold_fire(_enabled: bool) -> void:
 	pass
@@ -298,7 +298,7 @@ func _refresh_damage_visual() -> void:
 func _ensure_status_marker() -> void:
 	if status_marker != null and is_instance_valid(status_marker):
 		return
-	status_marker = STATUS_MARKER_SCENE.instantiate() as Node3D
+	status_marker = STATUS_MARKER_SCENE.instantiate() as UnitStatusMarker
 	add_child(status_marker)
 	# Share the identity anchor; the marker owns screen-space clearance.
 	status_marker.position = Vector3(0.0, 28.0, 0.0)
@@ -306,18 +306,18 @@ func _ensure_status_marker() -> void:
 func _ensure_identity_marker() -> void:
 	if identity_marker != null and is_instance_valid(identity_marker):
 		return
-	identity_marker = IDENTITY_MARKER_SCENE.instantiate() as Node3D
+	identity_marker = IDENTITY_MARKER_SCENE.instantiate() as UnitIdentityMarker
 	add_child(identity_marker)
 	identity_marker.position = Vector3(0.0, 28.0, 0.0)
-	identity_marker.call("configure", definition.identity_icon, c2_roles())
+	identity_marker.configure(definition.identity_icon, c2_roles())
 
 func _refresh_status_marker() -> void:
 	if definition == null:
 		return
 	if is_instance_valid(identity_marker):
-		identity_marker.call("set_reload", reload_display_magazine() if active else null)
-		identity_marker.call("set_condition", active, operational_ratio() < 0.75)
+		identity_marker.set_reload(reload_display_magazine() if active else null)
+		identity_marker.set_condition(active, operational_ratio() < 0.75)
 	_ensure_status_marker()
 	if is_instance_valid(identity_marker):
-		status_marker.call("set_clearance", identity_marker.call("status_half_width"))
-	status_marker.call("set_status", supply_status_text(), not obstruction_status_text().is_empty())
+		status_marker.set_clearance(identity_marker.status_half_width())
+	status_marker.set_status(supply_status_text(), not obstruction_status_text().is_empty())

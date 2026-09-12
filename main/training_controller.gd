@@ -18,13 +18,13 @@ var registry: ThreatRegistry
 var director: ThreatDirector
 var session: GameSession
 var hud: Hud
-var tactical_screen_overlay: Node
+var tactical_screen_overlay: TacticalScreenOverlay
 var c2_network: C2Network
 var relocation_subject: DefenseUnit
 var support_lesson_completed: bool = false
 var training_battery: MissileBattery
 
-func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, defenses_value: Array[DefenseUnit], registry_value: ThreatRegistry, director_value: ThreatDirector, session_value: GameSession, hud_value: Hud, tactical_screen_overlay_value: Node, network_value: C2Network) -> void:
+func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, defenses_value: Array[DefenseUnit], registry_value: ThreatRegistry, director_value: ThreatDirector, session_value: GameSession, hud_value: Hud, tactical_screen_overlay_value: TacticalScreenOverlay, network_value: C2Network) -> void:
 	scenario = scenario_value
 	battlefield = battlefield_value
 	objective = objective_value
@@ -40,7 +40,7 @@ func begin() -> void:
 	session.start_defense()
 	session.set_simulation_speed(0.0)
 	_spawn_training_threat()
-	tactical_screen_overlay.call("show_training_approach", objective.global_position, approach_position())
+	tactical_screen_overlay.show_training_approach(objective.global_position, approach_position())
 	_set_step(Step.CAMERA)
 
 func _try_observe_approach() -> void:
@@ -76,8 +76,7 @@ func tracks_refreshed(_selectable_hostile_count: int) -> void:
 	_try_observe_approach()
 	if step != Step.ACQUIRE:
 		return
-	var overlay := tactical_screen_overlay as TacticalScreenOverlay
-	for track: PlayerTrack in overlay.player_knowledge.call("get_active_tracks"):
+	for track: PlayerTrack in tactical_screen_overlay.player_knowledge.get_active_tracks():
 		if is_selectable_training_track(track):
 			_set_step(Step.SELECT_TRACK)
 			return
@@ -186,7 +185,7 @@ func _set_step(next_step: Step) -> void:
 		Step.CONNECT:
 			_lesson("끊긴 연결 복구", "청색 연결선이 이어지지 않았습니다. 강조된 자산을 선택하고 재배치를 눌러 추천 위치로 옮기세요.")
 		Step.ACQUIRE:
-			tactical_screen_overlay.call("hide_training_approach")
+			tactical_screen_overlay.hide_training_approach()
 			hud.set_catalog_expanded(false)
 			_lesson("접근 감시", "레이더와 포대가 연결됐습니다. 주황색으로 표시했던 방향에서 표적이 접근 중입니다. 레이더가 항적을 만드는 모습을 관찰하세요.")
 		Step.SELECT_TRACK:

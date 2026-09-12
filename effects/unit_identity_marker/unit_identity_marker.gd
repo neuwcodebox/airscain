@@ -1,3 +1,4 @@
+class_name UnitIdentityMarker
 extends Node3D
 
 const SENSOR_ROLE := 1

@@ -5,7 +5,7 @@ extends DefenseUnit
 
 var registry: ThreatRegistry
 var battlefield: Battlefield
-var player_knowledge: Node
+var player_knowledge: PlayerKnowledge
 var scan_cooldown: float = 0.0
 var _definition: SearchRadarDefinition
 
@@ -19,7 +19,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 func configure_combat(registry_value: ThreatRegistry, _projectile_parent: Node3D) -> void:
 	registry = registry_value
 
-func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: Node) -> void:
+func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: PlayerKnowledge) -> void:
 	battlefield = battlefield_value
 	player_knowledge = player_knowledge_value
 
@@ -73,7 +73,7 @@ func _scan() -> void:
 	# These values are common to every contact in this instantaneous scan.
 	var effective_range := _definition.detection_range * operational_efficiency()
 	var jamming_multiplier := _jamming_multiplier()
-	var timestamp := float(player_knowledge.get("simulation_time"))
+	var timestamp := player_knowledge.simulation_time
 	for threat: ThreatUnit in registry.get_active():
 		var target_position := threat.get_aim_position()
 		if not altitude_in_envelope(target_position):
@@ -85,7 +85,7 @@ func _scan() -> void:
 		var quality := _signal_quality(distance, effective_range, jamming_multiplier) * float(signature.radar_factor)
 		var observation := SensorObservation.new()
 		observation.setup(runtime_id, timestamp, target_position, quality, lerpf(5.0, 45.0, 1.0 - quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), quality * 0.55)
-		player_knowledge.call("submit_observation", observation)
+		player_knowledge.submit_observation(observation)
 		_submit_false_echoes(threat, target_position, quality, signature)
 
 func _submit_false_echoes(threat: ThreatUnit, target_position: Vector3, quality: float, signature: Dictionary) -> void:
@@ -97,8 +97,8 @@ func _submit_false_echoes(threat: ThreatUnit, target_position: Vector3, quality:
 		var echo_position := target_position + Vector3(cos(angle), 0.0, sin(angle)) * threat.definition.false_echo_radius
 		var echo_quality := quality * 0.78
 		var echo := SensorObservation.new()
-		echo.setup(runtime_id, float(player_knowledge.get("simulation_time")), echo_position, echo_quality, lerpf(18.0, 70.0, 1.0 - echo_quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), echo_quality * 0.45)
-		player_knowledge.call("submit_observation", echo)
+		echo.setup(runtime_id, player_knowledge.simulation_time, echo_position, echo_quality, lerpf(18.0, 70.0, 1.0 - echo_quality), _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), echo_quality * 0.45)
+		player_knowledge.submit_observation(echo)
 
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
 	for sample_index: int in range(1, 12):

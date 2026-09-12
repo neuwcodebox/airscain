@@ -5,7 +5,7 @@ const C2_COLOR := Color(0.12, 0.82, 1.0, 0.82)
 const SUPPORT_COLOR := Color(0.36, 1.0, 0.54, 0.9)
 const LINK_HEIGHT := 9.0
 
-var c2_network: Node
+var c2_network: C2Network
 var support_manager: SupportManager
 var selected_asset: DefenseUnit
 var show_all_links: bool = false
@@ -60,7 +60,7 @@ func _process(delta: float) -> void:
 		range_refresh_remaining = 0.2
 		_rebuild_range()
 
-func configure(network: Node, support: SupportManager, label_obstacles: Array[Control] = [], field: Battlefield = null) -> void:
+func configure(network: C2Network, support: SupportManager, label_obstacles: Array[Control] = [], field: Battlefield = null) -> void:
 	c2_network = network
 	support_manager = support
 	range_ring.obstacles = label_obstacles
@@ -97,7 +97,7 @@ func _rebuild() -> void:
 	var surface_started := false
 	if placement_active:
 		if c2_network != null and placement_definition.placement_c2_range() > 0.0:
-			var preview_result: Dictionary = c2_network.call("placement_preview", placement_definition, placement_position)
+			var preview_result := c2_network.placement_preview(placement_definition, placement_position)
 			placement_ready = bool(preview_result.ready)
 			var preview_links: Array = preview_result.links
 			for endpoint: DefenseUnit in preview_links:
@@ -106,7 +106,7 @@ func _rebuild() -> void:
 				visible_c2_link_count += 1
 				visible_link_count += 1
 	elif c2_network != null:
-		var active_links: Array = c2_network.call("active_links")
+		var active_links := c2_network.active_links()
 		for link: Array in active_links:
 			var first := link[0] as DefenseUnit
 			var second := link[1] as DefenseUnit
