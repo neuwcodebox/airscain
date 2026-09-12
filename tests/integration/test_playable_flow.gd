@@ -705,6 +705,16 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
 	var replacement_threat := _new_hostile_since(sandbox, existing_hostile_ids, replacement_definition)
 	assert_not_null(replacement_threat)
+	var radar_result := _place_for(sandbox, _defense_definition_for(sandbox, &"search_radar"))
+	assert_true(radar_result.success)
+	var anti_radiation_definition := _threat_entry_for(sandbox, &"anti_radiation_missile").threat_definition
+	existing_hostile_ids = _hostile_runtime_ids(sandbox)
+	sandbox.placement.select_sandbox_threat(anti_radiation_definition)
+	sandbox.placement.candidate_position = Vector3(680.0, 0.0, 120.0)
+	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
+	var anti_radiation := _new_hostile_since(sandbox, existing_hostile_ids, anti_radiation_definition) as AttackUav
+	assert_not_null(anti_radiation)
+	assert_same(anti_radiation.mission_runtime.target_asset, radar_result.unit, "샌드박스 수동 배치는 실제 레이더를 표적으로 지정합니다")
 	sandbox.hud.start_requested.emit()
 	assert_false(sandbox.director.enabled)
 
@@ -1289,6 +1299,9 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 
 func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
 	main.registry.clear()
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	assert_true(radar_result.success)
+	main.enemy_knowledge.record_recon(radar_result.unit)
 	var threat := main.director._spawn_entry(_threat_entry_for(main, &"electronic_warfare_uav"), 0.0, 0.0) as AttackUav
 	var mission_target := threat.mission_runtime.navigation_target()
 	var expected_orbit_radius := (threat.definition as AttackUavDefinition).mission.action_distance * (threat.definition as AttackUavDefinition).mission.orbit_radius_ratio
@@ -1431,9 +1444,16 @@ func test_radar_emission_enables_anti_radiation_targeting_and_sead_package() -> 
 	var radar := radar_result.unit as SearchRadar
 	var anti_radiation_entry := _threat_entry_for(main, &"anti_radiation_missile")
 	assert_eq(main.director.adaptive_entry_weight(anti_radiation_entry), 0.0)
+	var next_runtime_id := main.director.next_runtime_id
+	assert_null(main.director._spawn_entry(anti_radiation_entry, 0.0, 0.0), "레이더 관측이 없으면 도시를 대체 표적으로 삼지 않습니다")
+	assert_eq(main.director.next_runtime_id, next_runtime_id, "취소한 생성은 위협 ID를 소비하지 않습니다")
 	main.enemy_knowledge.record_emission(radar)
 	assert_gt(main.director.adaptive_entry_weight(anti_radiation_entry), anti_radiation_entry.selection_weight)
 	assert_same(main.director._known_target_for_role(&"sensor"), radar)
+	var anti_radiation := main.director._spawn_entry(anti_radiation_entry, 0.0, 0.0) as AttackUav
+	assert_not_null(anti_radiation)
+	assert_same(anti_radiation.mission_runtime.target_asset, radar)
+	assert_ne(anti_radiation.mission_runtime.navigation_target(), main.objective.global_position)
 	main.director.pending_waves.clear()
 	main.director.schedule_archetype(_raid_archetype_for(main, &"deception_sead_strike"), 0.75)
 	assert_eq(main.director.pending_waves.size(), 4)

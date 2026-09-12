@@ -498,10 +498,17 @@ func test_jet_approach_cue_tracks_actual_release_and_restore() -> void:
 
 func test_all_automatic_threat_groups_start_beyond_haze() -> void:
 	main.director.elapsed = 3600.0
+	var required_targets: Dictionary = {}
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+		var target_asset: DefenseUnit
+		if entry.threat_definition.requires_role_knowledge:
+			var role := entry.threat_definition.adaptive_knowledge_role
+			if not required_targets.has(role):
+				required_targets[role] = target_for(role)
+			target_asset = required_targets[role] as DefenseUnit
 		for angle: float in [0.0, PI * 0.5, PI, PI * 1.5]:
 			var case_context := "id=%s angle=%.2f" % [entry.threat_definition.id, angle]
-			var threat := _spawn_entry_for(entry.threat_definition.id, angle, float(entry.group_size - 1) * 3.0)
+			var threat := main.director._spawn_entry(entry, angle, float(entry.group_size - 1) * 3.0, null, target_asset)
 			assert_gt(Vector2(threat.global_position.x, threat.global_position.z).length(), main.scenario.battlefield_size * DistantContactHaze.END_RATIO, case_context)
 			assert_eq(DistantContactHaze.opacity_at(threat.global_position, main.scenario.battlefield_size), 0.0, case_context)
 			var eta := threat.presentation_action_seconds()

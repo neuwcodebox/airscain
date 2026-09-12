@@ -592,7 +592,11 @@ func _on_sandbox_threat_placement_requested(definition: ThreatDefinition, positi
 			break
 	if entry == null:
 		return
-	var threat := director._spawn_entry(entry, 0.0, 0.0)
+	var target_asset: DefenseUnit
+	var mission := definition.mission_definition()
+	if definition.requires_role_knowledge and mission != null:
+		target_asset = director.choose_target_for(mission)
+	var threat := director._spawn_entry(entry, 0.0, 0.0, null, target_asset)
 	if threat != null:
 		var altitude := 55.0
 		if definition is AttackUavDefinition:

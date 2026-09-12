@@ -188,7 +188,7 @@ func spawn_one() -> ThreatUnit:
 		return null
 	return _spawn_entry(entry, rng.randf_range(0.0, TAU), 0.0)
 
-func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, target_override: Variant = null) -> ThreatUnit:
+func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, target_override: Variant = null, target_asset_override: DefenseUnit = null) -> ThreatUnit:
 	var threat := entry.threat_definition.scene.instantiate() as ThreatUnit
 	if threat == null:
 		return null
@@ -199,9 +199,9 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 	threat.global_position = spawn_position
 	threat.setup(next_runtime_id, entry.threat_definition)
 	threat.configure_enemy_knowledge(enemy_knowledge)
-	next_runtime_id += 1
 	var target := objective.get_target_point(rng)
 	var target_asset: DefenseUnit
+	var has_required_target := false
 	var mission := entry.threat_definition.mission_definition()
 	var targets_city := entry.threat_definition.shares_city_impact_target()
 	if mission != null and mission.area_recon:
@@ -212,6 +212,7 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 		if mission.acquisition_range > 0.0:
 			var estimate := enemy_knowledge.best_estimate_for_role(mission.knowledge_role(), _mission_assignments()) if enemy_knowledge != null else {}
 			if not estimate.is_empty():
+				has_required_target = true
 				target = SaveDocument.vector3_from_data(estimate.estimated_position)
 				for child: Node in defense_parent.get_children():
 					var candidate := child as DefenseUnit
@@ -220,19 +221,29 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 		elif entry.threat_definition.requires_role_knowledge:
 			var estimate := enemy_knowledge.best_estimate_for_role(entry.threat_definition.adaptive_knowledge_role, _mission_assignments()) if enemy_knowledge != null else {}
 			if not estimate.is_empty():
+				has_required_target = true
 				target = SaveDocument.vector3_from_data(estimate.estimated_position)
 			if mission.type != ThreatMissionDefinition.Type.RECONNAISSANCE:
 				target_asset = _known_target_for_role(entry.threat_definition.adaptive_knowledge_role)
 		else:
 			target_asset = choose_target_for(mission)
-	if target_override is Vector3:
+	if is_instance_valid(target_asset_override) and target_asset_override.active:
+		target = target_asset_override.global_position
+		target_asset = target_asset_override
+		has_required_target = true
+	elif target_override is Vector3:
 		target = target_override
 		target_asset = null
+		has_required_target = true
+	elif mission != null and entry.threat_definition.requires_role_knowledge and not has_required_target:
+		threat.free()
+		return null
 	elif target_asset != null and (mission == null or mission.acquisition_range <= 0.0):
 		target = target_asset.global_position
 	elif not targets_city and (mission == null or mission.acquisition_range <= 0.0):
 		target.y = battlefield.terrain_height(target.x, target.z)
 	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed), target_asset, spawn_position)
+	next_runtime_id += 1
 	registry.add(threat)
 	bind_releases(threat)
 	threat_spawned.emit(threat)

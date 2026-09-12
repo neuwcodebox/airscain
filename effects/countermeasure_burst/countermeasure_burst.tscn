@@ -50,6 +50,8 @@ colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
 gradient = SubResource("ChaffFade")
 
 [sub_resource type="ParticleProcessMaterial" id="ChaffProcess"]
+particle_flag_align_y = true
+particle_flag_rotate_y = true
 emission_shape = 1
 emission_sphere_radius = 20.0
 direction = Vector3(0, 1, 0)

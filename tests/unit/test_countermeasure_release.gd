@@ -133,6 +133,8 @@ func test_chaff_uses_nonemissive_reflective_dipoles_and_sparse_glints() -> void:
 	assert_gte(chaff_process.emission_sphere_radius, 18.0)
 	assert_lte(chaff_process.initial_velocity_max, 0.5)
 	assert_lte(chaff_process.gravity.length(), 0.1)
+	assert_true(chaff_process.particle_flag_align_y, "박편의 얇은 면은 무작위 방출 방향을 따라 기울어집니다")
+	assert_true(chaff_process.particle_flag_rotate_y, "각 박편은 자신의 면 안에서도 서로 다른 각도를 가집니다")
 	assert_eq(chaff_process.angle_min, -180.0)
 	assert_eq(chaff_process.angle_max, 180.0)
 	assert_lt(chaff_process.angular_velocity_min, 0.0)
