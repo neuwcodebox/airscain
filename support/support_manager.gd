@@ -12,10 +12,12 @@ var consumers: Dictionary[int, DefenseUnit] = {}
 var tasks: Array[Dictionary] = []
 var session: GameSession
 var automatic_resupply_ids: Dictionary[int, bool] = {}
+var repair_duration_limit: float = INF
 var _automatic_check_remaining: float = 0.0
 
-func configure(session_value: GameSession) -> void:
+func configure(session_value: GameSession, repair_duration_limit_value: float = INF) -> void:
 	session = session_value
+	repair_duration_limit = repair_duration_limit_value
 
 func reset() -> void:
 	facilities.clear()
@@ -64,9 +66,15 @@ func _check_automatic_resupply(delta: float) -> void:
 		request_resupply(unit, false)
 
 func request_repair(unit: DefenseUnit) -> bool:
-	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "" or service_facility_for(unit) == null:
+	if unit == null or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or unit.integrity >= unit.definition.maximum_integrity or task_status(unit) != "":
 		return false
-	return _request_task(unit, REPAIR, unit.repair_cost(), unit.repair_work())
+	var facility := service_facility_for(unit)
+	if facility == null:
+		return false
+	var work := unit.repair_work()
+	if is_finite(repair_duration_limit):
+		work = minf(work, facility.support_capacity() * repair_duration_limit)
+	return _request_task(unit, REPAIR, unit.repair_cost(), work)
 
 func _request_task(unit: DefenseUnit, kind: String, cost: int, work: float, user_requested: bool = true) -> bool:
 	if session == null or not session.try_spend(cost):

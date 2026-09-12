@@ -88,7 +88,7 @@ func _ready() -> void:
 	elif game_mode == GameMode.SANDBOX:
 		session.unlimited_budget = true
 		session.update_pressure(999)
-	support_manager.configure(session)
+	support_manager.configure(session, TrainingController.REPAIR_DURATION_LIMIT if game_mode == GameMode.TRAINING else INF)
 	relocation_manager.configure(battlefield)
 	enemy_knowledge.reset()
 	player_knowledge.reset()

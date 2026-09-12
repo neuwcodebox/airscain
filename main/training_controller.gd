@@ -7,6 +7,7 @@ signal selection_clear_requested
 
 const LESSON_COUNT := 13
 const APPROACH_DISTANCE := 800.0
+const REPAIR_DURATION_LIMIT := 3.0
 
 var step: Step = Step.NONE
 var training_threat_runtime_id: int = 0
