@@ -270,6 +270,15 @@ func test_invalid_content_id_does_not_mutate_live_session() -> void:
 	assert_eq(main.session.budget, original_budget)
 	assert_eq(main.registry.count(), 4)
 
+func test_non_finite_or_non_numeric_world_vectors_do_not_mutate_live_session() -> void:
+	var original_budget := main.session.budget
+	for invalid_component: Variant in ["높이", INF, NAN]:
+		var document := main.capture_save_document()
+		document.payload.world.defenses[0].position = [invalid_component, 0.0, 0.0]
+		assert_eq(SessionSnapshot.validation_error(document.payload, main.scenario), "방공망 위치가 올바르지 않습니다")
+		assert_eq(main.session.budget, original_budget)
+		assert_eq(main.defenses[0].global_position.is_finite(), true)
+
 func test_snapshot_delegates_content_state_validation_to_definitions() -> void:
 	var defense_definition := ValidatingDefenseDefinition.new()
 	defense_definition.id = &"validating_defense"
@@ -461,6 +470,17 @@ func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes()
 	assert_almost_eq(main.battlefield.terrain_height(417.0, -263.0), expected_height, 0.0001)
 	assert_eq(main.battlefield.terrain.get_child_count(), 1)
 	assert_eq(main.battlefield.city_visuals.get_child_count(), expected_building_count)
+
+func test_save_rejects_invalid_runtime_snapshot_without_replacing_previous_file() -> void:
+	assert_eq(main.save_operation(), "")
+	var saved: Dictionary = SaveStore.read(save_path)
+	assert_eq(saved.error, "")
+	var contact: ThreatUnit = main.registry.get_active()[0]
+	contact.countermeasure_origin = Vector3(INF, 0.0, 0.0)
+	assert_eq(main.save_operation(), "대응탄 위치가 올바르지 않습니다")
+	var unchanged: Dictionary = SaveStore.read(save_path)
+	assert_eq(unchanged.error, "")
+	assert_eq(unchanged.document, saved.document)
 
 func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
 	var support := _place_defense(main.scenario.available_defenses[5]) as SupportFacility

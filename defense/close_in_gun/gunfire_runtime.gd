@@ -291,9 +291,8 @@ static func validation_error(states: Variant) -> String:
 		for field: String in ["position", "velocity"]:
 			if not state.get(field) is Array or state[field].size() != 3:
 				return "기관포 비행 벡터가 올바르지 않습니다"
-			for value: Variant in state[field]:
-				if not (value is int or value is float) or not is_finite(float(value)):
-					return "기관포 비행 좌표가 올바르지 않습니다"
+			if not SaveDocument.is_valid_vector3_data(state.get(field)):
+				return "기관포 비행 좌표가 올바르지 않습니다"
 		for field: String in ["age", "lifetime", "damage", "radius"]:
 			var value: Variant = state.get(field)
 			if not (value is int or value is float) or not is_finite(float(value)):

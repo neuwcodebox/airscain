@@ -53,7 +53,15 @@ static func decode(text: String) -> Dictionary:
 static func vector3_to_data(value: Vector3) -> Array[float]:
 	return [value.x, value.y, value.z]
 
-static func vector3_from_data(value: Variant) -> Vector3:
+static func is_valid_vector3_data(value: Variant) -> bool:
 	if not value is Array or value.size() != 3:
+		return false
+	for component: Variant in value:
+		if not (component is int or component is float) or not is_finite(float(component)):
+			return false
+	return true
+
+static func vector3_from_data(value: Variant) -> Vector3:
+	if not is_valid_vector3_data(value):
 		return Vector3.ZERO
 	return Vector3(float(value[0]), float(value[1]), float(value[2]))

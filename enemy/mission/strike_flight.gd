@@ -87,9 +87,6 @@ static func state_validation_error(state: Dictionary) -> String:
 		return "투발 무장 비행 단계가 올바르지 않습니다"
 	if int(state.get("flight_mode", Mode.DIRECT)) != Mode.DIRECT:
 		var data: Variant = state.get("velocity")
-		if not data is Array or data.size() != 3:
+		if not SaveDocument.is_valid_vector3_data(data):
 			return "투발 무장 속도가 올바르지 않습니다"
-		for component: Variant in data:
-			if not (component is float or component is int) or not is_finite(float(component)):
-				return "투발 무장 속도가 올바르지 않습니다"
 	return ""

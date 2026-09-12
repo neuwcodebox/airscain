@@ -946,7 +946,7 @@ Compatibility의 glow bright pass는 낮과 밤에 맞춘 threshold·intensity�
 
 로드는 문서 버전과 필수 콘텐츠 ID를 검증한 뒤 현재 세션을 교체한다. 실패한 로드가 진행 중 상태를 부분적으로 변경해서는 안 된다.
 
-`SessionSnapshot`은 섹션 구조, 콘텐츠 ID, runtime ID와 모듈 간 참조처럼 저장 문서 전체의 무결성을 검증한다. 자산·위협의 `content_state`와 방어 발사체의 고유 상태는 해당 `DefenseDefinition` 또는 `ThreatDefinition`이 검증한다. 새 콘텐츠는 자신의 저장 상태 계약을 Definition에 함께 구현하며 중앙 snapshot 검증기에 구체 타입 분기를 추가하지 않는다.
+`SessionSnapshot`은 저장 계층의 공개 진입점이며 섹션 구조, 콘텐츠 ID, runtime ID와 모듈 간 참조처럼 저장 문서 전체의 무결성을 검증한다. 실행 중 객체에서 plain-data를 수집하는 책임은 `SessionSnapshotCapture`, 과거 버전을 현재 구조로 바꾸는 책임은 `SessionSnapshotMigration`이 맡는다. `SaveDocument.is_valid_vector3_data()`는 길이 3의 유한 숫자 배열이라는 공통 좌표 계약을 제공하며 Definition·런타임·snapshot 검증이 이를 재사용한다. 자산·위협의 `content_state`와 방어 발사체의 고유 상태는 해당 `DefenseDefinition` 또는 `ThreatDefinition`이 검증한다. 새 콘텐츠는 자신의 저장 상태 계약을 Definition에 함께 구현하며 중앙 snapshot 검증기에 구체 타입 분기를 추가하지 않는다. 지속 작전 저장은 전체 snapshot을 먼저 검증하고 성공한 문서만 `SaveStore`의 원자적 쓰기로 넘긴다.
 
 `WorldReconstruction`은 복원 호출 동안만 존재하는 RefCounted 객체다. 전장·목표·registry·생성 부모를 명시적으로 받아 자산, 위협, 진행 중 발사체를 재생성하며 main이나 UI를 참조하지 않는다. 자산을 먼저 생성하고 동기 signal로 게임 서비스 등록을 마친 뒤 ID 맵으로 위협의 시설 참조를 복구한다. main이 항적·예약·지원 상태를 복원한 다음 발사체 복원을 요청한다. 방어 발사체는 소유 자산의 `restore_projectile()`이 기존 전투 참조와 scene을 사용해 생성하고 비행 목록·표적 변경 신호를 연결한다. 이 과정에서 신규 발사·탄약 소비·발사음 이벤트를 발생시키지 않는다. 소유 자산이 없는 항공 투발탄은 월드 재구성 모듈이 처리한다. 지원하지 않는 발사체는 Definition 검증에서 현재 월드를 비우기 전에 거절한다.
 

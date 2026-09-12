@@ -99,7 +99,7 @@ func restore_state(state: Dictionary, objective: ProtectedObjective, defenses: D
 static func state_validation_error(state: Dictionary) -> String:
 	for field: String in ["position", "target_position"]:
 		var value: Variant = state.get(field)
-		if not value is Array or value.size() != 3:
+		if not SaveDocument.is_valid_vector3_data(value):
 			return "공대지 탄 비행 위치가 올바르지 않습니다"
 	var flight_error := StrikeFlight.state_validation_error(state)
 	return flight_error if not flight_error.is_empty() else StrikePayload.state_validation_error(state)

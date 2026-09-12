@@ -86,9 +86,6 @@ func countermeasure_state_validation_error(state: Dictionary) -> String:
 	if String(state.get("kind", "")) not in ["", "flare", "chaff"]:
 		return "대응탄 종류가 올바르지 않습니다"
 	var origin: Variant = state.get("origin", [0, 0, 0])
-	if not origin is Array or origin.size() != 3:
+	if not SaveDocument.is_valid_vector3_data(origin):
 		return "대응탄 위치가 올바르지 않습니다"
-	for value: Variant in origin:
-		if not (value is float or value is int) or not is_finite(float(value)):
-			return "대응탄 위치가 올바르지 않습니다"
 	return ""

@@ -558,7 +558,11 @@ func _on_relocation_requested() -> void:
 func save_operation() -> String:
 	if game_mode != GameMode.SUSTAINED:
 		return "저장은 지속 작전에서만 사용할 수 있습니다"
-	return SaveStore.write(capture_save_document(), save_path)
+	var document := capture_save_document()
+	var snapshot_error := SessionSnapshot.validation_error(document.payload, scenario)
+	if not snapshot_error.is_empty():
+		return snapshot_error
+	return SaveStore.write(document, save_path)
 
 func load_operation() -> String:
 	if game_mode != GameMode.SUSTAINED:

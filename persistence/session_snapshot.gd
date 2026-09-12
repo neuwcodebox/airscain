@@ -4,129 +4,17 @@ extends RefCounted
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
-	if version >= 25:
+	if version >= SaveDocument.CURRENT_VERSION:
 		return payload
-	var result := payload.duplicate(true)
-	var repair_definitions: Dictionary[StringName, DefenseDefinition] = {}
+	var defense_definitions: Dictionary[StringName, DefenseDefinition] = {}
+	var contact_definitions: Dictionary[StringName, ThreatDefinition] = {}
 	if scenario != null:
-		repair_definitions = defense_definition_map(scenario)
-	var legacy_repairs: Dictionary[int, float] = {}
-	for state: Dictionary in result.get("world", {}).get("defenses", []):
-		var definition: DefenseDefinition = repair_definitions.get(StringName(state.get("definition_id", "")))
-		if definition != null:
-			legacy_repairs[int(state.get("runtime_id", 0))] = definition.maximum_integrity - float(state.get("integrity", 0.0))
-	for task: Dictionary in result.get("world", {}).get("support", {}).get("tasks", []):
-		if String(task.get("kind", "")) == SupportManager.REPAIR and not task.has("repair_amount"):
-			task.repair_amount = legacy_repairs.get(int(task.get("target_defense_id", 0)), 0.0)
-	if version >= 23:
-		return result
-	if result.get("director") is Dictionary and not result.director.has("opening_raid_started"):
-		var state: Dictionary = result.director
-		var level := int(state.get("pressure_level", 1))
-		var elapsed := float(state.get("elapsed", 0.0))
-		state.opening_raid_started = level >= 2 or elapsed > 0.0
-		state.opening_raid_complete = level >= 2
-		state.opening_threat_ids = []
-		state.pressure_started_at = elapsed - float(level - 2) * scenario.pressure_step_duration if level >= 2 else 0.0
-		if level == 1:
-			var definitions := contact_definition_map(scenario)
-			for contact: Dictionary in result.world.get("contacts", []):
-				var definition: ThreatDefinition = definitions.get(StringName(contact.get("definition_id", "")))
-				if definition != null and definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
-					state.opening_threat_ids.append(int(contact.get("runtime_id", 0)))
-			for wave: Dictionary in state.get("pending_waves", []):
-				wave["opening_raid"] = true
-			state.opening_raid_started = state.opening_raid_started or not state.opening_threat_ids.is_empty() or not state.get("pending_waves", []).is_empty()
-	if version >= 22:
-		return result
-	if result.get("director") is Dictionary:
-		result.director.last_raid_pattern = ""
-	if version >= 21:
-		return result
-	var support: Variant = result.world.get("support", {})
-	if support is Dictionary and support.get("tasks") is Array:
-		for task: Variant in support.tasks:
-			if task is Dictionary:
-				# Old resupply tasks have no reliable record of request origin.
-				task.user_requested = String(task.get("kind", "")) == SupportManager.REPAIR
-	if version >= 20:
-		return result
-	var smoke_sites: Variant = result.world.get("objective_damage_smoke", [])
-	if smoke_sites is Array:
-		var integrity := int(result.world.get("objective_integrity", 0))
-		var maximum := scenario.objective_definition.maximum_integrity
-		if integrity >= maximum:
-			result.world.objective_damage_smoke = []
-		else:
-			for index: int in smoke_sites.size():
-				if smoke_sites[index] is Dictionary:
-					smoke_sites[index].repair_at = ProtectedObjective.smoke_repair_threshold(integrity, maximum, index, smoke_sites.size())
-	var definitions := defense_definition_map(scenario)
-	var owner_kinds: Dictionary[int, StringName] = {}
-	if result.world.get("defenses") is Array:
-		for state: Variant in result.world.defenses:
-			if not state is Dictionary or not state.get("content_state") is Dictionary:
-				continue
-			var id := StringName(String(state.get("definition_id", "")))
-			if definitions.has(id):
-				state.content_state = (definitions[id] as DefenseDefinition).migrate_runtime_state(state.content_state, version)
-				owner_kinds[int(state.get("runtime_id", 0))] = (definitions[id] as DefenseDefinition).engagement_reservation_kind()
-	if result.world.get("engagements") is Dictionary and result.world.engagements.get("reservations") is Array:
-		var upgraded: Array = []
-		var support_by_owner: Dictionary[int, Dictionary] = {}
-		for reservation: Variant in result.world.engagements.reservations:
-			if not reservation is Dictionary:
-				upgraded.append(reservation)
-				continue
-			var owner_id := int(reservation.get("owner_defense_id", 0))
-			reservation.kind = String(owner_kinds.get(owner_id, EngagementCoordinator.INTERCEPTOR))
-			if StringName(reservation.kind) == EngagementCoordinator.FIRE_SUPPORT:
-				if support_by_owner.has(owner_id):
-					var prior := support_by_owner[owner_id]
-					if float(reservation.get("remaining", 0)) > float(prior.get("remaining", 0)):
-						prior.merge(reservation, true)
-					continue
-				support_by_owner[owner_id] = reservation
-			upgraded.append(reservation)
-		result.world.engagements.reservations = upgraded
-	return result
+		defense_definitions = defense_definition_map(scenario)
+		contact_definitions = contact_definition_map(scenario)
+	return SessionSnapshotMigration.migrate_content(payload, version, scenario, defense_definitions, contact_definitions)
 
 static func capture_payload(main: AirscainMain) -> Dictionary:
-	var defense_states: Array[Dictionary] = []
-	for unit: DefenseUnit in main.defenses:
-		if is_instance_valid(unit):
-			defense_states.append(unit.capture_state())
-	var contact_states: Array[Dictionary] = []
-	for contact: ThreatUnit in main.registry.get_active():
-		contact_states.append(contact.capture_state())
-	var projectile_states: Array[Dictionary] = []
-	for child: Node in main.projectile_parent.get_children():
-		if child is HomingInterceptor and not child.is_queued_for_deletion():
-			projectile_states.append((child as HomingInterceptor).capture_state())
-		elif child is InterceptorDrone and not child.is_queued_for_deletion():
-			projectile_states.append((child as InterceptorDrone).capture_state())
-	for child: Node in main.threat_parent.get_children():
-		if child is AirStrikeMunition and not child.is_queued_for_deletion():
-			projectile_states.append((child as AirStrikeMunition).capture_state())
-	return {
-		"scenario": {
-			"world_seed": main.scenario.world_seed,
-		},
-		"session": main.session.capture_state(),
-		"world": {
-			"objective_integrity": main.objective.current_integrity,
-			"objective_damage_smoke": main.objective.capture_damage_smoke_state(),
-			"defenses": defense_states,
-			"contacts": contact_states,
-			"projectiles": projectile_states,
-			"engagements": main.engagement_coordinator.capture_state(),
-			"support": main.support_manager.capture_state(),
-			"relocations": main.relocation_manager.capture_state(),
-			"enemy_knowledge": main.enemy_knowledge.capture_state(),
-		},
-		"player_knowledge": main.player_knowledge.capture_state(),
-		"director": main.director.capture_state(),
-	}
+	return SessionSnapshotCapture.capture_payload(main)
 
 static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) -> String:
 	if int(payload.scenario.get("world_seed", -1)) < 0:
@@ -151,7 +39,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	if not damage_smoke_states is Array or damage_smoke_states.size() > ProtectedObjective.MAX_DAMAGE_SMOKE_SITES:
 		return "도시 손상 연기 상태가 올바르지 않습니다"
 	for smoke_state: Variant in damage_smoke_states:
-		if not smoke_state is Dictionary or not _valid_vector_data(smoke_state.get("offset")) or float(smoke_state.get("building_height", 0.0)) <= 0.0:
+		if not smoke_state is Dictionary or not SaveDocument.is_valid_vector3_data(smoke_state.get("offset")) or float(smoke_state.get("building_height", 0.0)) <= 0.0:
 			return "도시 손상 연기 위치가 올바르지 않습니다"
 		var repair_at: Variant = smoke_state.get("repair_at")
 		if not (repair_at is int or repair_at is float) or not is_finite(float(repair_at)) or float(repair_at) != floorf(float(repair_at)) or float(repair_at) <= float(world_state.objective_integrity) or float(repair_at) > scenario.objective_definition.maximum_integrity:
@@ -188,7 +76,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			sensor_ids[runtime_id] = true
 		if not definition.persistent_projectile_types().is_empty():
 			projectile_owner_definitions[runtime_id] = definition
-		if not _valid_vector_data(state.get("position")):
+		if not SaveDocument.is_valid_vector3_data(state.get("position")):
 			return "방공망 위치가 올바르지 않습니다"
 		var maximum_integrity: float = definition.maximum_integrity
 		var integrity := float(state.get("integrity", -1.0))
@@ -202,7 +90,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not contact_definitions.has(definition_id):
 			return "저장된 접촉 콘텐츠를 찾을 수 없습니다: %s" % definition_id
-		if not _valid_vector_data(state.get("position")):
+		if not SaveDocument.is_valid_vector3_data(state.get("position")):
 			return "접촉 위치가 올바르지 않습니다"
 		var countermeasure_charges := int(state.get("countermeasure_charges", -1))
 		if countermeasure_charges < 0 or countermeasure_charges > contact_definitions[definition_id].countermeasure_charges:
@@ -229,7 +117,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "항적 ID가 올바르지 않습니다"
 		track_ids[track_id] = true
 		highest_track_id = maxi(highest_track_id, track_id)
-		if not _valid_vector_data(track_state.get("estimated_position")) or not _valid_vector_data(track_state.get("estimated_velocity")) or not _valid_vector_data(track_state.get("last_measured_position")):
+		if not SaveDocument.is_valid_vector3_data(track_state.get("estimated_position")) or not SaveDocument.is_valid_vector3_data(track_state.get("estimated_velocity")) or not SaveDocument.is_valid_vector3_data(track_state.get("last_measured_position")):
 			return "항적 위치 또는 속도가 올바르지 않습니다"
 		var track_lifecycle := int(track_state.get("state", -1))
 		if track_lifecycle < PlayerTrack.State.TENTATIVE or track_lifecycle > PlayerTrack.State.LOST:
@@ -306,7 +194,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var relocation_targets: Dictionary[int, bool] = {}
 	for task: Dictionary in relocation_state.tasks:
 		var target_defense_id := int(task.get("target_defense_id", 0))
-		if not mobile_ids.has(target_defense_id) or support_targets.has(target_defense_id) or relocation_targets.has(target_defense_id) or float(task.get("remaining", 0.0)) <= 0.0 or not _valid_vector_data(task.get("origin")) or not _valid_vector_data(task.get("destination")):
+		if not mobile_ids.has(target_defense_id) or support_targets.has(target_defense_id) or relocation_targets.has(target_defense_id) or float(task.get("remaining", 0.0)) <= 0.0 or not SaveDocument.is_valid_vector3_data(task.get("origin")) or not SaveDocument.is_valid_vector3_data(task.get("destination")):
 			return "재배치 작업 대상 또는 상태가 올바르지 않습니다"
 		relocation_targets[target_defense_id] = true
 	for projectile_state: Dictionary in world_state.projectiles:
@@ -327,7 +215,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "요격체 형식과 포대가 일치하지 않습니다"
 		if not track_ids.has(int(projectile_state.get("target_track_id", 0))):
 			return "요격체가 존재하지 않는 항적을 참조합니다"
-		if not _valid_vector_data(projectile_state.get("position")) or not _valid_vector_data(projectile_state.get("velocity")):
+		if not SaveDocument.is_valid_vector3_data(projectile_state.get("position")) or not SaveDocument.is_valid_vector3_data(projectile_state.get("velocity")):
 			return "요격체 위치 또는 속도가 올바르지 않습니다"
 		var projectile_error := owner_definition.persistent_projectile_state_validation_error(projectile_type, projectile_state)
 		if not projectile_error.is_empty():
@@ -367,7 +255,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	for estimate: Dictionary in enemy_state.estimates:
 		var asset_id := int(estimate.get("asset_id", 0))
 		var observed_at := float(estimate.get("observed_at", -1.0))
-		if not defense_ids.has(asset_id) or estimate_ids.has(asset_id) or not _valid_vector_data(estimate.get("estimated_position")) or float(estimate.get("confidence", -1.0)) < 0.0 or float(estimate.get("confidence", 2.0)) > 1.0 or float(estimate.get("uncertainty", -1.0)) < 0.0 or observed_at < 0.0 or observed_at > float(enemy_state.simulation_time):
+		if not defense_ids.has(asset_id) or estimate_ids.has(asset_id) or not SaveDocument.is_valid_vector3_data(estimate.get("estimated_position")) or float(estimate.get("confidence", -1.0)) < 0.0 or float(estimate.get("confidence", 2.0)) > 1.0 or float(estimate.get("uncertainty", -1.0)) < 0.0 or observed_at < 0.0 or observed_at > float(enemy_state.simulation_time):
 			return "적 자산 추정 상태가 올바르지 않습니다"
 		estimate_ids[asset_id] = true
 	return ""
@@ -392,6 +280,3 @@ static func contact_definition_map(scenario: ScenarioDefinition) -> Dictionary[S
 				result[released.id] = released
 				pending.append(released)
 	return result
-
-static func _valid_vector_data(value: Variant) -> bool:
-	return value is Array and value.size() == 3

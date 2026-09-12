@@ -46,8 +46,11 @@ func test_vector_conversion_uses_json_safe_arrays() -> void:
 	var source := Vector3(12.5, -3.0, 99.25)
 	var data := SaveDocument.vector3_to_data(source)
 	assert_eq(data, [12.5, -3.0, 99.25])
+	assert_true(SaveDocument.is_valid_vector3_data(data))
 	assert_eq(SaveDocument.vector3_from_data(data), source)
-	assert_eq(SaveDocument.vector3_from_data([1.0]), Vector3.ZERO)
+	for invalid: Variant in [[1.0], [1.0, "2", 3.0], [1.0, INF, 3.0], [1.0, NAN, 3.0]]:
+		assert_false(SaveDocument.is_valid_vector3_data(invalid))
+		assert_eq(SaveDocument.vector3_from_data(invalid), Vector3.ZERO)
 
 func test_version_16_migration_disables_automatic_spending_without_mutating_source() -> void:
 	var document := SaveDocument.create(_valid_payload())
