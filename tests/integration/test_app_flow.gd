@@ -83,15 +83,19 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 	watch_signals(demo.objective)
 	var visible_seconds: Dictionary[int, float] = {}
 	var maximum_hostiles := 0
+	var maximum_hostiles_tick := -1
 	for index: int in 3000:
 		controller.tick(0.1)
-		maximum_hostiles = maxi(maximum_hostiles, controller.hostile_count())
+		var hostile_count := controller.hostile_count()
+		if hostile_count > maximum_hostiles:
+			maximum_hostiles = hostile_count
+			maximum_hostiles_tick = index
 		for threat: ThreatUnit in demo.registry.get_active():
 			if threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE and demo.camera_rig.camera.is_position_in_frustum(threat.global_position):
 				visible_seconds[threat.runtime_id] = visible_seconds.get(threat.runtime_id, 0.0) + 0.1
 		if index % 20 == 0:
 			await get_tree().process_frame
-	assert_lte(maximum_hostiles, MenuDefenseDemo.MAX_HOSTILES)
+	assert_lte(maximum_hostiles, MenuDefenseDemo.MAX_HOSTILES, "최대 적기 %d기 발생 시점: tick %d (%.1f초)" % [maximum_hostiles, maximum_hostiles_tick, float(maximum_hostiles_tick + 1) * 0.1])
 	assert_gt(demo.session.weapon_fire_count, 0, "실제 센서·C2·무장이 발사합니다")
 	assert_gt(demo.session.neutralized_count, 0, "실제 요격체로 시연 위협을 격추합니다")
 	assert_gte(controller.spawn_count, 2, "먼 출발점에서도 상한 안에서 위협을 계속 투입합니다")
@@ -160,34 +164,34 @@ func test_main_menu_runs_training_pause_home_and_sandbox_user_flow() -> void:
 	(main_menu.get_node("Panel/VBox/TrainingButton") as Button).pressed.emit()
 	await get_tree().process_frame
 	var gameplay := app.gameplay
-	assert_not_null(gameplay)
+	assert_not_null(gameplay, "1. 메인 메뉴에서 훈련을 시작합니다")
 	var first_seed := gameplay.scenario.world_seed
-	assert_eq(gameplay.game_mode, AirscainMain.GameMode.TRAINING)
-	assert_false(main_menu.visible)
-	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_DISABLED, "작전 중 메뉴 배경을 렌더하지 않습니다")
-	assert_false(backdrop.can_process())
-	assert_null(gameplay.hud.get_node_or_null("%ModeOption"))
+	assert_eq(gameplay.game_mode, AirscainMain.GameMode.TRAINING, "1. 훈련 모드 작전을 시작합니다")
+	assert_false(main_menu.visible, "1. 훈련이 시작되면 메인 메뉴를 닫습니다")
+	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_DISABLED, "1. 작전 중 메뉴 배경을 렌더하지 않습니다")
+	assert_false(backdrop.can_process(), "1. 작전 중 메뉴 배경 시뮬레이션을 멈춥니다")
+	assert_null(gameplay.hud.get_node_or_null("%ModeOption"), "1. 작전 HUD에서 모드 변경을 허용하지 않습니다")
 	var cancel_event := InputEventAction.new()
 	cancel_event.action = &"ui_cancel"
 	cancel_event.pressed = true
 	app._unhandled_input(cancel_event)
-	assert_true(pause_menu.visible)
-	assert_eq(gameplay.session.simulation_speed, 0.0)
-	assert_true(app.pause_save_button.disabled)
+	assert_true(pause_menu.visible, "2. 훈련 중 취소 입력으로 일시정지 메뉴를 엽니다")
+	assert_eq(gameplay.session.simulation_speed, 0.0, "2. 일시정지 메뉴가 훈련 시뮬레이션을 정지 상태로 유지합니다")
+	assert_true(app.pause_save_button.disabled, "2. 훈련 일시정지 메뉴에서는 저장을 사용할 수 없습니다")
 	(pause_menu.get_node("Panel/VBox/ResumeButton") as Button).pressed.emit()
-	assert_false(pause_menu.visible)
-	assert_eq(gameplay.session.simulation_speed, 0.0, "훈련의 기존 정지 상태를 복원합니다")
+	assert_false(pause_menu.visible, "3. 계속하기로 일시정지 메뉴를 닫습니다")
+	assert_eq(gameplay.session.simulation_speed, 0.0, "3. 계속하기 후 훈련의 기존 정지 상태를 복원합니다")
 	app._unhandled_input(cancel_event)
 	(pause_menu.get_node("Panel/VBox/MainMenuButton") as Button).pressed.emit()
-	assert_true(main_menu.visible)
-	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
-	assert_null(app.gameplay)
+	assert_true(main_menu.visible, "4. 일시정지 메뉴에서 메인 메뉴로 돌아갑니다")
+	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS, "4. 메인 메뉴로 돌아오면 배경 렌더링을 재개합니다")
+	assert_null(app.gameplay, "4. 메인 메뉴로 돌아오면 훈련 작전을 정리합니다")
 	await get_tree().process_frame
 	(main_menu.get_node("Panel/VBox/SandboxButton") as Button).pressed.emit()
 	await get_tree().process_frame
 	var next_gameplay := app.gameplay
-	assert_not_null(next_gameplay)
-	assert_ne(next_gameplay.scenario.world_seed, first_seed)
+	assert_not_null(next_gameplay, "5. 메인 메뉴에서 샌드박스 작전을 시작합니다")
+	assert_ne(next_gameplay.scenario.world_seed, first_seed, "5. 샌드박스는 종료한 훈련과 다른 새 시드를 사용합니다")
 
 func test_game_over_restart_replaces_gameplay_without_showing_main_menu() -> void:
 	var app: AirscainApp = add_child_autofree(APP_SCENE.instantiate()) as AirscainApp

@@ -593,7 +593,7 @@ func test_facility_target_and_egress_mission_restore_runtime_references() -> voi
 	assert_true(restored_threat.mission_runtime.effect_applied)
 
 func test_pending_raid_waves_restore_with_remaining_delays() -> void:
-	main.director.schedule_archetype(main.scenario.raid_archetypes[0], 1.25)
+	main.director.schedule_archetype(_raid_archetype(&"recon_saturation_strike"), 1.25)
 	main.director._tick_pending_waves(1.0)
 	assert_eq(main.director.pending_waves.size(), 2)
 	var saved_waves: Array = main.director.capture_state().pending_waves
@@ -740,6 +740,13 @@ func _threat_entry(definition_id: StringName) -> ThreatSpawnEntry:
 	fail_test("위협 생성 항목을 찾지 못했습니다: %s" % definition_id)
 	return null
 
+func _raid_archetype(archetype_id: StringName) -> RaidArchetypeDefinition:
+	for archetype: RaidArchetypeDefinition in main.scenario.raid_archetypes:
+		if archetype.id == archetype_id:
+			return archetype
+	fail_test("공습 원형을 찾지 못했습니다: %s" % archetype_id)
+	return null
+
 func _interceptors() -> Array[HomingInterceptor]:
 	var result: Array[HomingInterceptor] = []
 	for child: Node in main.projectile_parent.get_children():
@@ -873,7 +880,7 @@ func test_version_22_preserves_existing_pressure_without_catching_up() -> void:
 
 func test_version_22_first_stage_waits_for_existing_hostiles() -> void:
 	main.director.spawn_one()
-	main.director.schedule_archetype(main.scenario.raid_archetypes[0], 0.0)
+	main.director.schedule_archetype(_raid_archetype(&"recon_saturation_strike"), 0.0)
 	var document := main.capture_save_document()
 	document.version = 22
 	for key: String in ["opening_raid_started", "opening_raid_complete", "opening_threat_ids", "pressure_started_at"]:

@@ -404,7 +404,7 @@ func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
 	assert_false(catalog_button.disabled)
 	assert_true(main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
 
-func test_training_mode_starts_paused_with_visible_approach_guidance_and_no_saves() -> void:
+func test_training_mode_starts_paused_with_guidance_and_disables_saves() -> void:
 	var training := await _new_training_operation()
 	assert_eq(training.game_mode, AirscainMain.GameMode.TRAINING)
 	assert_eq(training.training_controller.step, TrainingController.Step.CAMERA)
@@ -413,7 +413,10 @@ func test_training_mode_starts_paused_with_visible_approach_guidance_and_no_save
 	assert_false(training.hud.feedback_label.text.contains("방어를 시작"))
 	assert_eq(training.session.simulation_speed, 0.0)
 	assert_eq(training.registry.hostile_count(), 1)
-	var initial_threat := training.registry.get_hostile_active()[0]
+	var initial_threat := _hostile_by_runtime_id(training, training.training_controller.training_threat_runtime_id)
+	assert_not_null(initial_threat)
+	if initial_threat == null:
+		return
 	var initial_position := initial_threat.global_position
 	training._process(5.0)
 	assert_eq(training.session.survival_time, 0.0)
@@ -424,6 +427,16 @@ func test_training_mode_starts_paused_with_visible_approach_guidance_and_no_save
 	assert_string_contains(training.hud.training_body.text, "가운데 버튼 드래그")
 	assert_string_contains(training.hud.training_body.text, "수평, 수직 회전")
 	assert_string_contains(training.hud.training_body.text, "Backspace")
+	assert_null(training.hud.get_node_or_null("%SaveButton"))
+	assert_null(training.hud.get_node_or_null("%LoadButton"))
+	assert_eq(training.save_operation(), "저장은 지속 작전에서만 사용할 수 있습니다")
+
+func test_training_approach_marker_stays_readable_across_layout_and_rotation() -> void:
+	var training := await _new_training_operation()
+	var initial_threat := _hostile_by_runtime_id(training, training.training_controller.training_threat_runtime_id)
+	assert_not_null(initial_threat)
+	if initial_threat == null:
+		return
 	assert_true(training.tactical_screen_overlay.training_approach_visible)
 	var approach_position := training.tactical_screen_overlay.training_approach_position
 	assert_gt(approach_position.x, training.objective.global_position.x)
@@ -447,9 +460,6 @@ func test_training_mode_starts_paused_with_visible_approach_guidance_and_no_save
 	assert_gte(rotated_marker.y, 100.0)
 	training.camera_rig.yaw_radians -= PI * 0.5
 	training.camera_rig._update_camera()
-	assert_null(training.hud.get_node_or_null("%SaveButton"))
-	assert_null(training.hud.get_node_or_null("%LoadButton"))
-	assert_eq(training.save_operation(), "저장은 지속 작전에서만 사용할 수 있습니다")
 
 func test_training_lesson_progresses_through_deployment_support_and_recovery() -> void:
 	var training := await _new_training_operation()
@@ -477,7 +487,10 @@ func test_training_lesson_progresses_through_deployment_support_and_recovery() -
 	assert_false(training.hud.catalog_expanded)
 	assert_false(training.director.enabled)
 	assert_eq(training.registry.hostile_count(), hostile_count)
-	var threat: ThreatUnit = training.registry.get_hostile_active().back()
+	var threat := _hostile_by_runtime_id(training, training.training_controller.training_threat_runtime_id)
+	assert_not_null(threat)
+	if threat == null:
+		return
 	assert_eq(threat.global_position, approach_position)
 	assert_eq(training.session.simulation_speed, 1.0)
 	var observation := SensorObservation.new()
@@ -620,19 +633,27 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_eq(sandbox.session.budget, starting_budget)
 	var definition := _threat_entry_for(sandbox, &"attack_uav").threat_definition
 	var hostile_count := sandbox.registry.hostile_count()
+	var existing_hostile_ids := _hostile_runtime_ids(sandbox)
 	sandbox.placement.select_sandbox_threat(definition)
 	sandbox.placement.candidate_position = Vector3(420.0, 0.0, -180.0)
 	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
 	assert_eq(sandbox.registry.hostile_count(), hostile_count + 1)
-	var threat: ThreatUnit = sandbox.registry.get_hostile_active().back()
+	var threat := _new_hostile_since(sandbox, existing_hostile_ids, definition)
+	assert_not_null(threat)
+	if threat == null:
+		return
 	assert_almost_eq(threat.global_position.x, 420.0, 0.001)
 	assert_almost_eq(threat.global_position.z, -180.0, 0.001)
 	assert_same(sandbox.placement.selected_threat, definition)
 	assert_not_null(sandbox.placement.preview)
+	existing_hostile_ids = _hostile_runtime_ids(sandbox)
 	sandbox.placement.candidate_position = Vector3(520.0, 0.0, -80.0)
 	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
 	assert_eq(sandbox.registry.hostile_count(), hostile_count + 2)
-	var second_threat: ThreatUnit = sandbox.registry.get_hostile_active().back()
+	var second_threat := _new_hostile_since(sandbox, existing_hostile_ids, definition)
+	assert_not_null(second_threat)
+	if second_threat == null:
+		return
 	assert_almost_eq(second_threat.global_position.x, 520.0, 0.001)
 	assert_almost_eq(second_threat.global_position.z, -80.0, 0.001)
 	assert_same(sandbox.placement.selected_threat, definition)
@@ -642,9 +663,11 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	sandbox.hud.sandbox_threat_option.item_selected.emit(replacement_index)
 	assert_same(sandbox.placement.selected_threat, replacement_definition)
 	assert_not_null(sandbox.placement.preview)
+	existing_hostile_ids = _hostile_runtime_ids(sandbox)
 	sandbox.placement.candidate_position = Vector3(610.0, 0.0, 40.0)
 	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
-	assert_same(sandbox.registry.get_hostile_active().back().definition, replacement_definition)
+	var replacement_threat := _new_hostile_since(sandbox, existing_hostile_ids, replacement_definition)
+	assert_not_null(replacement_threat)
 	sandbox.hud.start_requested.emit()
 	assert_false(sandbox.director.enabled)
 
@@ -1375,7 +1398,7 @@ func test_radar_emission_enables_anti_radiation_targeting_and_sead_package() -> 
 	assert_gt(main.director.adaptive_entry_weight(anti_radiation_entry), anti_radiation_entry.selection_weight)
 	assert_same(main.director._known_target_for_role(&"sensor"), radar)
 	main.director.pending_waves.clear()
-	main.director.schedule_archetype(main.scenario.raid_archetypes[1], 0.75)
+	main.director.schedule_archetype(_raid_archetype_for(main, &"deception_sead_strike"), 0.75)
 	assert_eq(main.director.pending_waves.size(), 4)
 	assert_eq(main.director.pending_waves[0].definition_id, "decoy_uav")
 	assert_eq(main.director.pending_waves[1].definition_id, "electronic_warfare_uav")
@@ -1409,6 +1432,9 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	var command_result: Dictionary = main.session.request_placement(command_definition, _find_valid_position_for(command_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(command_result.success, "5. 지휘소를 배치해 센서와 포대를 연결합니다")
 	assert_true(main.c2_network.has_command_path(battery, radar.runtime_id), "5. 포대가 레이더까지 유효한 지휘 경로를 갖습니다")
+	main.combat_audio.simulation_paused = false
+	var launch_audio_count := main.combat_audio.played_count(CombatAudio.MISSILE)
+	var explosion_audio_count := main.combat_audio.played_count(CombatAudio.EXPLOSION)
 	for frame: int in 300:
 		main.player_knowledge.gameplay_tick(0.02)
 		radar.gameplay_tick(0.02)
@@ -1416,10 +1442,23 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 		if threat.resolved_state:
 			break
 	assert_true(threat.resolved_state, "6. 연결된 방공망이 실제 위협을 요격합니다")
+	assert_gt(main.combat_audio.played_count(CombatAudio.MISSILE), launch_audio_count, "6. 실제 포대 발사가 미사일 발사음으로 연결됩니다")
+	assert_gt(main.combat_audio.played_count(CombatAudio.EXPLOSION), explosion_audio_count, "6. 실제 요격 성공이 폭발음으로 연결됩니다")
+	assert_not_null(main.effects_parent.get_node_or_null("FallingWreck"), "6. 무력화된 항공 위협의 잔해를 생성합니다")
+	assert_not_null(_first_visible_explosion(main.effects_parent), "6. 무력화 지점에 보이는 폭발을 생성합니다")
 	assert_eq(main.session.neutralized_count, 1, "6. 무력화는 한 번만 기록됩니다")
 	assert_eq(main.session.neutralized_reward_total, threat.definition.neutralization_reward, "7. 위협 보상을 한 번 지급합니다")
 	assert_eq(main.session.defense_spending, battery_definition.price + radar_definition.price + command_definition.price, "7. 배치 자산 비용을 모두 기록합니다")
 	assert_gt(main.session.weapon_fire_count, 0, "6. 실제 무장 발사를 기록합니다")
+	var weapon_estimate := main.enemy_knowledge.best_estimate_for_role(&"weapon")
+	assert_false(weapon_estimate.is_empty(), "6. 적 지식이 실제 발사 자산을 무장 표적으로 관측합니다")
+	if not weapon_estimate.is_empty():
+		assert_eq(int(weapon_estimate.asset_id), battery.runtime_id, "6. 적 지식의 무장 추정치가 발사 포대를 가리킵니다")
+	assert_false(main.enemy_knowledge.recent_outcomes.is_empty(), "6. 적 지식이 요격 결과를 기록합니다")
+	if not main.enemy_knowledge.recent_outcomes.is_empty():
+		var outcome: Dictionary = main.enemy_knowledge.recent_outcomes.back()
+		assert_true(bool(outcome.neutralized), "6. 적 지식의 최근 결과가 위협 무력화를 나타냅니다")
+		assert_eq(StringName(outcome.threat_id), threat.definition.id, "6. 적 지식의 최근 결과가 요격된 위협 종류를 나타냅니다")
 	var expected_budget := main.scenario.starting_budget - battery_definition.price - radar_definition.price - command_definition.price + threat.definition.neutralization_reward
 	assert_eq(main.session.budget, expected_budget, "7. 배치 비용과 요격 보상이 최종 예산에 반영됩니다")
 	assert_false(threat.receive_damage(100.0))
@@ -1841,7 +1880,7 @@ func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_ro
 
 func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> void:
 	main.registry.clear()
-	var archetype := main.scenario.raid_archetypes[0]
+	var archetype := _raid_archetype_for(main, &"recon_saturation_strike")
 	main.director.schedule_archetype(archetype, 0.75)
 	assert_eq(main.director.pending_waves.size(), 3)
 	main.director._tick_pending_waves(0.1)
@@ -2406,6 +2445,33 @@ func _threat_entry_for(instance: AirscainMain, definition_id: StringName) -> Thr
 	fail_test("위협 생성 항목을 찾지 못했습니다: %s" % definition_id)
 	return null
 
+func _raid_archetype_for(instance: AirscainMain, archetype_id: StringName) -> RaidArchetypeDefinition:
+	for archetype: RaidArchetypeDefinition in instance.scenario.raid_archetypes:
+		if archetype.id == archetype_id:
+			return archetype
+	fail_test("공습 원형을 찾지 못했습니다: %s" % archetype_id)
+	return null
+
+func _hostile_by_runtime_id(instance: AirscainMain, runtime_id: int) -> ThreatUnit:
+	for threat: ThreatUnit in instance.registry.get_hostile_active():
+		if threat.runtime_id == runtime_id:
+			return threat
+	fail_test("활성 적성 위협을 찾지 못했습니다: %d" % runtime_id)
+	return null
+
+func _hostile_runtime_ids(instance: AirscainMain) -> Dictionary[int, bool]:
+	var ids: Dictionary[int, bool] = {}
+	for threat: ThreatUnit in instance.registry.get_hostile_active():
+		ids[threat.runtime_id] = true
+	return ids
+
+func _new_hostile_since(instance: AirscainMain, existing_ids: Dictionary[int, bool], definition: ThreatDefinition) -> ThreatUnit:
+	for threat: ThreatUnit in instance.registry.get_hostile_active():
+		if not existing_ids.has(threat.runtime_id) and threat.definition == definition:
+			return threat
+	fail_test("새로 배치한 적성 위협을 찾지 못했습니다: %s" % definition.id)
+	return null
+
 func _ambient_definition_for(instance: AirscainMain, definition_id: StringName) -> ThreatDefinition:
 	for definition: ThreatDefinition in instance.scenario.ambient_contacts:
 		if definition.id == definition_id:
@@ -2503,6 +2569,25 @@ func test_target_policy_buttons_change_only_the_selected_asset() -> void:
 	assert_false(button.button_pressed)
 	button.button_pressed = true
 	assert_true(battery.allows_target_kind(&"uav"))
+
+func test_hud_hold_fire_request_updates_and_releases_only_selected_armed_asset() -> void:
+	main.session.unlimited_budget = true
+	var selected_result := _place_for(main, _defense_definition_for(main, &"missile_battery"))
+	var other_result := _place_for(main, _defense_definition_for(main, &"missile_battery"))
+	assert_true(selected_result.success)
+	assert_true(other_result.success)
+	if not selected_result.success or not other_result.success:
+		return
+	var selected := selected_result.unit as MissileBattery
+	var other := other_result.unit as MissileBattery
+	main.placement.asset_selected.emit(selected)
+	main.hud.hold_fire_requested.emit(true)
+	assert_true(selected.doctrine.hold_fire, "HUD 사격중지 요청은 선택한 무장 자산에 적용됩니다")
+	assert_false(other.doctrine.hold_fire, "HUD 사격중지 요청은 선택하지 않은 무장 자산을 바꾸지 않습니다")
+	other.set_hold_fire(true)
+	main.hud.hold_fire_requested.emit(false)
+	assert_false(selected.doctrine.hold_fire, "HUD 사격중지 해제 요청은 선택한 무장 자산에 적용됩니다")
+	assert_true(other.doctrine.hold_fire, "HUD 사격중지 해제 요청도 선택하지 않은 무장 자산을 바꾸지 않습니다")
 
 func test_recon_flyby_discovers_unconnected_battery_without_radar_anchor() -> void:
 	main.set_process(false)

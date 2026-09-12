@@ -97,11 +97,15 @@ func test_track_selection_rejects_unconfirmed_and_non_hostile_contacts() -> void
 func test_terrain_obstruction_requires_relocation_then_returns_to_detection() -> void:
 	main.training_controller.next_requested()
 	guidance.refresh()
+	var existing_defense_ids := _defense_runtime_ids()
 	main.placement.select(_defense_definition(&"search_radar"))
 	guidance.refresh()
 	main.placement.candidate_position = guidance.suggestion
 	assert_true(main.placement.request_selected_defense_placement())
-	var radar := main.defenses.back() as SearchRadar
+	var radar := _new_defense_since(existing_defense_ids, &"search_radar") as SearchRadar
+	assert_not_null(radar)
+	if radar == null:
+		return
 	main.placement.select(_defense_definition(&"missile_battery"))
 	guidance.refresh()
 	main.placement.candidate_position = guidance.suggestion
@@ -156,6 +160,19 @@ func _defense_definition(definition_id: StringName) -> DefenseDefinition:
 		if definition.id == definition_id:
 			return definition
 	fail_test("방어 자산 정의를 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _defense_runtime_ids() -> Dictionary[int, bool]:
+	var ids: Dictionary[int, bool] = {}
+	for unit: DefenseUnit in main.defenses:
+		ids[unit.runtime_id] = true
+	return ids
+
+func _new_defense_since(existing_ids: Dictionary[int, bool], definition_id: StringName) -> DefenseUnit:
+	for unit: DefenseUnit in main.defenses:
+		if not existing_ids.has(unit.runtime_id) and unit.definition.id == definition_id:
+			return unit
+	fail_test("새로 배치한 방어 자산을 찾지 못했습니다: %s" % definition_id)
 	return null
 
 func _catalog_button(definition_id: StringName) -> Button:
