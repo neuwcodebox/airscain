@@ -2005,7 +2005,25 @@ func test_procedural_planning_ignores_unobserved_asset_changes_and_limits_late_w
 	main.director.elapsed = main.scenario.attack_window_duration
 	var pending := main.director.pending_waves.duplicate(true)
 	main.director.launch_budgeted_raid()
-	assert_eq(main.director.pending_waves, pending, "정비 구간에는 새 공습을 예약하지 않습니다")
+	assert_eq(main.director.pending_waves, pending, "정비 중 일반 생성 tick은 새 공습을 예약하지 않습니다")
+
+func test_each_recovery_stages_one_remote_raid_for_the_next_attack_window() -> void:
+	main.director.opening_raid_started = true
+	main.director.opening_raid_complete = true
+	main.director.pressure_started_at = 0.0
+	main.director.pressure_level = 2
+	main.director.enabled = true
+	main.director.until_spawn = 1000.0
+	main.director.completed_attack_windows = 0
+	var cycle := main.scenario.attack_window_duration + main.scenario.recovery_duration
+	for window_index: int in 2:
+		main.director.elapsed = float(window_index) * cycle
+		main.director.in_recovery = false
+		main.director.pending_waves.clear()
+		main.director.gameplay_tick(main.scenario.attack_window_duration)
+		assert_true(main.director.in_recovery, "정비 구간 %d 진입" % window_index)
+		assert_false(main.director.pending_waves.is_empty(), "정비 구간 %d의 다음 공습 편성" % window_index)
+		assert_eq(main.director.completed_attack_windows, window_index + 1, "정비 구간 %d 집계" % window_index)
 
 func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> void:
 	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
@@ -2733,25 +2751,45 @@ func test_new_sustained_operation_starts_with_hostiles_and_no_start_button() -> 
 	assert_eq(operation.registry.hostile_count(), count)
 	assert_eq(operation.director.capture_state(), saved.payload.director)
 
-func test_first_raid_reaches_city_before_escalation_and_gets_a_full_rest() -> void:
+func test_first_raid_controls_escalation_and_followup_enters_before_stage_three() -> void:
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	var operation := MAIN_SCENE.instantiate() as AirscainMain
 	add_child_autofree(operation)
 	operation.set_process(false)
 	var opening_finished_at := -1.0
-	var active_during_rest := false
+	var followup_spawn_radii: Array[Vector2] = []
+	var recovery_started_during_opening := false
+	operation.director.threat_spawned.connect(func(threat: ThreatUnit) -> void:
+		if operation.director.opening_raid_complete:
+			var actual_radius := Vector2(threat.global_position.x, threat.global_position.z).length()
+			var authored_radius := operation.scenario.battlefield_size * threat.definition.spawn_radius_multiplier()
+			followup_spawn_radii.append(Vector2(actual_radius, authored_radius))
+	)
 	for step: int in 1200:
 		operation._process(0.5)
+		if not operation.director.opening_raid_complete:
+			recovery_started_during_opening = recovery_started_during_opening or operation.director.completed_attack_windows > 0
 		if operation.director.opening_raid_complete:
 			if opening_finished_at < 0.0:
 				opening_finished_at = operation.director.pressure_started_at - operation.scenario.recovery_duration
-			if operation.director.pressure_level == 1:
-				active_during_rest = active_during_rest or operation.registry.hostile_count() > 0
 		if operation.director.pressure_level >= 2 or operation.session.phase == GameSession.Phase.GAME_OVER:
 			break
 	assert_gt(opening_finished_at, 0.0, "실제 첫 공습이 격추·명중·이탈로 끝나야 한다")
-	assert_false(active_during_rest)
+	assert_false(recovery_started_during_opening, "첫 공습 진행 중에는 정비 구간을 시작하지 않는다")
+	assert_false(followup_spawn_radii.is_empty(), "첫 공습 종료 직후 후속 공습을 출격시켜야 한다")
+	for radii: Vector2 in followup_spawn_radii:
+		assert_gte(radii.x, radii.y - 20.0, "후속 공습도 콘텐츠별 원거리 생성 반경을 유지해야 한다")
 	assert_eq(operation.director.pressure_level, 2)
 	assert_gte(operation.director.elapsed - opening_finished_at, operation.scenario.recovery_duration)
 	assert_eq(operation.session.current_pressure, 2)
 	assert_eq(operation.hud.pressure_label.text, "위협 단계  2")
+	var followup_entered_battlefield := false
+	for step: int in ceili(operation.scenario.pressure_step_duration / 0.5):
+		operation._process(0.5)
+		for threat: ThreatUnit in operation.registry.get_hostile_active():
+			if Vector2(threat.global_position.x, threat.global_position.z).length() <= operation.scenario.battlefield_size * 0.5:
+				followup_entered_battlefield = true
+				break
+		if followup_entered_battlefield or operation.session.phase == GameSession.Phase.GAME_OVER:
+			break
+	assert_true(followup_entered_battlefield, "2단계 안에 후속 공습이 전장으로 진입해야 한다")

@@ -67,13 +67,14 @@ func gameplay_tick(delta: float) -> void:
 	if new_level != pressure_level:
 		pressure_level = new_level
 		pressure_changed.emit(pressure_level)
-	var cycle_duration := scenario.attack_window_duration + scenario.recovery_duration
-	var should_recover := fmod(elapsed, cycle_duration) >= scenario.attack_window_duration
+	var should_recover := _should_recover()
 	if should_recover != in_recovery:
 		in_recovery = should_recover
 		if in_recovery:
 			completed_attack_windows += 1
 			recovery_started.emit(completed_attack_windows)
+			if _can_launch_automatic_raid():
+				launch_budgeted_raid(true)
 		else:
 			until_spawn = maxf(until_spawn, scenario.initial_spawn_interval)
 	if in_recovery or (opening_raid_started and pressure_level < 2):
@@ -83,6 +84,14 @@ func gameplay_tick(delta: float) -> void:
 		return
 	until_spawn += raid_interval_at(elapsed)
 	launch_budgeted_raid()
+
+func _should_recover() -> bool:
+	if not opening_raid_complete:
+		return false
+	if elapsed < pressure_started_at:
+		return true
+	var cycle_duration := scenario.attack_window_duration + scenario.recovery_duration
+	return fmod(elapsed - pressure_started_at, cycle_duration) >= scenario.attack_window_duration
 
 func schedule_archetype(archetype: RaidArchetypeDefinition, approach_angle: float) -> void:
 	for index: int in archetype.phase_entries.size():
@@ -134,9 +143,10 @@ func performance_budget_adjustment() -> float:
 func speed_multiplier_at(time_seconds: float) -> float:
 	return minf(scenario.maximum_speed_multiplier, 1.0 + time_seconds / scenario.speed_growth_duration)
 
-func launch_budgeted_raid() -> void:
+func launch_budgeted_raid(for_next_attack_window: bool = false) -> void:
+	var attack_elapsed := maxf(0.0, elapsed - pressure_started_at) if opening_raid_complete else elapsed
 	var cycle := scenario.attack_window_duration + scenario.recovery_duration
-	var remaining_attack := scenario.attack_window_duration - fmod(elapsed, cycle)
+	var remaining_attack := scenario.attack_window_duration if for_next_attack_window else scenario.attack_window_duration - fmod(attack_elapsed, cycle)
 	if remaining_attack <= 0.0:
 		return
 	var weights: Dictionary[StringName, float] = {}
@@ -300,6 +310,9 @@ func _finish_opening_raid_if_ready() -> void:
 			return
 	opening_raid_complete = true
 	pressure_started_at = elapsed + scenario.recovery_duration
+
+func _can_launch_automatic_raid() -> bool:
+	return scenario != null and battlefield != null and objective != null and registry != null and threat_parent != null and defense_parent != null
 
 func _register_released_threat(threat: ThreatUnit, source: ThreatUnit) -> void:
 	threat.setup(next_runtime_id, threat.definition)

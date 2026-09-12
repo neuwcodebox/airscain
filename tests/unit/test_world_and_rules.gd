@@ -1220,6 +1220,10 @@ func test_running_session_receives_timed_and_attack_window_support() -> void:
 func test_director_enters_recovery_once_per_attack_window() -> void:
 	var director := autofree(ThreatDirector.new()) as ThreatDirector
 	director.scenario = SCENARIO
+	director.opening_raid_started = true
+	director.opening_raid_complete = true
+	director.pressure_started_at = 0.0
+	director.pressure_level = 2
 	director.enabled = true
 	director.until_spawn = 1000.0
 	var recovery_count: Array[int] = [0]
