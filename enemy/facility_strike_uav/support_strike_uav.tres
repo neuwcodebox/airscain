@@ -37,6 +37,7 @@ flare_effectiveness = 0.72
 countermeasure_charges = 2
 adaptive_knowledge_role = &"support"
 adaptive_knowledge_weight = 2.4
+requires_role_knowledge = true
 maximum_health = 82.0
 movement = SubResource("Movement")
 mission = SubResource("Mission")

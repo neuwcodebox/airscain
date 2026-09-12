@@ -1622,6 +1622,8 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 	var support := support_result.unit as SupportFacility
 	main.scenario.threat_entries = [_threat_entry_for(main, &"support_strike_uav")]
 	main.director.pressure_level = 3
+	assert_null(main.director.spawn_one(), "지원시설 관측이 없으면 타격 UAV를 생성하지 않습니다")
+	main.enemy_knowledge.record_recon(support)
 	var threat := main.director.spawn_one() as AttackUav
 	assert_not_null(threat)
 	assert_same(threat.mission_runtime.target_asset, support)
@@ -1938,6 +1940,9 @@ func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_ro
 
 func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> void:
 	main.registry.clear()
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
+	assert_true(support_result.success)
+	main.enemy_knowledge.record_recon(support_result.unit)
 	var archetype := _raid_archetype_for(main, &"recon_saturation_strike")
 	main.director.schedule_archetype(archetype, 0.75)
 	assert_eq(main.director.pending_waves.size(), 3)

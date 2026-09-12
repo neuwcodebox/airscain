@@ -1362,6 +1362,9 @@ func test_specialized_threats_define_recon_jamming_and_suppression_roles() -> vo
 	var anti_radiation := _threat(&"anti_radiation_missile") as AttackUavDefinition
 	assert_eq(anti_radiation.id, &"anti_radiation_missile")
 	assert_eq(anti_radiation.mission.target_role, ThreatMissionDefinition.TargetRole.SENSOR)
+	var support_strike := _threat(&"support_strike_uav") as AttackUavDefinition
+	assert_true(support_strike.requires_role_knowledge)
+	assert_eq(support_strike.adaptive_knowledge_role, &"support")
 
 func test_ballistic_and_rocket_threats_match_high_altitude_detection_envelope() -> void:
 	var ballistic := _threat(&"ballistic_missile") as AttackUavDefinition
