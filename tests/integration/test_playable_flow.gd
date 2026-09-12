@@ -2038,6 +2038,23 @@ func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> voi
 	assert_lte(planned_cost, main.director.threat_budget_at(main.director.elapsed) + 0.001)
 	assert_gt(planned_cost, 0.0)
 
+func test_recent_recon_prioritizes_followup_and_times_the_reported_target() -> void:
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
+	assert_true(support_result.success)
+	main.director.pressure_level = 3
+	assert_eq(main.director.suppression_priority_chance(), 0.0)
+	main.enemy_knowledge.record_recon(support_result.unit)
+	assert_eq(main.director.suppression_priority_chance(), main.scenario.recon_followup_suppression_chance)
+	var support_entry := _threat_entry_for(main, &"support_strike_uav")
+	var estimate := main.enemy_knowledge.best_estimate_for_role(&"support")
+	var distances := main.director.estimated_travel_distances(0.0)
+	var radius := main.scenario.battlefield_size * support_entry.threat_definition.spawn_radius_multiplier()
+	var target := SaveDocument.vector3_from_data(estimate.estimated_position)
+	var expected := Vector2(radius, 0.0).distance_to(Vector2(target.x, target.z)) - (support_entry.threat_definition as AttackUavDefinition).mission.action_distance
+	assert_almost_eq(float(distances[support_entry.threat_definition.id]), expected, 0.001)
+	main.enemy_knowledge.gameplay_tick(main.scenario.recon_followup_window + 0.1)
+	assert_eq(main.director.suppression_priority_chance(), 0.0, "오래된 정찰은 후속 공습 우선권을 주지 않습니다")
+
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()
 	var gun_result := _place_for(main, _defense_definition_for(main, &"close_in_gun"))

@@ -208,13 +208,17 @@ func test_suppression_package_combines_jamming_direct_attack_and_city_strike() -
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 991
 	var planner := RaidPlanner.new()
-	var waves := planner.generate(scenario, weights, 8.0, 8, 0.0, 300.0, 1.0, rng)
+	var travel_distances: Dictionary[StringName, float] = {
+		jammer.threat_definition.id: 3000.0,
+		anti_radiation.threat_definition.id: 4000.0,
+	}
+	var waves := planner.generate(scenario, weights, 8.0, 8, 0.0, 300.0, 1.0, rng, travel_distances)
 	assert_eq(planner.last_pattern, &"suppression")
 	assert_eq(waves.size(), 3)
 	var arrivals: Dictionary[StringName, float] = {}
 	for wave: Dictionary in waves:
 		var entry := _entry_in(scenario, StringName(wave.definition_id))
-		var distance := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - (scenario.city_size * 0.5 + 260.0)
+		var distance := float(travel_distances.get(entry.threat_definition.id, scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - (scenario.city_size * 0.5 + 260.0)))
 		arrivals[entry.threat_definition.id] = float(wave.remaining) + entry.threat_definition.estimated_approach_seconds(distance, 1.0)
 	assert_between(arrivals[strike.threat_definition.id] - arrivals[anti_radiation.threat_definition.id], 9.999, 18.001)
 	assert_between(arrivals[strike.threat_definition.id] - arrivals[jammer.threat_definition.id], 1.999, 5.001)

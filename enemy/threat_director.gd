@@ -153,12 +153,43 @@ func launch_budgeted_raid() -> void:
 	else:
 		approach_angle += rng.randf_range(-0.35, 0.35)
 	var max_delay := minf(32.0, maxf(0.0, remaining_attack - 0.05))
-	var waves := raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng)
+	var travel_distances := estimated_travel_distances(approach_angle)
+	var waves := raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng, travel_distances, suppression_priority_chance())
 	if not opening_raid_started and not waves.is_empty():
 		opening_raid_started = true
 		for wave: Dictionary in waves:
 			wave["opening_raid"] = true
 	pending_waves.append_array(waves)
+
+func suppression_priority_chance() -> float:
+	var chance := scenario.asset_suppression_chance if pressure_level >= 4 else 0.0
+	if enemy_knowledge == null:
+		return chance
+	for estimate: Dictionary in enemy_knowledge.estimates.values():
+		if String(estimate.get("source", "")) != "reconnaissance" or float(estimate.get("confidence", 0.0)) < 0.2:
+			continue
+		if enemy_knowledge.simulation_time - float(estimate.get("observed_at", 0.0)) <= scenario.recon_followup_window:
+			return maxf(chance, scenario.recon_followup_suppression_chance)
+	return chance
+
+func estimated_travel_distances(approach_angle: float) -> Dictionary[StringName, float]:
+	var result: Dictionary[StringName, float] = {}
+	if enemy_knowledge == null:
+		return result
+	var assignments := _mission_assignments()
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		var role := entry.threat_definition.adaptive_knowledge_role
+		var mission := entry.threat_definition.mission_definition()
+		if role.is_empty() or mission == null or mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
+			continue
+		var estimate := enemy_knowledge.best_estimate_for_role(role, assignments)
+		if estimate.is_empty():
+			continue
+		var radius := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier()
+		var spawn := Vector2(cos(approach_angle) * radius, sin(approach_angle) * radius)
+		var target := SaveDocument.vector3_from_data(estimate.estimated_position)
+		result[entry.threat_definition.id] = maxf(0.0, spawn.distance_to(Vector2(target.x, target.z)) - mission.action_distance)
+	return result
 
 func adaptive_approach_angle() -> float:
 	var known_angles: Array[float] = []
