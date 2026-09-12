@@ -1200,12 +1200,37 @@ func test_legacy_magazine_state_retains_paid_full_refill() -> void:
 
 func test_balance_damage_breakpoints_and_full_supply_prices() -> void:
 	var short_definition := _defense(&"short_range_missile") as MissileBatteryDefinition
+	var medium_definition := _defense(&"missile_battery") as MissileBatteryDefinition
 	var long_definition := _defense(&"long_range_missile") as MissileBatteryDefinition
 	assert_eq(_munition(short_definition, &"quick_reaction").interceptor_damage, 100.0)
-	assert_eq(_munition(short_definition, &"quick_reaction").resupply_cost, 22)
+	assert_eq(_munition(short_definition, &"quick_reaction").resupply_cost, 18)
+	assert_eq(_munition(medium_definition, &"standard").resupply_cost, 18)
 	assert_lt(_munition(long_definition, &"area_defense").interceptor_damage, 140.0)
 	assert_gte(_munition(long_definition, &"high_speed_interceptor").interceptor_damage, 140.0)
-	assert_eq((_defense(&"close_in_gun") as CloseInGunDefinition).resupply_cost, 8)
+	assert_eq(_munition(long_definition, &"area_defense").resupply_cost, 24)
+	assert_eq(_munition(long_definition, &"high_speed_interceptor").resupply_cost, 36)
+	assert_eq((_defense(&"close_in_gun") as CloseInGunDefinition).resupply_cost, 6)
+
+func test_every_hostile_threat_reward_exceeds_a_sufficient_interceptor_round_cost() -> void:
+	var munitions: Array[MissileMunitionDefinition] = []
+	for defense_id: StringName in [&"short_range_missile", &"missile_battery", &"long_range_missile"]:
+		var definition := _defense(defense_id) as MissileBatteryDefinition
+		munitions.append_array(definition.munitions)
+	var threats: Array[ThreatDefinition] = []
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		_append_threat_tree(entry.threat_definition, threats)
+	for threat: ThreatDefinition in threats:
+		if threat.affiliation != ThreatDefinition.Affiliation.HOSTILE:
+			continue
+		var threat_unit := add_child_autofree(threat.scene.instantiate()) as ThreatUnit
+		threat_unit.setup(9000 + threats.find(threat), threat)
+		var cheapest_sufficient_round := 1 << 30
+		for munition: MissileMunitionDefinition in munitions:
+			if munition.interceptor_damage >= threat_unit.health:
+				var round_cost := ceili(float(munition.resupply_cost) / float(munition.reserve_ammunition))
+				cheapest_sufficient_round = mini(cheapest_sufficient_round, round_cost)
+		assert_lt(cheapest_sufficient_round, 1 << 30, "%s one-shot interceptor" % threat.id)
+		assert_gt(threat.neutralization_reward, cheapest_sufficient_round, "%s reward margin" % threat.id)
 
 func test_gun_stock_reduction_preserves_legacy_inventory_and_unit_price() -> void:
 	var definition := _defense(&"close_in_gun") as CloseInGunDefinition
@@ -1220,7 +1245,7 @@ func test_gun_stock_reduction_preserves_legacy_inventory_and_unit_price() -> voi
 	saved.magazine.reserve = 0
 	gun.restore_content_state(saved)
 	assert_eq(gun.magazine.rounds, 120, "기존 저장의 재고는 삭제하지 않습니다")
-	assert_eq(gun.resupply_cost(), 12, "구버전 재고도 현재 묶음당 단가를 적용합니다")
+	assert_eq(gun.resupply_cost(), 9, "구버전 재고도 현재 묶음당 단가를 적용합니다")
 
 func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	var fixture := _gun_support_fixture()
@@ -1865,6 +1890,13 @@ func _threat(id: StringName) -> ThreatDefinition:
 			return entry.threat_definition
 	fail_test("missing threat definition %s" % id)
 	return null
+
+func _append_threat_tree(definition: ThreatDefinition, result: Array[ThreatDefinition]) -> void:
+	if result.has(definition):
+		return
+	result.append(definition)
+	for released: ThreatDefinition in definition.released_threat_definitions():
+		_append_threat_tree(released, result)
 
 func _munition(definition: MissileBatteryDefinition, id: StringName) -> MissileMunitionDefinition:
 	for munition: MissileMunitionDefinition in definition.munitions:

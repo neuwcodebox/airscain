@@ -27,7 +27,7 @@ small_target_match = 0.62
 magazine_capacity = 4
 reserve_ammunition = 20
 reload_duration = 6.0
-resupply_cost = 22
+resupply_cost = 18
 resupply_work = 6.0
 
 [resource]

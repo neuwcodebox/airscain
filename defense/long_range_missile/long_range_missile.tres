@@ -31,7 +31,7 @@ small_target_match = 0.08
 magazine_capacity = 2
 reserve_ammunition = 8
 reload_duration = 12.0
-resupply_cost = 32
+resupply_cost = 24
 resupply_work = 14.0
 
 [sub_resource type="Resource" id="BallisticDefenseMunition"]
@@ -55,7 +55,7 @@ high_cost = true
 magazine_capacity = 2
 reserve_ammunition = 4
 reload_duration = 14.0
-resupply_cost = 48
+resupply_cost = 36
 resupply_work = 18.0
 
 [resource]
