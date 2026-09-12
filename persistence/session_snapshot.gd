@@ -227,6 +227,18 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var last_pattern: Variant = director_state.get("last_raid_pattern")
 	if not last_pattern is String or not (String(last_pattern).is_empty() or StringName(last_pattern) in RaidPlanner.PATTERNS):
 		return "공습 생성 이력이 올바르지 않습니다"
+	var recent_definitions: Variant = director_state.get("recent_raid_definitions")
+	if not recent_definitions is Array or recent_definitions.size() > RaidPlanner.MAX_GROUPS:
+		return "최근 공습 위협 이력이 올바르지 않습니다"
+	var valid_raid_definitions: Dictionary[StringName, bool] = {}
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		valid_raid_definitions[entry.threat_definition.id] = true
+	var seen_recent_definitions: Dictionary[StringName, bool] = {}
+	for value: Variant in recent_definitions:
+		var definition_id := StringName(String(value))
+		if not value is String or not valid_raid_definitions.has(definition_id) or seen_recent_definitions.has(definition_id):
+			return "최근 공습 위협 이력이 올바르지 않습니다"
+		seen_recent_definitions[definition_id] = true
 	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"
 	var opening_error := ThreatDirector.opening_state_validation_error(director_state)

@@ -114,12 +114,43 @@ func test_same_rng_and_history_reproduce_the_next_plan() -> void:
 	planner.generate(SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng)
 	var saved_rng := rng.state
 	var saved_pattern := planner.last_pattern
+	var saved_definitions := planner.recent_definition_ids.duplicate()
 	var expected := planner.generate(SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng)
 	var restored := RaidPlanner.new()
 	restored.last_pattern = saved_pattern
+	restored.recent_definition_ids.assign(saved_definitions)
 	rng.state = saved_rng
 	assert_eq(restored.generate(SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng), expected)
 	assert_eq(restored.last_pattern, planner.last_pattern)
+	assert_eq(restored.recent_definition_ids, planner.recent_definition_ids)
+
+func test_recent_threat_definitions_receive_a_temporary_selection_penalty() -> void:
+	var scenario := SCENARIO.duplicate() as ScenarioDefinition
+	var planner := RaidPlanner.new()
+	var attack := _entry(&"attack_uav").duplicate(true) as ThreatSpawnEntry
+	var swarm := _entry(&"swarm_uav").duplicate(true) as ThreatSpawnEntry
+	attack.group_size = 1
+	attack.threat_cost = 2.0
+	swarm.group_size = 1
+	swarm.threat_cost = 2.0
+	swarm.unlock_level = 1
+	scenario.threat_entries = [attack, swarm]
+	var weights: Dictionary[StringName, float] = {}
+	weights[attack.threat_definition.id] = 1.0
+	weights[swarm.threat_definition.id] = 1.0
+	assert_ne(attack.threat_definition.id, swarm.threat_definition.id)
+	assert_eq(weights.size(), 2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 642
+	var previous: StringName
+	var repeated := 0
+	for sample: int in 400:
+		var waves := planner.generate(scenario, weights, 2.0, 1, 0.0, 0.0, 1.0, rng)
+		assert_eq(waves.size(), 1, "sample %d" % sample)
+		var selected := StringName(waves[0].definition_id)
+		repeated += int(selected == previous)
+		previous = selected
+	assert_lt(repeated, 150, "직전 공습의 같은 위협이 절반 확률처럼 반복되지 않습니다")
 
 func _weights(scenario: ScenarioDefinition) -> Dictionary[StringName, float]:
 	var result: Dictionary[StringName, float] = {}

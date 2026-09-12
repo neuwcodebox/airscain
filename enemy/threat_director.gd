@@ -54,6 +54,7 @@ func reset() -> void:
 	opening_threat_ids.clear()
 	pressure_started_at = 0.0
 	raid_planner.last_pattern = &""
+	raid_planner.recent_definition_ids.clear()
 	pressure_changed.emit(pressure_level)
 
 func gameplay_tick(delta: float) -> void:
@@ -392,6 +393,7 @@ func capture_state() -> Dictionary:
 		"in_recovery": in_recovery,
 		"completed_attack_windows": completed_attack_windows,
 		"last_raid_pattern": String(raid_planner.last_pattern),
+		"recent_raid_definitions": raid_planner.capture_recent_definitions(),
 		"opening_raid_started": opening_raid_started,
 		"opening_raid_complete": opening_raid_complete,
 		"opening_threat_ids": opening_threat_ids.duplicate(),
@@ -415,6 +417,7 @@ func restore_state(state: Dictionary) -> void:
 	opening_threat_ids.assign(state.opening_threat_ids)
 	pressure_started_at = float(state.pressure_started_at)
 	raid_planner.last_pattern = StringName(state.get("last_raid_pattern", ""))
+	raid_planner.restore_recent_definitions(state.get("recent_raid_definitions", []))
 	pressure_changed.emit(pressure_level)
 
 static func opening_state_validation_error(state: Dictionary) -> String:

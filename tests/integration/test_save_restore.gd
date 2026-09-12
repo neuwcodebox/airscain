@@ -75,9 +75,19 @@ func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void
 	invalid.payload.director.last_raid_pattern = "missing_pattern"
 	assert_ne(main.restore_from_document(invalid), "")
 	assert_eq(main.director.capture_state(), expected, "잘못된 이력은 현재 작전을 변경하지 않습니다")
+	invalid = document.duplicate(true)
+	invalid.payload.director.recent_raid_definitions = ["missing_threat"]
+	assert_ne(main.restore_from_document(invalid), "")
+	assert_eq(main.director.capture_state(), expected, "잘못된 위협 이력은 현재 작전을 변경하지 않습니다")
 	var legacy := document.duplicate(true)
+	legacy.version = 25
+	legacy.payload.director.erase("recent_raid_definitions")
+	assert_eq(main.restore_from_document(legacy), "")
+	assert_true(main.director.raid_planner.recent_definition_ids.is_empty())
+	legacy = document.duplicate(true)
 	legacy.version = 21
 	legacy.payload.director.erase("last_raid_pattern")
+	legacy.payload.director.erase("recent_raid_definitions")
 	assert_eq(main.restore_from_document(legacy), "")
 	assert_eq(main.director.raid_planner.last_pattern, &"")
 	assert_eq(main.director.pending_waves, pending)

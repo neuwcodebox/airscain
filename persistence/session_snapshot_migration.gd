@@ -19,6 +19,10 @@ static func migrate_content(
 	for task: Dictionary in result.get("world", {}).get("support", {}).get("tasks", []):
 		if String(task.get("kind", "")) == SupportManager.REPAIR and not task.has("repair_amount"):
 			task.repair_amount = legacy_repairs.get(int(task.get("target_defense_id", 0)), 0.0)
+	if version < 26 and result.get("director") is Dictionary:
+		result.director.recent_raid_definitions = []
+	if version >= 25:
+		return result
 	if version >= 23:
 		return result
 	if result.get("director") is Dictionary and not result.director.has("opening_raid_started"):

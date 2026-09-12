@@ -4,7 +4,9 @@ extends RefCounted
 const PATTERNS: Array[StringName] = [&"concentration", &"diversion", &"layered", &"suppression"]
 const MAX_GROUPS := 6
 const MAX_AUXILIARY_GROUPS := 2
+const RECENT_DEFINITION_WEIGHT := 0.45
 var last_pattern: StringName
+var recent_definition_ids: Array[StringName] = []
 
 # Only content, observed weights and the operation RNG enter this planner.
 # No live defense objects, magazines, C2 graph or player tracks are available.
@@ -29,7 +31,7 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 						gap = rng.randf_range(2.0, 5.0)
 					var delays := _pair_delays(_eta(lead, scenario, speed, travel_distances), _eta(strike, scenario, speed, travel_distances), gap)
 					if maxf(delays.x, delays.y) <= max_delay:
-						pairs.append({"lead": lead, "strike": strike, "delays": delays, "weight": weights[lead.threat_definition.id] * weights[strike.threat_definition.id]})
+						pairs.append({"lead": lead, "strike": strike, "delays": delays, "weight": _entry_weight(lead, weights) * _entry_weight(strike, weights)})
 			if pairs.is_empty():
 				continue
 		var weight := 1.0 if pattern == &"concentration" else 0.85
@@ -114,6 +116,7 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 		spent += _cost(extra)
 		auxiliary_groups += int(extra.raid_role != ThreatSpawnEntry.RaidRole.STRIKE)
 	waves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.remaining) < float(b.remaining))
+	_remember_definitions(waves)
 	return waves
 
 func _matches_pair(pattern: StringName, lead: ThreatSpawnEntry, strike: ThreatSpawnEntry) -> bool:
@@ -147,7 +150,7 @@ func _complementary_support(entries: Array[ThreatSpawnEntry], lead: ThreatSpawnE
 		var entry_angle := angle
 		if is_deception:
 			entry_angle += rng.randf_range(PI * 0.5, PI * 0.9) * (-1.0 if rng.randf() < 0.5 else 1.0)
-		candidates.append({"entry": entry, "wave": _wave(entry, delay, entry_angle), "shift": shift, "weight": weights[entry.threat_definition.id]})
+		candidates.append({"entry": entry, "wave": _wave(entry, delay, entry_angle), "shift": shift, "weight": _entry_weight(entry, weights)})
 	if candidates.is_empty():
 		return {}
 	return _weighted_dictionary(candidates, rng)
@@ -163,8 +166,30 @@ func _pick_entry(entries: Array[ThreatSpawnEntry], weights: Dictionary[StringNam
 	var candidates: Array[Dictionary] = []
 	for entry: ThreatSpawnEntry in entries:
 		if _cost(entry) <= budget:
-			candidates.append({"entry": entry, "weight": weights[entry.threat_definition.id]})
+			candidates.append({"entry": entry, "weight": _entry_weight(entry, weights)})
 	return null if candidates.is_empty() else _weighted_dictionary(candidates, rng).entry as ThreatSpawnEntry
+
+func _entry_weight(entry: ThreatSpawnEntry, weights: Dictionary[StringName, float]) -> float:
+	var weight := float(weights.get(entry.threat_definition.id, 0.0))
+	return weight * RECENT_DEFINITION_WEIGHT if recent_definition_ids.has(entry.threat_definition.id) else weight
+
+func _remember_definitions(waves: Array[Dictionary]) -> void:
+	recent_definition_ids.clear()
+	for wave: Dictionary in waves:
+		var definition_id := StringName(String(wave.definition_id))
+		if not recent_definition_ids.has(definition_id):
+			recent_definition_ids.append(definition_id)
+
+func capture_recent_definitions() -> Array[String]:
+	var result: Array[String] = []
+	for definition_id: StringName in recent_definition_ids:
+		result.append(String(definition_id))
+	return result
+
+func restore_recent_definitions(values: Array) -> void:
+	recent_definition_ids.clear()
+	for value: Variant in values:
+		recent_definition_ids.append(StringName(String(value)))
 
 func _weighted_dictionary(candidates: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var total := 0.0
