@@ -12,5 +12,5 @@ neutralization_reward = 2
 signature_class = &"cruise_missile"
 radar_signature = 0.32
 maximum_health = 24.0
-flight_speed = 240.0
-flight_acceleration = 100.0
+flight_speed = 200.0
+flight_acceleration = 40.0

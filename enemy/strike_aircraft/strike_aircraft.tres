@@ -27,7 +27,7 @@ script = ExtResource("4")
 type = 2
 target_role = 0
 damage = 25.0
-action_distance = 470.0
+action_distance = 600.0
 released_missile = ExtResource("5")
 
 [resource]
