@@ -13,6 +13,7 @@ var mode := Mode.DIRECT
 var velocity := Vector3.ZERO
 var elapsed: float = 0.0
 var speed: float = 420.0
+var acceleration: float = 260.0
 var result := Result.FLYING
 
 func powered() -> bool:
@@ -36,7 +37,7 @@ func advance(position: Vector3, target: Vector3, battlefield: Battlefield, delta
 		var angle := direction.angle_to(desired)
 		if angle > 0.0001:
 			direction = direction.slerp(desired, minf(1.0, deg_to_rad(100.0) * delta / angle))
-		velocity = direction * move_toward(velocity.length(), speed, 260.0 * delta)
+		velocity = direction * move_toward(velocity.length(), speed, acceleration * delta)
 	var next := position + (previous_velocity + velocity) * (0.5 * delta)
 	var impact := surface_impact(battlefield, position, next)
 	if not impact.is_empty():

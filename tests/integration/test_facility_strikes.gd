@@ -130,7 +130,12 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 	if pair.size() != 2:
 		return
 	var aircraft := pair[0] as AttackUav
-	var missile := pair[1]
+	var missile := pair[1] as AirLaunchedMissile
+	var missile_definition := missile.definition as AirLaunchedMissileDefinition
+	assert_eq(missile.flight.motion.speed, 240.0)
+	assert_eq(missile.flight.motion.acceleration, 100.0)
+	assert_eq(missile.flight.motion.speed, missile_definition.flight_speed)
+	assert_eq(missile.flight.motion.acceleration, missile_definition.flight_acceleration)
 	assert_false(aircraft.body.get_node("ReleasedStore").visible)
 	var release_offset := missile.global_position - aircraft.mission_runtime.fixed_target
 	var release_distance := Vector2(release_offset.x, release_offset.z).length()
@@ -147,10 +152,13 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 	missile.gameplay_tick(0.2)
 	assert_true(missile.get_node("Flight/Flame").visible)
 	assert_gt(missile.presentation_velocity().length(), initial_speed)
+	var maximum_observed_speed := missile.presentation_velocity().length()
 	for tick: int in 600:
 		missile.gameplay_tick(1.0 / 120.0)
+		maximum_observed_speed = maxf(maximum_observed_speed, missile.presentation_velocity().length())
 		if missile.resolved_state:
 			break
+	assert_lte(maximum_observed_speed, missile_definition.flight_speed + 0.001)
 	assert_true(missile.resolved_state, "투발 후 수 초 안에 탄착합니다")
 	assert_eq(target.integrity, 50.0, "impact=%s target=%s flight=%s" % [missile.global_position, target.global_position, missile.capture_content_state()])
 	missile.gameplay_tick(10.0)

@@ -10,7 +10,10 @@ func _ready() -> void:
 
 func setup(id_value: int, definition_value: ThreatDefinition) -> void:
 	super.setup(id_value, definition_value)
-	health = (definition_value as AirLaunchedMissileDefinition).maximum_health
+	var missile_definition := definition_value as AirLaunchedMissileDefinition
+	health = missile_definition.maximum_health
+	flight.motion.speed = missile_definition.flight_speed
+	flight.motion.acceleration = missile_definition.flight_acceleration
 
 func launch(target: Vector3, objective: ProtectedObjective, battlefield: Battlefield, damage: int, asset: DefenseUnit, city: bool, velocity: Vector3) -> void:
 	flight.setup(target, objective, damage, asset, city)
