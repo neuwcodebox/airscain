@@ -16,6 +16,19 @@ func test_missile_launch_waits_for_minimum_upward_pitch_even_inside_sector() -> 
 	assert_true(battery._aim_turret(high_target, 2.0))
 	assert_gt(rad_to_deg(asin(battery.launcher_forward().y)), 60.0)
 
+func test_missile_launch_point_is_attached_to_the_forward_launcher_muzzle() -> void:
+	var definition := preload("res://defense/missile_battery/missile_battery.tres")
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(2, definition)
+	var launcher := battery.elevation.get_node("Launcher") as Node3D
+	var muzzle_caps := launcher.get_node("SixCellRack/MuzzleCaps") as Node3D
+	assert_eq(battery.launch_point.get_parent(), launcher, "발사점은 발사관의 앙각·방향을 그대로 따릅니다")
+	assert_almost_eq(battery.launch_point.position.x, 0.0, 0.001, "발사점은 발사관 묶음의 좌우 중심에 있습니다")
+	assert_almost_eq(battery.launch_point.position.y, 0.0, 0.001, "발사점은 발사관 묶음의 수직 중심에 있습니다")
+	var launcher_forward := -launcher.global_basis.z.normalized()
+	var muzzle_to_launch_point := battery.launch_point.global_position - muzzle_caps.global_position
+	assert_gt(muzzle_to_launch_point.dot(launcher_forward), 0.0, "발사점은 캐니스터 포구보다 앞에 있습니다")
+
 func test_shared_turret_aiming_traverses_yaw_and_elevation_before_alignment() -> void:
 	var root := add_child_autofree(Node3D.new()) as Node3D
 	var yaw := Node3D.new()
@@ -32,19 +45,24 @@ func test_shared_turret_aiming_traverses_yaw_and_elevation_before_alignment() ->
 	var aim_direction := -elevation.global_transform.basis.z.normalized()
 	assert_gt(aim_direction.dot(elevation.global_position.direction_to(target)), 0.995)
 
-func test_ciws_barrel_cluster_tracks_elevation_and_spins_without_moving_the_muzzle() -> void:
+func test_ciws_scene_has_six_barrels_radar_and_ammunition_drum() -> void:
 	var definition := preload("res://defense/close_in_gun/close_in_gun.tres")
 	var gun := add_child_autofree(definition.scene.instantiate()) as CloseInGun
 	gun.setup(11, definition)
 	assert_eq(gun.barrel_cluster.find_children("Barrel?", "MeshInstance3D", false, false).size(), 6)
 	assert_not_null(gun.get_node("Turret/RadarDome"))
 	assert_not_null(gun.get_node("Turret/AmmunitionDrum"))
+
+func test_ciws_barrel_cluster_tracks_elevation_and_spins_without_moving_the_muzzle() -> void:
+	var definition := preload("res://defense/close_in_gun/close_in_gun.tres")
+	var gun := add_child_autofree(definition.scene.instantiate()) as CloseInGun
+	gun.setup(11, definition)
 	var target := Vector3(60, 45, -80)
 	for index: int in 10:
 		gun._aim_turret(target, 0.1)
 	var muzzle_position := gun.muzzle.global_position
 	var start_angle := gun.barrel_cluster.rotation.z
-	gun._on_round_fired(muzzle_position)
+	gun.gunfire.round_fired.emit(muzzle_position)
 	gun.gameplay_tick(0.1)
 	assert_ne(gun.barrel_cluster.rotation.z, start_angle)
 	assert_almost_eq(gun.muzzle.global_position, muzzle_position, Vector3.ONE * 0.001)

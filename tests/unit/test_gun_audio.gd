@@ -4,62 +4,112 @@ class MissileSource:
 	extends Node
 	signal flight_ended(detonated: bool)
 
-func test_single_weapon_voice_uses_category_gain_before_crowding() -> void:
+func test_single_missile_voice_uses_category_gain_before_crowding() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var source := add_child_autofree(MissileSource.new()) as MissileSource
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, source))
 	assert_almost_eq(context.source_players[source.get_instance_id()].volume_linear, CombatAudio.MISSILE_VOICE_GAIN, 0.0001)
+	assert_lte(context.source_players[source.get_instance_id()].volume_linear, CombatAudio.MISSILE_MIX_BUDGET)
+
+func test_single_gun_voice_uses_category_gain_before_crowding() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var voice := add_child_autofree(GunAudio.new()) as GunAudio
 	voice.context = context
 	voice.notify_shot()
-	voice._process(GunAudio.CROSSFADE_SECONDS)
+	_advance_gun_voice(voice, GunAudio.CROSSFADE_SECONDS)
 	assert_almost_eq(voice.volume_linear, CombatAudio.GUN_VOICE_GAIN, 0.0001)
 	assert_lte(voice.volume_linear, CombatAudio.GUN_MIX_BUDGET)
-	assert_lte(context.source_players[source.get_instance_id()].volume_linear, CombatAudio.MISSILE_MIX_BUDGET)
 
 func test_missile_groups_keep_four_slots_and_shared_gain_budget() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var sources: Array[MissileSource] = []
 	for index: int in 40:
-		context._process(CombatAudio.MISSILE_GROUP_WINDOW + 0.01)
+		_advance_combat_audio(context, CombatAudio.MISSILE_GROUP_WINDOW + 0.01)
 		var source := add_child_autofree(MissileSource.new()) as MissileSource
 		sources.append(source)
-		var accepted := context.play_missile_event(CombatAudio.MISSILE_EVENTS[index % 3], source)
-		assert_eq(accepted, index < CombatAudio.MAX_AUDIBLE_MISSILE_GROUPS)
+		var event := CombatAudio.MISSILE_EVENTS[index % CombatAudio.MISSILE_EVENTS.size()]
+		var accepted := context.play_missile_event(event, source)
+		assert_eq(accepted, index < CombatAudio.MAX_AUDIBLE_MISSILE_GROUPS, "launch %d event %s" % [index, event])
 	assert_eq(context.source_players.size(), CombatAudio.MAX_AUDIBLE_MISSILE_GROUPS)
-	var first := context.source_players[sources[0].get_instance_id()]
 	assert_false(context.play_missile_event(CombatAudio.MISSILE, sources[0]), "같은 발사음을 재시작하지 않습니다")
+	var total := 0.0
+	for slot: int in context.missile_players.size():
+		var player := context.missile_players[slot]
+		total += player.volume_linear
+		assert_true(player.playing, "missile slot %d" % slot)
+	assert_lte(total, CombatAudio.MISSILE_MIX_BUDGET + 0.0001)
+
+func test_suppressed_missile_still_reports_impact_without_stealing_other_events() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var sources := _fill_missile_voice_slots(context)
+	var first := context.source_players[sources[0].get_instance_id()]
 	for event: StringName in [CombatAudio.CONTACT, CombatAudio.DAMAGE, CombatAudio.EXPLOSION]:
 		context.play_event(event)
 	assert_same(first, context.source_players[sources[0].get_instance_id()])
-	var total := 0.0
-	for player: AudioStreamPlayer in context.missile_players:
-		total += player.volume_linear
-		assert_true(player.playing)
-	assert_lte(total, CombatAudio.MISSILE_MIX_BUDGET + 0.0001)
+	_advance_combat_audio(context, CombatAudio.MISSILE_GROUP_WINDOW + 0.01)
+	var suppressed := add_child_autofree(MissileSource.new()) as MissileSource
+	assert_false(context.play_missile_event(CombatAudio.MISSILE, suppressed))
 	context.cooldowns[CombatAudio.EXPLOSION] = 0.0
 	var explosions := context.played_count(CombatAudio.EXPLOSION)
-	sources.back().flight_ended.emit(true)
+	suppressed.flight_ended.emit(true)
 	assert_eq(context.played_count(CombatAudio.EXPLOSION), explosions + 1, "Suppressed launch still reports impact")
+
+func test_retiring_missile_voice_releases_its_slot_without_starting_suppressed_launches_late() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var sources := _fill_missile_voice_slots(context)
+	var retiring_player := context.source_players[sources[0].get_instance_id()] as AudioStreamPlayer
 	sources[0].flight_ended.emit(false)
 	var suppressed := add_child_autofree(MissileSource.new()) as MissileSource
 	assert_false(context.play_missile_event(CombatAudio.MISSILE, suppressed), "Fading voice still occupies its slot")
-	await get_tree().create_timer(CombatAudio.RETIRE_FADE_SECONDS + 0.05).timeout
+	_complete_missile_fade(context, retiring_player, CombatAudio.RETIRE_FADE_SECONDS)
 	assert_false(context.play_missile_event(CombatAudio.MISSILE, suppressed), "Suppressed launches never start late")
 	var replacement := add_child_autofree(MissileSource.new()) as MissileSource
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, replacement))
+	var total := 0.0
 	for frame: int in 24:
-		await get_tree().process_frame
+		_advance_combat_audio(context, CombatAudio.RETIRE_FADE_SECONDS / 24.0)
 		total = 0.0
 		for player: AudioStreamPlayer in context.missile_players:
 			if player.playing:
 				total += player.volume_linear
-		assert_lte(total, CombatAudio.MISSILE_MIX_BUDGET + 0.0001, "Retirement/replacement also obeys the mix budget")
+		assert_lte(total, CombatAudio.MISSILE_MIX_BUDGET + 0.0001, "retirement frame %d obeys the mix budget" % frame)
+
+func test_stop_all_clears_missile_ownership_and_players() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	_fill_missile_voice_slots(context)
 	context.stop_all()
 	assert_true(context.source_players.is_empty())
 	assert_true(context.missile_groups.is_empty())
-	for player: AudioStreamPlayer in context.missile_players:
-		assert_false(player.playing)
+	for slot: int in context.missile_players.size():
+		assert_false(context.missile_players[slot].playing, "missile slot %d stopped" % slot)
+
+func _fill_missile_voice_slots(context: CombatAudio) -> Array[MissileSource]:
+	var sources: Array[MissileSource] = []
+	for index: int in CombatAudio.MAX_AUDIBLE_MISSILE_GROUPS:
+		_advance_combat_audio(context, CombatAudio.MISSILE_GROUP_WINDOW + 0.01)
+		var source := add_child_autofree(MissileSource.new()) as MissileSource
+		sources.append(source)
+		var event := CombatAudio.MISSILE_EVENTS[index % CombatAudio.MISSILE_EVENTS.size()]
+		assert_true(
+			context.play_missile_event(event, source),
+			"slot %d event %s should accept its fixture launch" % [index, event]
+		)
+	return sources
+
+func _advance_combat_audio(context: CombatAudio, delta: float) -> void:
+	context._process(delta)
+
+func _advance_gun_voice(voice: GunAudio, delta: float) -> void:
+	voice._process(delta)
+
+func _advance_airburst_voice(voice: GunAirburstAudio, delta: float) -> void:
+	voice._process(delta)
+
+func _complete_missile_fade(context: CombatAudio, player: AudioStreamPlayer, duration: float) -> void:
+	var tween := context.fade_tweens.get(player.get_instance_id()) as Tween
+	assert_not_null(tween, "retiring missile voice should own a fade tween")
+	if tween != null:
+		tween.custom_step(duration + 0.001)
 
 func test_simultaneous_missiles_share_sound_until_last_member_exits() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
@@ -67,19 +117,20 @@ func test_simultaneous_missiles_share_sound_until_last_member_exits() -> void:
 	for index: int in 40:
 		var source := add_child_autofree(MissileSource.new()) as MissileSource
 		sources.append(source)
-		assert_true(context.play_missile_event(CombatAudio.MISSILE, source))
+		assert_true(context.play_missile_event(CombatAudio.MISSILE, source), "member %d event %s" % [index, CombatAudio.MISSILE])
 	assert_eq(context.played_count(CombatAudio.MISSILE), 1)
 	var player := context.source_players[sources[0].get_instance_id()]
 	for index: int in 39:
-		assert_same(context.source_players[sources[index].get_instance_id()], player)
+		var case_label := "member %d" % index
+		assert_same(context.source_players[sources[index].get_instance_id()], player, "%s shared player" % case_label)
 		sources[index].flight_ended.emit(true)
-		assert_false(context.fade_tweens.has(player.get_instance_id()))
-		assert_true(player.playing)
+		assert_false(context.fade_tweens.has(player.get_instance_id()), "%s keeps group alive" % case_label)
+		assert_true(player.playing, "%s shared player remains audible" % case_label)
 	# Scene removal is also an end; no flight_ended signal is required.
 	remove_child(sources.back())
 	assert_true(context.fade_tweens.has(player.get_instance_id()))
 	assert_true(context.source_players.is_empty())
-	await get_tree().create_timer(CombatAudio.RETIRE_FADE_SECONDS + 0.05).timeout
+	_complete_missile_fade(context, player, CombatAudio.RETIRE_FADE_SECONDS)
 	assert_false(player.playing)
 
 func test_missile_group_window_is_fixed_and_separates_families() -> void:
@@ -89,10 +140,10 @@ func test_missile_group_window_is_fixed_and_separates_families() -> void:
 	var second := add_child_autofree(MissileSource.new()) as MissileSource
 	var third := add_child_autofree(MissileSource.new()) as MissileSource
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, first))
-	context._process(CombatAudio.MISSILE_GROUP_WINDOW * 0.75)
+	_advance_combat_audio(context, CombatAudio.MISSILE_GROUP_WINDOW * 0.75)
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, second))
 	assert_eq(context.played_count(CombatAudio.MISSILE), 1)
-	context._process(CombatAudio.MISSILE_GROUP_WINDOW * 0.5)
+	_advance_combat_audio(context, CombatAudio.MISSILE_GROUP_WINDOW * 0.5)
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, third))
 	assert_eq(context.played_count(CombatAudio.MISSILE), 2, "Joining never extends the first launch's window")
 	for event: StringName in [CombatAudio.LONG_MISSILE, CombatAudio.SHORT_MISSILE]:
@@ -103,9 +154,14 @@ func test_missile_group_window_is_fixed_and_separates_families() -> void:
 	var last := add_child_autofree(MissileSource.new()) as MissileSource
 	assert_true(context.play_missile_event(CombatAudio.MISSILE, last), "Existing group can accept members even when all slots are occupied")
 	assert_same(context.source_players[third.get_instance_id()], context.source_players[last.get_instance_id()])
+
+func test_missile_group_clock_stops_while_simulation_is_paused() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	context.set_process(false)
+	_advance_combat_audio(context, 0.5)
 	context.simulation_paused = true
 	var clock_before := context.missile_clock
-	context._process(1.0)
+	_advance_combat_audio(context, 1.0)
 	assert_eq(context.missile_clock, clock_before)
 
 func test_natural_missile_completion_releases_ownership_before_reuse() -> void:
@@ -139,6 +195,9 @@ func test_all_guns_share_one_timed_airburst_voice() -> void:
 	assert_eq(context.gun_airbursts.starts, 1)
 	assert_eq(context.find_children("GunAirbursts", "AudioStreamPlayer", false, false).size(), 1)
 	assert_true(context.gun_airbursts.playing)
+
+func test_airburst_sample_is_looped_without_trimming() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var sound := context.gun_airbursts.stream as AudioStreamOggVorbis
 	assert_true(sound.loop)
 	assert_eq(sound.loop_offset, 0.0)
@@ -157,39 +216,44 @@ func test_airburst_layer_bridges_gaps_and_recovers_fade_without_restarting() -> 
 	voice.set_process(false)
 	for index: int in 30:
 		voice.notify_detonation(Vector3.ZERO, &"timeout")
-		voice._process(0.1)
+		_advance_airburst_voice(voice, 0.1)
 	assert_eq(voice.starts, 1)
 	assert_gt(voice.gain, 0.0)
-	voice._process(GunAirburstAudio.QUIET_GRACE - 0.01)
+	_advance_airburst_voice(voice, GunAirburstAudio.QUIET_GRACE - 0.01)
 	assert_eq(voice.gain, GunAirburstAudio.LEVEL)
-	voice._process(0.1)
+	_advance_airburst_voice(voice, 0.1)
 	var fading_gain := voice.gain
 	assert_gt(fading_gain, 0.0)
 	assert_lt(fading_gain, GunAirburstAudio.LEVEL)
 	voice.notify_detonation(Vector3.ZERO, &"timeout")
-	voice._process(0.06)
+	_advance_airburst_voice(voice, 0.06)
 	assert_gt(voice.gain, fading_gain)
 	assert_eq(voice.starts, 1)
-	voice._process(1.0)
+	_advance_airburst_voice(voice, 1.0)
 	assert_false(voice.playing)
 	assert_eq(voice.gain, 0.0)
 	voice.notify_detonation(Vector3.ZERO, &"timeout")
 	assert_eq(voice.starts, 2)
 
-func test_airburst_pause_mute_reset_and_slow_frames() -> void:
+func test_airburst_pause_and_slow_frames_preserve_a_new_detonation() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var voice := context.gun_airbursts
 	voice.set_process(false)
 	voice.notify_detonation(Vector3.ZERO, &"timeout")
-	voice._process(0.4)
+	_advance_airburst_voice(voice, 0.4)
 	assert_true(voice.playing, "새 자폭은 같은 프레임 지연만으로 종료되지 않습니다")
 	context.simulation_paused = true
-	voice._process(10.0)
+	_advance_airburst_voice(voice, 10.0)
 	assert_true(voice.stream_paused)
 	assert_eq(voice.quiet_remaining, GunAirburstAudio.QUIET_GRACE)
 	context.simulation_paused = false
-	voice._process(0.01)
+	_advance_airburst_voice(voice, 0.01)
 	assert_false(voice.stream_paused)
+
+func test_airburst_reset_and_disabled_context_stay_silent() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var voice := context.gun_airbursts
+	voice.notify_detonation(Vector3.ZERO, &"timeout")
 	context.stop_all()
 	assert_false(voice.playing)
 	assert_eq(voice.quiet_remaining, 0.0)
@@ -220,19 +284,20 @@ func test_many_guns_share_a_bounded_mix_budget_without_restarting() -> void:
 		var voice := add_child_autofree(GunAudio.new()) as GunAudio
 		voice.context = context
 		voice.notify_shot()
-		voice._process(0.06)
+		_advance_gun_voice(voice, 0.06)
 		voices.append(voice)
 	var total := 0.0
 	var audible_count := 0
-	for voice: GunAudio in voices:
+	for index: int in voices.size():
+		var voice := voices[index]
 		total += voice.volume_linear
 		audible_count += int(voice.audible)
-		assert_eq(voice.starts, 1)
+		assert_eq(voice.starts, 1, "gun voice %d start count" % index)
 	assert_eq(audible_count, CombatAudio.MAX_AUDIBLE_GUNS)
 	assert_almost_eq(total, CombatAudio.GUN_MIX_BUDGET, 0.0001)
 	for voice: GunAudio in voices:
-		voice._process(0.2)
-		voice._process(6.0)
+		_advance_gun_voice(voice, 0.2)
+		_advance_gun_voice(voice, 6.0)
 	assert_true(context.gun_voices.is_empty())
 
 func test_audible_guns_stay_stable_and_virtual_guns_take_over_a_finished_slot() -> void:
@@ -243,18 +308,18 @@ func test_audible_guns_stay_stable_and_virtual_guns_take_over_a_finished_slot() 
 		voice.context = context
 		voice.set_process(false)
 		voice.notify_shot()
-		voice._process(0.06)
+		_advance_gun_voice(voice, 0.06)
 		voices.append(voice)
 	assert_false(voices[4].playing)
 	for frame: int in 10:
 		for voice: GunAudio in voices:
 			voice.notify_shot()
-			voice._process(0.06)
+			_advance_gun_voice(voice, 0.06)
 		context.refresh_gun_mix()
 	assert_true(voices[0].audible)
 	assert_false(voices[4].audible)
-	voices[0]._process(0.2)
-	voices[4]._process(0.06)
+	_advance_gun_voice(voices[0], 0.2)
+	_advance_gun_voice(voices[4], 0.06)
 	assert_false(voices[0].audible)
 	assert_true(voices[4].audible)
 	assert_true(voices[4].playing)
@@ -267,11 +332,11 @@ func test_shots_bridge_burst_gaps_and_resume_during_the_end_tail() -> void:
 	voice.set_process(false)
 	for shot: int in 100:
 		voice.notify_shot()
-		voice._process(0.04)
+		_advance_gun_voice(voice, 0.04)
 	assert_eq(voice.starts, 1)
 	assert_eq(voice.endings, 0)
 	assert_true(voice.firing)
-	voice._process(0.2)
+	_advance_gun_voice(voice, 0.2)
 	assert_eq(voice.endings, 1)
 	assert_false(voice.firing)
 	assert_gt(voice.tail_remaining, 5.0)
@@ -279,9 +344,9 @@ func test_shots_bridge_burst_gaps_and_resume_during_the_end_tail() -> void:
 	assert_eq(voice.starts, 2)
 	assert_true(voice.firing)
 	assert_eq(voice.tail_remaining, 0.0)
-	voice._process(0.0)
-	voice._process(0.2)
-	voice._process(6.0)
+	_advance_gun_voice(voice, 0.0)
+	_advance_gun_voice(voice, 0.2)
+	_advance_gun_voice(voice, 6.0)
 	assert_false(voice.playing)
 
 func test_virtual_guns_preserve_firing_during_pause() -> void:
@@ -292,19 +357,19 @@ func test_virtual_guns_preserve_firing_during_pause() -> void:
 		voice.context = context
 		voice.set_process(false)
 		voice.notify_shot()
-		voice._process(0.06)
+		_advance_gun_voice(voice, 0.06)
 		voices.append(voice)
 	var virtual_voice := voices.back() as GunAudio
 	assert_false(virtual_voice.playing)
 	context.simulation_paused = true
-	virtual_voice._process(2.0)
+	_advance_gun_voice(virtual_voice, 2.0)
 	assert_true(virtual_voice.firing)
 	assert_eq(virtual_voice.endings, 0)
 	context.simulation_paused = false
 	virtual_voice.notify_shot()
 	assert_eq(virtual_voice.starts, 1)
 
-func test_pause_mute_and_independent_guns() -> void:
+func test_pausing_one_gun_preserves_independent_gun_state() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	var first := add_child_autofree(GunAudio.new()) as GunAudio
 	var second := add_child_autofree(GunAudio.new()) as GunAudio
@@ -313,17 +378,24 @@ func test_pause_mute_and_independent_guns() -> void:
 		voice.set_process(false)
 		voice.notify_shot()
 	context.simulation_paused = true
-	first._process(2.0)
+	_advance_gun_voice(first, 2.0)
 	assert_true(first.stream_paused)
 	assert_eq(first.endings, 0)
 	context.simulation_paused = false
-	first._process(0.02)
+	_advance_gun_voice(first, 0.02)
 	assert_false(first.stream_paused)
-	first._process(0.2)
+	_advance_gun_voice(first, 0.2)
 	assert_eq(first.endings, 1)
 	assert_true(second.firing)
+
+func test_disabling_combat_audio_stops_gun_and_ignores_new_shots() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	var second := add_child_autofree(GunAudio.new()) as GunAudio
+	second.context = context
+	second.set_process(false)
+	second.notify_shot()
 	context.enabled = false
-	second._process(0.01)
+	_advance_gun_voice(second, 0.01)
 	second.notify_shot()
 	assert_false(second.playing)
 	assert_false(second.firing)
@@ -336,7 +408,7 @@ func test_a_slow_frame_does_not_end_a_freshly_received_shot() -> void:
 	voice.set_process(false)
 	for frame: int in 5:
 		voice.notify_shot()
-		voice._process(0.25)
+		_advance_gun_voice(voice, 0.25)
 	assert_true(voice.firing)
 	assert_eq(voice.starts, 1)
 	assert_eq(voice.endings, 0)

@@ -3,6 +3,17 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+var _original_default_font: Font
+var _original_fallback_font: Font
+
+func before_each() -> void:
+	_original_default_font = ThemeDB.get_default_theme().default_font
+	_original_fallback_font = ThemeDB.fallback_font
+
+func after_each() -> void:
+	ThemeDB.get_default_theme().default_font = _original_default_font
+	ThemeDB.fallback_font = _original_fallback_font
+
 func test_building_occlusion_agrees_with_surface_collision_for_seeded_segments() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	field.build(SCENARIO)
@@ -11,7 +22,11 @@ func test_building_occlusion_agrees_with_surface_collision_for_seeded_segments()
 	for index: int in 500:
 		var start := Vector3(rng.randf_range(-600, 600), rng.randf_range(-10, 180), rng.randf_range(-600, 600))
 		var end := Vector3(rng.randf_range(-600, 600), rng.randf_range(-10, 180), rng.randf_range(-600, 600))
-		assert_eq(field.building_blocks_segment(start, end), not field.building_segment_impact(start, end).is_empty())
+		assert_eq(
+			field.building_blocks_segment(start, end),
+			not field.building_segment_impact(start, end).is_empty(),
+			"seed 65198 segment %d" % index
+		)
 	var bounds := field.city_building_bounds(0)
 	for point: Vector3 in [bounds.position, bounds.end, bounds.get_center()]:
 		assert_eq(field.building_blocks_segment(point, point), not field.building_segment_impact(point, point).is_empty())
@@ -70,7 +85,7 @@ func test_placement_contours_are_world_local_and_do_not_change_terrain() -> void
 	assert_eq(first.generator.heights, heights)
 	var placement := add_child_autofree(PlacementController.new()) as PlacementController
 	placement.battlefield = first
-	placement.select(SCENARIO.available_defenses[0])
+	placement.select(_defense(&"missile_battery"))
 	placement.candidate_position = Vector3(100, first.generator.sea_level + 45, 100)
 	first.set_placement_contours(true, placement.candidate_position)
 	assert_null(placement.preview.find_child("ElevationLabel", true, false))
@@ -83,7 +98,7 @@ func test_placement_range_color_is_independent_of_model_validity() -> void:
 	field.build(SCENARIO)
 	var placement := add_child_autofree(PlacementController.new()) as PlacementController
 	placement.battlefield = field
-	for definition: DefenseDefinition in [SCENARIO.available_defenses[0], SCENARIO.available_defenses[1]]:
+	for definition: DefenseDefinition in [_defense(&"missile_battery"), _defense(&"search_radar")]:
 		placement.select(definition)
 		var material := placement.range_disc.material_override as StandardMaterial3D
 		var original_color := material.albedo_color
@@ -92,7 +107,7 @@ func test_placement_range_color_is_independent_of_model_validity() -> void:
 			assert_eq(material.albedo_color, original_color, "범위는 배치 모형의 유효성 색상을 공유하지 않는다")
 		placement.cancel()
 	var overlay := add_child_autofree(C2Overlay.new()) as C2Overlay
-	overlay.preview_placement(SCENARIO.available_defenses[0], Vector3.ZERO, true)
+	overlay.preview_placement(_defense(&"missile_battery"), Vector3.ZERO, true)
 	for ready: bool in [true, false, true]:
 		overlay.placement_ready = ready
 		overlay._rebuild_range()
@@ -129,9 +144,10 @@ func test_building_spatial_candidates_preserve_nearest_segment_impacts() -> void
 				expected_index = index
 				expected_position = hit
 		var actual := field.building_segment_impact(start, end)
-		assert_eq(int(actual.get("building_index", -1)), expected_index)
+		var case_label := "seed 27331 segment %d" % trial
+		assert_eq(int(actual.get("building_index", -1)), expected_index, case_label)
 		if expected_index >= 0:
-			assert_almost_eq((actual.position as Vector3).distance_to(expected_position), 0.0, 0.001)
+			assert_almost_eq((actual.position as Vector3).distance_to(expected_position), 0.0, 0.001, case_label)
 
 func test_smoke_animates_shared_birth_records_without_per_puff_reuploads() -> void:
 	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
@@ -162,7 +178,10 @@ func test_falling_wreck_preserves_airframe_geometry_without_live_systems() -> vo
 	assert_lt((fallen.get_active_material(0) as StandardMaterial3D).albedo_color.v, (original.get_active_material(0) as StandardMaterial3D).albedo_color.v)
 	assert_null(wreck.wreck.find_child("LeftEngineGlow", true, false))
 	assert_eq(wreck.wreck.find_children("*", "Light3D", true, false).size(), 0)
-	assert_null(wreck.wreck.get_child(0).get_script(), "잔해에 비행 AI나 모델 생성 스크립트를 복제하지 않습니다")
+	assert_false(wreck.wreck is ThreatUnit)
+	assert_false(wreck.wreck is AttackUav)
+	assert_false(_has_property(wreck.wreck, &"registry"), "잔해는 실전 표적 등록 상태를 갖지 않습니다")
+	assert_false(wreck.wreck.has_method("gameplay_tick"), "잔해는 전투 비행 동작을 실행하지 않습니다")
 	assert_eq(fallen.mesh.get_aabb(), original.mesh.get_aabb(), "날개·수직미익을 포함한 전체 기체 형상을 복제합니다")
 	assert_gt(original.mesh.get_aabb().size.x, 15.0)
 
@@ -202,8 +221,8 @@ func test_content_warmup_uses_runtime_setup_without_joining_combat() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D
 	var threat_definition := preload("res://enemy/strike_aircraft/strike_aircraft.tres")
 	var defense_definition := preload("res://defense/close_in_gun/close_in_gun.tres")
-	var threat := CombatVfxWarmup.create_content_sample(parent, threat_definition) as AttackUav
-	var defense := CombatVfxWarmup.create_content_sample(parent, defense_definition) as CloseInGun
+	var threat := CombatVfxSampleCatalog.create_content_sample(parent, threat_definition) as AttackUav
+	var defense := CombatVfxSampleCatalog.create_content_sample(parent, defense_definition) as CloseInGun
 	assert_same(threat.definition, threat_definition)
 	assert_same(defense.definition, defense_definition)
 	assert_not_null(defense.gunfire)
@@ -479,13 +498,14 @@ func test_city_building_targets_use_seeded_ranges_and_segments_hit_the_first_sur
 	var last_target := Vector3.ZERO
 	for sample: int in 24:
 		var target := battlefield.random_city_building_target(first_rng)
-		assert_eq(target, battlefield.random_city_building_target(second_rng))
+		var case_label := "seed 90817 sample %d" % sample
+		assert_eq(target, battlefield.random_city_building_target(second_rng), case_label)
 		var contained := false
 		for index: int in battlefield.city_buildings.size():
 			if battlefield.city_building_bounds(index).has_point(target):
 				contained = true
 				break
-		assert_true(contained)
+		assert_true(contained, case_label)
 		if sample == 0:
 			first_target = target
 		last_target = target
@@ -509,38 +529,39 @@ func test_city_objective_uses_a_civic_landmark() -> void:
 	assert_almost_eq(mount.position.y, roof.position.y + (roof.mesh as BoxMesh).size.y * 0.5, 0.001)
 
 func test_tactical_units_use_a_smaller_presentation_scale_without_changing_profiles() -> void:
-	var defense := add_child_autofree(SCENARIO.available_defenses[0].scene.instantiate()) as DefenseUnit
-	defense.setup(1, SCENARIO.available_defenses[0])
-	var threat := add_child_autofree(SCENARIO.threat_entries[0].threat_definition.scene.instantiate()) as ThreatUnit
-	threat.setup(1, SCENARIO.threat_entries[0].threat_definition)
+	var defense := add_child_autofree(_defense(&"missile_battery").scene.instantiate()) as DefenseUnit
+	defense.setup(1, _defense(&"missile_battery"))
+	var threat := add_child_autofree(_threat(&"attack_uav").scene.instantiate()) as ThreatUnit
+	threat.setup(1, _threat(&"attack_uav"))
 	assert_eq(defense.scale, Vector3.ONE * DefenseUnit.PRESENTATION_SCALE)
 	assert_eq(threat.scale, Vector3.ONE * ThreatUnit.PRESENTATION_SCALE)
-	assert_eq(defense.definition.placement_profile.footprint_radius, SCENARIO.available_defenses[0].placement_profile.footprint_radius)
-	assert_eq(threat.definition.radar_signature, SCENARIO.threat_entries[0].threat_definition.radar_signature)
+	assert_eq(defense.definition.placement_profile.footprint_radius, _defense(&"missile_battery").placement_profile.footprint_radius)
+	assert_eq(threat.definition.radar_signature, _threat(&"attack_uav").radar_signature)
 
 func test_every_friendly_installation_exposes_a_fixed_size_role_icon() -> void:
-	assert_eq(SCENARIO.available_defenses[1].display_name, "저·중고도 레이더")
-	assert_eq(SCENARIO.available_defenses[3].display_name, "고고도 레이더")
+	assert_eq(_defense(&"search_radar").display_name, "저·중고도 레이더")
+	assert_eq(_defense(&"tracking_radar").display_name, "고고도 레이더")
 	var role_icons: Dictionary = {}
 	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		var case_label := "defense %s" % definition.id
 		var defense := add_child_autofree(definition.scene.instantiate()) as DefenseUnit
 		defense.setup(1, definition)
-		assert_not_null(defense.identity_marker)
-		assert_true(defense.identity_marker.visible)
+		assert_not_null(defense.identity_marker, "%s identity marker" % case_label)
+		assert_true(defense.identity_marker.visible, "%s marker visibility" % case_label)
 		var icon := defense.identity_marker.get_node("Icon") as Sprite3D
-		assert_true(icon.fixed_size)
-		assert_true(icon.no_depth_test)
-		assert_gte(icon.render_priority, 100)
-		assert_not_null(icon.texture)
-		assert_same(icon.texture, definition.identity_icon)
-		assert_true(icon.texture.resource_path.ends_with(".svg"))
-		assert_eq(defense.identity_marker.position, defense.status_marker.position, "상태 표식은 같은 기준점에서 화면 기준 간격을 유지합니다")
+		assert_true(icon.fixed_size, "%s fixed-size icon" % case_label)
+		assert_true(icon.no_depth_test, "%s icon depth" % case_label)
+		assert_gte(icon.render_priority, 100, "%s icon priority" % case_label)
+		assert_not_null(icon.texture, "%s icon texture" % case_label)
+		assert_same(icon.texture, definition.identity_icon, "%s authored icon" % case_label)
+		assert_true(icon.texture.resource_path.ends_with(".svg"), "%s vector icon" % case_label)
+		assert_eq(defense.identity_marker.position, defense.status_marker.position, "%s 상태 표식은 같은 기준점에서 화면 기준 간격을 유지합니다" % case_label)
 		role_icons[icon.texture.resource_path] = true
 	assert_eq(role_icons.size(), SCENARIO.available_defenses.size(), "각 자산 종류의 아이콘을 구분할 수 있습니다")
 
 func test_friendly_installation_selection_highlights_icon_and_footprint() -> void:
-	var defense := add_child_autofree(SCENARIO.available_defenses[0].scene.instantiate()) as DefenseUnit
-	defense.setup(1, SCENARIO.available_defenses[0])
+	var defense := add_child_autofree(_defense(&"missile_battery").scene.instantiate()) as DefenseUnit
+	defense.setup(1, _defense(&"missile_battery"))
 	var icon := defense.identity_marker.get_node("Icon") as Sprite3D
 	var selection_ring := defense.identity_marker.get_node("SelectionRing") as MeshInstance3D
 	assert_false(selection_ring.visible)
@@ -555,7 +576,7 @@ func test_friendly_installation_selection_highlights_icon_and_footprint() -> voi
 	assert_eq(icon.scale, Vector3.ONE)
 
 func test_reload_marker_tracks_magazine_not_burst_cooldown() -> void:
-	var definition := SCENARIO.available_defenses[4]
+	var definition := _defense(&"close_in_gun")
 	var gun := add_child_autofree(definition.scene.instantiate()) as CloseInGun
 	gun.setup(1, definition)
 	var background := gun.identity_marker.get_node("ReloadBackground") as Sprite3D
@@ -585,16 +606,15 @@ func test_reload_marker_tracks_magazine_not_burst_cooldown() -> void:
 	assert_false(background.visible, "탄약 고갈은 재장전이 아닙니다")
 
 func test_multiple_munition_reload_marker_uses_next_completion() -> void:
-	var definition := SCENARIO.available_defenses[7]
+	var definition := _defense(&"long_range_missile")
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	battery.setup(1, definition)
-	var magazines: Array = battery.magazines.values()
-	assert_eq(magazines.size(), 2)
-	for magazine: WeaponMagazine in magazines:
+	assert_eq(battery.magazines.size(), 2)
+	for magazine: WeaponMagazine in battery.magazines.values():
 		while magazine.can_fire():
 			magazine.consume()
-	var first := magazines[0] as WeaponMagazine
-	var second := magazines[1] as WeaponMagazine
+	var first := battery.magazines[&"area_defense"] as WeaponMagazine
+	var second := battery.magazines[&"high_speed_interceptor"] as WeaponMagazine
 	first.reload_remaining = 3.0
 	second.reload_remaining = 1.0
 	assert_same(battery.reload_display_magazine(), second)
@@ -663,15 +683,29 @@ func _coast_radius(generator: WorldGenerator, angle: float) -> float:
 			return float(radius)
 	return 1180.0
 
-func test_objective_damage_and_depletion_are_bounded() -> void:
-	var objective: ProtectedObjective = add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
-	var definition := ObjectiveDefinition.new()
-	definition.maximum_integrity = 100
-	objective.setup(1, definition)
+func test_objective_damage_is_bounded_and_depletion_emits_once() -> void:
+	var objective := _test_objective()
 	watch_signals(objective)
 	var first_impact := Vector3(12.0, 30.0, -5.0)
 	assert_true(objective.apply_building_impact(10, first_impact, 48.0))
 	assert_eq(objective.current_integrity, 90)
+	assert_eq(objective.damage_smoke_effects.size(), 1)
+	assert_eq(objective.damage_smoke_effects[0].global_position, first_impact)
+	assert_true(objective.apply_building_impact(10, Vector3(-8.0, 22.0, 14.0), 32.0))
+	assert_true(objective.apply_building_impact(10, Vector3(18.0, 42.0, 20.0), 56.0))
+	assert_true(objective.apply_building_impact(100, Vector3(-22.0, 35.0, -18.0), 44.0))
+	assert_eq(objective.current_integrity, 0)
+	assert_eq(objective.damage_smoke_effects.size(), 4)
+	assert_signal_emit_count(objective, "depleted", 1)
+	assert_false(objective.apply_mission_damage(10))
+	assert_false(objective.apply_building_impact(10, Vector3.ZERO, 20.0))
+	assert_eq(objective.damage_smoke_effects.size(), 4)
+	assert_signal_emit_count(objective, "depleted", 1)
+
+func test_city_damage_smoke_uses_bounded_authored_particle_profile() -> void:
+	var objective := _test_objective()
+	var first_impact := Vector3(12.0, 30.0, -5.0)
+	assert_true(objective.apply_building_impact(10, first_impact, 48.0))
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 	assert_eq(objective.damage_smoke_effects[0].global_position, first_impact)
 	var smoke := objective.damage_smoke_effects[0].get_node("Smoke") as GPUParticles3D
@@ -705,17 +739,14 @@ func test_objective_damage_and_depletion_are_bounded() -> void:
 	assert_gte(smoke.visibility_aabb.size.y, 220.0)
 	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeMiddle"))
 	assert_null(objective.damage_smoke_effects[0].get_node_or_null("SmokeUpper"))
-	assert_true(objective.apply_building_impact(10, Vector3(-8.0, 22.0, 14.0), 32.0))
-	assert_true(objective.apply_building_impact(10, Vector3(18.0, 42.0, 20.0), 56.0))
-	assert_true(objective.apply_building_impact(100, Vector3(-22.0, 35.0, -18.0), 44.0))
-	assert_eq(objective.current_integrity, 0)
+
+func test_objective_repair_reduces_smoke_to_the_integrity_band() -> void:
+	var objective := _test_objective()
+	for index: int in 4:
+		assert_true(objective.apply_building_impact(25, Vector3(index * 10.0, 20.0, 0.0), 30.0))
 	assert_eq(objective.damage_smoke_effects.size(), 4)
-	assert_signal_emit_count(objective, "depleted", 1)
-	assert_false(objective.apply_mission_damage(10))
-	assert_false(objective.apply_building_impact(10, Vector3.ZERO, 20.0))
-	assert_eq(objective.damage_smoke_effects.size(), 4)
-	assert_signal_emit_count(objective, "depleted", 1)
 	objective.restore_integrity(75)
+	assert_eq(objective.current_integrity, 75)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 
 func test_city_repair_removes_smoke_in_steps_and_preserves_the_last_site() -> void:
@@ -800,27 +831,31 @@ func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_cast
 		{"scene": preload("res://effects/interceptor_miss/interceptor_miss.tscn"), "paths": ["Smoke"]},
 	]
 	for smoke_case: Dictionary in smoke_cases:
-		var effect: Node = add_child_autofree((smoke_case.scene as PackedScene).instantiate())
+		var scene := smoke_case.scene as PackedScene
+		var effect: Node = add_child_autofree(scene.instantiate())
 		for path: String in smoke_case.paths:
+			var case_label := "%s:%s" % [scene.resource_path, path]
 			var particles := effect.get_node(path) as GPUParticles3D
-			assert_eq(particles.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s visible pass must not cast thresholded shadows" % path)
+			assert_eq(particles.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s visible pass must not cast thresholded shadows" % case_label)
 			var mesh := particles.draw_pass_1 as Mesh
-			assert_true(mesh is QuadMesh, "%s visible smoke must use a soft radial card" % path)
+			assert_true(mesh is QuadMesh, "%s visible smoke must use a soft radial card" % case_label)
 			var material := mesh.surface_get_material(0) as StandardMaterial3D
-			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "%s must blend smoothly without Compatibility depth-prepass centers" % path)
-			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % path)
+			assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "%s must blend smoothly without Compatibility depth-prepass centers" % case_label)
+			assert_eq(material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL, "%s must interact with scene lighting" % case_label)
 			var shadow := particles.get_node("SmokeShadow") as GPUParticles3D
-			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s GPU shadow proxy must render in Compatibility" % path)
-			assert_eq(shadow.process_material, particles.process_material, "%s shadow motion must match visible smoke" % path)
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s GPU shadow proxy must render in Compatibility" % case_label)
+			assert_eq(shadow.process_material, particles.process_material, "%s shadow motion must match visible smoke" % case_label)
 			var shadow_mesh := shadow.draw_pass_1 as Mesh
 			var shadow_material := shadow_mesh.surface_get_material(0) as ShaderMaterial
-			assert_not_null(shadow_material, "%s shadow opacity must use the shadow-pass shader" % path)
-			assert_eq(shadow_material.shader.resource_path, "res://effects/smoke_shadow.gdshader")
-			assert_true(shadow_material.shader.code.contains("!IN_SHADOW_PASS"), "%s proxy must discard its camera color pass" % path)
-			assert_false(shadow_material.shader.code.contains("ALPHA_HASH_SCALE"), "%s shadow must remain a solid surface instead of a pixel hash" % path)
-			assert_true(shadow_material.shader.code.contains("VERTEX *= sqrt"), "%s shadow fade must contract the solid particle silhouette" % path)
+			assert_not_null(shadow_material, "%s shadow opacity must use the shadow-pass shader" % case_label)
+			if shadow_material == null:
+				continue
+			assert_eq(shadow_material.shader.resource_path, "res://effects/smoke_shadow.gdshader", "%s shadow shader" % case_label)
+			assert_true(shadow_material.shader.code.contains("!IN_SHADOW_PASS"), "%s proxy must discard its camera color pass" % case_label)
+			assert_false(shadow_material.shader.code.contains("ALPHA_HASH_SCALE"), "%s shadow must remain a solid surface instead of a pixel hash" % case_label)
+			assert_true(shadow_material.shader.code.contains("VERTEX *= sqrt"), "%s shadow fade must contract the solid particle silhouette" % case_label)
 			if mesh is QuadMesh:
-				assert_true(shadow_mesh is SphereMesh, "%s billboard shadow must use round geometry without card corners" % path)
+				assert_true(shadow_mesh is SphereMesh, "%s billboard shadow must use round geometry without card corners" % case_label)
 
 func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> void:
 	var trail_cases: Array[Dictionary] = [
@@ -831,26 +866,68 @@ func test_sampled_flight_trails_use_compatibility_safe_soft_multimeshes() -> voi
 		{"scene": preload("res://effects/falling_wreck/falling_wreck.tscn"), "paths": ["SmokeTrail"]},
 	]
 	for trail_case: Dictionary in trail_cases:
-		var effect: Node = add_child_autofree((trail_case.scene as PackedScene).instantiate())
+		var scene := trail_case.scene as PackedScene
+		var effect: Node = add_child_autofree(scene.instantiate())
 		for path: String in trail_case.paths:
+			var case_label := "%s:%s" % [scene.resource_path, path]
 			var trail := effect.get_node(path) as LingeringSmokeTrail
-			assert_not_null(trail.multimesh, "%s must build a Compatibility-safe multimesh" % path)
-			assert_true(trail.multimesh.mesh is QuadMesh, "%s visible puffs must be soft cards" % path)
+			assert_not_null(trail.multimesh, "%s must build a Compatibility-safe multimesh" % case_label)
+			assert_true(trail.multimesh.mesh is QuadMesh, "%s visible puffs must be soft cards" % case_label)
 			var material := (trail.multimesh.mesh as QuadMesh).material as ShaderMaterial
-			assert_not_null(material.get_shader_parameter("puff_texture"))
-			assert_true(trail.multimesh.use_custom_data)
-			assert_eq(material.get_shader_parameter("trail_lifetime"), trail.lifetime)
-			assert_eq(material.get_shader_parameter("trail_turbulence_strength"), trail.turbulence_strength)
-			assert_eq(trail.shadow_material.get_shader_parameter("trail_turbulence_strength"), trail.turbulence_strength)
-			assert_eq(trail.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+			assert_not_null(material.get_shader_parameter("puff_texture"), "%s puff texture" % case_label)
+			assert_true(trail.multimesh.use_custom_data, "%s custom data" % case_label)
+			assert_eq(material.get_shader_parameter("trail_lifetime"), trail.lifetime, "%s lifetime" % case_label)
+			assert_eq(material.get_shader_parameter("trail_turbulence_strength"), trail.turbulence_strength, "%s visible turbulence" % case_label)
+			assert_eq(trail.shadow_material.get_shader_parameter("trail_turbulence_strength"), trail.turbulence_strength, "%s shadow turbulence" % case_label)
+			assert_eq(trail.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "%s visible shadow mode" % case_label)
 			var shadow := trail.get_node("SmokeShadow") as MultiMeshInstance3D
-			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
-			assert_eq(shadow.layers, SmokeShadowFactory.SMOKE_LAYER)
-			assert_true(shadow.multimesh.mesh is SphereMesh)
-			assert_eq(shadow.multimesh.instance_count, ceili(float(trail.amount) / float(trail.shadow_emission_stride)))
+			assert_eq(shadow.cast_shadow, GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "%s shadow proxy mode" % case_label)
+			assert_eq(shadow.layers, SmokeShadowFactory.SMOKE_LAYER, "%s shadow layer" % case_label)
+			assert_true(shadow.multimesh.mesh is SphereMesh, "%s shadow geometry" % case_label)
+			assert_eq(shadow.multimesh.instance_count, ceili(float(trail.amount) / float(trail.shadow_emission_stride)), "%s shadow capacity" % case_label)
 			var shadow_sphere := shadow.multimesh.mesh as SphereMesh
-			assert_almost_eq(shadow_sphere.radius, maxf(trail.puff_mesh.size.x, trail.puff_mesh.size.y) * trail.shadow_radius_ratio, 0.001)
-			assert_lte(shadow_sphere.radius, maxf(trail.puff_mesh.size.x, trail.puff_mesh.size.y) * 0.35, "%s trail shadow must remain smaller than each visible puff" % path)
+			assert_almost_eq(shadow_sphere.radius, maxf(trail.puff_mesh.size.x, trail.puff_mesh.size.y) * trail.shadow_radius_ratio, 0.001, "%s shadow radius" % case_label)
+			assert_lte(shadow_sphere.radius, maxf(trail.puff_mesh.size.x, trail.puff_mesh.size.y) * 0.35, "%s trail shadow must remain smaller than each visible puff" % case_label)
+
+func test_fast_interceptor_smoke_samples_the_full_frame_path_without_gaps() -> void:
+	var interceptor := add_child_autofree(preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate()) as HomingInterceptor
+	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
+	var long_range := _defense(&"long_range_missile") as MissileBatteryDefinition
+	var high_speed := _munition(long_range, &"high_speed_interceptor")
+	var representative_frame_seconds := 0.05
+	var travel_distance := high_speed.interceptor_speed * representative_frame_seconds
+	var expected_samples := floori(travel_distance / smoke.sample_spacing) * smoke.particles_per_sample
+	smoke.sample_world_segment(Vector3.ZERO, Vector3.FORWARD * travel_distance)
+	assert_gt(expected_samples, 1, "대표 고속 이동은 복수 연기 표본이 필요한 거리입니다")
+	assert_gte(smoke.active_puff_count(), expected_samples, "이동 거리와 scene sample_spacing이 요구하는 모든 표본이 활성화됩니다")
+	assert_gte(smoke.emitted_sample_count, expected_samples, "프레임 사이 경로를 양끝만으로 대체하지 않습니다")
+	assert_lte(smoke.last_emitted_world_position.distance_to(Vector3.FORWARD * travel_distance), smoke.sample_spacing + 0.001, "마지막 표본과 프레임 끝의 간격도 scene 간격 안입니다")
+	assert_lte(smoke.sample_spacing, maxf(smoke.puff_mesh.size.x, smoke.puff_mesh.size.y), "인접 표본의 가시 카드가 끊어지지 않습니다")
+
+func test_interceptor_smoke_capacity_retains_its_expected_flight_and_drifts() -> void:
+	var interceptor := add_child_autofree(preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate()) as HomingInterceptor
+	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
+	var expected_path_length := interceptor.speed * interceptor.maximum_lifetime
+	var expected_flight_samples := floori(expected_path_length / smoke.sample_spacing) * smoke.particles_per_sample
+	assert_gte(smoke.amount, expected_flight_samples, "scene이 선언한 최대 비행 동안 초기 표본을 덮어쓰지 않습니다")
+	assert_gt(smoke.lifetime, interceptor.maximum_lifetime, "첫 비행 표본은 요격탄 비행이 끝난 뒤에도 남습니다")
+	assert_gt(smoke.drift_speed, 0.0, "잔류 연기는 정지하지 않고 완만하게 이동합니다")
+	assert_gt(smoke.final_scale, smoke.initial_scale, "잔류 연기는 수명 동안 완만하게 퍼집니다")
+
+func test_interceptor_propulsion_uses_visible_emission_and_a_finite_light() -> void:
+	var interceptor := add_child_autofree(preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate()) as HomingInterceptor
+	var flame := interceptor.get_node("Trail") as MeshInstance3D
+	var flame_material := flame.material_override as StandardMaterial3D
+	var flame_light := interceptor.get_node("FlameLight") as OmniLight3D
+	assert_true(flame.visible, "요격탄 추진 화염 메시가 비행 표본에서 보입니다")
+	assert_true(flame_material.emission_enabled, "추진 화염은 emissive 재질을 사용합니다")
+	assert_true(is_finite(flame_material.emission_energy_multiplier))
+	assert_gt(flame_material.emission_energy_multiplier, 0.0)
+	assert_true(flame_light.visible, "요격탄 추진 광원이 비행 표본에서 보입니다")
+	assert_true(is_finite(flame_light.light_energy))
+	assert_gt(flame_light.light_energy, 0.0, "추진 광원은 양의 에너지를 가집니다")
+	assert_true(is_finite(flame_light.omni_range))
+	assert_gt(flame_light.omni_range, 0.0, "추진 광원의 범위는 유한한 양수입니다")
 
 func test_missile_trails_share_a_bright_smoke_body_material() -> void:
 	var trail_cases: Array[Dictionary] = [
@@ -859,13 +936,15 @@ func test_missile_trails_share_a_bright_smoke_body_material() -> void:
 		{"scene": preload("res://effects/air_strike_munition/air_strike_munition.tscn"), "path": "SmokeTrail"},
 	]
 	for trail_case: Dictionary in trail_cases:
-		var effect: Node = add_child_autofree((trail_case.scene as PackedScene).instantiate())
+		var scene := trail_case.scene as PackedScene
+		var case_label := "%s:%s" % [scene.resource_path, trail_case.path]
+		var effect: Node = add_child_autofree(scene.instantiate())
 		var trail := effect.get_node(trail_case.path as String) as LingeringSmokeTrail
 		var material := trail.smoke_material
 		var tint: Color = material.get_shader_parameter("tint")
-		assert_gte(tint.r, 0.85)
-		assert_gte(tint.g, 0.85)
-		assert_gte(tint.b, 0.85)
+		assert_gte(tint.r, 0.85, "%s red tint" % case_label)
+		assert_gte(tint.g, 0.85, "%s green tint" % case_label)
+		assert_gte(tint.b, 0.85, "%s blue tint" % case_label)
 
 func test_sampled_smoke_uses_irregular_variation_and_retires_expired_slots() -> void:
 	var first_variation := SmokePuffDistribution.sample(1, 0.5)
@@ -959,7 +1038,7 @@ func test_explosion_timeline_layers_expand_and_retire_in_order() -> void:
 	assert_almost_eq(doubled.core_scale, ignition.core_scale * 2.0, 0.001)
 	assert_almost_eq(doubled.pressure_scale, ignition.pressure_scale * 2.0, 0.001)
 
-func test_energy_effects_retire_independently_and_can_be_replayed() -> void:
+func test_laser_effects_retire_independently() -> void:
 	var laser_scene := preload("res://effects/laser_pulse/laser_pulse.tscn")
 	var first := add_child_autofree(laser_scene.instantiate()) as LaserPulse
 	var second := add_child_autofree(laser_scene.instantiate()) as LaserPulse
@@ -970,6 +1049,8 @@ func test_energy_effects_retire_independently_and_can_be_replayed() -> void:
 	assert_true(first.is_queued_for_deletion())
 	assert_false(second.is_queued_for_deletion())
 	assert_gt(second.impact_light.light_energy, 0.0)
+
+func test_field_pulse_can_be_replayed_at_world_scale() -> void:
 	var weapon := add_child_autofree(preload("res://defense/high_power_microwave/high_power_microwave.tscn").instantiate()) as HighPowerMicrowave
 	weapon.scale = Vector3.ONE * 0.9
 	weapon.pulse_visual.play(40.0)
@@ -1005,7 +1086,7 @@ func test_enemy_swept_movement_resolves_at_a_building_surface_and_starts_smoke_t
 	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
 	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
 	objective.setup(1, SCENARIO.objective_definition)
-	var definition := SCENARIO.threat_entries[0].threat_definition as AttackUavDefinition
+	var definition := _threat(&"attack_uav") as AttackUavDefinition
 	var threat := add_child_autofree(definition.scene.instantiate()) as AttackUav
 	threat.setup(4001, definition)
 	var bounds := battlefield.city_building_bounds(0)
@@ -1026,7 +1107,7 @@ func test_strike_and_exit_aircraft_is_not_stopped_by_incidental_city_buildings()
 	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
 	objective.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
 	objective.setup(1, SCENARIO.objective_definition)
-	var definition := SCENARIO.threat_entries[3].threat_definition as AttackUavDefinition
+	var definition := _threat(&"support_strike_uav") as AttackUavDefinition
 	var threat := add_child_autofree(definition.scene.instantiate()) as AttackUav
 	threat.setup(4002, definition)
 	var bounds := battlefield.city_building_bounds(0)
@@ -1076,7 +1157,7 @@ func test_neutral_contact_does_not_award_budget_or_hostile_statistics() -> void:
 	assert_eq(session.budget, 100)
 	assert_eq(session.neutralized_count, 0)
 
-func test_raid_pacing_rises_gradually_and_stays_bounded() -> void:
+func test_pressure_waits_for_the_opening_raid_and_advances_at_fixed_steps() -> void:
 	var director: ThreatDirector = autofree(ThreatDirector.new()) as ThreatDirector
 	director.scenario = SCENARIO
 	assert_eq(director.pressure_level_at(0.0), 1)
@@ -1089,20 +1170,37 @@ func test_raid_pacing_rises_gradually_and_stays_bounded() -> void:
 	assert_eq(director.pressure_level_at(200.0), 2)
 	assert_eq(director.pressure_level_at(200.0 + pressure_step - 0.1), 2)
 	assert_eq(director.pressure_level_at(200.0 + pressure_step), 3)
+
+func test_raid_interval_and_budget_scale_with_pressure_but_remain_bounded() -> void:
+	var director := autofree(ThreatDirector.new()) as ThreatDirector
+	director.scenario = SCENARIO
+	director.opening_raid_started = true
+	director.opening_raid_complete = true
+	director.pressure_started_at = 200.0
 	assert_eq(director.spawn_interval_at(0.0), 24.0)
 	assert_lt(director.spawn_interval_at(450.0), director.spawn_interval_at(0.0))
 	assert_gte(director.spawn_interval_at(10000.0), 14.0)
 	assert_gt(director.threat_budget_at(240.0), director.threat_budget_at(0.0))
+
+func test_threat_speed_growth_caps_at_the_scenario_maximum() -> void:
+	var director := autofree(ThreatDirector.new()) as ThreatDirector
+	director.scenario = SCENARIO
 	assert_eq(director.speed_multiplier_at(0.0), 1.0)
 	assert_eq(director.speed_multiplier_at(1200.0), 1.6)
 	assert_eq(director.speed_multiplier_at(10000.0), 1.6)
+
+func test_scenario_attack_window_and_initial_spawn_timing_are_authored() -> void:
 	assert_eq(SCENARIO.initial_spawn_interval, 12.0)
 	assert_eq(SCENARIO.attack_window_duration, 75.0)
 	assert_eq(SCENARIO.recovery_duration, 45.0)
-	assert_eq(SCENARIO.raid_archetypes[0].id, &"recon_saturation_strike")
-	assert_eq(SCENARIO.raid_archetypes[0].phase_entries.size(), 3)
-	assert_eq(SCENARIO.raid_archetypes[0].phase_delays, [0.0, 4.0, 8.0])
-	assert_eq(SCENARIO.raid_archetypes[0].total_cost(), 9.0)
+
+func test_scenario_raid_archetypes_define_recon_sead_and_ballistic_strikes() -> void:
+	var recon := _raid_archetype(&"recon_saturation_strike")
+	assert_eq(recon.phase_entries.size(), 3)
+	assert_eq(recon.phase_delays, [0.0, 4.0, 8.0])
+	assert_eq(recon.total_cost(), 9.0)
+	assert_eq(_raid_archetype(&"deception_sead_strike").total_cost(), 9.0)
+	assert_not_null(_raid_archetype(&"mixed_ballistic_air_strike"))
 
 func test_running_session_receives_timed_and_attack_window_support() -> void:
 	var session := autofree(GameSession.new()) as GameSession
@@ -1137,17 +1235,17 @@ func test_director_enters_recovery_once_per_attack_window() -> void:
 	assert_eq(recovery_count[0], 1)
 
 func test_advanced_defenses_require_matching_pressure_level() -> void:
-	assert_eq(SCENARIO.available_defenses[0].unlock_pressure_level, 1)
-	assert_eq(SCENARIO.available_defenses[3].unlock_pressure_level, 2)
-	assert_eq(SCENARIO.available_defenses[6].unlock_pressure_level, 3)
-	assert_eq(SCENARIO.available_defenses[7].unlock_pressure_level, 4)
-	assert_eq(SCENARIO.available_defenses[9].unlock_pressure_level, 5)
+	assert_eq(_defense(&"missile_battery").unlock_pressure_level, 1)
+	assert_eq(_defense(&"tracking_radar").unlock_pressure_level, 2)
+	assert_eq(_defense(&"high_energy_laser").unlock_pressure_level, 3)
+	assert_eq(_defense(&"long_range_missile").unlock_pressure_level, 4)
+	assert_eq(_defense(&"high_power_microwave").unlock_pressure_level, 5)
 
 func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void:
-	var definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
+	var definition := _defense(&"close_in_gun") as CloseInGunDefinition
 	var gun: CloseInGun = autofree(definition.scene.instantiate()) as CloseInGun
 	gun.setup(1, definition)
-	var missile_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	var missile_definition := _defense(&"missile_battery") as MissileBatteryDefinition
 	var battery: MissileBattery = autofree(missile_definition.scene.instantiate()) as MissileBattery
 	battery.setup(2, missile_definition)
 	var small_track := PlayerTrack.new()
@@ -1159,31 +1257,53 @@ func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void
 	assert_eq(definition.engagement_reservation_kind(), EngagementCoordinator.FIRE_SUPPORT)
 	assert_lt(battery.weapon_match(small_track), battery.weapon_match(larger_track))
 
-func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> void:
-	var medium := SCENARIO.available_defenses[0] as MissileBatteryDefinition
-	var long_range := SCENARIO.available_defenses[7] as MissileBatteryDefinition
-	var short_range := SCENARIO.available_defenses[8] as MissileBatteryDefinition
+func test_missile_layers_have_distinct_range_price_and_altitude() -> void:
+	var medium := _defense(&"missile_battery") as MissileBatteryDefinition
+	var long_range := _defense(&"long_range_missile") as MissileBatteryDefinition
+	var short_range := _defense(&"short_range_missile") as MissileBatteryDefinition
 	assert_gt(long_range.attack_range, medium.attack_range)
 	assert_gt(medium.attack_range, short_range.attack_range)
 	assert_gt(long_range.price, medium.price)
 	assert_lt(short_range.price, medium.price)
-	assert_eq(medium.munitions[0].magazine_capacity, 6)
-	assert_eq(short_range.munitions[0].magazine_capacity, 4)
-	assert_eq(long_range.munitions[0].magazine_capacity + long_range.munitions[1].magazine_capacity, 4)
+	assert_gt(long_range.maximum_engagement_altitude, medium.maximum_engagement_altitude)
+	assert_gt(medium.maximum_engagement_altitude, short_range.maximum_engagement_altitude)
+	assert_gt(long_range.minimum_engagement_altitude, short_range.minimum_engagement_altitude)
+
+func test_missile_layers_have_distinct_capacity_channels_and_cadence() -> void:
+	var medium := _defense(&"missile_battery") as MissileBatteryDefinition
+	var long_range := _defense(&"long_range_missile") as MissileBatteryDefinition
+	var short_range := _defense(&"short_range_missile") as MissileBatteryDefinition
+	var medium_standard := _munition(medium, &"standard")
+	var short_quick_reaction := _munition(short_range, &"quick_reaction")
+	var long_area_defense := _munition(long_range, &"area_defense")
+	var long_high_speed := _munition(long_range, &"high_speed_interceptor")
+	assert_eq(medium_standard.magazine_capacity, 6)
+	assert_eq(short_quick_reaction.magazine_capacity, 4)
+	assert_eq(long_area_defense.magazine_capacity + long_high_speed.magazine_capacity, 4)
 	assert_eq(medium.engagement_channels, 6)
 	assert_eq(short_range.engagement_channels, 4)
 	assert_eq(long_range.engagement_channels, 4)
 	assert_eq(medium.launch_interval, 0.56)
 	assert_eq(short_range.launch_interval, 0.4)
 	assert_eq(long_range.launch_interval, 0.7)
-	assert_gt(long_range.maximum_engagement_altitude, medium.maximum_engagement_altitude)
-	assert_gt(medium.maximum_engagement_altitude, short_range.maximum_engagement_altitude)
-	assert_gt(long_range.minimum_engagement_altitude, short_range.minimum_engagement_altitude)
-	assert_gt(short_range.munitions[0].small_target_match, medium.munitions[0].small_target_match)
 	assert_eq(long_range.munitions.size(), 2)
-	assert_true(long_range.munitions[1].high_cost)
-	assert_eq(long_range.munitions[1].magazine_capacity, 2)
-	assert_eq(long_range.munitions[1].preferred_classes, [&"ballistic_missile", &"rocket", &"strike_aircraft"])
+
+func test_missile_munitions_have_distinct_small_and_high_cost_preferences() -> void:
+	var medium := _defense(&"missile_battery") as MissileBatteryDefinition
+	var long_range := _defense(&"long_range_missile") as MissileBatteryDefinition
+	var short_range := _defense(&"short_range_missile") as MissileBatteryDefinition
+	var medium_standard := _munition(medium, &"standard")
+	var short_quick_reaction := _munition(short_range, &"quick_reaction")
+	var long_high_speed := _munition(long_range, &"high_speed_interceptor")
+	assert_gt(short_quick_reaction.small_target_match, medium_standard.small_target_match)
+	assert_true(long_high_speed.high_cost)
+	assert_eq(long_high_speed.magazine_capacity, 2)
+	assert_eq(long_high_speed.preferred_classes, [&"ballistic_missile", &"rocket", &"strike_aircraft"])
+
+func test_missile_layer_scenes_expose_distinct_visual_roles() -> void:
+	var medium := _defense(&"missile_battery") as MissileBatteryDefinition
+	var long_range := _defense(&"long_range_missile") as MissileBatteryDefinition
+	var short_range := _defense(&"short_range_missile") as MissileBatteryDefinition
 	assert_ne(long_range.scene.resource_path, medium.scene.resource_path)
 	assert_ne(short_range.scene.resource_path, medium.scene.resource_path)
 	assert_ne(short_range.scene.resource_path, long_range.scene.resource_path)
@@ -1196,38 +1316,56 @@ func test_missile_layers_have_distinct_range_cost_ammunition_and_channels() -> v
 	assert_eq(medium_model.get_meta("visual_role"), "medium_six_cell_rack")
 	assert_eq(long_model.get_meta("visual_role"), "long_four_canister_bank")
 	assert_eq(short_model.get_meta("visual_role"), "short_quick_reaction_cluster")
-	var hpm := SCENARIO.available_defenses[9] as HighPowerMicrowaveDefinition
+
+func test_hpm_definition_has_valid_area_and_energy_cost() -> void:
+	var hpm := _defense(&"high_power_microwave") as HighPowerMicrowaveDefinition
 	assert_gt(hpm.effect_radius, 0.0)
 	assert_gt(hpm.energy_per_pulse, 0.0)
-	var drones := SCENARIO.available_defenses[10] as InterceptorDroneDefenseDefinition
+
+func test_interceptor_drone_capacity_exceeds_channels_and_recharge_interval() -> void:
+	var drones := _defense(&"interceptor_drone_defense") as InterceptorDroneDefenseDefinition
 	assert_gt(drones.drone_count, drones.engagement_channels)
 	assert_gt(drones.recharge_duration, drones.launch_interval)
 
-func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
-	var attack := SCENARIO.threat_entries[0].threat_definition as AttackUavDefinition
-	var swarm := SCENARIO.threat_entries[1].threat_definition as AttackUavDefinition
+func test_impact_threats_compose_distinct_movement_and_mission_profiles() -> void:
+	var attack := _threat(&"attack_uav") as AttackUavDefinition
+	var swarm := _threat(&"swarm_uav") as AttackUavDefinition
 	assert_not_null(attack.movement)
 	assert_not_null(attack.mission)
 	assert_eq(attack.mission.type, ThreatMissionDefinition.Type.IMPACT)
 	assert_eq(attack.mission.target_role, ThreatMissionDefinition.TargetRole.CITY)
 	assert_gt(swarm.movement.speed, attack.movement.speed)
-	var decoy := SCENARIO.threat_entries[6].threat_definition as AttackUavDefinition
+	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
+	assert_ne(swarm.movement, attack.movement)
+	var cruise := _threat(&"cruise_missile") as AttackUavDefinition
+	assert_eq(cruise.movement.mode, ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING)
+	assert_lt(cruise.movement.cruise_altitude, swarm.movement.cruise_altitude)
+	assert_gt(cruise.movement.speed, swarm.movement.speed)
+	var aircraft := _threat(&"strike_aircraft") as AttackUavDefinition
+	assert_eq(aircraft.mission.type, ThreatMissionDefinition.Type.STRIKE_AND_EXIT)
+	assert_gt(aircraft.movement.speed, attack.movement.speed * 3.0)
+	assert_gt(aircraft.movement.terminal_altitude, 80.0)
+	assert_gt(aircraft.movement.terminal_distance, 500.0)
+	var jammer := _threat(&"electronic_warfare_uav") as AttackUavDefinition
+	assert_gt(aircraft.movement.cruise_altitude, jammer.movement.cruise_altitude)
+
+func test_specialized_threats_define_recon_jamming_and_suppression_roles() -> void:
+	var decoy := _threat(&"decoy_uav") as AttackUavDefinition
 	assert_eq(decoy.id, &"decoy_uav")
 	assert_eq(decoy.mission.type, ThreatMissionDefinition.Type.RECONNAISSANCE)
 	assert_eq(decoy.mission.damage, 0.0)
 	assert_eq(decoy.false_echo_count, 2)
-	var jammer := SCENARIO.threat_entries[7].threat_definition as AttackUavDefinition
+	var jammer := _threat(&"electronic_warfare_uav") as AttackUavDefinition
 	assert_eq(jammer.id, &"electronic_warfare_uav")
 	assert_gt(jammer.jamming_range, 0.0)
 	assert_gt(jammer.jamming_strength, 0.0)
-	var anti_radiation := SCENARIO.threat_entries[8].threat_definition as AttackUavDefinition
+	var anti_radiation := _threat(&"anti_radiation_missile") as AttackUavDefinition
 	assert_eq(anti_radiation.id, &"anti_radiation_missile")
 	assert_eq(anti_radiation.mission.target_role, ThreatMissionDefinition.TargetRole.SENSOR)
-	assert_eq(SCENARIO.raid_archetypes[1].id, &"deception_sead_strike")
-	assert_eq(SCENARIO.raid_archetypes[1].total_cost(), 9.0)
-	var ballistic := SCENARIO.threat_entries[9].threat_definition as AttackUavDefinition
-	var rockets := SCENARIO.threat_entries[10]
-	var aircraft := SCENARIO.threat_entries[11].threat_definition as AttackUavDefinition
+
+func test_ballistic_and_rocket_threats_match_high_altitude_detection_envelope() -> void:
+	var ballistic := _threat(&"ballistic_missile") as AttackUavDefinition
+	var rockets := _threat_entry(&"rocket")
 	assert_eq(ballistic.movement.mode, ThreatMovementDefinition.Mode.BALLISTIC_ARC)
 	assert_gt(ballistic.movement.ballistic_apex, 900.0)
 	assert_gte(ballistic.movement.spawn_radius_multiplier, 1.5)
@@ -1235,20 +1373,8 @@ func test_threat_definitions_compose_movement_and_mission_profiles() -> void:
 	assert_lte(ballistic.movement.maximum_speed_multiplier, 1.2)
 	assert_eq(rockets.group_size, 4)
 	assert_lte((rockets.threat_definition as AttackUavDefinition).movement.maximum_speed_multiplier, 1.2)
-	assert_eq(aircraft.mission.type, ThreatMissionDefinition.Type.STRIKE_AND_EXIT)
-	assert_gt(aircraft.movement.speed, attack.movement.speed * 3.0)
-	assert_gt(aircraft.movement.terminal_altitude, 80.0)
-	assert_gt(aircraft.movement.terminal_distance, 500.0)
-	assert_eq(SCENARIO.raid_archetypes[2].id, &"mixed_ballistic_air_strike")
-	assert_lt(swarm.movement.cruise_altitude, attack.movement.cruise_altitude)
-	assert_ne(swarm.movement, attack.movement)
-	var cruise := SCENARIO.threat_entries[5].threat_definition as AttackUavDefinition
-	assert_eq(cruise.movement.mode, ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING)
-	assert_lt(cruise.movement.cruise_altitude, swarm.movement.cruise_altitude)
-	assert_gt(cruise.movement.speed, swarm.movement.speed)
-	assert_gt(aircraft.movement.cruise_altitude, jammer.movement.cruise_altitude)
-	var search_radar := SCENARIO.available_defenses[1] as SearchRadarDefinition
-	var high_altitude_radar := SCENARIO.available_defenses[3] as SearchRadarDefinition
+	var search_radar := _defense(&"search_radar") as SearchRadarDefinition
+	var high_altitude_radar := _defense(&"tracking_radar") as SearchRadarDefinition
 	assert_lt(search_radar.maximum_detection_altitude, high_altitude_radar.minimum_detection_altitude + 150.0)
 	assert_gt(high_altitude_radar.maximum_detection_altitude, ballistic.movement.ballistic_apex)
 
@@ -1257,7 +1383,7 @@ func test_recon_and_strike_missions_act_then_egress() -> void:
 	var objective_definition := load("res://world/objective/city/city_objective.tres") as ObjectiveDefinition
 	objective.setup(1, objective_definition)
 	var support: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
-	support.setup(2, SCENARIO.available_defenses[5])
+	support.setup(2, _defense(&"support_facility"))
 	support.global_position = Vector3(10.0, 0.0, 0.0)
 	var strike_profile := ThreatMissionDefinition.new()
 	strike_profile.type = ThreatMissionDefinition.Type.STRIKE_AND_EXIT
@@ -1325,12 +1451,13 @@ func test_explosion_layers_retire_only_at_zero_and_restart_with_the_same_timelin
 	for index: int in 150:
 		effect._process(0.01)
 		var state := ExplosionTimeline.sample(effect.elapsed, 10)
-		assert_eq(effect.flash.visible, state.core_alpha > 0.0)
-		assert_eq(effect.flash_halo.visible, state.halo_alpha > 0.0)
-		assert_eq(effect.pressure_ring.visible, state.pressure_alpha > 0.0)
-		assert_eq(effect.shockwave.visible, state.ground_wave_alpha > 0.0)
-		assert_eq(effect.blast_light.visible, state.light_energy > 0.0)
-		assert_almost_eq(effect.shockwave_material.albedo_color.a, state.ground_wave_alpha, 0.00001)
+		var case_label := "explosion frame %d elapsed %.2f" % [index, effect.elapsed]
+		assert_eq(effect.flash.visible, state.core_alpha > 0.0, "%s core" % case_label)
+		assert_eq(effect.flash_halo.visible, state.halo_alpha > 0.0, "%s halo" % case_label)
+		assert_eq(effect.pressure_ring.visible, state.pressure_alpha > 0.0, "%s pressure" % case_label)
+		assert_eq(effect.shockwave.visible, state.ground_wave_alpha > 0.0, "%s ground wave" % case_label)
+		assert_eq(effect.blast_light.visible, state.light_energy > 0.0, "%s light" % case_label)
+		assert_almost_eq(effect.shockwave_material.albedo_color.a, state.ground_wave_alpha, 0.00001, "%s alpha" % case_label)
 	assert_true(effect.smoke.emitting)
 	assert_true(effect.sparks.emitting)
 	assert_true(effect.visible)
@@ -1447,9 +1574,9 @@ func test_opening_raid_waits_for_every_member_and_delayed_group() -> void:
 	director.opening_threat_ids.assign([1, 2])
 	director.until_spawn = 10000.0
 	var first := autofree(ThreatUnit.new()) as ThreatUnit
-	first.setup(1, SCENARIO.threat_entries[0].threat_definition)
+	first.setup(1, _threat(&"attack_uav"))
 	var second := autofree(ThreatUnit.new()) as ThreatUnit
-	second.setup(2, SCENARIO.threat_entries[0].threat_definition)
+	second.setup(2, _threat(&"attack_uav"))
 	director.bind_releases(first)
 	director.bind_releases(second)
 	director.gameplay_tick(600.0)
@@ -1494,7 +1621,7 @@ func test_opening_raid_includes_released_threats_but_not_unrelated_contacts() ->
 	director.opening_raid_started = true
 	director.next_runtime_id = 3
 	var source := autofree(ThreatUnit.new()) as ThreatUnit
-	source.setup(1, SCENARIO.threat_entries[0].threat_definition)
+	source.setup(1, _threat(&"attack_uav"))
 	director.opening_threat_ids.append(1)
 	director.bind_releases(source)
 	director.bind_releases(source)
@@ -1515,18 +1642,23 @@ func test_visual_warmup_reveals_authored_flashes_without_firing_live_weapons() -
 	var parent := add_child_autofree(Node3D.new()) as Node3D
 	var prepared_flash_count := 0
 	for definition: DefenseDefinition in SCENARIO.available_defenses:
-		var sample := CombatVfxWarmup.create_content_sample(parent, definition) as DefenseUnit
+		var sample := CombatVfxSampleCatalog.create_content_sample(parent, definition) as DefenseUnit
 		for child: Node in sample.find_children("*", "GeometryInstance3D", true, false):
 			if not child.get_meta("warmup_visible", false):
 				continue
 			prepared_flash_count += 1
-			assert_true((child as GeometryInstance3D).visible)
+			var case_label := "definition %s node %s" % [definition.id, sample.get_path_to(child)]
+			assert_true((child as GeometryInstance3D).visible, "%s warmup visibility" % case_label)
 			var live := definition.scene.instantiate() as DefenseUnit
 			parent.add_child(live)
 			live.setup(1, definition)
-			assert_false((live.get_node(sample.get_path_to(child)) as GeometryInstance3D).visible)
+			assert_false((live.get_node(sample.get_path_to(child)) as GeometryInstance3D).visible, "%s live visibility" % case_label)
 			if sample is MissileBattery:
-				assert_eq((sample as MissileBattery)._ready_round_count(), (live as MissileBattery)._ready_round_count())
+				assert_eq(
+					(sample as MissileBattery).capture_content_state().munition_magazines,
+					(live as MissileBattery).capture_content_state().munition_magazines,
+					"definition %s 예열용 발사대는 실전 탄약 상태를 소비하지 않습니다" % definition.id
+				)
 			live.free()
 		sample.free()
 	assert_gt(prepared_flash_count, 0)
@@ -1534,23 +1666,29 @@ func test_visual_warmup_reveals_authored_flashes_without_firing_live_weapons() -
 func test_transient_warmup_has_visible_world_space_trails_without_simulation() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D
 	var position := Vector3(400, 80, 200)
-	var samples := CombatVfxWarmup.create_transient_samples(parent, position)
+	var samples := CombatVfxSampleCatalog.create_transient_samples(parent, position)
 	var trail_count := 0
 	for sample: Node3D in samples:
-		assert_eq(sample.process_mode, Node.PROCESS_MODE_DISABLED)
+		var sample_script := sample.get_script() as Script
+		var sample_class := sample.get_class()
+		if sample_script != null and not sample_script.get_global_name().is_empty():
+			sample_class = String(sample_script.get_global_name())
+		assert_eq(sample.process_mode, Node.PROCESS_MODE_DISABLED, "%s process mode" % sample_class)
 		if sample is HomingInterceptor:
-			assert_null((sample as HomingInterceptor).registry)
-			assert_null((sample as HomingInterceptor).target_track)
+			assert_null((sample as HomingInterceptor).registry, "%s registry" % sample_class)
+			assert_null((sample as HomingInterceptor).target_track, "%s target" % sample_class)
 		for child: Node in sample.find_children("*", "MultiMeshInstance3D", true, false):
 			if child is LingeringSmokeTrail:
 				trail_count += 1
 				var smoke := child as LingeringSmokeTrail
-				assert_gt(smoke.active_puff_count(), 0)
-				assert_gt(smoke.shadow_particles.multimesh.visible_instance_count, 0)
+				var case_label := "%s trail %s" % [sample_class, sample.get_path_to(child)]
+				assert_gt(smoke.active_puff_count(), 0, "%s visible puffs" % case_label)
+				assert_gt(smoke.shadow_particles.multimesh.visible_instance_count, 0, "%s shadow puffs" % case_label)
 				# Moving flares emit downstream; bounds must remain in the fixture's world region.
-				assert_lt(smoke.multimesh.custom_aabb.get_center().distance_to(position), 150.0)
-				assert_gt(smoke._elapsed, 0.0)
-				assert_lt(smoke._elapsed, smoke.lifetime)
+				assert_lt(smoke.multimesh.custom_aabb.get_center().distance_to(position), 150.0, "%s world bounds" % case_label)
+				var preview_age := float(smoke.smoke_material.get_shader_parameter("trail_time"))
+				assert_gt(preview_age, 0.0, "%s preview age lower bound" % case_label)
+				assert_lt(preview_age, smoke.lifetime, "%s preview age upper bound" % case_label)
 	assert_gt(trail_count, 0)
 
 func test_world_prewarmer_retains_transient_materials_after_samples_are_removed() -> void:
@@ -1566,3 +1704,47 @@ func test_world_prewarmer_retains_transient_materials_after_samples_are_removed(
 		sample.free()
 	for material: Material in materials:
 		assert_true(is_instance_valid(material))
+
+func _defense(id: StringName) -> DefenseDefinition:
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		if definition.id == id:
+			return definition
+	fail_test("missing defense definition %s" % id)
+	return null
+
+func _threat(id: StringName) -> ThreatDefinition:
+	return _threat_entry(id).threat_definition
+
+func _threat_entry(id: StringName) -> ThreatSpawnEntry:
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		if entry.threat_definition.id == id:
+			return entry
+	fail_test("missing threat definition %s" % id)
+	return null
+
+func _raid_archetype(id: StringName) -> RaidArchetypeDefinition:
+	for archetype: RaidArchetypeDefinition in SCENARIO.raid_archetypes:
+		if archetype.id == id:
+			return archetype
+	fail_test("missing raid archetype %s" % id)
+	return null
+
+func _munition(definition: MissileBatteryDefinition, id: StringName) -> MissileMunitionDefinition:
+	for munition: MissileMunitionDefinition in definition.munitions:
+		if munition.id == id:
+			return munition
+	fail_test("missing munition definition %s" % id)
+	return null
+
+func _test_objective() -> ProtectedObjective:
+	var objective := add_child_autofree(ProtectedObjective.new()) as ProtectedObjective
+	var definition := ObjectiveDefinition.new()
+	definition.maximum_integrity = 100
+	objective.setup(1, definition)
+	return objective
+
+func _has_property(instance: Object, property_name: StringName) -> bool:
+	for property: Dictionary in instance.get_property_list():
+		if StringName(property.name) == property_name:
+			return true
+	return false

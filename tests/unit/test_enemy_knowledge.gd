@@ -4,8 +4,9 @@ const SCENARIO := preload("res://main/first_scenario.tres")
 
 func test_reports_build_role_estimates_that_age_over_time() -> void:
 	var knowledge: EnemyKnowledge = add_child_autofree(EnemyKnowledge.new()) as EnemyKnowledge
-	var radar: SearchRadar = add_child_autofree((SCENARIO.available_defenses[1] as SearchRadarDefinition).scene.instantiate()) as SearchRadar
-	radar.setup(11, SCENARIO.available_defenses[1])
+	var radar_definition := _defense(&"search_radar") as SearchRadarDefinition
+	var radar: SearchRadar = add_child_autofree(radar_definition.scene.instantiate()) as SearchRadar
+	radar.setup(11, radar_definition)
 	radar.global_position = Vector3(240.0, 10.0, -80.0)
 	knowledge.record_emission(radar)
 	assert_eq(knowledge.reports.back().source, "radar_emission")
@@ -25,8 +26,9 @@ func test_reports_build_role_estimates_that_age_over_time() -> void:
 
 func test_engagement_and_outcome_reports_round_trip() -> void:
 	var knowledge: EnemyKnowledge = add_child_autofree(EnemyKnowledge.new()) as EnemyKnowledge
-	var battery: MissileBattery = add_child_autofree((SCENARIO.available_defenses[0] as MissileBatteryDefinition).scene.instantiate()) as MissileBattery
-	battery.setup(21, SCENARIO.available_defenses[0])
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	var battery: MissileBattery = add_child_autofree(battery_definition.scene.instantiate()) as MissileBattery
+	battery.setup(21, battery_definition)
 	knowledge.record_engagement(battery, &"missile")
 	knowledge.record_outcome(true, Vector3(15.0, 20.0, 25.0), &"attack_uav")
 	assert_eq(knowledge.reports.back().source, "engagement:missile")
@@ -52,3 +54,10 @@ func test_strike_assignments_prefer_other_reports_and_cap_duplicate_targets() ->
 	assert_eq(knowledge.best_estimate_for_role(&"weapon", {1: 1}).asset_id, 2)
 	assert_true(knowledge.best_estimate_for_role(&"weapon", {1: 2, 2: 2}).is_empty())
 	assert_true(knowledge.best_estimate_for_role(&"sensor").is_empty())
+
+func _defense(id: StringName) -> DefenseDefinition:
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		if definition.id == id:
+			return definition
+	fail_test("missing defense definition %s" % id)
+	return null

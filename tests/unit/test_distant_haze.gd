@@ -34,10 +34,10 @@ func test_haze_follows_radius_independent_of_altitude_and_heading() -> void:
 		assert_almost_eq(DistantContactHaze.opacity_at(Vector3(0, 1800, -radius), 2400.0), expected, 0.0001)
 	assert_gt(DistantContactHaze.opacity_at(Vector3(3000, 0, 0), 2400.0), DistantContactHaze.opacity_at(Vector3(4000, 0, 0), 2400.0))
 
-func test_combat_warmup_includes_released_weapons() -> void:
+func test_vfx_sample_catalog_includes_released_weapons() -> void:
 	var scenario := preload("res://main/first_scenario.tres")
-	var definitions := CombatVfxWarmup.content_definitions(scenario)
+	var definitions := CombatVfxSampleCatalog.content_definitions(scenario)
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
-		assert_has(definitions, entry.threat_definition)
+		assert_has(definitions, entry.threat_definition, "%s 본체 정의" % entry.threat_definition.id)
 		for released: ThreatDefinition in entry.threat_definition.released_threat_definitions():
-			assert_has(definitions, released)
+			assert_has(definitions, released, "%s가 방출하는 %s 정의" % [entry.threat_definition.id, released.id])

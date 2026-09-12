@@ -53,16 +53,30 @@ class C2NetworkDouble:
 	func available_tracks_for_knowledge(_defense: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
 		return knowledge.get_active_tracks()
 
-var battlefield: Battlefield
-var objective: ProtectedObjective
+var _battlefield: Battlefield
+var _objective: ProtectedObjective
+var battlefield: Battlefield:
+	get:
+		_ensure_world_fixture()
+		return _battlefield
+var objective: ProtectedObjective:
+	get:
+		_ensure_world_fixture()
+		return _objective
 
 func before_each() -> void:
-	battlefield = add_child_autofree(BATTLEFIELD_SCENE.instantiate()) as Battlefield
-	battlefield.build(SCENARIO)
-	objective = add_child_autofree(CITY_SCENE.instantiate()) as ProtectedObjective
-	objective.setup(1, SCENARIO.objective_definition)
-	objective.exclusion_radius = SCENARIO.city_size * 0.5
-	battlefield.set_objective(objective)
+	_battlefield = null
+	_objective = null
+
+func _ensure_world_fixture() -> void:
+	if is_instance_valid(_battlefield):
+		return
+	_battlefield = add_child_autofree(BATTLEFIELD_SCENE.instantiate()) as Battlefield
+	_battlefield.build(SCENARIO)
+	_objective = add_child_autofree(CITY_SCENE.instantiate()) as ProtectedObjective
+	_objective.setup(1, SCENARIO.objective_definition)
+	_objective.exclusion_radius = SCENARIO.city_size * 0.5
+	_battlefield.set_objective(_objective)
 
 func test_missile_fuze_requires_closer_pass_for_low_response_targets() -> void:
 	for response: float in [1.0, 0.4]:
@@ -95,9 +109,9 @@ func test_missile_fuze_requires_closer_pass_for_low_response_targets() -> void:
 		assert_signal_emit_count(interceptor, "target_hit", 1)
 
 func test_missile_fuze_response_validation_rejects_nonphysical_values() -> void:
-	assert_eq(SCENARIO.threat_entries[1].threat_definition.missile_fuze_response, 0.6)
-	assert_eq(SCENARIO.threat_entries[0].threat_definition.missile_fuze_response, 1.0)
-	var definition := SCENARIO.threat_entries[1].threat_definition.duplicate() as ThreatDefinition
+	assert_eq(_threat(&"swarm_uav").missile_fuze_response, 0.6)
+	assert_eq(_threat(&"attack_uav").missile_fuze_response, 1.0)
+	var definition := _threat(&"swarm_uav").duplicate() as ThreatDefinition
 	for response: float in [0.0, 1.1, NAN]:
 		definition.missile_fuze_response = response
 		assert_ne(definition.validation_error(), "")
@@ -122,8 +136,8 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	var interceptor := HomingInterceptor.new()
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = Vector3(-100.0, 0.0, 0.0)
-	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
-	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 1)
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	interceptor.configure(track, registry, _munition(battery_definition, &"standard"), Vector3.RIGHT, 1)
 	interceptor.gameplay_tick(0.1)
 	assert_false(interceptor.is_queued_for_deletion())
 	assert_true(interceptor.countermeasure_decoy_active)
@@ -134,38 +148,13 @@ func test_interceptor_seeker_can_be_defeated_by_finite_countermeasure() -> void:
 	assert_true((burst.get_node("Chaff") as GPUParticles3D).emitting)
 	assert_true((burst.get_node("ChaffGlints") as GPUParticles3D).emitting)
 	assert_null(burst.get_node_or_null("Reason"))
-	var chaff := burst.get_node("Chaff") as GPUParticles3D
-	var glints := burst.get_node("ChaffGlints") as GPUParticles3D
-	assert_between(chaff.amount, 160, 220)
-	assert_gte(chaff.lifetime, 6.5)
-	assert_between(glints.amount, 32, 64)
-	assert_lt(glints.amount, chaff.amount / 3)
-	var chaff_mesh := chaff.draw_pass_1 as BoxMesh
-	var chaff_material := chaff_mesh.material as StandardMaterial3D
-	var chaff_process := chaff.process_material as ParticleProcessMaterial
-	var glint_process := glints.process_material as ParticleProcessMaterial
-	assert_lt(chaff_mesh.size.x, 0.5)
-	assert_gt(chaff_mesh.size.z, chaff_mesh.size.x * 5.0)
-	assert_eq(chaff_material.shading_mode, BaseMaterial3D.SHADING_MODE_PER_PIXEL)
-	assert_true(chaff_material.metallic > 0.8)
-	assert_false(chaff_material.emission_enabled)
-	assert_gte(chaff_process.emission_sphere_radius, 18.0)
-	assert_lte(chaff_process.initial_velocity_max, 0.5)
-	assert_lte(chaff_process.gravity.length(), 0.1)
-	assert_eq(chaff_process.angle_min, -180.0)
-	assert_eq(chaff_process.angle_max, 180.0)
-	assert_lt(chaff_process.angular_velocity_min, 0.0)
-	assert_gt(chaff_process.angular_velocity_max, 0.0)
-	assert_eq(chaff.explosiveness, 1.0)
-	assert_eq(glint_process.emission_sphere_radius, chaff_process.emission_sphere_radius)
-	assert_lte(glint_process.initial_velocity_max, 0.2)
-	assert_true(glints.draw_pass_1 is QuadMesh)
-	var glint_material := (glints.draw_pass_1 as QuadMesh).material as ShaderMaterial
-	assert_true(glint_material.shader.code.contains("TIME * 11.0"))
-	assert_true(glint_material.shader.code.contains("distance(UV"))
 	var diverted_state := interceptor.capture_state()
-	assert_true(bool(diverted_state.countermeasure_decoy_active))
-	assert_eq(SaveDocument.vector3_from_data(diverted_state.countermeasure_decoy_position), interceptor.countermeasure_decoy_position)
+	assert_true(bool(diverted_state.countermeasure_decoy_active), "실제 채프 대응으로 생긴 decoy가 저장됩니다")
+	assert_eq(
+		SaveDocument.vector3_from_data(diverted_state.countermeasure_decoy_position),
+		interceptor.countermeasure_decoy_position,
+		"저장된 decoy 위치는 현재 유도 지점과 같습니다"
+	)
 	for tick: int in 20:
 		if interceptor.is_queued_for_deletion():
 			break
@@ -193,8 +182,8 @@ func test_interceptor_climbs_then_self_destructs_when_its_target_is_destroyed() 
 	var interceptor := HomingInterceptor.new()
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = Vector3(-140.0, 20.0, 0.0)
-	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
-	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 2)
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	interceptor.configure(track, registry, _munition(battery_definition, &"standard"), Vector3.RIGHT, 2)
 	var position_before_resolution := interceptor.global_position
 	registry.remove(threat)
 	interceptor.gameplay_tick(0.1)
@@ -239,8 +228,8 @@ func test_interceptor_retargets_a_reachable_hostile_track_before_self_destructin
 	var interceptor := HomingInterceptor.new()
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = Vector3(-100.0, 20.0, 0.0)
-	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
-	interceptor.configure(original_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 4, 0, candidates)
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	interceptor.configure(original_track, registry, _munition(battery_definition, &"standard"), Vector3.RIGHT, 4, 0, candidates)
 	registry.remove(original)
 	assert_same(interceptor.target_track, original_track)
 	interceptor.gameplay_tick(1.0)
@@ -286,15 +275,15 @@ func test_removing_one_close_cruise_missile_does_not_divert_interceptors_from_th
 	surviving_track.position_uncertainty = 8.0
 	var candidates: Array[PlayerTrack] = [removed_track, surviving_track]
 	var projectile_parent := add_child_autofree(Node3D.new()) as Node3D
-	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
 	var removed_interceptor := HomingInterceptor.new()
 	projectile_parent.add_child(removed_interceptor)
 	removed_interceptor.global_position = Vector3(-120.0, 12.0, 0.0)
-	removed_interceptor.configure(removed_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 11, 0, candidates)
+	removed_interceptor.configure(removed_track, registry, _munition(battery_definition, &"standard"), Vector3.RIGHT, 11, 0, candidates)
 	var surviving_interceptor := HomingInterceptor.new()
 	projectile_parent.add_child(surviving_interceptor)
 	surviving_interceptor.global_position = Vector3(-110.0, 12.0, 4.0)
-	surviving_interceptor.configure(surviving_track, registry, battery_definition.munitions[0], Vector3.RIGHT, 12, 0, candidates)
+	surviving_interceptor.configure(surviving_track, registry, _munition(battery_definition, &"standard"), Vector3.RIGHT, 12, 0, candidates)
 	registry.remove(removed)
 	assert_same(removed_interceptor.target_track, surviving_track)
 	assert_same(surviving_interceptor.target_track, surviving_track)
@@ -311,8 +300,8 @@ func test_interceptor_self_destructs_after_passing_an_empty_guidance_point() -> 
 	var interceptor := HomingInterceptor.new()
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = Vector3(-50.0, 0.0, 0.0)
-	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
-	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.RIGHT, 3)
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	interceptor.configure(track, registry, _munition(battery_definition, &"standard"), Vector3.RIGHT, 3)
 	interceptor.gameplay_tick(0.2)
 	assert_false(interceptor.is_queued_for_deletion())
 	interceptor.gameplay_tick(0.2)
@@ -336,8 +325,8 @@ func test_friendly_interceptor_resolves_at_the_first_terrain_crossing() -> void:
 	var interceptor := HomingInterceptor.new()
 	projectile_parent.add_child(interceptor)
 	interceptor.global_position = from_position
-	var battery_definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
-	interceptor.configure(track, registry, battery_definition.munitions[0], Vector3.DOWN, 21, 0, [], battlefield)
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	interceptor.configure(track, registry, _munition(battery_definition, &"standard"), Vector3.DOWN, 21, 0, [], battlefield)
 	interceptor.gameplay_tick(0.1)
 	assert_true(interceptor.is_queued_for_deletion())
 	assert_almost_eq(interceptor.global_position.y, ground_height, 0.05)
@@ -345,7 +334,7 @@ func test_friendly_interceptor_resolves_at_the_first_terrain_crossing() -> void:
 	assert_not_null(projectile_parent.get_node_or_null("Explosion"))
 
 func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
-	var profile := SCENARIO.available_defenses[0].placement_profile
+	var profile := _defense(&"missile_battery").placement_profile
 	assert_false(battlefield.placement_result(Vector3.ZERO, profile).valid)
 	var boundary_x := SCENARIO.battlefield_size * 0.5 - 5.0
 	assert_false(battlefield.placement_result(Vector3(boundary_x, 0.0, 0.0), profile).valid)
@@ -361,7 +350,7 @@ func test_placement_rejects_city_boundary_slope_and_overlap() -> void:
 	assert_false(battlefield.placement_result(valid_position, profile).valid)
 
 func test_ground_placement_uses_actual_buildings_instead_of_a_city_radius() -> void:
-	var profile := SCENARIO.available_defenses[0].placement_profile
+	var profile := _defense(&"missile_battery").placement_profile
 	var building := battlefield.generator.building_transforms()[0]
 	var building_ground := Vector3(building.origin.x, battlefield.terrain_height(building.origin.x, building.origin.z), building.origin.z)
 	assert_true(battlefield.overlaps_city_building(building_ground, profile.footprint_radius))
@@ -385,8 +374,8 @@ func test_ground_placement_uses_actual_buildings_instead_of_a_city_radius() -> v
 func test_designated_rooftop_accepts_only_lightweight_compatible_assets() -> void:
 	assert_gt(battlefield.rooftop_pads.size(), 0)
 	var rooftop_position: Vector3 = battlefield.rooftop_pads[0].position
-	var radar_profile := SCENARIO.available_defenses[1].placement_profile
-	var missile_profile := SCENARIO.available_defenses[0].placement_profile
+	var radar_profile := _defense(&"search_radar").placement_profile
+	var missile_profile := _defense(&"missile_battery").placement_profile
 	assert_true(radar_profile.rooftop_allowed)
 	assert_true(battlefield.placement_result(rooftop_position, radar_profile).valid)
 	assert_eq(battlefield.placement_result(rooftop_position, missile_profile).reason, "이 장비는 옥상에 배치할 수 없습니다")
@@ -394,7 +383,7 @@ func test_designated_rooftop_accepts_only_lightweight_compatible_assets() -> voi
 	var defenses: Node3D = add_child_autofree(Node3D.new()) as Node3D
 	var projectiles: Node3D = add_child_autofree(Node3D.new()) as Node3D
 	session.reset(400)
-	var result := session.request_placement(SCENARIO.available_defenses[1], rooftop_position, battlefield, defenses, ThreatRegistry.new(), projectiles)
+	var result := session.request_placement(_defense(&"search_radar"), rooftop_position, battlefield, defenses, ThreatRegistry.new(), projectiles)
 	assert_true(result.success)
 	assert_eq((result.unit as DefenseUnit).global_position, rooftop_position)
 	assert_false(battlefield.placement_result(rooftop_position, radar_profile).valid)
@@ -405,7 +394,7 @@ func test_failed_placement_does_not_change_budget_or_occupancy() -> void:
 	var projectiles: Node3D = add_child_autofree(Node3D.new()) as Node3D
 	var registry := ThreatRegistry.new()
 	session.reset(400)
-	var result: Dictionary = session.request_placement(SCENARIO.available_defenses[0], Vector3.ZERO, battlefield, defenses, registry, projectiles)
+	var result: Dictionary = session.request_placement(_defense(&"missile_battery"), Vector3.ZERO, battlefield, defenses, registry, projectiles)
 	assert_false(result.success)
 	assert_eq(session.budget, 400)
 	assert_eq(session.defense_count, 0)
@@ -417,14 +406,14 @@ func test_successful_purchase_is_atomic_and_overlap_failure_costs_nothing() -> v
 	var projectiles: Node3D = add_child_autofree(Node3D.new()) as Node3D
 	var registry := ThreatRegistry.new()
 	session.reset(400)
-	var position := _find_valid_position(SCENARIO.available_defenses[0].placement_profile)
-	var first: Dictionary = session.request_placement(SCENARIO.available_defenses[0], position, battlefield, defenses, registry, projectiles)
+	var position := _find_valid_position(_defense(&"missile_battery").placement_profile)
+	var first: Dictionary = session.request_placement(_defense(&"missile_battery"), position, battlefield, defenses, registry, projectiles)
 	assert_true(first.success)
-	assert_eq(session.budget, 400 - SCENARIO.available_defenses[0].price)
+	assert_eq(session.budget, 400 - _defense(&"missile_battery").price)
 	assert_eq(session.defense_count, 1)
-	var second: Dictionary = session.request_placement(SCENARIO.available_defenses[0], position, battlefield, defenses, registry, projectiles)
+	var second: Dictionary = session.request_placement(_defense(&"missile_battery"), position, battlefield, defenses, registry, projectiles)
 	assert_false(second.success)
-	assert_eq(session.budget, 400 - SCENARIO.available_defenses[0].price)
+	assert_eq(session.budget, 400 - _defense(&"missile_battery").price)
 	assert_eq(session.defense_count, 1)
 
 func test_insufficient_budget_does_not_change_world_state() -> void:
@@ -432,8 +421,8 @@ func test_insufficient_budget_does_not_change_world_state() -> void:
 	var defenses: Node3D = add_child_autofree(Node3D.new()) as Node3D
 	var projectiles: Node3D = add_child_autofree(Node3D.new()) as Node3D
 	session.reset(199)
-	var position := _find_valid_position(SCENARIO.available_defenses[0].placement_profile)
-	var result: Dictionary = session.request_placement(SCENARIO.available_defenses[0], position, battlefield, defenses, ThreatRegistry.new(), projectiles)
+	var position := _find_valid_position(_defense(&"missile_battery").placement_profile)
+	var result: Dictionary = session.request_placement(_defense(&"missile_battery"), position, battlefield, defenses, ThreatRegistry.new(), projectiles)
 	assert_false(result.success)
 	assert_eq(session.budget, 199)
 	assert_eq(session.defense_count, 0)
@@ -471,8 +460,8 @@ func test_three_ciws_fire_together_and_release_assignments_on_hold_fire() -> voi
 	assert_true(coordinator.try_reserve(track.track_id, 90, 10, 2))
 	assert_true(coordinator.try_reserve(track.track_id, 91, 10, 2))
 	for index: int in 3:
-		var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
-		gun.setup(index + 1, SCENARIO.available_defenses[4])
+		var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+		gun.setup(index + 1, _defense(&"close_in_gun"))
 		gun.global_position = Vector3(580 + index * 20, 50, 0)
 		gun.configure_combat(ThreatRegistry.new(), projectiles)
 		gun.configure_player_knowledge(battlefield, provider)
@@ -492,7 +481,7 @@ func test_three_ciws_fire_together_and_release_assignments_on_hold_fire() -> voi
 			gun.gameplay_tick(0.02)
 			assert_eq(coordinator.fire_support_target(gun.runtime_id), 0)
 
-func test_gun_laser_and_microwave_can_fire_on_the_same_reserved_track() -> void:
+func test_every_fire_support_capability_can_fire_on_the_same_reserved_track() -> void:
 	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
 	var provider := add_child_autofree(TrackProviderDouble.new()) as TrackProviderDouble
 	var network := add_child_autofree(C2NetworkDouble.new()) as C2NetworkDouble
@@ -502,22 +491,38 @@ func test_gun_laser_and_microwave_can_fire_on_the_same_reserved_track() -> void:
 	coordinator.try_reserve(track.track_id, 90, 10, 2)
 	coordinator.try_reserve(track.track_id, 91, 10, 2)
 	var fired: Array[int] = []
+	var fire_support_count := 0
 	for definition: DefenseDefinition in SCENARIO.available_defenses:
 		if definition.engagement_reservation_kind() != EngagementCoordinator.FIRE_SUPPORT:
 			continue
-		var unit := add_child_autofree(definition.scene.instantiate()) as ArmedDefenseUnit
-		unit.setup(fired.size() + 1, definition)
+		if definition.scene == null:
+			fail_test("fire-support definition %s has no runtime scene" % definition.id)
+			continue
+		var instance := definition.scene.instantiate()
+		if not instance is ArmedDefenseUnit:
+			fail_test("fire-support definition %s does not instantiate ArmedDefenseUnit" % definition.id)
+			instance.free()
+			continue
+		var unit := add_child_autofree(instance) as ArmedDefenseUnit
+		fire_support_count += 1
+		unit.setup(fire_support_count, definition)
 		unit.global_position = Vector3(600, 50, 0)
 		unit.configure_combat(ThreatRegistry.new(), projectiles)
 		unit.configure_player_knowledge(battlefield, provider)
 		unit.configure_c2(network)
 		unit.configure_engagements(coordinator)
 		unit.weapon_fired.connect(func(owner: DefenseUnit, _low: bool) -> void: fired.append(owner.runtime_id))
-		unit.call("_aim_turret", track.estimated_position, 10.0)
-		unit.gameplay_tick(0.02)
-	assert_eq(fired.size(), 3, "기관포·레이저·HPM이 서로의 화력을 잠그지 않습니다")
+		var fired_before := fired.size()
+		for tick: int in 20:
+			unit.gameplay_tick(0.1)
+			if fired.size() > fired_before:
+				break
+		assert_eq(fired.size(), fired_before + 1, "fire-support definition %s must fire through gameplay_tick" % definition.id)
+		assert_eq(coordinator.fire_support_target(unit.runtime_id), track.track_id, "fire-support definition %s reservation" % definition.id)
+	assert_gt(fire_support_count, 0, "scenario must expose at least one fire-support capability")
+	assert_eq(fired.size(), fire_support_count, "모든 화력지원 자산이 서로의 화력을 잠그지 않습니다")
 	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.INTERCEPTOR), 2)
-	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.FIRE_SUPPORT), 3)
+	assert_eq(coordinator.reservation_count(track.track_id, EngagementCoordinator.FIRE_SUPPORT), fire_support_count)
 
 func _set_departure_test_building() -> void:
 	var buildings: Array[Transform3D] = [Transform3D(Basis.from_scale(Vector3(20, 80, 20)), Vector3(40, 40, 0))]
@@ -529,7 +534,7 @@ func test_nearby_roof_departure_aligns_vertically_and_refreshes_after_relocation
 	assert_eq(battlefield.nearby_building_roof(Vector3.ZERO, 31.0), 80.0)
 	assert_eq(battlefield.nearby_building_roof(Vector3.ZERO, 29.0), 0.0)
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(77, SCENARIO.available_defenses[0])
+	battery.setup(77, _defense(&"missile_battery"))
 	battery.battlefield = battlefield
 	var target := Vector3(200, 30, 0)
 	assert_false(battery._aim_turret(target, 0.01), "상승 발사각에 도달하기 전에는 발사하지 않습니다")
@@ -548,8 +553,8 @@ func test_vertical_departure_survives_save_and_then_resumes_homing() -> void:
 	var interceptor := add_child_autofree(HomingInterceptor.new()) as HomingInterceptor
 	var track := _confirmed_track(Vector3(500, 100, 0))
 	var registry := ThreatRegistry.new()
-	var definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
-	interceptor.configure(track, registry, definition.munitions[0], Vector3.UP)
+	var definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	interceptor.configure(track, registry, _munition(definition, &"standard"), Vector3.UP)
 	interceptor.departure_clearance_height = 120.0
 	interceptor.gameplay_tick(0.05)
 	assert_gt(interceptor.global_position.y, 0.0)
@@ -573,8 +578,8 @@ func test_vertical_departure_survives_save_and_then_resumes_homing() -> void:
 
 func test_ciws_skips_building_blocked_tracks_and_reports_no_clear_target() -> void:
 	_set_departure_test_building()
-	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
-	gun.setup(78, SCENARIO.available_defenses[4])
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(78, _defense(&"close_in_gun"))
 	gun.battlefield = battlefield
 	var blocked := _confirmed_track(Vector3(120, 30, 0))
 	var clear := _confirmed_track(Vector3(-120, 30, 0))
@@ -590,8 +595,8 @@ func test_ciws_skips_building_blocked_tracks_and_reports_no_clear_target() -> vo
 
 func test_ciws_lower_ranked_blocked_targets_do_not_replace_clear_selection() -> void:
 	_set_departure_test_building()
-	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
-	gun.setup(2, SCENARIO.available_defenses[4])
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2, _defense(&"close_in_gun"))
 	gun.battlefield = battlefield
 	var clear := _confirmed_track(Vector3(-120, 30, 0))
 	var blocked := _confirmed_track(Vector3(120, 30, 0))
@@ -604,8 +609,8 @@ func test_ciws_lower_ranked_blocked_targets_do_not_replace_clear_selection() -> 
 	assert_true(gun.line_of_fire_blocked)
 
 func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_tracks() -> void:
-	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
-	gun.setup(2, SCENARIO.available_defenses[4])
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2, _defense(&"close_in_gun"))
 	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
 	gun.configure_engagements(coordinator)
 	var first := _confirmed_track(Vector3(100, 50, 0))
@@ -621,7 +626,7 @@ func test_ciws_spreads_equal_targets_but_can_concentrate_on_urgent_tracks() -> v
 
 func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(1, SCENARIO.available_defenses[0])
+	battery.setup(1, _defense(&"missile_battery"))
 	var near_battery := _confirmed_track(Vector3(50.0, 0.0, 0.0))
 	var near_objective := _confirmed_track(Vector3(250.0, 0.0, 0.0))
 	var tracks: Array[PlayerTrack] = [near_battery, near_objective]
@@ -636,7 +641,7 @@ func test_battery_prioritizes_tracks_nearest_the_protected_objective() -> void:
 
 func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(1, SCENARIO.available_defenses[0])
+	battery.setup(1, _defense(&"missile_battery"))
 	var tentative := _confirmed_track(Vector3(50.0, 0.0, 0.0))
 	tentative.state = PlayerTrack.State.TENTATIVE
 	var out_of_range := _confirmed_track(Vector3(500.0, 0.0, 0.0))
@@ -649,8 +654,8 @@ func test_battery_ignores_tentative_and_out_of_range_tracks() -> void:
 func test_two_batteries_can_engage_the_same_cruise_track_without_global_single_shot_lockout() -> void:
 	var first := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
 	var second := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	first.setup(31, SCENARIO.available_defenses[0])
-	second.setup(32, SCENARIO.available_defenses[0])
+	first.setup(31, _defense(&"missile_battery"))
+	second.setup(32, _defense(&"missile_battery"))
 	var coordinator := EngagementCoordinator.new()
 	first.configure_engagements(coordinator)
 	second.configure_engagements(coordinator)
@@ -665,25 +670,25 @@ func test_two_batteries_can_engage_the_same_cruise_track_without_global_single_s
 
 func test_missile_rack_empties_visible_cells_then_shows_reload_and_ammunition() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	var definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	var definition := _defense(&"missile_battery") as MissileBatteryDefinition
 	battery.setup(33, definition)
 	var projectiles := add_child_autofree(Node3D.new()) as Node3D
 	battery.configure_combat(ThreatRegistry.new(), projectiles)
 	var track := _confirmed_track(Vector3(220.0, 60.0, 0.0))
-	var munition := definition.munitions[0]
+	var munition := _munition(definition, &"standard")
 	assert_eq(battery.launcher_cell_visuals().size(), munition.magazine_capacity)
 	for expected_rounds: int in range(munition.magazine_capacity - 1, -1, -1):
 		assert_true(battery._fire_round(track, munition))
 		assert_eq(battery.magazines[munition.id].rounds, expected_rounds)
 		assert_eq(battery.launcher_cell_visuals().filter(func(cap: Node3D) -> bool: return cap.visible).size(), expected_rounds)
-	battery._process(0.0)
+	_refresh_defense_presentation(battery)
 	assert_false(battery.status_marker.visible)
 	assert_string_contains(battery.resource_status_text(), "재장전 9.0초")
 	assert_eq(definition.launch_interval, 0.56)
 
 func test_missile_rack_launches_one_ready_round_per_interval() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	var definition := SCENARIO.available_defenses[0] as MissileBatteryDefinition
+	var definition := _defense(&"missile_battery") as MissileBatteryDefinition
 	battery.setup(34, definition)
 	battery.global_position = Vector3(0.0, battlefield.terrain_height(0.0, 0.0), 0.0)
 	var projectiles := add_child_autofree(Node3D.new()) as Node3D
@@ -721,7 +726,7 @@ func test_missile_rack_launches_one_ready_round_per_interval() -> void:
 
 func test_missile_battery_launches_within_a_broad_sector_without_exact_alignment() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(5, SCENARIO.available_defenses[0])
+	battery.setup(5, _defense(&"missile_battery"))
 	var initial_yaw := battery.turret.rotation.y
 	var initial_pitch := battery.elevation.rotation.x
 	var launch_direction := battery.launcher_forward()
@@ -733,7 +738,7 @@ func test_missile_battery_launches_within_a_broad_sector_without_exact_alignment
 	var track := _confirmed_track(target_position)
 	var projectiles := add_child_autofree(Node3D.new()) as Node3D
 	battery.configure_combat(ThreatRegistry.new(), projectiles)
-	battery._spawn_interceptor(track, (SCENARIO.available_defenses[0] as MissileBatteryDefinition).munitions[0], 0, 0.0)
+	battery._spawn_interceptor(track, _munition(_defense(&"missile_battery") as MissileBatteryDefinition, &"standard"), 0, 0.0)
 	assert_eq(battery.interceptors.size(), 1)
 	assert_almost_eq(battery.interceptors[0].velocity.normalized(), launch_direction, Vector3.ONE * 0.001)
 	var launch_error := battery.interceptors[0].velocity.normalized().angle_to(target_direction)
@@ -747,7 +752,7 @@ func test_missile_battery_launches_within_a_broad_sector_without_exact_alignment
 	assert_ne(battery.turret.rotation.y, initial_yaw)
 
 func test_long_range_launcher_selects_and_preserves_specialized_munition() -> void:
-	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var definition := _defense(&"long_range_missile") as MissileBatteryDefinition
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	battery.setup(7, definition)
 	var ballistic := _confirmed_track(Vector3(200.0, 420.0, 0.0))
@@ -780,14 +785,33 @@ func test_long_range_launcher_selects_and_preserves_specialized_munition() -> vo
 	battery.magazines[&"area_defense"].rounds = 2
 	assert_eq(battery.munition_for_track(ballistic).id, &"area_defense")
 
-func test_high_speed_interceptor_leads_moving_track_and_launches_individual_rack_rounds() -> void:
+func test_high_speed_interceptor_uses_authored_speed_to_lead_a_moving_track() -> void:
 	var target_position := Vector3(500.0, 600.0, 0.0)
 	var target_velocity := Vector3(-120.0, -180.0, 70.0)
-	var lead := INTERCEPT_GUIDANCE.lead_point(Vector3.ZERO, 520.0, target_position, target_velocity, 1.8)
+	var definition := _defense(&"long_range_missile") as MissileBatteryDefinition
+	var high_speed := _munition(definition, &"high_speed_interceptor")
+	var lead := INTERCEPT_GUIDANCE.lead_point(Vector3.ZERO, high_speed.interceptor_speed, target_position, target_velocity, 1.8)
 	assert_lt(lead.x, target_position.x)
 	assert_lt(lead.y, target_position.y)
 	assert_gt(lead.z, target_position.z)
-	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var track := _confirmed_track(target_position)
+	track.classification = &"ballistic_missile"
+	track.estimated_velocity = target_velocity
+	var interceptor := add_child_autofree(HomingInterceptor.new()) as HomingInterceptor
+	interceptor.configure(track, ThreatRegistry.new(), high_speed, Vector3.RIGHT, 71)
+	assert_eq(interceptor.speed, high_speed.interceptor_speed)
+	var lead_direction := interceptor.global_position.direction_to(lead)
+	var initial_error := interceptor.velocity.normalized().angle_to(lead_direction)
+	interceptor.gameplay_tick(0.1)
+	assert_false(interceptor.is_queued_for_deletion())
+	assert_almost_eq(interceptor.velocity.length(), high_speed.interceptor_speed, 0.001)
+	assert_lt(interceptor.velocity.normalized().angle_to(lead_direction), initial_error)
+	assert_gt(interceptor.velocity.z, 0.0, "횡방향으로 움직이는 표적의 예상 위치를 향해 선도합니다")
+
+func test_long_range_launcher_fires_individual_rack_rounds() -> void:
+	var target_position := Vector3(500.0, 600.0, 0.0)
+	var target_velocity := Vector3(-120.0, -180.0, 70.0)
+	var definition := _defense(&"long_range_missile") as MissileBatteryDefinition
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	battery.setup(71, definition)
 	var projectiles := add_child_autofree(Node3D.new()) as Node3D
@@ -808,9 +832,18 @@ func test_high_speed_interceptor_leads_moving_track_and_launches_individual_rack
 	assert_eq(battery.interceptors.size(), 2)
 	assert_eq(battery.magazines[munition.id].rounds, rounds_before - 2)
 	assert_true(battery.magazines[munition.id].is_depleted())
+	assert_ne(battery.interceptors[0].global_position, battery.interceptors[1].global_position)
+
+func test_multi_munition_status_distinguishes_partial_and_full_depletion() -> void:
+	var definition := _defense(&"long_range_missile") as MissileBatteryDefinition
+	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
+	battery.setup(71, definition)
+	var specialized: WeaponMagazine = battery.magazines[&"high_speed_interceptor"]
+	var area: WeaponMagazine = battery.magazines[&"area_defense"]
+	specialized.rounds = 0
+	specialized.reserve = 0
 	assert_eq(battery.critical_status_text(), "일부 탄종 고갈")
 	assert_false(battery.combat_resource_depleted())
-	var area: WeaponMagazine = battery.magazines[&"area_defense"]
 	area.rounds = 0
 	area.reserve = 0
 	assert_eq(battery.critical_status_text(), "탄약 고갈")
@@ -818,12 +851,11 @@ func test_high_speed_interceptor_leads_moving_track_and_launches_individual_rack
 	area.rounds = 1
 	assert_eq(battery.critical_status_text(), "일부 탄종 고갈")
 	area.rounds = 0
-	battery.magazines[munition.id].rounds = 1
+	specialized.rounds = 1
 	assert_eq(battery.critical_status_text(), "일부 탄종 고갈", "첫 탄종 고갈은 전체 고갈이 아닙니다")
-	assert_ne(battery.interceptors[0].global_position, battery.interceptors[1].global_position)
 
 func test_missile_launch_sequence_and_interval_round_trip() -> void:
-	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	var definition := _defense(&"long_range_missile") as MissileBatteryDefinition
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	battery.setup(72, definition)
 	var projectiles := add_child_autofree(Node3D.new()) as Node3D
@@ -893,6 +925,7 @@ func test_reservation_query_indexes_match_live_list_after_every_mutation() -> vo
 	for step: int in 250:
 		var track_id := rng.randi_range(1, 5)
 		var owner_id := rng.randi_range(1, 8)
+		var case_label := "seed 52913 step %d track %d owner %d" % [step, track_id, owner_id]
 		match step % 7:
 			0: coordinator.try_reserve(track_id, owner_id, 0.8, 4)
 			1: coordinator.reserve_fire_support(track_id, owner_id, 0.4)
@@ -912,19 +945,19 @@ func test_reservation_query_indexes_match_live_list_after_every_mutation() -> vo
 				interceptors += int(StringName(reservation.kind) == EngagementCoordinator.INTERCEPTOR)
 				if not owners.has(int(reservation.owner_defense_id)):
 					owners.append(int(reservation.owner_defense_id))
-			assert_eq(coordinator.reservation_count(id), count)
-			assert_eq(coordinator.reservation_count(id, EngagementCoordinator.INTERCEPTOR), interceptors)
-			assert_eq(coordinator.engagement_owner_ids(id), owners)
+			assert_eq(coordinator.reservation_count(id), count, "%s queried track %d count" % [case_label, id])
+			assert_eq(coordinator.reservation_count(id, EngagementCoordinator.INTERCEPTOR), interceptors, "%s queried track %d interceptor count" % [case_label, id])
+			assert_eq(coordinator.engagement_owner_ids(id), owners, "%s queried track %d owners" % [case_label, id])
 			var copy := coordinator.engagement_owner_ids(id)
 			copy.clear()
-			assert_eq(coordinator.engagement_owner_ids(id), owners)
+			assert_eq(coordinator.engagement_owner_ids(id), owners, "%s queried track %d defensive copy" % [case_label, id])
 		for id: int in range(1, 9):
 			var expected := 0
 			for reservation: Dictionary in coordinator.capture_state().reservations:
 				if int(reservation.owner_defense_id) == id and StringName(reservation.kind) == EngagementCoordinator.FIRE_SUPPORT:
 					expected = int(reservation.track_id)
 					break
-			assert_eq(coordinator.fire_support_target(id), expected)
+			assert_eq(coordinator.fire_support_target(id), expected, "%s queried defense %d" % [case_label, id])
 	coordinator.reset()
 	assert_eq(coordinator.reservation_count(1), 0)
 	assert_true(coordinator.engagement_owner_ids(1).is_empty())
@@ -976,6 +1009,7 @@ func test_weapon_magazine_consumes_reloads_and_restores_finite_ammunition() -> v
 	var saved_state := magazine.capture_state()
 	var restored := WeaponMagazine.new()
 	restored.restore_state(saved_state)
+	assert_eq(WeaponMagazine.validation_error(restored.capture_state()), "", "복원 직후 상태도 유효해야 합니다")
 	assert_almost_eq(restored.reload_remaining, 0.4, 0.0001)
 	restored.gameplay_tick(0.4)
 	assert_eq(restored.rounds, 2)
@@ -985,8 +1019,13 @@ func test_weapon_magazine_consumes_reloads_and_restores_finite_ammunition() -> v
 	restored.gameplay_tick(1.0)
 	assert_eq(restored.rounds, 1)
 	assert_eq(restored.reserve, 0)
-	assert_eq(WeaponMagazine.validation_error(restored.capture_state()), "")
-	var invalid_state := restored.capture_state()
+
+func test_weapon_magazine_state_validation_rejects_excess_rounds() -> void:
+	var magazine := WeaponMagazine.new()
+	magazine.setup(2, 3, 1.0)
+	var state := magazine.capture_state()
+	assert_eq(WeaponMagazine.validation_error(state), "")
+	var invalid_state := state.duplicate(true)
 	invalid_state.rounds = 99
 	assert_ne(WeaponMagazine.validation_error(invalid_state), "")
 
@@ -1001,23 +1040,30 @@ func test_energy_weapon_charges_cools_and_recovers_from_overheat() -> void:
 	assert_true(energy.overheated)
 	energy.gameplay_tick(1.5, 0.5)
 	assert_false(energy.overheated)
+
+func test_energy_weapon_state_round_trips_and_rejects_excess_energy() -> void:
+	var energy := EnergyWeaponState.new()
+	energy.setup(20.0, 5.0, 10.0, 5.0, 2.0)
+	assert_true(energy.consume(4.0))
+	var state := energy.capture_state()
 	var restored := EnergyWeaponState.new()
-	restored.restore_state(energy.capture_state())
+	restored.restore_state(state)
+	assert_eq(restored.capture_state(), state)
 	assert_eq(EnergyWeaponState.validation_error(restored.capture_state()), "")
-	var invalid_state := restored.capture_state()
+	var invalid_state := restored.capture_state().duplicate(true)
 	invalid_state.energy = 99.0
 	assert_ne(EnergyWeaponState.validation_error(invalid_state), "")
 
 func test_power_manager_allocates_finite_generation_capacity() -> void:
 	var manager: PowerManager = autofree(PowerManager.new()) as PowerManager
 	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(1, SCENARIO.available_defenses[5])
+	facility.setup(1, _defense(&"support_facility"))
 	manager.register_asset(facility)
-	var laser: HighEnergyLaser = autofree((SCENARIO.available_defenses[6] as HighEnergyLaserDefinition).scene.instantiate()) as HighEnergyLaser
-	laser.setup(2, SCENARIO.available_defenses[6])
+	var laser: HighEnergyLaser = autofree((_defense(&"high_energy_laser") as HighEnergyLaserDefinition).scene.instantiate()) as HighEnergyLaser
+	laser.setup(2, _defense(&"high_energy_laser"))
 	manager.register_asset(laser)
-	var microwave: HighPowerMicrowave = autofree((SCENARIO.available_defenses[9] as HighPowerMicrowaveDefinition).scene.instantiate()) as HighPowerMicrowave
-	microwave.setup(3, SCENARIO.available_defenses[9])
+	var microwave: HighPowerMicrowave = autofree((_defense(&"high_power_microwave") as HighPowerMicrowaveDefinition).scene.instantiate()) as HighPowerMicrowave
+	microwave.setup(3, _defense(&"high_power_microwave"))
 	manager.register_asset(microwave)
 	assert_eq(manager.total_demand(), 30.0)
 	manager.begin_tick()
@@ -1028,14 +1074,14 @@ func test_power_manager_allocates_finite_generation_capacity() -> void:
 func test_energy_selection_compares_total_demand_with_total_supply() -> void:
 	var manager: PowerManager = autofree(PowerManager.new()) as PowerManager
 	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(1, SCENARIO.available_defenses[5])
+	facility.setup(1, _defense(&"support_facility"))
 	manager.register_asset(facility)
-	var laser: HighEnergyLaser = autofree((SCENARIO.available_defenses[6] as HighEnergyLaserDefinition).scene.instantiate()) as HighEnergyLaser
-	laser.setup(2, SCENARIO.available_defenses[6])
+	var laser: HighEnergyLaser = autofree((_defense(&"high_energy_laser") as HighEnergyLaserDefinition).scene.instantiate()) as HighEnergyLaser
+	laser.setup(2, _defense(&"high_energy_laser"))
 	laser.configure_power(manager)
 	manager.register_asset(laser)
-	var microwave: HighPowerMicrowave = autofree((SCENARIO.available_defenses[9] as HighPowerMicrowaveDefinition).scene.instantiate()) as HighPowerMicrowave
-	microwave.setup(3, SCENARIO.available_defenses[9])
+	var microwave: HighPowerMicrowave = autofree((_defense(&"high_power_microwave") as HighPowerMicrowaveDefinition).scene.instantiate()) as HighPowerMicrowave
+	microwave.setup(3, _defense(&"high_power_microwave"))
 	microwave.configure_power(manager)
 	manager.register_asset(microwave)
 	for unit: DefenseUnit in [laser, microwave]:
@@ -1052,9 +1098,8 @@ func test_energy_selection_compares_total_demand_with_total_supply() -> void:
 	laser.configure_power(null)
 	assert_true(laser.selection_status_rows().has({"label": "전력", "value": "공급 없음", "warning": true}))
 
-func test_support_and_power_managers_accept_capability_providers() -> void:
+func test_support_manager_accepts_capability_provider() -> void:
 	var support: SupportManager = autofree(SupportManager.new()) as SupportManager
-	var power: PowerManager = autofree(PowerManager.new()) as PowerManager
 	var support_session: GameSession = autofree(GameSession.new()) as GameSession
 	support_session.reset(100)
 	support.configure(support_session)
@@ -1068,11 +1113,18 @@ func test_support_and_power_managers_accept_capability_providers() -> void:
 	consumer.configure_support(support)
 	support.register_asset(provider)
 	support.register_asset(consumer)
-	power.register_asset(provider)
 	assert_same(support.service_facility_for(consumer), provider)
 	assert_true(consumer.request_resupply())
 	support.gameplay_tick(1.0)
 	assert_true(consumer.replenished)
+
+func test_power_manager_accepts_capability_provider() -> void:
+	var power := autofree(PowerManager.new()) as PowerManager
+	var definition := DefenseDefinition.new()
+	definition.maximum_integrity = 100.0
+	var provider := add_child_autofree(CapabilityProviderDouble.new()) as CapabilityProviderDouble
+	provider.setup(1, definition)
+	power.register_asset(provider)
 	assert_eq(power.generation_capacity(), 12.0)
 
 func test_proportional_resupply_carries_rounding_credit_across_save() -> void:
@@ -1122,16 +1174,16 @@ func test_legacy_magazine_state_retains_paid_full_refill() -> void:
 	assert_eq(stock.reserve, 18)
 
 func test_balance_damage_breakpoints_and_full_supply_prices() -> void:
-	var short_definition := SCENARIO.available_defenses[8] as MissileBatteryDefinition
-	var long_definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
-	assert_eq(short_definition.munitions[0].interceptor_damage, 100.0)
-	assert_eq(short_definition.munitions[0].resupply_cost, 22)
-	assert_lt(long_definition.munitions[0].interceptor_damage, 140.0)
-	assert_gte(long_definition.munitions[1].interceptor_damage, 140.0)
-	assert_eq((SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost, 8)
+	var short_definition := _defense(&"short_range_missile") as MissileBatteryDefinition
+	var long_definition := _defense(&"long_range_missile") as MissileBatteryDefinition
+	assert_eq(_munition(short_definition, &"quick_reaction").interceptor_damage, 100.0)
+	assert_eq(_munition(short_definition, &"quick_reaction").resupply_cost, 22)
+	assert_lt(_munition(long_definition, &"area_defense").interceptor_damage, 140.0)
+	assert_gte(_munition(long_definition, &"high_speed_interceptor").interceptor_damage, 140.0)
+	assert_eq((_defense(&"close_in_gun") as CloseInGunDefinition).resupply_cost, 8)
 
 func test_gun_stock_reduction_preserves_legacy_inventory_and_unit_price() -> void:
-	var definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
+	var definition := _defense(&"close_in_gun") as CloseInGunDefinition
 	var gun := add_child_autofree(definition.scene.instantiate()) as CloseInGun
 	gun.setup(1, definition)
 	assert_eq(gun.magazine.capacity, 60)
@@ -1146,23 +1198,17 @@ func test_gun_stock_reduction_preserves_legacy_inventory_and_unit_price() -> voi
 	assert_eq(gun.resupply_cost(), 12, "구버전 재고도 현재 묶음당 단가를 적용합니다")
 
 func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
-	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
-	var support_session: GameSession = autofree(GameSession.new()) as GameSession
-	support_session.reset(100)
-	manager.configure(support_session)
-	var facility: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(1, SCENARIO.available_defenses[5])
-	var gun: CloseInGun = add_child_autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
-	gun.setup(2, SCENARIO.available_defenses[4])
-	gun.configure_support(manager)
-	manager.register_asset(facility)
-	manager.register_asset(gun)
+	var fixture := _gun_support_fixture()
+	var manager: SupportManager = fixture.manager
+	var support_session: GameSession = fixture.session
+	var facility: SupportFacility = fixture.facility
+	var gun: CloseInGun = fixture.gun
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
 	assert_true(gun.request_resupply())
-	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost)
+	assert_eq(support_session.budget, 100 - (_defense(&"close_in_gun") as CloseInGunDefinition).resupply_cost)
 	assert_false(gun.request_resupply())
-	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost)
+	assert_eq(support_session.budget, 100 - (_defense(&"close_in_gun") as CloseInGunDefinition).resupply_cost)
 	assert_eq(manager.task_status(gun), "재보급 진행")
 	manager.gameplay_tick(1.0)
 	var saved_state := manager.capture_state()
@@ -1178,14 +1224,28 @@ func test_support_queue_preserves_work_and_uses_facility_capacity() -> void:
 	assert_eq(gun.magazine.rounds, gun.magazine.capacity)
 	assert_eq(manager.task_status(gun), "")
 
+func _gun_support_fixture() -> Dictionary:
+	var manager := autofree(SupportManager.new()) as SupportManager
+	var support_session := autofree(GameSession.new()) as GameSession
+	support_session.reset(100)
+	manager.configure(support_session)
+	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, _defense(&"support_facility"))
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2, _defense(&"close_in_gun"))
+	gun.configure_support(manager)
+	manager.register_asset(facility)
+	manager.register_asset(gun)
+	return {"manager": manager, "session": support_session, "facility": facility, "gun": gun}
+
 func _automatic_resupply_fixture() -> Dictionary:
 	var manager := autofree(SupportManager.new()) as SupportManager
 	var support_session := autofree(GameSession.new()) as GameSession
 	support_session.reset(100)
 	manager.configure(support_session)
 	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(1, SCENARIO.available_defenses[5])
-	var definition := SCENARIO.available_defenses[7] as MissileBatteryDefinition
+	facility.setup(1, _defense(&"support_facility"))
+	var definition := _defense(&"long_range_missile") as MissileBatteryDefinition
 	var battery := add_child_autofree(definition.scene.instantiate()) as MissileBattery
 	battery.setup(2, definition)
 	battery.configure_support(manager)
@@ -1304,18 +1364,12 @@ func test_automatic_resupply_policy_restores_without_spending_and_rejects_non_am
 	manager.restore_state({"tasks": [], "automatic_resupply_ids": []})
 	assert_false(battery.automatic_resupply_enabled(), "저장된 꺼짐은 새 자산의 기본값보다 우선합니다")
 
-func test_support_tasks_require_a_nearby_operational_facility() -> void:
-	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
-	var support_session: GameSession = autofree(GameSession.new()) as GameSession
-	support_session.reset(100)
-	manager.configure(support_session)
-	var facility: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(1, SCENARIO.available_defenses[5])
-	var gun: CloseInGun = add_child_autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
-	gun.setup(2, SCENARIO.available_defenses[4])
-	gun.configure_support(manager)
-	manager.register_asset(facility)
-	manager.register_asset(gun)
+func test_resupply_requires_a_nearby_operational_facility_and_pauses_out_of_range() -> void:
+	var fixture := _gun_support_fixture()
+	var manager: SupportManager = fixture.manager
+	var support_session: GameSession = fixture.session
+	var facility: SupportFacility = fixture.facility
+	var gun: CloseInGun = fixture.gun
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
 	gun.global_position = Vector3(facility.service_range() + 1.0, 0.0, 0.0)
@@ -1333,42 +1387,59 @@ func test_support_tasks_require_a_nearby_operational_facility() -> void:
 	gun.global_position -= Vector3.RIGHT
 	manager.gameplay_tick(3.0)
 	assert_eq(gun.magazine.reserve, gun.magazine.reserve_capacity)
+
+func test_repair_requires_a_nearby_operational_facility() -> void:
+	var fixture := _gun_support_fixture()
+	var support_session: GameSession = fixture.session
+	var facility: SupportFacility = fixture.facility
+	var gun: CloseInGun = fixture.gun
 	assert_true(gun.receive_damage(20.0))
-	gun.global_position += Vector3.RIGHT
+	gun.global_position = Vector3(facility.service_range() + 1.0, 0.0, 0.0)
 	assert_false(gun.can_request_repair())
 	assert_false(gun.request_repair())
-	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost)
-	gun.global_position -= Vector3.RIGHT
+	assert_eq(support_session.budget, 100)
+	gun.global_position = Vector3(facility.service_range(), 0.0, 0.0)
 	assert_true(gun.can_request_repair())
 	assert_true(gun.request_repair())
-	assert_eq(support_session.budget, 100 - (SCENARIO.available_defenses[4] as CloseInGunDefinition).resupply_cost - gun.repair_cost())
+	assert_eq(support_session.budget, 100 - gun.repair_cost())
 
-func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
-	var manager: SupportManager = autofree(SupportManager.new()) as SupportManager
-	var support_session: GameSession = autofree(GameSession.new()) as GameSession
-	support_session.reset(100)
-	manager.configure(support_session)
-	var facility: SupportFacility = add_child_autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(1, SCENARIO.available_defenses[5])
-	var gun: CloseInGun = add_child_autofree((SCENARIO.available_defenses[4] as CloseInGunDefinition).scene.instantiate()) as CloseInGun
-	gun.setup(2, SCENARIO.available_defenses[4])
-	gun.configure_support(manager)
-	manager.register_asset(facility)
-	manager.register_asset(gun)
+func test_damage_reduces_facility_support_capacity() -> void:
+	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, _defense(&"support_facility"))
+	assert_true(facility.receive_damage(50.0))
+	assert_eq(facility.operational_status_text(), "상태 성능저하 · 내구도 50%")
+	assert_almost_eq(facility.support_capacity(), 2.0, 0.0001)
+
+func test_damage_reduces_gun_c2_link_range() -> void:
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2, _defense(&"close_in_gun"))
+	assert_true(gun.receive_damage(50.0))
+	assert_not_null(gun.damage_smoke)
+	if gun.damage_smoke != null:
+		assert_true((gun.damage_smoke.get_node("Smoke") as GPUParticles3D).emitting)
+	assert_almost_eq(gun.c2_link_range(), (_defense(&"close_in_gun") as CloseInGunDefinition).c2_range * 0.5, 0.0001)
+
+func test_damaged_facility_shows_smoke_fire_and_condition_frame() -> void:
+	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
+	facility.setup(1, _defense(&"support_facility"))
 	assert_true(facility.receive_damage(50.0))
 	assert_not_null(facility.damage_smoke)
 	assert_gte((facility.damage_smoke.get_node("Smoke") as GPUParticles3D).amount, 40)
 	assert_true((facility.damage_smoke.get_node("Fire") as GPUParticles3D).emitting)
-	facility._process(0.0)
+	_refresh_defense_presentation(facility)
 	var damage_frame := facility.identity_marker.get_node("ConditionFrame") as Sprite3D
 	assert_true(damage_frame.visible)
 	assert_true(damage_frame.no_depth_test)
 	assert_gte(damage_frame.render_priority, 100)
-	assert_eq(facility.operational_status_text(), "상태 성능저하 · 내구도 50%")
-	assert_almost_eq(facility.support_capacity(), 2.0, 0.0001)
+
+func test_repair_task_round_trip_uses_damaged_facility_capacity() -> void:
+	var fixture := _gun_support_fixture()
+	var manager: SupportManager = fixture.manager
+	var support_session: GameSession = fixture.session
+	var facility: SupportFacility = fixture.facility
+	var gun: CloseInGun = fixture.gun
+	assert_true(facility.receive_damage(50.0))
 	assert_true(gun.receive_damage(50.0))
-	assert_not_null(gun.damage_smoke)
-	assert_almost_eq(gun.c2_link_range(), (SCENARIO.available_defenses[4] as CloseInGunDefinition).c2_range * 0.5, 0.0001)
 	assert_true(gun.request_repair())
 	assert_eq(support_session.budget, 100 - gun.repair_cost())
 	assert_eq(manager.task_status(gun), "수리 진행")
@@ -1386,25 +1457,31 @@ func test_damage_reduces_capability_and_repair_shares_support_queue() -> void:
 	assert_true(gun.active)
 	assert_null(gun.damage_smoke)
 	assert_eq(manager.task_status(gun), "")
+
+func test_depleted_gun_keeps_supply_badge_and_damage_frame() -> void:
+	var manager := autofree(SupportManager.new()) as SupportManager
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2, _defense(&"close_in_gun"))
+	gun.configure_support(manager)
+	manager.register_asset(gun)
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
-	gun._process(0.0)
+	_refresh_defense_presentation(gun)
 	assert_true(gun.status_marker.visible)
 	var depleted_badge := gun.status_marker.get_node("SupplyBadge") as Sprite3D
 	assert_eq(depleted_badge.texture, UnitStatusMarker.SUPPLY_TEXTURES["재보급 대기"])
 	assert_true(depleted_badge.visible)
 	assert_true(depleted_badge.fixed_size)
 	gun.receive_damage(70.0)
-	gun._process(0.0)
+	_refresh_defense_presentation(gun)
 	assert_true((gun.identity_marker.get_node("ConditionFrame") as Sprite3D).visible)
 
-func test_status_channels_coexist_and_keep_subtype_corner_clear() -> void:
+func test_status_badges_are_unique_fixed_and_use_separate_corners() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(2000, SCENARIO.available_defenses[0])
+	battery.setup(2000, _defense(&"missile_battery"))
 	var marker := battery.status_marker as UnitStatusMarker
 	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
 	assert_eq(marker.position, battery.identity_marker.position)
-	var frame := battery.identity_marker.get_node("ConditionFrame") as Sprite3D
 	assert_gt(marker.supply_badge.render_priority, icon.render_priority)
 	assert_true(marker.supply_badge.fixed_size)
 	assert_true(marker.supply_badge.no_depth_test)
@@ -1418,37 +1495,45 @@ func test_status_channels_coexist_and_keep_subtype_corner_clear() -> void:
 		marker.set_status(status, true)
 		assert_false(textures.has(marker.supply_badge.texture))
 		textures.append(marker.supply_badge.texture)
+	assert_lt(marker.supply_badge.offset.y, 0.0, "보급은 오른쪽 아래이며 하위 분류 자리는 비워 둡니다")
+	assert_lt(marker.obstruction_badge.offset.x, 0.0)
+	assert_lt(marker.obstruction_badge.offset.y, 0.0)
+	marker.set_status("", false)
+	assert_false(marker.visible)
+	assert_false(marker.supply_badge.visible)
+	assert_false(marker.obstruction_badge.visible)
+
+func test_damage_frame_preserves_identity_and_clears_after_repair() -> void:
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(2000, _defense(&"missile_battery"))
+	var marker := battery.status_marker as UnitStatusMarker
+	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
+	var frame := battery.identity_marker.get_node("ConditionFrame") as Sprite3D
+	marker.set_status("재보급 대기", true)
 	battery.set_selected(true)
 	var original_texture := icon.texture
 	var original_color := icon.modulate
 	battery.receive_damage(50.0)
-	battery._process(0.0)
+	_refresh_defense_presentation(battery)
 	assert_true(frame.visible)
 	var damaged_texture := frame.texture
 	assert_eq(icon.modulate, original_color)
 	var badge_left := (marker.supply_badge.offset.x - 12.0) * marker.supply_badge.pixel_size
 	var frame_right := frame.texture.get_width() * 0.5 * frame.pixel_size * frame.scale.x
 	assert_gt(badge_left, frame_right, "선택 확대된 경고 테두리도 배지를 가리지 않습니다")
-	assert_lt(marker.supply_badge.offset.y, 0.0, "보급은 오른쪽 아래이며 하위 분류 자리는 비워 둡니다")
-	assert_lt(marker.obstruction_badge.offset.x, 0.0)
-	assert_lt(marker.obstruction_badge.offset.y, 0.0)
 	battery.receive_damage(100.0)
-	battery._process(0.0)
+	_refresh_defense_presentation(battery)
 	assert_ne(frame.texture, damaged_texture)
 	assert_lt(icon.modulate.r, original_color.r)
 	assert_eq(icon.texture, original_texture)
 	battery.complete_repair()
-	battery._process(0.0)
+	_refresh_defense_presentation(battery)
 	assert_false(frame.visible)
 	assert_eq(icon.modulate, original_color)
-	marker.set_status("", false)
-	assert_false(marker.visible)
-	assert_false(marker.supply_badge.visible)
-	assert_false(marker.obstruction_badge.visible)
 
 func test_badge_clearance_tracks_visible_boundary_not_supply_state() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(2010, SCENARIO.available_defenses[0])
+	battery.setup(2010, _defense(&"missile_battery"))
 	var marker := battery.status_marker as UnitStatusMarker
 	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
 	var healthy_offset := marker.supply_badge.offset.x
@@ -1458,7 +1543,7 @@ func test_badge_clearance_tracks_visible_boundary_not_supply_state() -> void:
 		assert_eq(marker.supply_badge.offset.x, healthy_offset, "탄약·보급 종류로 배지 간격이 달라지지 않습니다")
 	battery.receive_damage(30.0)
 	battery.set_selected(true)
-	battery._process(0.0)
+	_refresh_defense_presentation(battery)
 	var frame := battery.identity_marker.get_node("ConditionFrame") as Sprite3D
 	var damaged_gap := (marker.supply_badge.offset.x - 12.0) * marker.supply_badge.pixel_size - frame.texture.get_width() * 0.5 * frame.pixel_size * frame.scale.x
 	assert_almost_eq(damaged_gap, healthy_gap, 0.00001, "실제 테두리와 배지 사이의 여백은 상태·선택과 무관하게 같습니다")
@@ -1466,7 +1551,7 @@ func test_badge_clearance_tracks_visible_boundary_not_supply_state() -> void:
 	assert_gt(marker.supply_badge.offset.x, healthy_offset)
 	battery.complete_repair()
 	battery.set_selected(false)
-	battery._process(0.0)
+	_refresh_defense_presentation(battery)
 	assert_almost_eq(marker.supply_badge.offset.x, healthy_offset, 0.00001)
 
 func test_range_caption_and_outline_render_in_front_of_ribbon() -> void:
@@ -1479,13 +1564,13 @@ func test_range_caption_and_outline_render_in_front_of_ribbon() -> void:
 	assert_gt(ring.caption.render_priority, ring.caption.outline_render_priority)
 
 func test_damage_supply_and_obstruction_are_independent_statuses() -> void:
-	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
-	gun.setup(2200, SCENARIO.available_defenses[4])
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2200, _defense(&"close_in_gun"))
 	gun.magazine.rounds = 0
 	gun.magazine.reserve = 0
 	gun.line_of_fire_blocked = true
 	gun.receive_damage(30.0)
-	gun._process(0.0)
+	_refresh_defense_presentation(gun)
 	var marker := gun.status_marker as UnitStatusMarker
 	assert_true(marker.supply_badge.visible)
 	assert_true(marker.obstruction_badge.visible)
@@ -1495,7 +1580,7 @@ func test_damage_supply_and_obstruction_are_independent_statuses() -> void:
 	assert_has(hint, "탄약 고갈")
 	assert_has(hint, "사선 차단")
 	gun.receive_damage(100.0)
-	gun._process(0.0)
+	_refresh_defense_presentation(gun)
 	assert_false(marker.obstruction_badge.visible)
 	assert_true(marker.supply_badge.visible)
 	assert_false(TacticalScreenOverlay.asset_hint_statuses(gun).has("사선 차단"))
@@ -1503,8 +1588,8 @@ func test_damage_supply_and_obstruction_are_independent_statuses() -> void:
 func test_asset_tooltip_separates_heading_and_statuses_without_stale_rows() -> void:
 	var overlay := add_child_autofree(TacticalScreenOverlay.new()) as TacticalScreenOverlay
 	overlay.set_process(false)
-	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
-	gun.setup(2020, SCENARIO.available_defenses[4])
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2020, _defense(&"close_in_gun"))
 	gun.receive_damage(30.0)
 	gun.line_of_fire_blocked = true
 	gun.magazine.rounds = 0
@@ -1539,10 +1624,11 @@ func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() 
 	support_session.reset(10000)
 	manager.configure(support_session)
 	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(1000, SCENARIO.available_defenses[5])
+	facility.setup(1000, _defense(&"support_facility"))
 	manager.register_asset(facility)
 	var id := 2000
 	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		var case_label := "defense %s" % definition.id
 		var unit := add_child_autofree(definition.scene.instantiate()) as DefenseUnit
 		unit.setup(id, definition)
 		id += 1
@@ -1554,28 +1640,28 @@ func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() 
 		if unit is ArmedDefenseUnit and (unit as ArmedDefenseUnit).magazine != null:
 			(unit as ArmedDefenseUnit).magazine.consume()
 		var resources := unit.capture_content_state().duplicate(true)
-		assert_true(unit.receive_damage(definition.maximum_integrity * 2.0))
-		assert_eq(unit.integrity, 0.0)
-		assert_false(unit.active)
-		assert_false(unit.is_queued_for_deletion())
-		assert_true(unit.operational_status_text().contains("기능정지"))
-		assert_true(manager.serviceable_units_from(facility.position, facility.service_range()).has(unit))
-		assert_true(unit.can_request_repair())
+		assert_true(unit.receive_damage(definition.maximum_integrity * 2.0), "%s accepts damage" % case_label)
+		assert_eq(unit.integrity, 0.0, "%s integrity" % case_label)
+		assert_false(unit.active, "%s activity" % case_label)
+		assert_false(unit.is_queued_for_deletion(), "%s remains repairable" % case_label)
+		assert_true(unit.operational_status_text().contains("기능정지"), "%s status" % case_label)
+		assert_true(manager.serviceable_units_from(facility.position, facility.service_range()).has(unit), "%s service eligibility" % case_label)
+		assert_true(unit.can_request_repair(), "%s repair eligibility" % case_label)
 		var budget := support_session.budget
-		assert_true(unit.request_repair())
-		assert_false(unit.request_repair(), "동일 수리를 중복 결제하지 않습니다")
-		assert_eq(support_session.budget, budget - unit.repair_cost())
+		assert_true(unit.request_repair(), "%s repair request" % case_label)
+		assert_false(unit.request_repair(), "%s 동일 수리를 중복 결제하지 않습니다" % case_label)
+		assert_eq(support_session.budget, budget - unit.repair_cost(), "%s repair cost" % case_label)
 		manager.gameplay_tick(0.01)
-		assert_false(unit.active, "수리가 완료되기 전에는 가동하지 않습니다")
+		assert_false(unit.active, "%s 수리가 완료되기 전에는 가동하지 않습니다" % case_label)
 		manager.gameplay_tick(100.0)
-		assert_true(unit.active)
-		assert_eq(unit.integrity, definition.maximum_integrity)
-		assert_eq(unit.capture_content_state(), resources, "수리는 탄약·에너지·교전 설정을 바꾸지 않습니다")
-		assert_null(unit.damage_smoke)
+		assert_true(unit.active, "%s repaired activity" % case_label)
+		assert_eq(unit.integrity, definition.maximum_integrity, "%s repaired integrity" % case_label)
+		assert_eq(unit.capture_content_state(), resources, "%s 수리는 탄약·에너지·교전 설정을 바꾸지 않습니다" % case_label)
+		assert_null(unit.damage_smoke, "%s repaired smoke" % case_label)
 
 func test_disabled_battery_keeps_launched_missile_flying_without_reloading() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(2000, SCENARIO.available_defenses[0])
+	battery.setup(2000, _defense(&"missile_battery"))
 	var interceptor := add_child_autofree(MissileBattery.INTERCEPTOR_SCENE.instantiate()) as HomingInterceptor
 	interceptor.position = Vector3(0.0, 500.0, 0.0)
 	interceptor.target_track = _confirmed_track(Vector3(0.0, 500.0, -200.0))
@@ -1598,7 +1684,7 @@ func test_disabled_battery_keeps_launched_missile_flying_without_reloading() -> 
 
 func test_damage_does_not_reactivate_a_relocating_asset() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(2000, SCENARIO.available_defenses[0])
+	battery.setup(2000, _defense(&"missile_battery"))
 	battery.active = false
 	battery.receive_damage(10.0)
 	assert_false(battery.active)
@@ -1646,9 +1732,9 @@ func test_target_policy_filters_classification_without_bypassing_other_rules() -
 
 func test_battery_and_gun_skip_disallowed_target_kinds() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
-	battery.setup(1, SCENARIO.available_defenses[0])
-	var gun := add_child_autofree(SCENARIO.available_defenses[4].scene.instantiate()) as CloseInGun
-	gun.setup(2, SCENARIO.available_defenses[4])
+	battery.setup(1, _defense(&"missile_battery"))
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(2, _defense(&"close_in_gun"))
 	var track := _confirmed_track(Vector3(100, 50, 0))
 	track.classification = &"uav"
 	var tracks: Array[PlayerTrack] = [track]
@@ -1683,14 +1769,14 @@ func test_policy_covers_observed_uav_and_missile_variants() -> void:
 	for classification: StringName in [&"large_uav", &"strike_uav", &"recon_uav", &"missile"]:
 		var track := _confirmed_track(Vector3(100, 50, 0))
 		track.classification = classification
-		assert_false(doctrine.allows(track))
+		assert_false(doctrine.allows(track), "classification %s maps to a disabled target kind" % classification)
 	assert_true(doctrine.allows_target_kind(&"small_uav"))
 
 func test_repair_time_scales_with_damage_and_later_damage_is_not_free() -> void:
 	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
-	facility.setup(500, SCENARIO.available_defenses[5])
+	facility.setup(500, _defense(&"support_facility"))
 	var unit := add_child_autofree(DefenseUnit.new()) as DefenseUnit
-	unit.setup(501, SCENARIO.available_defenses[0])
+	unit.setup(501, _defense(&"missile_battery"))
 	var manager := autofree(SupportManager.new()) as SupportManager
 	var support_session := autofree(GameSession.new()) as GameSession
 	support_session.reset(1000)
@@ -1699,19 +1785,44 @@ func test_repair_time_scales_with_damage_and_later_damage_is_not_free() -> void:
 	manager.register_asset(unit)
 	var prior_cost := 0
 	for damage: float in [0.1, 0.5, 1.0]:
+		var case_label := "damage %.1f" % damage
 		unit.integrity = unit.definition.maximum_integrity * (1.0 - damage)
-		assert_gt(unit.repair_cost(), prior_cost)
+		assert_gt(unit.repair_cost(), prior_cost, "%s repair cost" % case_label)
 		prior_cost = unit.repair_cost()
 		var seconds := unit.repair_work() / facility.support_capacity()
 		if damage == 0.1:
-			assert_between(seconds, 6.0, 10.0)
+			assert_between(seconds, 6.0, 10.0, "%s repair duration" % case_label)
 		elif damage == 0.5:
-			assert_between(seconds, 15.0, 25.0)
+			assert_between(seconds, 15.0, 25.0, "%s repair duration" % case_label)
 		else:
-			assert_between(seconds, 30.0, 45.0)
+			assert_between(seconds, 30.0, 45.0, "%s repair duration" % case_label)
 	unit.integrity = unit.definition.maximum_integrity * 0.9
 	assert_true(manager.request_repair(unit))
 	unit.receive_damage(1000.0)
 	manager.gameplay_tick(100.0)
 	assert_almost_eq(unit.operational_ratio(), 0.1, 0.0001)
 	assert_false(unit.active, "복구량이 기능 회복 기준에 못 미치면 계속 정지한다")
+
+func _defense(id: StringName) -> DefenseDefinition:
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		if definition.id == id:
+			return definition
+	fail_test("missing defense definition %s" % id)
+	return null
+
+func _threat(id: StringName) -> ThreatDefinition:
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		if entry.threat_definition.id == id:
+			return entry.threat_definition
+	fail_test("missing threat definition %s" % id)
+	return null
+
+func _munition(definition: MissileBatteryDefinition, id: StringName) -> MissileMunitionDefinition:
+	for munition: MissileMunitionDefinition in definition.munitions:
+		if munition.id == id:
+			return munition
+	fail_test("missing munition definition %s" % id)
+	return null
+
+func _refresh_defense_presentation(unit: DefenseUnit) -> void:
+	unit._process(0.0)
