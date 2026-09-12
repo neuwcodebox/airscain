@@ -403,14 +403,16 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	if selected_asset == null or not is_instance_valid(selected_asset):
 		return
 	_refresh_asset_metrics()
+	var can_resupply := selected_asset.uses_ammunition() and selected_asset.can_request_resupply()
 	if selected_asset.uses_ammunition():
-		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost()
+		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost() if can_resupply else "재보급 요청"
 		automatic_resupply_button.set_pressed_no_signal(selected_asset.automatic_resupply_enabled())
 	if selected_asset.supports_munition_selection():
 		munition_mode_button.text = "탄종  %s" % selected_asset.munition_mode_text()
-	resupply_button.disabled = not selected_asset.uses_ammunition() or not selected_asset.can_request_resupply()
-	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost()
-	repair_button.disabled = not selected_asset.can_request_repair()
+	resupply_button.disabled = not can_resupply
+	var can_repair := selected_asset.can_request_repair()
+	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost() if can_repair else "수리 요청"
+	repair_button.disabled = not can_repair
 	var relocating := selected_asset.relocation_manager != null and not selected_asset.relocation_manager.task_status(selected_asset).is_empty()
 	relocation_button.text = "재배치 중" if relocating else "재배치  %d초" % roundi(selected_asset.definition.relocation_duration)
 	relocation_button.disabled = not selected_asset.can_request_relocation()

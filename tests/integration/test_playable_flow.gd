@@ -165,6 +165,30 @@ func test_selected_asset_panel_shrinks_when_live_status_rows_disappear() -> void
 		assert_almost_eq(panel.size.y, resting_height, 1.0, "추가 조작 없이 사라진 행의 여백을 회수합니다")
 		assert_almost_eq(panel.get_global_rect().end.y, bottom, 1.0)
 
+func test_unavailable_support_actions_hide_prices() -> void:
+	var gun := _place_for(main, _defense_definition_for(main, &"close_in_gun")).unit as CloseInGun
+	gun.magazine.reserve = 0
+	gun.integrity = gun.definition.maximum_integrity * 0.5
+	main.hud.set_selected_asset(gun, 0)
+	assert_true(main.hud.resupply_button.disabled)
+	assert_eq(main.hud.resupply_button.text, "재보급 요청")
+	assert_true(main.hud.repair_button.disabled)
+	assert_eq(main.hud.repair_button.text, "수리 요청")
+
+	assert_true(_place_for(main, _defense_definition_for(main, &"support_facility")).success)
+	main.hud.refresh_selected_asset()
+	assert_false(main.hud.resupply_button.disabled)
+	assert_eq(main.hud.resupply_button.text, "재보급 요청  $%d" % gun.resupply_cost())
+	assert_false(main.hud.repair_button.disabled)
+	assert_eq(main.hud.repair_button.text, "수리 요청  $%d" % gun.repair_cost())
+
+	assert_true(gun.request_resupply())
+	main.hud.refresh_selected_asset()
+	assert_true(main.hud.resupply_button.disabled)
+	assert_eq(main.hud.resupply_button.text, "재보급 요청")
+	assert_true(main.hud.repair_button.disabled)
+	assert_eq(main.hud.repair_button.text, "수리 요청")
+
 func test_project_rendering_configuration_matches_supported_target() -> void:
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 1600)
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 900)
