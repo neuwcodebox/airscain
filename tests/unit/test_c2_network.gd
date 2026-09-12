@@ -15,6 +15,14 @@ class EndpointDouble:
 	func local_sensor_ids() -> Array[int]:
 		return sensor_ids
 
+class OwnedViewFixture:
+	var knowledge: PlayerKnowledge
+	var network: C2Network
+	var sensor: EndpointDouble
+	var command: EndpointDouble
+	var first: EndpointDouble
+	var second: EndpointDouble
+
 func test_command_path_shares_sensor_track_with_connected_defense() -> void:
 	var network := autofree(C2Network.new()) as C2Network
 	var sensor := _endpoint(1, DefenseUnit.C2Role.SENSOR, Vector3.ZERO)
@@ -148,74 +156,127 @@ func _observe(knowledge: PlayerKnowledge, sensor_id: int, position: Vector3) -> 
 	observation.setup(sensor_id, knowledge.simulation_time, position, 0.9, 5.0, 0.8)
 	return knowledge.submit_observation(observation)
 
-func test_owned_track_views_preserve_local_order_and_immediate_changes() -> void:
+func _owned_view_fixture() -> OwnedViewFixture:
+	var fixture := OwnedViewFixture.new()
+	fixture.knowledge = autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	fixture.network = autofree(C2Network.new()) as C2Network
+	fixture.sensor = _endpoint(1, DefenseUnit.C2Role.SENSOR, Vector3.ZERO)
+	fixture.command = _endpoint(2, DefenseUnit.C2Role.COMMAND, Vector3(100, 0, 0))
+	fixture.first = _endpoint(3, DefenseUnit.C2Role.DEFENSE, Vector3(200, 0, 0))
+	fixture.second = _endpoint(4, DefenseUnit.C2Role.DEFENSE, Vector3(300, 0, 0))
+	fixture.first.sensor_ids = [3]
+	for endpoint: EndpointDouble in [fixture.sensor, fixture.command, fixture.first, fixture.second]:
+		fixture.network.register_asset(endpoint)
+	return fixture
+
+func test_owned_track_views_preserve_local_first_order_and_return_a_copy() -> void:
+	var fixture := _owned_view_fixture()
+	var shared := _observe(fixture.knowledge, 1, Vector3.ZERO)
+	var local := _observe(fixture.knowledge, 3, Vector3(400, 0, 0))
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared])
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.second, fixture.knowledge), [shared])
+	var returned := fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge)
+	returned.clear()
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared], "호출자가 다른 무기의 소유 view를 바꿀 수 없습니다")
+
+func test_owned_track_view_updates_after_observations_and_local_sensor_changes() -> void:
+	var fixture := _owned_view_fixture()
+	var shared := _observe(fixture.knowledge, 1, Vector3.ZERO)
+	var hidden := _observe(fixture.knowledge, 99, Vector3(200, 0, 0))
+	var local := _observe(fixture.knowledge, 3, Vector3(400, 0, 0))
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared])
+	assert_same(_observe(fixture.knowledge, 1, hidden.estimated_position), hidden)
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared, hidden])
+	fixture.first.sensor_ids.append(99)
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [hidden, local, shared])
+
+func test_owned_track_view_updates_after_command_and_endpoint_topology_changes() -> void:
+	var fixture := _owned_view_fixture()
+	var shared := _observe(fixture.knowledge, 1, Vector3.ZERO)
+	var local := _observe(fixture.knowledge, 3, Vector3(400, 0, 0))
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local, shared])
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.second, fixture.knowledge), [shared])
+	fixture.command.active = false
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.first, fixture.knowledge), [local], "지휘 경로가 끊겨도 장비의 local track은 유지합니다")
+	assert_true(fixture.network.available_tracks_for_knowledge(fixture.second, fixture.knowledge).is_empty())
+	fixture.command.active = true
+	fixture.second.position = Vector3(2000, 0, 0)
+	assert_true(fixture.network.available_tracks_for_knowledge(fixture.second, fixture.knowledge).is_empty())
+	fixture.second.position = Vector3(300, 0, 0)
+	assert_eq(fixture.network.available_tracks_for_knowledge(fixture.second, fixture.knowledge), [shared])
+
+func test_owned_view_reads_live_prediction_and_drops_inactive_tracks() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
 	var network := autofree(C2Network.new()) as C2Network
-	var sensor := _endpoint(1, DefenseUnit.C2Role.SENSOR, Vector3.ZERO)
-	var command := _endpoint(2, DefenseUnit.C2Role.COMMAND, Vector3(100, 0, 0))
-	var first := _endpoint(3, DefenseUnit.C2Role.DEFENSE, Vector3(200, 0, 0))
-	var second := _endpoint(4, DefenseUnit.C2Role.DEFENSE, Vector3(300, 0, 0))
-	first.sensor_ids = [3]
-	for endpoint: EndpointDouble in [sensor, command, first, second]:
-		network.register_asset(endpoint)
-	var shared := _observe(knowledge, 1, Vector3.ZERO)
-	var hidden := _observe(knowledge, 99, Vector3(200, 0, 0))
-	var local := _observe(knowledge, 3, Vector3(400, 0, 0))
-	assert_eq(network.available_tracks_for_knowledge(first, knowledge), [local, shared])
-	assert_eq(network.available_tracks_for_knowledge(second, knowledge), [shared])
-	var returned := network.available_tracks_for_knowledge(first, knowledge)
-	returned.clear()
-	assert_eq(network.available_tracks_for_knowledge(first, knowledge), [local, shared], "callers cannot modify another weapon's view")
-	assert_same(_observe(knowledge, 1, hidden.estimated_position), hidden)
-	assert_eq(network.available_tracks_for_knowledge(first, knowledge), [local, shared, hidden])
-	command.active = false
-	assert_eq(network.available_tracks_for_knowledge(first, knowledge), [local])
-	assert_true(network.available_tracks_for_knowledge(second, knowledge).is_empty())
-	command.active = true
-	first.sensor_ids.append(99)
-	assert_eq(network.available_tracks_for_knowledge(first, knowledge), [hidden, local, shared])
-	first.sensor_ids = [3]
-	second.position = Vector3(2000, 0, 0)
-	assert_true(network.available_tracks_for_knowledge(second, knowledge).is_empty())
-	second.position = Vector3(300, 0, 0)
-	for endpoint: EndpointDouble in [first, second]:
-		assert_eq(network.available_tracks_for_knowledge(endpoint, knowledge), network.available_tracks_for(endpoint, knowledge.get_active_tracks()))
+	var unit := _endpoint(1, DefenseUnit.C2Role.SENSOR | DefenseUnit.C2Role.COMMAND, Vector3.ZERO)
+	network.register_asset(unit)
+	var track := _observe(knowledge, 1, Vector3(0, 100, 0))
+	assert_same(network.available_tracks_for_knowledge(unit, knowledge)[0], track)
+	track.estimated_velocity = Vector3(100, 0, 0)
+	knowledge.gameplay_tick(0.1)
+	assert_eq(network.available_tracks_for_knowledge(unit, knowledge)[0].estimated_position, Vector3(10, 100, 0), "cached membership still reads live kinematics")
+	knowledge.gameplay_tick(knowledge.lost_after)
+	assert_true(network.available_tracks_for_knowledge(unit, knowledge).is_empty())
+	knowledge.gameplay_tick(knowledge.remove_after)
+	assert_true(knowledge.tracks.is_empty())
 
-func test_owned_views_follow_prediction_reset_restore_and_lifecycle_callbacks() -> void:
+func test_owned_view_rebuilds_after_restore_and_reset() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
 	var network := autofree(C2Network.new()) as C2Network
 	var unit := _endpoint(1, DefenseUnit.C2Role.SENSOR | DefenseUnit.C2Role.COMMAND, Vector3.ZERO)
 	network.register_asset(unit)
 	for index: int in 3:
 		_observe(knowledge, 1, Vector3(index * 300, 100, 0))
-	var initial := network.available_tracks_for_knowledge(unit, knowledge)
-	initial[0].estimated_velocity = Vector3(100, 0, 0)
-	knowledge.gameplay_tick(0.1)
-	assert_eq(network.available_tracks_for_knowledge(unit, knowledge)[0].estimated_position, Vector3(10, 100, 0), "cached membership still reads live kinematics")
 	var saved := knowledge.capture_state()
-	var callback_counts: Array[int] = []
-	knowledge.track_state_changed.connect(func(_track: PlayerTrack, _previous: PlayerTrack.State) -> void:
-		var result := network.available_tracks_for_knowledge(unit, knowledge)
-		assert_eq(result, network.available_tracks_for(unit, knowledge.get_active_tracks()))
-		callback_counts.append(result.size())
-	)
 	knowledge.gameplay_tick(knowledge.lost_after)
-	assert_eq(callback_counts, [2, 1, 0], "each lifecycle callback sees all changes made so far")
-	knowledge.gameplay_tick(knowledge.remove_after)
 	assert_true(network.available_tracks_for_knowledge(unit, knowledge).is_empty())
-	var restored_counts: Array[int] = []
-	knowledge.track_created.connect(func(_track: PlayerTrack) -> void:
-		restored_counts.append(network.available_tracks_for_knowledge(unit, knowledge).size())
-	)
 	knowledge.restore_state(saved)
-	assert_eq(restored_counts, [1, 2, 3])
 	assert_eq(network.available_tracks_for_knowledge(unit, knowledge), knowledge.get_active_tracks())
 	knowledge.reset()
 	assert_true(network.available_tracks_for_knowledge(unit, knowledge).is_empty())
+
+func test_lifecycle_callback_reads_each_committed_owned_view() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var network := autofree(C2Network.new()) as C2Network
+	var unit := _endpoint(1, DefenseUnit.C2Role.SENSOR | DefenseUnit.C2Role.COMMAND, Vector3.ZERO)
+	network.register_asset(unit)
+	for index: int in 3:
+		_observe(knowledge, 1, Vector3(index * 300, 100, 0))
+	var callback_sizes: Array[int] = []
+	knowledge.track_state_changed.connect(func(_track: PlayerTrack, _previous: PlayerTrack.State) -> void:
+		var owned := network.available_tracks_for_knowledge(unit, knowledge)
+		assert_eq(owned, network.available_tracks_for(unit, knowledge.get_active_tracks()), "lifecycle callback은 갱신이 끝난 공개 view를 봅니다")
+		callback_sizes.append(owned.size())
+	)
+	knowledge.gameplay_tick(knowledge.lost_after)
+	assert_eq(callback_sizes, [2, 1, 0], "각 callback에는 해당 시점까지 완료된 lifecycle 변경이 반영됩니다")
+
+func test_restore_callback_reads_each_incrementally_rebuilt_owned_view() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var network := autofree(C2Network.new()) as C2Network
+	var unit := _endpoint(1, DefenseUnit.C2Role.SENSOR | DefenseUnit.C2Role.COMMAND, Vector3.ZERO)
+	network.register_asset(unit)
+	for index: int in 3:
+		_observe(knowledge, 1, Vector3(index * 300, 100, 0))
+	var saved := knowledge.capture_state()
+	knowledge.reset()
+	var callback_sizes: Array[int] = []
+	knowledge.track_created.connect(func(_track: PlayerTrack) -> void:
+		callback_sizes.append(network.available_tracks_for_knowledge(unit, knowledge).size())
+	)
+	knowledge.restore_state(saved)
+	assert_eq(callback_sizes, [1, 2, 3], "restore callback은 순차적으로 재구축된 공개 view를 봅니다")
+
+func test_owned_views_are_isolated_by_knowledge_source() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var network := autofree(C2Network.new()) as C2Network
+	var unit := _endpoint(1, DefenseUnit.C2Role.SENSOR | DefenseUnit.C2Role.COMMAND, Vector3.ZERO)
+	network.register_asset(unit)
+	var original := _observe(knowledge, 1, Vector3.ZERO)
 	var other := autofree(PlayerKnowledge.new()) as PlayerKnowledge
-	_observe(other, 1, Vector3.ZERO)
-	assert_eq(network.available_tracks_for_knowledge(unit, other).size(), 1)
-	assert_true(network.available_tracks_for_knowledge(unit, knowledge).is_empty())
+	var replacement := _observe(other, 1, Vector3(300, 0, 0))
+	assert_eq(network.available_tracks_for_knowledge(unit, knowledge), [original])
+	assert_eq(network.available_tracks_for_knowledge(unit, other), [replacement])
 
 func test_owned_views_preserve_jamming_refresh_and_recovery() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge

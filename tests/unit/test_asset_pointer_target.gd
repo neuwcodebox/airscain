@@ -21,6 +21,7 @@ func _unit(position: Vector3) -> DefenseUnit:
 	parent.add_child(unit)
 	unit.position = position
 	var model := MeshInstance3D.new()
+	model.name = "Model"
 	var box := BoxMesh.new()
 	box.size = Vector3(10, 18, 10)
 	model.mesh = box
@@ -44,27 +45,36 @@ func test_distant_target_keeps_clickable_pixel_area_and_vertical_view() -> void:
 	var center := unit.pointer_target.screen_rect(unit, camera).get_center()
 	assert_same(picker.asset_at_screen(center + Vector2(15, 0)), unit)
 
-func test_nearby_assets_and_hover_do_not_change_selection() -> void:
-	var first := _unit(Vector3(-10, 0, 0))
+func test_nearby_assets_prefer_a_direct_model_hit_over_padding() -> void:
+	var _first := _unit(Vector3(-10, 0, 0))
 	var second := _unit(Vector3(10, 0, 0))
-	watch_signals(picker)
 	var center := second.pointer_target.screen_rect(second, camera).get_center()
 	assert_same(picker.asset_at_screen(center), second)
+
+func test_hover_moves_outline_without_emitting_selection() -> void:
+	var first := _unit(Vector3(-10, 0, 0))
+	var second := _unit(Vector3(10, 0, 0))
+	var first_model := first.get_node("Model") as MeshInstance3D
+	var second_model := second.get_node("Model") as MeshInstance3D
+	watch_signals(picker)
 	picker.set_hovered_asset(first)
-	assert_true(first.pointer_target.hovered)
+	assert_not_null(first_model.material_overlay)
 	picker.set_hovered_asset(second)
-	assert_false(first.pointer_target.hovered)
-	assert_true(second.pointer_target.hovered)
+	assert_null(first_model.material_overlay)
+	assert_not_null(second_model.material_overlay)
 	assert_signal_not_emitted(picker, "asset_selected")
 	picker.set_hovered_asset(null)
-	assert_null(second.pointer_target.meshes[0].material_overlay)
+	assert_null(second_model.material_overlay)
 
-func test_hidden_and_deleted_targets_are_not_picked() -> void:
+func test_hidden_target_is_not_picked() -> void:
 	var unit := _unit(Vector3.ZERO)
 	var center := unit.pointer_target.screen_rect(unit, camera).get_center()
 	unit.hide()
 	assert_null(picker.asset_at_screen(center))
-	unit.show()
+
+func test_deleted_hover_target_is_not_picked_or_retained() -> void:
+	var unit := _unit(Vector3.ZERO)
+	var center := unit.pointer_target.screen_rect(unit, camera).get_center()
 	picker.set_hovered_asset(unit)
 	unit.queue_free()
 	assert_null(picker.asset_at_screen(center))
@@ -74,7 +84,7 @@ func test_hidden_and_deleted_targets_are_not_picked() -> void:
 
 func test_rotated_model_uses_current_visible_bounds() -> void:
 	var unit := _unit(Vector3.ZERO)
-	var model := unit.pointer_target.meshes[0]
+	var model := unit.get_node("Model") as MeshInstance3D
 	model.position = Vector3(18, 9, 0)
 	model.rotation.z = PI * 0.5
 	var center := unit.pointer_target.screen_rect(unit, camera).get_center()

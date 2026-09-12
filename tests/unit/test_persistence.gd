@@ -33,13 +33,17 @@ func test_versioned_save_document_round_trips_plain_data() -> void:
 	assert_eq(int(decoded.payload.scenario.world_seed), 73129)
 	assert_eq(decoded.payload.world.defenses[0].definition_id, "missile_battery")
 
-func test_save_validation_rejects_unknown_version_and_missing_sections() -> void:
+func test_save_validation_rejects_unknown_version() -> void:
 	var unknown_version := SaveDocument.create(_valid_payload())
 	unknown_version.version = SaveDocument.CURRENT_VERSION + 1
-	assert_ne(SaveDocument.validation_error(unknown_version), "")
+	assert_ne(SaveDocument.validation_error(unknown_version), "", "미래 버전은 현재 런타임에서 열 수 없습니다")
+
+func test_save_validation_rejects_missing_required_section() -> void:
 	var missing_section := SaveDocument.create(_valid_payload())
 	missing_section.payload.erase("player_knowledge")
-	assert_ne(SaveDocument.validation_error(missing_section), "")
+	assert_ne(SaveDocument.validation_error(missing_section), "", "필수 상태 섹션 누락을 거절합니다")
+
+func test_save_decode_rejects_malformed_json() -> void:
 	assert_eq(SaveDocument.decode("not json"), {})
 
 func test_vector_conversion_uses_json_safe_arrays() -> void:
@@ -61,24 +65,33 @@ func test_version_16_migration_disables_automatic_spending_without_mutating_sour
 	assert_eq(migrated.payload.world.support.automatic_resupply_ids, [])
 	assert_eq(document.version, 16)
 	assert_false(document.payload.world.support.has("automatic_resupply_ids"))
+
+func test_migration_rejects_versions_older_than_supported() -> void:
+	var document := SaveDocument.create(_valid_payload())
 	document.version = 15
 	assert_ne(SaveDocument.validation_error(SaveDocument.migrate(document)), "")
 
-func test_save_store_round_trips_and_preserves_previous_file_on_invalid_write() -> void:
-	var document := SaveDocument.create(_valid_payload())
-	document.payload.scenario.world_seed = 48127
+func test_save_store_round_trips_a_valid_document() -> void:
+	var document := _document_with_seed(48127)
 	assert_eq(SAVE_STORE.write(document, save_path), "")
-	var loaded: Dictionary = SAVE_STORE.read(save_path)
+	var loaded := SAVE_STORE.read(save_path) as Dictionary
 	assert_eq(loaded.error, "")
 	assert_eq(int(loaded.document.payload.scenario.world_seed), 48127)
+
+func test_invalid_write_preserves_the_previous_document() -> void:
+	var document := _document_with_seed(48127)
+	assert_eq(SAVE_STORE.write(document, save_path), "")
 	var invalid_document := document.duplicate(true)
 	invalid_document.version = SaveDocument.CURRENT_VERSION + 1
 	assert_ne(SAVE_STORE.write(invalid_document, save_path), "")
-	loaded = SAVE_STORE.read(save_path)
+	var loaded := SAVE_STORE.read(save_path) as Dictionary
 	assert_eq(loaded.error, "")
 	assert_eq(int(loaded.document.payload.scenario.world_seed), 48127)
+
+func test_save_store_recovers_an_interrupted_replacement_from_backup() -> void:
+	assert_eq(SAVE_STORE.write(_document_with_seed(48127), save_path), "")
 	assert_eq(DirAccess.rename_absolute(ProjectSettings.globalize_path(save_path), ProjectSettings.globalize_path(save_path + ".bak")), OK)
-	loaded = SAVE_STORE.read(save_path)
+	var loaded := SAVE_STORE.read(save_path) as Dictionary
 	assert_eq(loaded.error, "")
 	assert_eq(int(loaded.document.payload.scenario.world_seed), 48127)
 	assert_true(FileAccess.file_exists(save_path))
@@ -97,6 +110,11 @@ func _valid_payload() -> Dictionary:
 		"player_knowledge": {},
 		"director": {},
 	}
+
+func _document_with_seed(seed_value: int) -> Dictionary:
+	var document := SaveDocument.create(_valid_payload())
+	document.payload.scenario.world_seed = seed_value
+	return document
 
 func _cleanup_save_files() -> void:
 	for suffix: String in ["", ".tmp", ".bak"]:
