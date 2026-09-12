@@ -671,11 +671,11 @@ func test_missile_rack_empties_visible_cells_then_shows_reload_and_ammunition() 
 	battery.configure_combat(ThreatRegistry.new(), projectiles)
 	var track := _confirmed_track(Vector3(220.0, 60.0, 0.0))
 	var munition := definition.munitions[0]
-	assert_eq(battery._launcher_caps().size(), munition.magazine_capacity)
+	assert_eq(battery.launcher_cell_visuals().size(), munition.magazine_capacity)
 	for expected_rounds: int in range(munition.magazine_capacity - 1, -1, -1):
 		assert_true(battery._fire_round(track, munition))
 		assert_eq(battery.magazines[munition.id].rounds, expected_rounds)
-		assert_eq(battery._launcher_caps().filter(func(cap: Node3D) -> bool: return cap.visible).size(), expected_rounds)
+		assert_eq(battery.launcher_cell_visuals().filter(func(cap: Node3D) -> bool: return cap.visible).size(), expected_rounds)
 	battery._process(0.0)
 	assert_false(battery.status_marker.visible)
 	assert_string_contains(battery.resource_status_text(), "재장전 9.0초")

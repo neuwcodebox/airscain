@@ -26,6 +26,8 @@ var departure_battlefield: Battlefield
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
 @onready var launch_point: Marker3D = $Turret/Elevation/Launcher/LaunchPoint
+@onready var muzzle_flash: MeshInstance3D = $MuzzleFlash
+@onready var launcher_caps: Array[Node3D] = _collect_launcher_caps()
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -275,15 +277,19 @@ func reload_display_magazine() -> WeaponMagazine:
 	return next_ready
 
 func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition, launch_sequence: int, lateral_offset: float) -> void:
-	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
-	projectile_parent.add_child(interceptor)
+	var interceptor := _create_interceptor()
 	interceptor.global_position = launch_point.global_position + launch_point.global_basis.x * lateral_offset
 	var initial_direction := launcher_forward()
 	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks(), battlefield)
 	interceptor.departure_clearance_height = departure_clearance_height
+	projectile_launched.emit(self, interceptor)
+
+func _create_interceptor() -> HomingInterceptor:
+	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
+	projectile_parent.add_child(interceptor)
 	interceptor.target_changed.connect(_on_interceptor_target_changed)
 	interceptors.append(interceptor)
-	projectile_launched.emit(self, interceptor)
+	return interceptor
 
 func _on_interceptor_target_changed(previous_track_id: int, new_track_id: int, remaining_lifetime: float) -> void:
 	if engagement_coordinator == null:
@@ -292,27 +298,27 @@ func _on_interceptor_target_changed(previous_track_id: int, new_track_id: int, r
 	engagement_coordinator.try_reserve(new_track_id, runtime_id, remaining_lifetime, 99)
 
 func _show_muzzle_flash() -> void:
-	$MuzzleFlash.global_position = launch_point.global_position
-	$MuzzleFlash.visible = true
-	get_tree().create_timer(0.08).timeout.connect(func() -> void: $MuzzleFlash.visible = false)
+	muzzle_flash.global_position = launch_point.global_position
+	muzzle_flash.visible = true
+	get_tree().create_timer(0.08).timeout.connect(func() -> void: muzzle_flash.visible = false)
 
 func _fire_round(track: PlayerTrack, munition: MissileMunitionDefinition) -> bool:
 	if track == null or munition == null:
 		return false
-	var cell_index := maxi(0, _launcher_caps().size() - mini(_ready_round_count(), _launcher_caps().size()))
+	var cell_index := maxi(0, launcher_caps.size() - mini(_ready_round_count(), launcher_caps.size()))
 	if not magazines[munition.id].consume():
 		return false
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"missile")
 	weapon_fired.emit(self, combat_resource_low())
-	var lateral_offset := _cell_lateral_offset(cell_index) if not _launcher_caps().is_empty() else 0.0
+	var lateral_offset := _cell_lateral_offset(cell_index)
 	_spawn_interceptor(track, munition, next_launch_sequence, lateral_offset)
 	next_launch_sequence += 1
 	_show_muzzle_flash()
 	_refresh_launcher_cells()
 	return true
 
-func _launcher_caps() -> Array[Node3D]:
+func _collect_launcher_caps() -> Array[Node3D]:
 	var result: Array[Node3D] = []
 	var caps_parent := find_child("MuzzleCaps", true, false)
 	if caps_parent == null:
@@ -322,18 +328,19 @@ func _launcher_caps() -> Array[Node3D]:
 			result.append(child as Node3D)
 	return result
 
+func launcher_cell_visuals() -> Array[Node3D]:
+	return launcher_caps.duplicate()
+
 func _cell_lateral_offset(cell_index: int) -> float:
-	var caps := _launcher_caps()
-	if caps.is_empty():
+	if launcher_caps.is_empty():
 		return 0.0
-	var cap := caps[cell_index % caps.size()]
+	var cap := launcher_caps[cell_index % launcher_caps.size()]
 	return launch_point.global_basis.x.dot(cap.global_position - launch_point.global_position)
 
 func _refresh_launcher_cells() -> void:
-	var caps := _launcher_caps()
-	var visible_cells := mini(_ready_round_count(), caps.size())
-	for index: int in caps.size():
-		caps[index].visible = index < visible_cells
+	var visible_cells := mini(_ready_round_count(), launcher_caps.size())
+	for index: int in launcher_caps.size():
+		launcher_caps[index].visible = index < visible_cells
 
 func _ready_round_count() -> int:
 	var result := 0
@@ -354,11 +361,8 @@ func capture_content_state() -> Dictionary:
 	}
 
 func restore_projectile(state: Dictionary, target: PlayerTrack, tracks: Array[PlayerTrack]) -> void:
-	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
-	projectile_parent.add_child(interceptor)
+	var interceptor := _create_interceptor()
 	interceptor.restore_state(state, target, registry, tracks, battlefield)
-	interceptor.target_changed.connect(_on_interceptor_target_changed)
-	interceptors.append(interceptor)
 
 func restore_content_state(state: Dictionary) -> void:
 	var saved_cooldown := float(state.get("launch_cooldown", state.get("cooldown", 0.0)))

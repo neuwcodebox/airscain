@@ -2069,7 +2069,7 @@ func _capture_missile_rack_rapid_fire() -> void:
 					interceptor.gameplay_tick(0.05)
 			await process_frame
 	battery._process(0.0)
-	if battery.magazines[munition.id].rounds != 0 or not battery.magazines[munition.id].is_reloading() or battery.status_marker.visible or battery._launcher_caps().any(func(cap: Node3D) -> bool: return cap.visible):
+	if battery.magazines[munition.id].rounds != 0 or not battery.magazines[munition.id].is_reloading() or battery.status_marker.visible or battery.launcher_cell_visuals().any(func(cap: Node3D) -> bool: return cap.visible):
 		push_error("Missile rack did not empty its cells or retained a cluttering ammunition label")
 		quit(1)
 		return

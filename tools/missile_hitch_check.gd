@@ -75,7 +75,7 @@ func sample_missiles() -> void:
 		await sample_event("missile_smoke_%d" % repeat, func() -> void:
 			smoke.sample_world_segment(interceptor.global_position, interceptor.global_position + Vector3.RIGHT * 40))
 		await sample_event("missile_end_%d" % repeat, func() -> void:
-			interceptor._self_destruct())
+			interceptor.self_destruct())
 		await sample_event("missile_decay_%d" % repeat, func() -> void: pass, 180, 0)
 		battery.interceptors.clear()
 	await sample_event("missile_idle_after", func() -> void: pass)
