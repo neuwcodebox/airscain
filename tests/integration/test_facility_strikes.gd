@@ -132,14 +132,15 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 	var aircraft := pair[0] as AttackUav
 	var missile := pair[1] as AirLaunchedMissile
 	var missile_definition := missile.definition as AirLaunchedMissileDefinition
-	assert_eq(missile.flight.motion.speed, 160.0)
-	assert_eq(missile.flight.motion.acceleration, 20.0)
+	assert_eq(missile.flight.motion.speed, 140.0)
+	assert_eq(missile.flight.motion.acceleration, 15.0)
 	assert_eq(missile.flight.motion.speed, missile_definition.flight_speed)
 	assert_eq(missile.flight.motion.acceleration, missile_definition.flight_acceleration)
 	assert_false(aircraft.body.get_node("ReleasedStore").visible)
 	var release_offset := missile.global_position - aircraft.mission_runtime.fixed_target
 	var release_distance := Vector2(release_offset.x, release_offset.z).length()
 	assert_lte(release_distance, aircraft.mission_runtime.profile.action_distance, "설정된 수평 발사 거리 안에서 투발합니다")
+	assert_gte(release_distance, 420.0, "설정한 투발거리의 경계 부근에서 무장을 분리합니다")
 	assert_gt(release_distance, target.definition.placement_profile.footprint_radius, "표적에 닿기 전에 무장을 분리합니다")
 	assert_gt(missile.global_position.distance_to(aircraft.global_position), 1.0, "기체 중심이 아닌 날개 아래에서 분리합니다")
 	assert_almost_eq(missile.presentation_velocity(), aircraft.presentation_velocity(), Vector3.ONE * 0.001)
@@ -162,10 +163,31 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 			break
 	assert_lte(maximum_observed_speed, missile_definition.flight_speed + 0.001)
 	assert_true(missile.resolved_state, "투발 후 수 초 안에 탄착합니다")
-	assert_gte(missile_flight_time, 4.0, "레이더 항적 확정과 근접방어 교전에 쓸 비행시간을 제공합니다")
+	assert_gte(missile_flight_time, 3.5, "레이더 항적 확정과 근접방어 교전에 쓸 비행시간을 제공합니다")
 	assert_eq(target.integrity, 50.0, "impact=%s target=%s flight=%s" % [missile.global_position, target.global_position, missile.capture_content_state()])
 	missile.gameplay_tick(10.0)
 	assert_eq(target.integrity, 50.0)
+
+func test_low_altitude_missile_flies_level_before_terminal_descent() -> void:
+	var flight := StrikeFlight.new()
+	flight.mode = StrikeFlight.Mode.MISSILE
+	flight.speed = 140.0
+	flight.acceleration = 15.0
+	flight.velocity = Vector3(-104.0, 0.0, 0.0)
+	var position := Vector3(440.0, 65.0, 0.0)
+	var target := Vector3.ZERO
+	var highest_altitude := position.y
+	var entered_terminal_descent := false
+	for tick: int in 600:
+		position = flight.advance(position, target, null, StrikeFlight.MAXIMUM_STEP)
+		highest_altitude = maxf(highest_altitude, position.y)
+		if Vector2(position.x, position.z).length() <= StrikeFlight.MISSILE_TERMINAL_DISTANCE:
+			entered_terminal_descent = true
+		if flight.result != StrikeFlight.Result.FLYING:
+			break
+	assert_lte(highest_altitude, 70.0, "저공 투발 직후 하늘로 솟지 않습니다")
+	assert_true(entered_terminal_descent, "표적 가까이에서 종말 하강을 시작합니다")
+	assert_eq(flight.result, StrikeFlight.Result.IMPACT)
 
 func test_radar_observes_released_missile_and_gun_round_cancels_impact() -> void:
 	var target := target_for(&"weapon")
