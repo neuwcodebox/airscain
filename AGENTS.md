@@ -43,6 +43,11 @@ godot --path . --scene res://path/to/scene.tscn
 
 - During iteration, use the cheapest relevant validation for the change.
 - Test observable requirements and stable invariants, not incidental implementation details. Do not lock exact UI geometry or tuning values unless the specification makes them contractual.
+- Name tests after the condition and observable result. Keep one failure reason per test, except when a single user scenario must prove an ordered outcome.
+- Build fixtures through typed, meaning-based helpers. Resolve content by ID or capability instead of array or child order, and avoid calling private production methods unless the lifecycle callback itself is the behavior under test.
+- Make time and randomness explicit. Advance simulated time directly, use fixed seeds for generated cases, and include the case identity in assertions inside loops or data tables.
+- Isolate mutable globals and files per test, and restore them from teardown so a failed assertion cannot contaminate later tests.
+- Prefer focused unit coverage for rules and a smaller number of integration tests for wiring and complete user flows. Do not duplicate the same rule at every layer.
 - Run broader validation only when the scope of the change warrants it.
 - Do not run a full headless import routinely after scene or resource changes.
 - After adding, moving, or replacing project files, run `godot --headless --audio-driver Dummy --editor --path . --quit` to generate Godot metadata.
