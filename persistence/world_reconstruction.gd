@@ -32,13 +32,7 @@ func restore_objects(state: Dictionary, scenario: ScenarioDefinition) -> void:
 	var defense_definitions := SessionSnapshot.defense_definition_map(scenario)
 	for saved: Dictionary in state.defenses:
 		var definition: DefenseDefinition = defense_definitions[StringName(String(saved.definition_id))]
-		var unit := definition.scene.instantiate() as DefenseUnit
-		defense_parent.add_child(unit)
-		unit.global_position = SaveDocument.vector3_from_data(saved.position)
-		unit.setup(int(saved.runtime_id), definition)
-		unit.configure_combat(registry, projectile_parent)
-		unit.restore_state(saved)
-		battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
+		var unit := DefenseDeployment.restore(definition, saved, SaveDocument.vector3_from_data(saved.position), battlefield, defense_parent, registry, projectile_parent)
 		defenses_by_id[unit.runtime_id] = unit
 		defense_restored.emit(unit)
 	var contact_definitions := SessionSnapshot.contact_definition_map(scenario)

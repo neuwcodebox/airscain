@@ -97,15 +97,10 @@ func deploy_initial_defense(definition: DefenseDefinition, position: Vector3, ba
 	return _deploy_defense(definition, position, battlefield, defense_parent, registry, projectile_parent, false)
 
 func _deploy_defense(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D, purchased: bool) -> Dictionary:
-	var unit := definition.scene.instantiate() as DefenseUnit
+	var unit := DefenseDeployment.deploy(definition, next_defense_id, position, battlefield, defense_parent, registry, projectile_parent)
 	if unit == null:
 		return {"success": false, "reason": "방어 수단을 생성할 수 없습니다"}
-	defense_parent.add_child(unit)
-	unit.global_position = position
-	unit.setup(next_defense_id, definition)
-	unit.configure_combat(registry, projectile_parent)
 	next_defense_id += 1
-	battlefield.register_occupancy(unit.global_position, definition.placement_profile.footprint_radius)
 	if purchased and not unlimited_budget:
 		budget -= definition.price
 		defense_spending += definition.price
