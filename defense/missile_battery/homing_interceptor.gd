@@ -18,6 +18,7 @@ var target_track: PlayerTrack
 var registry: ThreatRegistry
 var battlefield: Battlefield
 var owner_defense_id: int
+var owner_defense: DefenseUnit
 var speed: float = 200.0
 var turn_rate: float = deg_to_rad(240.0)
 var maximum_lifetime: float = 5.0
@@ -48,11 +49,12 @@ var departure_clearance_height: float = 0.0
 
 @onready var smoke_trail := get_node_or_null("SmokeTrail") as LingeringSmokeTrail
 
-func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null) -> void:
+func configure(track_value: PlayerTrack, registry_value: ThreatRegistry, definition: MissileMunitionDefinition, initial_direction: Vector3, owner_id: int = 0, launch_sequence: int = 0, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null, owner_value: DefenseUnit = null) -> void:
 	target_track = track_value
 	registry = registry_value
 	battlefield = battlefield_value
 	owner_defense_id = owner_id
+	owner_defense = owner_value
 	speed = definition.interceptor_speed
 	turn_rate = deg_to_rad(definition.interceptor_turn_rate_degrees)
 	maximum_lifetime = definition.interceptor_lifetime
@@ -239,7 +241,7 @@ func _resolve_proximity_intercept(previous: Vector3) -> bool:
 			global_position = nearest
 			_detonate(Color(0.45, 0.78, 1.0), 6.0)
 			target_hit.emit(threat, damage)
-			threat.receive_damage(damage)
+			threat.receive_damage(damage, owner_defense)
 			_dispose()
 			return true
 	return false
@@ -446,11 +448,12 @@ func capture_state() -> Dictionary:
 		"rng_state": str(rng.state),
 	}
 
-func restore_state(state: Dictionary, track: PlayerTrack, registry_value: ThreatRegistry, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null) -> void:
+func restore_state(state: Dictionary, track: PlayerTrack, registry_value: ThreatRegistry, track_candidates: Array[PlayerTrack] = [], battlefield_value: Battlefield = null, owner_value: DefenseUnit = null) -> void:
 	target_track = track
 	registry = registry_value
 	battlefield = battlefield_value
 	owner_defense_id = int(state.owner_defense_id)
+	owner_defense = owner_value
 	global_position = SaveDocument.vector3_from_data(state.position)
 	velocity = SaveDocument.vector3_from_data(state.velocity)
 	speed = float(state.speed)

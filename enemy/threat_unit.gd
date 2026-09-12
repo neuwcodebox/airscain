@@ -69,16 +69,18 @@ func get_sensor_signature() -> Dictionary:
 		"affiliation_hint": int(definition.affiliation),
 	}
 
-func receive_damage(amount: float) -> bool:
+func receive_damage(amount: float, source: DefenseUnit = null) -> bool:
 	if not is_targetable() or amount <= 0.0:
 		return false
 	health -= amount
 	if health <= 0.0:
+		if source != null:
+			source.record_neutralization(self)
 		resolve_once(true)
 	return true
 
-func receive_electronic_damage(amount: float) -> bool:
-	return receive_damage(amount * definition.electronic_vulnerability)
+func receive_electronic_damage(amount: float, source: DefenseUnit = null) -> bool:
+	return receive_damage(amount * definition.electronic_vulnerability, source)
 
 func respond_to_seeker(infrared_sensitivity: float, radar_sensitivity: float, roll: float) -> Dictionary:
 	var released := false

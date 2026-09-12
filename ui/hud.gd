@@ -471,6 +471,8 @@ func _refresh_asset_metrics() -> void:
 		{"label": "지휘통제", "value": network_value},
 		{"label": "지역 지원", "value": support_value},
 	]
+	if selected_asset.supports_engagement_controls():
+		rows.insert(1, {"label": "무력화", "value": str(selected_asset.neutralized_count)})
 	rows.append_array(selected_asset.selection_status_rows())
 	_set_metric_rows(asset_metrics, rows)
 
@@ -498,6 +500,7 @@ func _refresh_engagement_review() -> void:
 	var source_rows: Array[Dictionary] = [
 		{"label": "상태", "value": _asset_state_text(selected_asset), "warning": not selected_asset.active},
 		{"label": "내구도", "value": "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)},
+		{"label": "무력화", "value": str(selected_asset.neutralized_count)},
 		{"label": "지휘통제", "value": "직접 연결 %d" % selected_asset_connection_count},
 	]
 	source_rows.append_array(selected_asset.selection_status_rows())

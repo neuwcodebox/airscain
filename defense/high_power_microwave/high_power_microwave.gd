@@ -72,7 +72,7 @@ func _fire_pulse(track: PlayerTrack) -> int:
 		enemy_knowledge.record_engagement(self, &"hpm")
 	var affected := 0
 	for threat: ThreatUnit in registry.get_active():
-		if threat.get_aim_position().distance_to(track.estimated_position) <= _definition.effect_radius and threat.receive_electronic_damage(_definition.electronic_damage):
+		if threat.get_aim_position().distance_to(track.estimated_position) <= _definition.effect_radius and threat.receive_electronic_damage(_definition.electronic_damage, self):
 			affected += 1
 	pulse_visual.global_position = track.estimated_position
 	pulse_visual.play(_definition.effect_radius)

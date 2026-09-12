@@ -109,7 +109,7 @@ func _fire_pulse(track: PlayerTrack) -> void:
 	pulse.setup(emitter.global_position, track.estimated_position)
 	var target := _physical_target_near(track.estimated_position)
 	if target != null:
-		target.receive_damage(_definition.pulse_damage)
+		target.receive_damage(_definition.pulse_damage, self)
 
 func _physical_target_near(estimated_position: Vector3) -> ThreatUnit:
 	var selected: ThreatUnit

@@ -83,6 +83,18 @@ func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void
 	assert_eq(main.director.pending_waves, pending)
 	assert_false(legacy.payload.director.has("last_raid_pattern"))
 
+func test_defense_neutralization_count_round_trips_and_rejects_negative_values() -> void:
+	var battery := _place_defense(_defense_definition(&"missile_battery")) as MissileBattery
+	battery.neutralized_count = 4
+	var battery_id := battery.runtime_id
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(_find_defense(battery_id).neutralized_count, 4)
+	var invalid := document.duplicate(true)
+	_saved_defense(invalid, battery_id).neutralized_count = -1
+	assert_eq(SessionSnapshot.validation_error(invalid.payload, main.scenario), "방공망 무력화 실적이 올바르지 않습니다")
+	assert_eq(_find_defense(battery_id).neutralized_count, 4)
+
 func test_disabled_battery_and_pending_repair_survive_document_restore() -> void:
 	var battery := _place_defense(_defense_definition(&"missile_battery")) as MissileBattery
 	var facility := _place_defense(_defense_definition(&"support_facility"))

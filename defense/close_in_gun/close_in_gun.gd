@@ -33,6 +33,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	gunfire = GunfireRuntime.new()
 	gunfire.name = "Gunfire"
 	add_child(gunfire)
+	gunfire.owner_defense = self
 	gunfire.round_fired.connect(_on_round_fired)
 	firing_audio = GunAudio.new()
 	firing_audio.name = "FiringAudio"

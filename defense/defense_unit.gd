@@ -16,6 +16,7 @@ var runtime_id: int
 var definition: DefenseDefinition
 var active: bool = true
 var integrity: float
+var neutralized_count: int = 0
 var support_manager: SupportManager
 var relocation_manager: RelocationManager
 var enemy_knowledge: EnemyKnowledge
@@ -222,6 +223,12 @@ func receive_damage(amount: float) -> bool:
 	damage_received.emit(self, amount, operational_ratio())
 	return true
 
+func record_neutralization(threat: ThreatUnit) -> bool:
+	if threat == null or threat.definition == null or threat.definition.affiliation != ThreatDefinition.Affiliation.HOSTILE:
+		return false
+	neutralized_count += 1
+	return true
+
 func operational_ratio() -> float:
 	return clampf(integrity / definition.maximum_integrity, 0.0, 1.0)
 
@@ -263,6 +270,7 @@ func capture_state() -> Dictionary:
 		"position": SaveDocument.vector3_to_data(global_position),
 		"active": active,
 		"integrity": integrity,
+		"neutralized_count": neutralized_count,
 		"content_state": capture_content_state(),
 	}
 
@@ -272,6 +280,7 @@ func capture_content_state() -> Dictionary:
 func restore_state(state: Dictionary) -> void:
 	integrity = float(state.integrity)
 	active = bool(state.active) and operational_ratio() >= 0.35
+	neutralized_count = int(state.get("neutralized_count", 0))
 	_refresh_damage_visual()
 	restore_content_state(state.get("content_state", {}))
 

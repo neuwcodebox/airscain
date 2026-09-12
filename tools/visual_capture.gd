@@ -1078,11 +1078,16 @@ func _capture_selection_panel() -> bool:
 		await process_frame
 	_save_capture("/tmp/airscain_power_asset_selection.png")
 	main._on_asset_selected(battery)
+	battery.neutralized_count = 3
+	main.hud.refresh_selected_asset()
 	main.camera_rig.focus_on(battery.global_position)
 	main.camera_rig.zoom_distance = 430.0
 	main.camera_rig._update_camera()
 	for index: int in 4:
 		await process_frame
+	if not _metric_has_value(main.hud.asset_metrics, "무력화", "3"):
+		push_error("Armed asset selection did not show its neutralization count")
+		return false
 	_save_capture("/tmp/airscain_asset_selection.png")
 	var selection_panel := main.hud.selected_asset_panel
 	var resting_height := selection_panel.size.y
@@ -2720,6 +2725,14 @@ func _place_asset(definition: DefenseDefinition, direction: float) -> void:
 		if main.battlefield.placement_result(position, definition.placement_profile).valid:
 			main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 			return
+
+func _metric_has_value(grid: GridContainer, key: String, value: String) -> bool:
+	var visible_texts: Array[String] = []
+	for node: Node in grid.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label.visible:
+			visible_texts.append(label.text)
+	return visible_texts.has(key) and visible_texts.has(value)
 
 func _save_capture(path: String) -> void:
 	var image := root.get_texture().get_image()

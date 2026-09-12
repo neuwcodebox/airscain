@@ -165,6 +165,19 @@ func test_selected_asset_panel_shrinks_when_live_status_rows_disappear() -> void
 		assert_almost_eq(panel.size.y, resting_height, 1.0, "추가 조작 없이 사라진 행의 여백을 회수합니다")
 		assert_almost_eq(panel.get_global_rect().end.y, bottom, 1.0)
 
+func test_armed_asset_selection_and_engagement_review_show_neutralization_count() -> void:
+	var battery := _place_for(main, _defense_definition_for(main, &"missile_battery")).unit as MissileBattery
+	battery.neutralized_count = 3
+	main.hud.set_selected_asset(battery, 2)
+	_assert_metric_displayed(main.hud.asset_metrics, "무력화", "3")
+	var track := PlayerTrack.new()
+	track.state = PlayerTrack.State.CONFIRMED
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.classification = &"uav"
+	track.track_quality = 0.8
+	main.hud.set_selected_track(track)
+	_assert_metric_displayed(main.hud.engagement_source_metrics, "무력화", "3")
+
 func test_unavailable_support_actions_hide_prices() -> void:
 	var gun := _place_for(main, _defense_definition_for(main, &"close_in_gun")).unit as CloseInGun
 	gun.magazine.reserve = 0
@@ -1471,6 +1484,7 @@ func test_purchase_start_intercept_and_reward_flow() -> void:
 	assert_not_null(main.effects_parent.get_node_or_null("FallingWreck"), "6. 무력화된 항공 위협의 잔해를 생성합니다")
 	assert_not_null(_first_visible_explosion(main.effects_parent), "6. 무력화 지점에 보이는 폭발을 생성합니다")
 	assert_eq(main.session.neutralized_count, 1, "6. 무력화는 한 번만 기록됩니다")
+	assert_eq(battery.neutralized_count, 1, "6. 마지막 피해를 준 포대에 무력화를 기록합니다")
 	assert_eq(main.session.neutralized_reward_total, threat.definition.neutralization_reward, "7. 위협 보상을 한 번 지급합니다")
 	assert_eq(main.session.defense_spending, battery_definition.price + radar_definition.price + command_definition.price, "7. 배치 자산 비용을 모두 기록합니다")
 	assert_gt(main.session.weapon_fire_count, 0, "6. 실제 무장 발사를 기록합니다")
@@ -2068,6 +2082,7 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 			break
 	assert_true(restored_threat.resolved_state)
 	assert_eq(main.session.neutralized_count, 1)
+	assert_eq(restored_gun.neutralized_count, 1)
 	assert_eq(main.session.budget, budget_before_kill + swarm_definition.neutralization_reward)
 
 func test_cooperative_assignments_round_trip_and_upgrade_legacy_reservations() -> void:

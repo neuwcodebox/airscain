@@ -82,6 +82,9 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var integrity := float(state.get("integrity", -1.0))
 		if integrity < 0.0 or integrity > maximum_integrity:
 			return "방공망 내구도가 올바르지 않습니다"
+		var neutralized_count: Variant = state.get("neutralized_count", 0)
+		if not (neutralized_count is int or neutralized_count is float) or not is_finite(float(neutralized_count)) or float(neutralized_count) != floorf(float(neutralized_count)) or int(neutralized_count) < 0:
+			return "방공망 무력화 실적이 올바르지 않습니다"
 		var content_error := definition.runtime_state_validation_error(state.get("content_state", {}))
 		if not content_error.is_empty():
 			return "%s: %s" % [definition_id, content_error]

@@ -51,7 +51,7 @@ func gameplay_tick(delta: float) -> void:
 		for threat: ThreatUnit in registry.get_active():
 			var target_position := threat.get_aim_position()
 			if Geometry3D.get_closest_point_to_segment(target_position, previous, global_position).distance_to(target_position) <= proximity_radius:
-				threat.receive_damage(damage)
+				threat.receive_damage(damage, base_owner)
 				_begin_returning()
 				break
 	elif global_position.distance_to(destination) <= 8.0:

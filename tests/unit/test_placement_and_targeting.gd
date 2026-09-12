@@ -108,6 +108,31 @@ func test_missile_fuze_requires_closer_pass_for_low_response_targets() -> void:
 		assert_eq(threat.health, -64.0, "신관 작동 거리만 바꾸고 명중 피해는 유지합니다")
 		assert_signal_emit_count(interceptor, "target_hit", 1)
 
+func test_final_hostile_damage_credits_only_the_neutralizing_defense() -> void:
+	var first := add_child_autofree(DefenseUnit.new()) as DefenseUnit
+	var second := add_child_autofree(DefenseUnit.new()) as DefenseUnit
+	var threat := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	var definition := ThreatDefinition.new()
+	definition.affiliation = ThreatDefinition.Affiliation.HOSTILE
+	threat.setup(902, definition)
+	threat.health = 10.0
+	assert_true(threat.receive_damage(4.0, first))
+	assert_eq(first.neutralized_count, 0)
+	assert_true(threat.receive_damage(6.0, second))
+	assert_eq(first.neutralized_count, 0)
+	assert_eq(second.neutralized_count, 1)
+	assert_false(threat.receive_damage(10.0, second))
+	assert_eq(second.neutralized_count, 1)
+
+func test_neutral_contact_does_not_credit_a_defense_neutralization() -> void:
+	var defense := add_child_autofree(DefenseUnit.new()) as DefenseUnit
+	var contact := add_child_autofree(ThreatUnit.new()) as ThreatUnit
+	var definition := ThreatDefinition.new()
+	definition.affiliation = ThreatDefinition.Affiliation.NEUTRAL
+	contact.setup(903, definition)
+	assert_true(contact.receive_damage(1.0, defense))
+	assert_eq(defense.neutralized_count, 0)
+
 func test_missile_fuze_response_validation_rejects_nonphysical_values() -> void:
 	assert_eq(_threat(&"swarm_uav").missile_fuze_response, 0.6)
 	assert_eq(_threat(&"attack_uav").missile_fuze_response, 1.0)

@@ -13,6 +13,7 @@ var rounds: Array[Dictionary] = []
 var bursts: Array[Dictionary] = []
 var registry: ThreatRegistry
 var battlefield: Battlefield
+var owner_defense: DefenseUnit
 var cores: MultiMeshInstance3D
 var glows: MultiMeshInstance3D
 var flashes: MultiMeshInstance3D
@@ -220,7 +221,7 @@ func _step(delta: float) -> void:
 			_detonate(round.position, reason)
 			rounds.remove_at(index)
 			if is_instance_valid(victim):
-					victim.receive_damage(float(round.damage))
+					victim.receive_damage(float(round.damage), owner_defense)
 
 func _candidate_indices(snapshot: TargetSnapshot, start: Vector3, end: Vector3, radius: float) -> PackedInt32Array:
 	return snapshot.candidates(start, end, radius)

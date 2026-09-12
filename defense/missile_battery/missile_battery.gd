@@ -280,7 +280,7 @@ func _spawn_interceptor(track: PlayerTrack, munition: MissileMunitionDefinition,
 	var interceptor := _create_interceptor()
 	interceptor.global_position = launch_point.global_position + launch_point.global_basis.x * lateral_offset
 	var initial_direction := launcher_forward()
-	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks(), battlefield)
+	interceptor.configure(track, registry, munition, initial_direction, runtime_id, launch_sequence, available_tracks(), battlefield, self)
 	interceptor.departure_clearance_height = departure_clearance_height
 	projectile_launched.emit(self, interceptor)
 
@@ -362,7 +362,7 @@ func capture_content_state() -> Dictionary:
 
 func restore_projectile(state: Dictionary, target: PlayerTrack, tracks: Array[PlayerTrack]) -> void:
 	var interceptor := _create_interceptor()
-	interceptor.restore_state(state, target, registry, tracks, battlefield)
+	interceptor.restore_state(state, target, registry, tracks, battlefield, self)
 
 func restore_content_state(state: Dictionary) -> void:
 	var saved_cooldown := float(state.get("launch_cooldown", state.get("cooldown", 0.0)))
