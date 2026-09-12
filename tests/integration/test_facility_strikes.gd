@@ -132,8 +132,8 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 	var aircraft := pair[0] as AttackUav
 	var missile := pair[1] as AirLaunchedMissile
 	var missile_definition := missile.definition as AirLaunchedMissileDefinition
-	assert_eq(missile.flight.motion.speed, 200.0)
-	assert_eq(missile.flight.motion.acceleration, 40.0)
+	assert_eq(missile.flight.motion.speed, 160.0)
+	assert_eq(missile.flight.motion.acceleration, 20.0)
 	assert_eq(missile.flight.motion.speed, missile_definition.flight_speed)
 	assert_eq(missile.flight.motion.acceleration, missile_definition.flight_acceleration)
 	assert_false(aircraft.body.get_node("ReleasedStore").visible)
@@ -162,7 +162,7 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 			break
 	assert_lte(maximum_observed_speed, missile_definition.flight_speed + 0.001)
 	assert_true(missile.resolved_state, "투발 후 수 초 안에 탄착합니다")
-	assert_gte(missile_flight_time, 3.0, "레이더 항적 확정과 근접방어 교전에 쓸 비행시간을 제공합니다")
+	assert_gte(missile_flight_time, 4.0, "레이더 항적 확정과 근접방어 교전에 쓸 비행시간을 제공합니다")
 	assert_eq(target.integrity, 50.0, "impact=%s target=%s flight=%s" % [missile.global_position, target.global_position, missile.capture_content_state()])
 	missile.gameplay_tick(10.0)
 	assert_eq(target.integrity, 50.0)
@@ -217,7 +217,7 @@ func test_normal_search_radar_confirms_released_missile_before_impact() -> void:
 			break
 	assert_gt(confirmed_at, 0.0, "기존 반사도와 공통 임계값으로 항적을 확정합니다")
 	assert_gt(impact_at, confirmed_at, "항적 확정 후 탄착합니다")
-	assert_gte(impact_at - confirmed_at, 0.8, "확정 뒤 근접방어가 대응할 시간을 남깁니다")
+	assert_gte(impact_at - confirmed_at, 1.5, "확정 뒤 근접방어가 대응할 시간을 남깁니다")
 
 func test_bomb_is_unpowered_ballistic_unregistered_and_restores_mid_fall() -> void:
 	var target := target_for(&"weapon")

@@ -2,8 +2,8 @@ class_name AirLaunchedMissileDefinition
 extends ThreatDefinition
 
 @export var maximum_health: float = 24.0
-@export var flight_speed: float = 200.0
-@export var flight_acceleration: float = 40.0
+@export var flight_speed: float = 160.0
+@export var flight_acceleration: float = 20.0
 
 func runtime_state_validation_error(state: Dictionary, defense_ids: Dictionary[int, bool]) -> String:
 	var target_id := int(state.get("target_defense_id", 0))

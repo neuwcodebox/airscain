@@ -8,6 +8,8 @@ enum Result { FLYING, IMPACT, EXPIRED }
 const GRAVITY := 9.8
 const IGNITION_DELAY := 0.18
 const MAXIMUM_STEP := 1.0 / 120.0
+const MISSILE_TERMINAL_DISTANCE := 200.0
+const MISSILE_LOFT_HEIGHT := 250.0
 
 var mode := Mode.DIRECT
 var velocity := Vector3.ZERO
@@ -55,8 +57,12 @@ func advance(position: Vector3, target: Vector3, battlefield: Battlefield, delta
 
 func _guidance_point(position: Vector3, target: Vector3, battlefield: Battlefield) -> Vector3:
 	var point := target
-	if Vector2(target.x - position.x, target.z - position.z).length() > 200.0:
-		point.y += 65.0
+	var horizontal := Vector2(position.x - target.x, position.z - target.z)
+	if horizontal.length() > MISSILE_TERMINAL_DISTANCE:
+		var outward := horizontal.normalized() * MISSILE_TERMINAL_DISTANCE
+		point.x += outward.x
+		point.z += outward.y
+		point.y += MISSILE_LOFT_HEIGHT
 		if battlefield != null:
 			var ahead := position + velocity.normalized() * 80.0
 			point.y = maxf(point.y, battlefield.flight_surface_height(ahead.x, ahead.z) + 30.0)
