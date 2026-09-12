@@ -26,9 +26,14 @@ class RestoringDefense:
 
 var main: AirscainMain
 var save_path: String
+var original_requested_seed: int
+var original_requested_mode: AirscainMain.GameMode
 
 func before_each() -> void:
+	original_requested_seed = AirscainMain.requested_seed
+	original_requested_mode = AirscainMain.requested_mode
 	AirscainMain.requested_seed = 73129
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	main.auto_start_sustained = false
 	add_child_autofree(main)
@@ -39,6 +44,8 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_cleanup_save_files()
+	AirscainMain.requested_seed = original_requested_seed
+	AirscainMain.requested_mode = original_requested_mode
 
 func test_projectile_reconstruction_delegates_new_weapon_types_to_the_owner() -> void:
 	var owner := RestoringDefense.new()
@@ -77,8 +84,8 @@ func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void
 	assert_false(legacy.payload.director.has("last_raid_pattern"))
 
 func test_disabled_battery_and_pending_repair_survive_document_restore() -> void:
-	var battery := _place_defense(main.scenario.available_defenses[0]) as MissileBattery
-	var facility := _place_defense(main.scenario.available_defenses[5])
+	var battery := _place_defense(_defense_definition(&"missile_battery")) as MissileBattery
+	var facility := _place_defense(_defense_definition(&"support_facility"))
 	facility.global_position = battery.global_position
 	battery.set_automatic_resupply(false)
 	battery.set_hold_fire(true)
@@ -128,8 +135,8 @@ func test_disabled_battery_and_pending_repair_survive_document_restore() -> void
 	assert_eq(main.session.budget, budget)
 
 func test_resupply_order_and_fractional_credit_survive_document_restore() -> void:
-	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
-	var facility := _place_defense(main.scenario.available_defenses[5])
+	var gun := _place_defense(_defense_definition(&"close_in_gun")) as CloseInGun
+	var facility := _place_defense(_defense_definition(&"support_facility"))
 	facility.global_position = gun.global_position
 	gun.magazine.reserve -= 1
 	var budget := main.session.budget
@@ -147,7 +154,7 @@ func test_resupply_order_and_fractional_credit_survive_document_restore() -> voi
 	assert_eq(main.session.budget, budget - 1)
 
 func test_restore_clears_old_airburst_audio_and_reconnects_restored_guns() -> void:
-	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
+	var gun := _place_defense(_defense_definition(&"close_in_gun")) as CloseInGun
 	var id := gun.runtime_id
 	var document := main.capture_save_document()
 	main.combat_audio.simulation_paused = false
@@ -190,12 +197,12 @@ func test_partial_city_repair_progress_round_trips_and_migrates_version_19() -> 
 	assert_true(main.objective.capture_damage_smoke_state().is_empty(), "구버전의 완전 복구 후 잔류 기록은 제거합니다")
 
 func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
-	var battery_definition := main.scenario.available_defenses[0]
+	var battery_definition := _defense_definition(&"missile_battery")
 	var placement_position := _find_valid_position(battery_definition.placement_profile)
 	var placement_result: Dictionary = main.session.request_placement(battery_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var battery := placement_result.unit as MissileBattery
 	var battery_runtime_id := battery.runtime_id
-	var support := _place_defense(main.scenario.available_defenses[5]) as SupportFacility
+	var support := _place_defense(_defense_definition(&"support_facility")) as SupportFacility
 	var support_price := support.definition.price
 	assert_true(support.supports_position(battery.global_position))
 	battery.doctrine.hold_fire = true
@@ -309,22 +316,22 @@ func test_snapshot_delegates_content_state_validation_to_definitions() -> void:
 func test_pending_air_strike_munition_restores_and_damages_at_its_surface_impact() -> void:
 	var target := main.objective.global_position + Vector3(32.0, 0.0, -24.0)
 	target.y = main.battlefield.terrain_height(target.x, target.z)
-	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as Node3D
+	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as AirStrikeMunition
 	main.threat_parent.add_child(munition)
 	munition.global_position = target + Vector3.UP * 90.0
-	munition.call("setup", target, main.objective, 18)
+	munition.setup(target, main.objective, 18)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	assert_eq(main.restore_from_document(document), "")
-	var restored := main.threat_parent.get_node_or_null("StrikeMunition") as Node3D
+	var restored := main.threat_parent.get_node_or_null("StrikeMunition") as AirStrikeMunition
 	assert_not_null(restored)
 	var integrity_before := main.objective.current_integrity
-	restored.call("_process", 1.0)
+	restored.gameplay_tick(1.0)
 	assert_eq(main.objective.current_integrity, integrity_before - 18)
 	assert_eq(main.objective.damage_smoke_effects.size(), 1)
 	assert_almost_eq(main.objective.damage_smoke_effects[0].global_position, target, Vector3.ONE * 0.001)
 
 func test_battery_strike_restores_observed_target_without_following_hidden_movement() -> void:
-	var battery := _place_defense(main.scenario.available_defenses[0])
+	var battery := _place_defense(_defense_definition(&"missile_battery"))
 	main.enemy_knowledge.record_engagement(battery, &"missile")
 	var entry: ThreatSpawnEntry
 	for candidate: ThreatSpawnEntry in main.scenario.threat_entries:
@@ -344,12 +351,12 @@ func test_battery_strike_restores_observed_target_without_following_hidden_movem
 	assert_false(restored.mission_runtime.effect_applied)
 
 func test_asset_strike_munition_restores_target_and_rejects_invalid_reference() -> void:
-	var battery := _place_defense(main.scenario.available_defenses[0])
+	var battery := _place_defense(_defense_definition(&"missile_battery"))
 	var battery_id := battery.runtime_id
-	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as Node3D
+	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as AirStrikeMunition
 	main.threat_parent.add_child(munition)
 	munition.global_position = battery.global_position + Vector3.UP * 100.0
-	munition.call("setup", battery.global_position, main.objective, 40, battery, false)
+	munition.setup(battery.global_position, main.objective, 40, battery, false)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var invalid := document.duplicate(true)
 	invalid.payload.world.projectiles.back().target_defense_id = 999999
@@ -357,14 +364,14 @@ func test_asset_strike_munition_restores_target_and_rejects_invalid_reference() 
 	assert_same(_find_defense(battery_id), battery)
 	assert_eq(main.restore_from_document(document), "")
 	var restored_battery := _find_defense(battery_id)
-	var restored := main.threat_parent.get_node("StrikeMunition") as Node3D
+	var restored := main.threat_parent.get_node("StrikeMunition") as AirStrikeMunition
 	var city_before := main.objective.current_integrity
-	restored.call("_process", 1.0)
+	restored.gameplay_tick(1.0)
 	assert_eq(restored_battery.integrity, restored_battery.definition.maximum_integrity - 40.0)
 	assert_eq(main.objective.current_integrity, city_before)
 
 func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
-	var entry := main.scenario.threat_entries[9]
+	var entry := _threat_entry(&"ballistic_missile")
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
 	threat.gameplay_tick(0.1)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
@@ -373,7 +380,7 @@ func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
 	assert_same(_find_contact(threat.runtime_id), threat)
 
 func test_multi_munition_inventory_mode_and_validation_restore() -> void:
-	var battery := _place_defense(main.scenario.available_defenses[7]) as MissileBattery
+	var battery := _place_defense(_defense_definition(&"long_range_missile")) as MissileBattery
 	var battery_id := battery.runtime_id
 	battery.set_munition_mode(&"high_speed_interceptor")
 	battery.magazines[&"area_defense"].reserve = 4
@@ -392,9 +399,9 @@ func test_multi_munition_inventory_mode_and_validation_restore() -> void:
 	assert_eq(restored.magazines[&"high_speed_interceptor"].reserve, 0)
 
 func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -> void:
-	var battery := _place_defense(main.scenario.available_defenses[0]) as MissileBattery
-	var radar := _place_defense(main.scenario.available_defenses[1]) as SearchRadar
-	_place_defense(main.scenario.available_defenses[2])
+	var battery := _place_defense(_defense_definition(&"missile_battery")) as MissileBattery
+	var radar := _place_defense(_defense_definition(&"search_radar")) as SearchRadar
+	_place_defense(_defense_definition(&"command_post"))
 	assert_not_null(battery)
 	assert_not_null(radar)
 	assert_true(main.session.start_defense())
@@ -405,10 +412,10 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	threat.global_position = battery.global_position + Vector3(210.0, 55.0, 0.0)
 	var tracked_position := threat.global_position
 	var threat_runtime_id := threat.runtime_id
-	main.player_knowledge.set("simulation_time", 2.5)
+	main.player_knowledge.simulation_time = 2.5
 	var observation := SensorObservation.new()
 	observation.setup(radar.runtime_id, 2.5, threat.global_position, 0.95, 6.0, 1.0, &"attack_uav", ThreatDefinition.Affiliation.HOSTILE, 1.2)
-	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	var track := main.player_knowledge.submit_observation(observation)
 	assert_eq(track.state, PlayerTrack.State.CONFIRMED)
 	var track_id := track.track_id
 	radar.scan_cooldown = 0.23
@@ -422,12 +429,14 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	var invalid_document := saved_document.duplicate(true)
 	invalid_document.payload.world.projectiles[0].owner_defense_id = 9999
 	assert_ne(main.restore_from_document(invalid_document), "")
-	assert_same(main.projectile_parent.get_child(0), interceptor)
+	var unchanged_interceptors := _interceptors()
+	assert_eq(unchanged_interceptors.size(), 1)
+	assert_same(unchanged_interceptors[0], interceptor)
 	assert_eq(interceptor.age, saved_interceptor_age)
 	assert_eq(main.restore_from_document(saved_document), "")
 	var restored_battery := _find_defense(battery_runtime_id) as MissileBattery
 	var restored_radar := _find_defense(radar_runtime_id) as SearchRadar
-	var restored_track: PlayerTrack = main.player_knowledge.call("find_track", track_id)
+	var restored_track := main.player_knowledge.find_track(track_id)
 	assert_not_null(restored_battery)
 	assert_not_null(restored_radar)
 	assert_not_null(restored_track)
@@ -436,14 +445,15 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	assert_eq(restored_track.classification, &"attack_uav")
 	assert_eq(restored_track.affiliation, PlayerTrack.Affiliation.HOSTILE)
 	assert_eq(restored_radar.scan_cooldown, 0.23)
-	assert_true(bool(main.c2_network.call("has_command_path", restored_battery, restored_radar.runtime_id)))
-	assert_eq(main.projectile_parent.get_child_count(), 1)
-	var restored_interceptor := main.projectile_parent.get_child(0) as HomingInterceptor
+	assert_true(main.c2_network.has_command_path(restored_battery, restored_radar.runtime_id))
+	var restored_interceptors := _interceptors()
+	assert_eq(restored_interceptors.size(), 1)
+	var restored_interceptor := restored_interceptors[0]
 	assert_eq(restored_interceptor.global_position, saved_interceptor_position)
 	assert_eq(restored_interceptor.age, saved_interceptor_age)
 	assert_same(restored_interceptor.target_track, restored_track)
 	assert_eq(restored_interceptor.owner_defense_id, restored_battery.runtime_id)
-	assert_same(restored_battery.interceptors[0], restored_interceptor)
+	assert_true(restored_battery.interceptors.has(restored_interceptor))
 	var restored_threat := _find_contact(threat_runtime_id)
 	for frame: int in 100:
 		restored_battery.gameplay_tick(0.05)
@@ -483,8 +493,8 @@ func test_save_rejects_invalid_runtime_snapshot_without_replacing_previous_file(
 	assert_eq(unchanged.document, saved.document)
 
 func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
-	var support := _place_defense(main.scenario.available_defenses[5]) as SupportFacility
-	var laser := _place_defense(main.scenario.available_defenses[6]) as HighEnergyLaser
+	var support := _place_defense(_defense_definition(&"support_facility")) as SupportFacility
+	var laser := _place_defense(_defense_definition(&"high_energy_laser")) as HighEnergyLaser
 	assert_not_null(support)
 	assert_not_null(laser)
 	var laser_id := laser.runtime_id
@@ -502,7 +512,7 @@ func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
 
 func test_all_asset_types_relocate_with_their_duration_including_city_command() -> void:
 	main.session.budget = 10000
-	main._on_pressure_changed(5)
+	main.director.pressure_changed.emit(5)
 	var units: Array[DefenseUnit] = [main.defenses[0]]
 	for definition: DefenseDefinition in main.scenario.available_defenses:
 		assert_true(definition.mobile, definition.display_name)
@@ -519,11 +529,11 @@ func test_all_asset_types_relocate_with_their_duration_including_city_command() 
 		main.relocation_manager.gameplay_tick(0.2)
 		assert_eq(unit.global_position, destination)
 		assert_true(unit.active)
-	assert_gt(main.scenario.available_defenses[7].relocation_duration, main.scenario.available_defenses[8].relocation_duration)
-	assert_gt(main.scenario.available_defenses[5].relocation_duration, main.scenario.available_defenses[7].relocation_duration)
+	assert_gt(_defense_definition(&"long_range_missile").relocation_duration, _defense_definition(&"short_range_missile").relocation_duration)
+	assert_gt(_defense_definition(&"support_facility").relocation_duration, _defense_definition(&"long_range_missile").relocation_duration)
 
 func test_radar_rooftop_relocation_keeps_the_roof_height_after_restore() -> void:
-	var radar := _place_defense(main.scenario.available_defenses[1])
+	var radar := _place_defense(_defense_definition(&"search_radar"))
 	var destination := Vector3.INF
 	for pad: Dictionary in main.battlefield.rooftop_pads:
 		if main.battlefield.placement_result(pad.position, radar.definition.placement_profile).valid:
@@ -539,7 +549,7 @@ func test_radar_rooftop_relocation_keeps_the_roof_height_after_restore() -> void
 	assert_eq(_find_defense(id).global_position, destination)
 
 func test_mobile_asset_relocation_finishes_after_save_restore() -> void:
-	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
+	var gun := _place_defense(_defense_definition(&"close_in_gun")) as CloseInGun
 	var origin := gun.global_position
 	var destination := _find_valid_position(gun.definition.placement_profile)
 	var budget_before := main.session.budget
@@ -562,15 +572,15 @@ func test_mobile_asset_relocation_finishes_after_save_restore() -> void:
 	assert_eq(main.relocation_manager.task_status(restored), "")
 
 func test_facility_target_and_egress_mission_restore_runtime_references() -> void:
-	var support := _place_defense(main.scenario.available_defenses[5]) as SupportFacility
-	var definition := main.scenario.threat_entries[3].threat_definition as AttackUavDefinition
+	var support := _place_defense(_defense_definition(&"support_facility")) as SupportFacility
+	var definition := _threat_entry(&"support_strike_uav").threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	threat.global_position = Vector3(900.0, 80.0, 0.0)
 	threat.setup(301, definition)
 	threat.configure_mission(main.objective, main.battlefield, support.global_position, 1.0, support, threat.global_position)
 	main.registry.add(threat)
-	main._on_threat_spawned(threat)
+	main.director.threat_spawned.emit(threat)
 	threat.mission_runtime.phase = ThreatMissionRuntime.Phase.EGRESS
 	threat.mission_runtime.effect_applied = true
 	var support_id := support.runtime_id
@@ -594,7 +604,7 @@ func test_pending_raid_waves_restore_with_remaining_delays() -> void:
 	assert_eq(main.director.pending_waves.size(), 1)
 
 func test_enemy_knowledge_reports_and_aged_estimates_restore() -> void:
-	var radar := _place_defense(main.scenario.available_defenses[1]) as SearchRadar
+	var radar := _place_defense(_defense_definition(&"search_radar")) as SearchRadar
 	main.enemy_knowledge.record_emission(radar)
 	main.enemy_knowledge.gameplay_tick(12.0)
 	var saved_state := main.enemy_knowledge.capture_state()
@@ -611,13 +621,13 @@ func test_enemy_knowledge_reports_and_aged_estimates_restore() -> void:
 	assert_almost_eq(float(restored_estimate.uncertainty), float(saved_estimate.uncertainty), 0.000001)
 
 func test_active_interceptor_drone_restores_owner_track_and_flight_state() -> void:
-	var base := _place_defense(main.scenario.available_defenses[10]) as InterceptorDroneDefense
-	var radar := _place_defense(main.scenario.available_defenses[1]) as SearchRadar
+	var base := _place_defense(_defense_definition(&"interceptor_drone_defense")) as InterceptorDroneDefense
+	var radar := _place_defense(_defense_definition(&"search_radar")) as SearchRadar
 	var threat := main.director.spawn_one()
 	threat.global_position = base.global_position + Vector3(180.0, 70.0, 0.0)
 	var observation := SensorObservation.new()
 	observation.setup(radar.runtime_id, 0.0, threat.global_position, 0.95, 3.0, 1.0, &"uav", ThreatDefinition.Affiliation.HOSTILE, 4.0)
-	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	var track := main.player_knowledge.submit_observation(observation)
 	var drone := base._launch(track)
 	drone.gameplay_tick(0.2)
 	var saved_position := drone.global_position
@@ -645,8 +655,8 @@ func _find_contact(runtime_id: int) -> ThreatUnit:
 	return null
 
 func test_automatic_resupply_save_rejects_invalid_targets_before_changing_runtime() -> void:
-	var battery := _place_defense(main.scenario.available_defenses[0])
-	var facility := _place_defense(main.scenario.available_defenses[5])
+	var battery := _place_defense(_defense_definition(&"missile_battery"))
+	var facility := _place_defense(_defense_definition(&"support_facility"))
 	battery.set_automatic_resupply(true)
 	var original := main.capture_save_document()
 	for invalid: Variant in [null, "bad", [999999], [facility.runtime_id], [battery.runtime_id, battery.runtime_id], [1.5], ["1"]]:
@@ -660,7 +670,7 @@ func test_automatic_resupply_save_rejects_invalid_targets_before_changing_runtim
 	assert_ne(main.restore_from_document(missing), "")
 
 func test_version_16_operation_restores_with_automatic_resupply_disabled() -> void:
-	var battery := _place_defense(main.scenario.available_defenses[0])
+	var battery := _place_defense(_defense_definition(&"missile_battery"))
 	var runtime_id := battery.runtime_id
 	var document := main.capture_save_document()
 	document.version = 16
@@ -676,7 +686,7 @@ func test_version_16_operation_restores_with_automatic_resupply_disabled() -> vo
 	assert_false(document.payload.world.support.has("automatic_resupply_ids"))
 
 func test_version_17_gun_migrates_without_inventing_rounds_or_changing_ammunition() -> void:
-	var gun := _place_defense(main.scenario.available_defenses[4]) as CloseInGun
+	var gun := _place_defense(_defense_definition(&"close_in_gun")) as CloseInGun
 	var id := gun.runtime_id
 	gun.magazine.rounds = 23
 	var document := main.capture_save_document()
@@ -716,8 +726,29 @@ func _find_defense(runtime_id: int) -> DefenseUnit:
 			return unit
 	return null
 
+func _defense_definition(definition_id: StringName) -> DefenseDefinition:
+	for definition: DefenseDefinition in main.scenario.available_defenses:
+		if definition.id == definition_id:
+			return definition
+	fail_test("방어 자산 정의를 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _threat_entry(definition_id: StringName) -> ThreatSpawnEntry:
+	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+		if entry.threat_definition.id == definition_id:
+			return entry
+	fail_test("위협 생성 항목을 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _interceptors() -> Array[HomingInterceptor]:
+	var result: Array[HomingInterceptor] = []
+	for child: Node in main.projectile_parent.get_children():
+		if child is HomingInterceptor:
+			result.append(child as HomingInterceptor)
+	return result
+
 func _place_defense(definition: DefenseDefinition) -> DefenseUnit:
-	main._on_pressure_changed(definition.unlock_pressure_level)
+	main.director.pressure_changed.emit(definition.unlock_pressure_level)
 	var position := _find_valid_position(definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(result.success)

@@ -2,10 +2,26 @@ extends GutTest
 
 const APP_SCENE := preload("res://main/app.tscn")
 
+var original_settings_path: String
+var original_requested_seed: int
+var original_requested_mode: AirscainMain.GameMode
+var original_last_generated_seed: int
+var original_default_font: Font
+var original_fallback_font: Font
+var temporary_paths: Array[String] = []
+
+func before_each() -> void:
+	original_settings_path = PlayerSettings.instance().settings_path
+	original_requested_seed = AirscainMain.requested_seed
+	original_requested_mode = AirscainMain.requested_mode
+	original_last_generated_seed = AirscainMain.last_generated_seed
+	original_default_font = ThemeDB.get_default_theme().default_font
+	original_fallback_font = ThemeDB.fallback_font
+	temporary_paths.clear()
+
 func test_settings_from_pause_keep_simulation_paused_and_block_camera() -> void:
 	var preferences := PlayerSettings.instance()
-	var original_path := preferences.settings_path
-	preferences.settings_path = "user://test_app_settings.cfg"
+	preferences.settings_path = _temporary_path("app_settings", "cfg")
 	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
 	app.main_menu.get_node("Panel/VBox/Footer/SettingsButton").pressed.emit()
 	assert_true(app.settings_menu.visible)
@@ -27,12 +43,35 @@ func test_settings_from_pause_keep_simulation_paused_and_block_camera() -> void:
 	app.set_pause_menu(false)
 	assert_false(app.gameplay.camera_rig.input_blocked)
 	assert_eq(app.gameplay.session.simulation_speed, 2.0)
-	DirAccess.remove_absolute(preferences.settings_path)
-	preferences.settings_path = original_path
 
 func after_each() -> void:
-	AirscainMain.requested_seed = -1
-	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	PlayerSettings.instance().settings_path = original_settings_path
+	for path: String in temporary_paths:
+		_cleanup_save_path(path)
+	temporary_paths.clear()
+	AirscainMain.requested_seed = original_requested_seed
+	AirscainMain.requested_mode = original_requested_mode
+	AirscainMain.last_generated_seed = original_last_generated_seed
+	ThemeDB.get_default_theme().default_font = original_default_font
+	ThemeDB.fallback_font = original_fallback_font
+
+func test_menu_demo_builds_a_self_sufficient_isolated_defense_network() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	await get_tree().process_frame
+	var backdrop := app.main_menu.get_node("Background")
+	var demo := backdrop.get("demo") as AirscainMain
+	assert_null(app.main_menu.get_node_or_null("WorldCaption"))
+	assert_eq(demo.defenses.size(), 6)
+	assert_false(demo.director.enabled)
+	assert_false(demo.combat_audio.enabled)
+	assert_true(demo.session.unlimited_budget)
+	for unit: DefenseUnit in demo.defenses:
+		assert_false(unit.combat_resource_depleted(), String(unit.definition.id))
+		if unit.uses_ammunition():
+			assert_true(demo.support_manager.can_service(unit), String(unit.definition.id))
+			for sensor: DefenseUnit in demo.defenses:
+				if sensor.c2_roles() & DefenseUnit.C2Role.SENSOR:
+					assert_true(demo.c2_network.has_command_path(unit, sensor.runtime_id), "%s → %s" % [sensor.definition.id, unit.definition.id])
 
 func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() -> void:
 	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
@@ -41,21 +80,18 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 	var demo := backdrop.get("demo") as AirscainMain
 	var controller := backdrop.get("controller") as MenuDefenseDemo
 	controller.set_process(false)
-	assert_null(app.main_menu.get_node_or_null("WorldCaption"))
 	watch_signals(demo.objective)
-	assert_eq(demo.defenses.size(), 6)
-	assert_false(demo.director.enabled)
-	assert_false(demo.combat_audio.enabled)
-	assert_true(demo.session.unlimited_budget)
 	var visible_seconds: Dictionary[int, float] = {}
+	var maximum_hostiles := 0
 	for index: int in 3000:
 		controller.tick(0.1)
+		maximum_hostiles = maxi(maximum_hostiles, controller.hostile_count())
 		for threat: ThreatUnit in demo.registry.get_active():
 			if threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE and demo.camera_rig.camera.is_position_in_frustum(threat.global_position):
 				visible_seconds[threat.runtime_id] = visible_seconds.get(threat.runtime_id, 0.0) + 0.1
-		assert_lte(controller.hostile_count(), MenuDefenseDemo.MAX_HOSTILES)
 		if index % 20 == 0:
 			await get_tree().process_frame
+	assert_lte(maximum_hostiles, MenuDefenseDemo.MAX_HOSTILES)
 	assert_gt(demo.session.weapon_fire_count, 0, "실제 센서·C2·무장이 발사합니다")
 	assert_gt(demo.session.neutralized_count, 0, "실제 요격체로 시연 위협을 격추합니다")
 	assert_gte(controller.spawn_count, 2, "먼 출발점에서도 상한 안에서 위협을 계속 투입합니다")
@@ -67,13 +103,6 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 	assert_gte(demo.session.neutralized_count, controller.spawn_count - MenuDefenseDemo.MAX_HOSTILES)
 	assert_signal_not_emitted(demo.objective, "damage_received", "모든 진입 방향을 실제 방공망으로 막습니다")
 	assert_eq(demo.objective.current_integrity, demo.objective.definition.maximum_integrity)
-	for unit: DefenseUnit in demo.defenses:
-		assert_false(unit.combat_resource_depleted())
-		if unit.uses_ammunition():
-			assert_true(demo.support_manager.can_service(unit))
-			for sensor: DefenseUnit in demo.defenses:
-				if sensor.c2_roles() & DefenseUnit.C2Role.SENSOR:
-					assert_true(demo.c2_network.has_command_path(unit, sensor.runtime_id))
 	app.start_game(AirscainMain.GameMode.SUSTAINED)
 	assert_ne(demo.get_world_3d(), app.gameplay.get_world_3d())
 	assert_eq(app.gameplay.session.weapon_fire_count, 0)
@@ -101,30 +130,36 @@ func test_menu_city_impact_keeps_smoke_until_delayed_recovery() -> void:
 	assert_eq(demo.objective.current_integrity, 100)
 	assert_eq(demo.objective.damage_smoke_effects.size(), 0)
 
-func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
-	var app: Node = add_child_autofree(APP_SCENE.instantiate())
+func test_main_menu_prepares_isolated_preview_and_combat_effects() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
 	await get_tree().process_frame
-	var main_menu := app.get("main_menu") as Control
-	var pause_menu := app.get("pause_menu") as Control
-	assert_true(main_menu.visible)
-	assert_false(pause_menu.visible)
-	assert_null(app.get("gameplay"))
-	var backdrop := main_menu.get_node("Background") as TextureRect
-	var preview := backdrop.get_child(0) as SubViewport
+	assert_true(app.main_menu.visible)
+	assert_false(app.pause_menu.visible)
+	assert_null(app.gameplay)
+	var backdrop := app.main_menu.get_node("Background") as TextureRect
+	var menu_demo := backdrop.get("demo") as AirscainMain
+	var preview := menu_demo.get_viewport() as SubViewport
 	assert_true(preview.own_world_3d, "메뉴 배경의 월드는 실제 작전과 분리됩니다")
 	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
 	var expected_prepared_combat_streams := CombatAudio.all_streams().size() if OS.has_feature("web") else 0
-	assert_eq(app.get("prepared_combat_stream_count"), expected_prepared_combat_streams)
-	assert_true((app as AirscainApp).combat_vfx_warmup_started)
-	for frame_index: int in 160:
-		await get_tree().process_frame
-		if (app as AirscainApp).combat_vfx_warmup_completed and app.get_node_or_null("CombatVfxWarmup") == null:
-			break
-	assert_true((app as AirscainApp).combat_vfx_warmup_completed)
+	assert_eq(app.prepared_combat_stream_count, expected_prepared_combat_streams)
+	assert_true(app.combat_vfx_warmup_started)
+	await _await_app_ready(app)
+	assert_true(app.combat_vfx_warmup_completed)
 	assert_null(app.get_node_or_null("CombatVfxWarmup"))
-	app.call("start_game", AirscainMain.GameMode.TRAINING)
+
+func test_main_menu_runs_training_pause_home_and_sandbox_user_flow() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
 	await get_tree().process_frame
-	var gameplay := app.get("gameplay") as AirscainMain
+	await _await_app_ready(app)
+	var main_menu := app.main_menu
+	var pause_menu := app.pause_menu
+	var backdrop := main_menu.get_node("Background") as TextureRect
+	var menu_demo := backdrop.get("demo") as AirscainMain
+	var preview := menu_demo.get_viewport() as SubViewport
+	(main_menu.get_node("Panel/VBox/TrainingButton") as Button).pressed.emit()
+	await get_tree().process_frame
+	var gameplay := app.gameplay
 	assert_not_null(gameplay)
 	var first_seed := gameplay.scenario.world_seed
 	assert_eq(gameplay.game_mode, AirscainMain.GameMode.TRAINING)
@@ -132,21 +167,25 @@ func test_main_menu_starts_modes_and_escape_menu_returns_home() -> void:
 	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_DISABLED, "작전 중 메뉴 배경을 렌더하지 않습니다")
 	assert_false(backdrop.can_process())
 	assert_null(gameplay.hud.get_node_or_null("%ModeOption"))
-	app.call("set_pause_menu", true)
+	var cancel_event := InputEventAction.new()
+	cancel_event.action = &"ui_cancel"
+	cancel_event.pressed = true
+	app._unhandled_input(cancel_event)
 	assert_true(pause_menu.visible)
 	assert_eq(gameplay.session.simulation_speed, 0.0)
-	assert_true((app.get("pause_save_button") as Button).disabled)
-	app.call("set_pause_menu", false)
+	assert_true(app.pause_save_button.disabled)
+	(pause_menu.get_node("Panel/VBox/ResumeButton") as Button).pressed.emit()
 	assert_false(pause_menu.visible)
 	assert_eq(gameplay.session.simulation_speed, 0.0, "훈련의 기존 정지 상태를 복원합니다")
-	app.call("return_to_main_menu")
+	app._unhandled_input(cancel_event)
+	(pause_menu.get_node("Panel/VBox/MainMenuButton") as Button).pressed.emit()
 	assert_true(main_menu.visible)
 	assert_eq(preview.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
-	assert_null(app.get("gameplay"))
+	assert_null(app.gameplay)
 	await get_tree().process_frame
-	app.call("start_game", AirscainMain.GameMode.SANDBOX)
+	(main_menu.get_node("Panel/VBox/SandboxButton") as Button).pressed.emit()
 	await get_tree().process_frame
-	var next_gameplay := app.get("gameplay") as AirscainMain
+	var next_gameplay := app.gameplay
 	assert_not_null(next_gameplay)
 	assert_ne(next_gameplay.scenario.world_seed, first_seed)
 
@@ -155,16 +194,21 @@ func test_game_over_restart_replaces_gameplay_without_showing_main_menu() -> voi
 	await get_tree().process_frame
 	app.start_game(AirscainMain.GameMode.SUSTAINED)
 	await get_tree().process_frame
+	app.ui_audio.enabled = false
 	var first_gameplay := app.gameplay
+	first_gameplay.ui_audio.enabled = false
 	var first_seed := first_gameplay.scenario.world_seed
-	first_gameplay._on_restart_requested(true)
+	first_gameplay.session.end_game()
+	(first_gameplay.hud.get_node("GameOverPanel/VBox/Actions/SameSeedButton") as Button).pressed.emit()
 	await get_tree().process_frame
 	assert_not_same(app.gameplay, first_gameplay)
 	assert_eq(app.gameplay.scenario.world_seed, first_seed)
 	assert_eq(app.gameplay.game_mode, AirscainMain.GameMode.SUSTAINED)
 	assert_false(app.main_menu.visible)
 	var same_seed_gameplay := app.gameplay
-	same_seed_gameplay._on_restart_requested(false)
+	same_seed_gameplay.ui_audio.enabled = false
+	same_seed_gameplay.session.end_game()
+	(same_seed_gameplay.hud.get_node("GameOverPanel/VBox/Actions/NewSeedButton") as Button).pressed.emit()
 	await get_tree().process_frame
 	assert_not_same(app.gameplay, same_seed_gameplay)
 	assert_ne(app.gameplay.scenario.world_seed, first_seed)
@@ -196,8 +240,7 @@ func test_game_over_blocks_escape_menu_and_returns_home_from_result_panel() -> v
 	assert_false(app.pause_menu.visible)
 
 func test_save_and_load_controls_belong_to_main_and_pause_menus() -> void:
-	var test_save_path := "user://app_menu_save_test_%d.json" % get_instance_id()
-	_cleanup_save_path(test_save_path)
+	var test_save_path := _temporary_path("app_menu_save", "json")
 	var app := APP_SCENE.instantiate() as AirscainApp
 	app.save_path = test_save_path
 	add_child_autofree(app)
@@ -230,7 +273,19 @@ func test_save_and_load_controls_belong_to_main_and_pause_menus() -> void:
 	assert_not_null(app.gameplay)
 	assert_eq(app.gameplay.session.budget, 317)
 	assert_false(app.main_menu.visible)
-	_cleanup_save_path(test_save_path)
+
+func _temporary_path(stem: String, extension: String) -> String:
+	var path := "user://%s_%d.%s" % [stem, get_instance_id(), extension]
+	temporary_paths.append(path)
+	_cleanup_save_path(path)
+	return path
+
+func _await_app_ready(app: AirscainApp) -> void:
+	for frame_index: int in 160:
+		if app.combat_vfx_warmup_completed and app.get_node_or_null("CombatVfxWarmup") == null:
+			return
+		await get_tree().process_frame
+	fail_test("전투 VFX 사전 준비가 제한 시간 안에 끝나지 않았습니다")
 
 func _cleanup_save_path(path: String) -> void:
 	for suffix: String in ["", ".tmp", ".bak"]:

@@ -2,6 +2,8 @@ extends GutTest
 
 const IDS: Array[StringName] = [&"battery_strike_cruise", &"support_strike_cruise", &"battery_strike_aircraft", &"radar_strike_aircraft", &"command_strike_aircraft"]
 var main: AirscainMain
+var original_requested_seed: int
+var original_requested_mode: AirscainMain.GameMode
 
 class RetiringThreat:
 	extends ThreatUnit
@@ -10,13 +12,20 @@ class RetiringThreat:
 		return true
 
 func before_each() -> void:
+	original_requested_seed = AirscainMain.requested_seed
+	original_requested_mode = AirscainMain.requested_mode
 	AirscainMain.requested_seed = 73129
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	main = add_child_autofree(load("res://main/main.tscn").instantiate()) as AirscainMain
 	main.combat_audio.enabled = false
 	main.ui_audio.enabled = false
 	main.set_process(false)
 	main.session.budget = 10000
 	await get_tree().process_frame
+
+func after_each() -> void:
+	AirscainMain.requested_seed = original_requested_seed
+	AirscainMain.requested_mode = original_requested_mode
 
 func test_flight_rules_run_without_scene_visuals_and_restore_continuously() -> void:
 	var original := StrikeFlight.new()
@@ -55,7 +64,7 @@ func test_resolution_policy_is_independent_of_sensor_classification() -> void:
 	assert_true(aircraft.has_resolution_explosion())
 	aircraft.signature_class = &"bird"
 	assert_true(aircraft.has_resolution_explosion(), "센서 분류 변경은 파괴 연출을 변경하지 않습니다")
-	var bird := main.scenario.ambient_contacts[0].duplicate(true) as ThreatDefinition
+	var bird := ambient_definition_for(&"bird_contact").duplicate(true) as ThreatDefinition
 	bird.signature_class = &"aircraft"
 	assert_false(bird.has_resolution_explosion())
 	assert_false(bird.resolution_profile.wreck_smoke)
@@ -68,7 +77,7 @@ func test_root_accepts_impact_free_retirement_without_concrete_aircraft_type() -
 	main.threat_parent.add_child(threat)
 	threat.setup(801, entry_for(&"battery_strike_aircraft").threat_definition)
 	main.registry.add(threat)
-	main._on_threat_spawned(threat)
+	main.director.threat_spawned.emit(threat)
 	var effects_before := main.effects_parent.get_child_count()
 	threat.resolve_once(false)
 	assert_false(main.registry.get_active().has(threat))
@@ -78,11 +87,32 @@ func entry_for(id: StringName) -> ThreatSpawnEntry:
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
 		if entry.threat_definition.id == id:
 			return entry
+	fail_test("위협 생성 항목을 찾지 못했습니다: %s" % id)
+	return null
+
+func _spawn_entry_for(id: StringName, angle: float = 0.0, edge_offset: float = 0.0) -> ThreatUnit:
+	var entry := entry_for(id)
+	if entry == null:
+		return null
+	return main.director._spawn_entry(entry, angle, edge_offset)
+
+func ambient_definition_for(id: StringName) -> ThreatDefinition:
+	for definition: ThreatDefinition in main.scenario.ambient_contacts:
+		if definition.id == id:
+			return definition
+	fail_test("주변 접촉 정의를 찾지 못했습니다: %s" % id)
+	return null
+
+func defense_definition_for(id: StringName) -> DefenseDefinition:
+	for definition: DefenseDefinition in main.scenario.available_defenses:
+		if definition.id == id:
+			return definition
+	fail_test("방어 자산 정의를 찾지 못했습니다: %s" % id)
 	return null
 
 func launch_at(target: DefenseUnit) -> Array[ThreatUnit]:
 	main.enemy_knowledge.record_recon(target)
-	var aircraft := main.director._spawn_entry(entry_for(&"battery_strike_aircraft"), 0.5, 0.0) as AttackUav
+	var aircraft := _spawn_entry_for(&"battery_strike_aircraft", 0.5) as AttackUav
 	for tick: int in 4500:
 		aircraft.gameplay_tick(1.0 / 30.0)
 		if aircraft.mission_runtime.effect_applied:
@@ -135,9 +165,9 @@ func test_radar_observes_released_missile_and_gun_round_cancels_impact() -> void
 	missile.gameplay_tick(0.4)
 	var radar := target_for(&"sensor") as SearchRadar
 	radar.global_position = missile.global_position - Vector3(40, 20, 0)
-	var tracks_before: Array = main.player_knowledge.call("get_active_tracks")
+	var tracks_before := main.player_knowledge.get_active_tracks()
 	radar._scan()
-	var tracks_after: Array = main.player_knowledge.call("get_active_tracks")
+	var tracks_after := main.player_knowledge.get_active_tracks()
 	assert_gt(tracks_after.size(), tracks_before.size(), "별도 레이더 관측 대상입니다")
 	var gunfire := add_child_autofree(GunfireRuntime.new()) as GunfireRuntime
 	gunfire.registry = main.registry
@@ -151,50 +181,50 @@ func test_radar_observes_released_missile_and_gun_round_cancels_impact() -> void
 func test_bomb_is_unpowered_ballistic_unregistered_and_restores_mid_fall() -> void:
 	var target := target_for(&"weapon")
 	main.enemy_knowledge.record_recon(target)
-	var aircraft := main.director._spawn_entry(entry_for(&"battery_strike_uav"), 0.5, 0.0) as AttackUav
+	var aircraft := _spawn_entry_for(&"battery_strike_uav", 0.5) as AttackUav
 	for tick: int in 4500:
 		aircraft.gameplay_tick(1.0 / 30.0)
 		if aircraft.mission_runtime.effect_applied:
 			break
-	var bomb: Node3D
+	var bomb: AirStrikeMunition
 	for child: Node in main.threat_parent.get_children():
-		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
-			bomb = child as Node3D
+		if child is AirStrikeMunition:
+			bomb = child as AirStrikeMunition
 	assert_not_null(bomb)
 	if bomb == null:
 		return
-	assert_false(bomb is ThreatUnit, "폭탄은 요격 목록에 등록하지 않습니다")
+	assert_false(main.registry.get_active().any(func(contact: ThreatUnit) -> bool: return contact.get_instance_id() == bomb.get_instance_id()), "폭탄은 요격 목록에 등록하지 않습니다")
 	assert_false(bomb.get_node("Flame").visible)
 	assert_false(bomb.get_node("FlameLight").visible)
 	assert_false(aircraft.body.get_node("ReleasedStore").visible)
-	var initial_velocity := (bomb as AirStrikeMunition).motion.velocity
+	var initial_velocity := bomb.motion.velocity
 	var initial_position := bomb.global_position
 	aircraft.receive_damage(10000.0)
 	await get_tree().process_frame
 	assert_eq(bomb.global_position, initial_position, "정지한 시뮬레이션에서 폭탄만 진행하지 않습니다")
-	bomb.call("_process", 0.3)
-	var velocity := (bomb as AirStrikeMunition).motion.velocity
+	bomb.gameplay_tick(0.3)
+	var velocity := bomb.motion.velocity
 	assert_almost_eq(velocity.x, initial_velocity.x, 0.001)
 	assert_almost_eq(velocity.z, initial_velocity.z, 0.001)
 	assert_almost_eq(velocity.y, initial_velocity.y - 9.8 * 0.3, 0.001)
-	var before: Dictionary = bomb.call("capture_state")
+	var before := bomb.capture_state()
 	var target_id := target.runtime_id
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	assert_eq(main.restore_from_document(document), "")
 	for child: Node in main.threat_parent.get_children():
-		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT and not child.is_queued_for_deletion():
-			bomb = child as Node3D
+		if child is AirStrikeMunition and not child.is_queued_for_deletion():
+			bomb = child as AirStrikeMunition
 	for asset: DefenseUnit in main.defenses:
 		if asset.runtime_id == target_id:
 			target = asset
-	assert_eq(bomb.call("capture_state"), before)
+	assert_eq(bomb.capture_state(), before)
 	assert_false(bomb.get_node("Flame").visible)
-	bomb.call("_process", 10.0)
+	bomb.gameplay_tick(10.0)
 	assert_eq(target.integrity, 60.0)
 
 func test_uav_bombs_hit_small_assets_from_multiple_approach_directions() -> void:
-	for definition_index: int in [0, 4, 6]:
-		var target := target_for_index(definition_index)
+	for definition_id: StringName in [&"missile_battery", &"close_in_gun", &"high_energy_laser"]:
+		var target := target_for_definition(definition_id)
 		for case: int in 8:
 			var angle := float(case % 4) * 1.5
 			var time_step := 1.0 / 30.0 if case < 4 else 0.1
@@ -213,7 +243,7 @@ func test_uav_bombs_hit_small_assets_from_multiple_approach_directions() -> void
 			for child: Node in main.threat_parent.get_children():
 				if child is AirStrikeMunition and not child.is_queued_for_deletion():
 					bomb = child as AirStrikeMunition
-			assert_not_null(bomb, "Bomb release: %d / %.1f" % [definition_index, angle])
+			assert_not_null(bomb, "Bomb release: %s / %.1f" % [definition_id, angle])
 			if bomb != null:
 				bomb.managed = true
 				bomb.gameplay_tick(15.0)
@@ -257,7 +287,7 @@ func test_missile_flight_round_trips_before_and_after_ignition() -> void:
 func test_release_alignment_rejects_sideways_and_backward_missile_shots() -> void:
 	var target := target_for(&"weapon")
 	main.enemy_knowledge.record_recon(target)
-	var aircraft := main.director._spawn_entry(entry_for(&"battery_strike_aircraft"), 0.0, 0.0) as AttackUav
+	var aircraft := _spawn_entry_for(&"battery_strike_aircraft") as AttackUav
 	aircraft.global_position = target.global_position + Vector3(300, 100, 0)
 	aircraft.mover.velocity = Vector3(100, 0, 0)
 	assert_false(AircraftStrikeRelease.ready(aircraft.mission_runtime.profile, aircraft.body.global_transform, target.global_position, aircraft.mover.velocity, 0.03))
@@ -267,12 +297,18 @@ func test_release_alignment_rejects_sideways_and_backward_missile_shots() -> voi
 	assert_true(AircraftStrikeRelease.ready(aircraft.mission_runtime.profile, aircraft.body.global_transform, target.global_position, aircraft.mover.velocity, 0.03))
 
 func target_for(role: StringName) -> DefenseUnit:
-	var index := {&"weapon": 0, &"sensor": 1, &"command": 2, &"support": 5}[role] as int
-	return target_for_index(index)
+	var definition_ids: Dictionary[StringName, StringName] = {
+		&"weapon": &"missile_battery",
+		&"sensor": &"search_radar",
+		&"command": &"command_post",
+		&"support": &"support_facility",
+	}
+	assert_true(definition_ids.has(role), "알 수 없는 시설 역할: %s" % role)
+	return target_for_definition(definition_ids.get(role, &""))
 
-func target_for_index(index: int) -> DefenseUnit:
-	var definition := main.scenario.available_defenses[index]
-	main._on_pressure_changed(definition.unlock_pressure_level)
+func target_for_definition(definition_id: StringName) -> DefenseUnit:
+	var definition := defense_definition_for(definition_id)
+	main.director.pressure_changed.emit(definition.unlock_pressure_level)
 	for x: int in range(320, 900, 30):
 		var point := Vector3(x, main.battlefield.terrain_height(x, 180), 180)
 		var result := main.session.request_placement(definition, point, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
@@ -285,15 +321,16 @@ func test_variants_require_matching_knowledge_and_join_city_strike_packages() ->
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 73129
 	for id: StringName in IDS:
+		var case_context := "시설 공격 변형 %s" % id
 		main.enemy_knowledge.reset()
 		var entry := entry_for(id)
-		assert_not_null(entry)
-		assert_eq(entry.validation_error(), "")
-		assert_eq(main.director.adaptive_entry_weight(entry), 0.0)
+		assert_not_null(entry, case_context)
+		assert_eq(entry.validation_error(), "", case_context)
+		assert_eq(main.director.adaptive_entry_weight(entry), 0.0, "%s: 사전 정찰 전" % case_context)
 		var target := target_for(entry.threat_definition.adaptive_knowledge_role)
 		main.enemy_knowledge.record_recon(target)
-		assert_gt(main.director.adaptive_entry_weight(entry), 0.0)
-		assert_has(main._sandbox_threat_definitions(), entry.threat_definition)
+		assert_gt(main.director.adaptive_entry_weight(entry), 0.0, "%s: 사전 정찰 후" % case_context)
+		assert_has(main._sandbox_threat_definitions(), entry.threat_definition, case_context)
 		var city := entry_for(&"strike_aircraft")
 		var weights: Dictionary[StringName, float] = {id: 1.0, city.threat_definition.id: 1.0}
 		var planner := RaidPlanner.new()
@@ -304,44 +341,45 @@ func test_variants_require_matching_knowledge_and_join_city_strike_packages() ->
 			for wave: Dictionary in waves:
 				included = included or StringName(wave.definition_id) == id
 				has_city = has_city or StringName(wave.definition_id) == city.threat_definition.id
-			assert_true(has_city, "시설 제압만으로 도시 공격을 대체하지 않습니다")
-		assert_true(included, String(id))
+			assert_true(has_city, "%s sample=%d: 시설 제압만으로 도시 공격을 대체하지 않습니다" % [case_context, sample])
+		assert_true(included, "%s: 32회 표본 안에 변형이 포함됩니다" % case_context)
 
 func test_each_variant_flies_to_its_role_and_applies_only_one_asset_hit() -> void:
 	for id: StringName in IDS:
+		var case_context := "시설 공격 변형 %s" % id
 		main.enemy_knowledge.reset()
 		var entry := entry_for(id)
 		var definition := entry.threat_definition as AttackUavDefinition
 		var target := target_for(definition.adaptive_knowledge_role)
 		main.enemy_knowledge.record_recon(target)
 		var city_before := main.objective.current_integrity
-		var threat := main.director._spawn_entry(entry, 0.5, 0.0) as AttackUav
+		var threat := _spawn_entry_for(id, 0.5) as AttackUav
 		for tick: int in 4500:
 			threat.gameplay_tick(1.0 / 30.0)
 			if threat.mission_runtime.effect_applied or threat.resolved_state:
 				break
 		assert_true(threat.mission_runtime.effect_applied, "%s impact=%s target=%s mission=%s" % [id, threat.global_position, target.global_position, threat.mission_runtime.capture_state()])
 		if definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
-			assert_eq(target.integrity, target.definition.maximum_integrity)
+			assert_eq(target.integrity, target.definition.maximum_integrity, "%s: 투발 전에는 시설 피해가 없습니다" % case_context)
 			var count := 0
 			for child: Node in main.threat_parent.get_children():
 				if child is ThreatUnit and (child as ThreatUnit).definition == definition.mission.released_missile and not child.is_queued_for_deletion():
 					count += 1
 					(child as ThreatUnit).gameplay_tick(10.0)
-			assert_eq(count, 1)
+			assert_eq(count, 1, "%s: 투사체를 한 발만 방출합니다" % case_context)
 			for tick: int in 4500:
 				threat.gameplay_tick(1.0 / 30.0)
 				if threat.resolved_state:
 					break
-		assert_true(threat.resolved_state, "미사일은 충돌 종료, 항공기는 이탈 종료")
-		assert_eq(target.integrity, target.definition.maximum_integrity - definition.mission.damage, String(id))
-		assert_eq(main.objective.current_integrity, city_before)
+		assert_true(threat.resolved_state, "%s: 미사일은 충돌 종료, 항공기는 이탈 종료" % case_context)
+		assert_eq(target.integrity, target.definition.maximum_integrity - definition.mission.damage, case_context)
+		assert_eq(main.objective.current_integrity, city_before, "%s: 시설 공격은 도시에 피해를 주지 않습니다" % case_context)
 
 func test_lost_cruise_target_keeps_last_site_and_cannot_remote_damage_or_egress() -> void:
 	var entry := entry_for(&"battery_strike_cruise")
 	var target := target_for(&"weapon")
 	main.enemy_knowledge.record_recon(target)
-	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var threat := _spawn_entry_for(entry.threat_definition.id) as AttackUav
 	var old_site := threat.mission_runtime.fixed_target
 	target.global_position += Vector3(800, 0, 0)
 	assert_eq(threat.mission_runtime.navigation_target(), old_site)
@@ -363,7 +401,7 @@ func test_missile_can_reach_rooftop_and_skips_a_disabled_asset() -> void:
 	var target := target_for(&"weapon")
 	target.global_position.y += 80.0
 	main.enemy_knowledge.record_recon(target)
-	var threat := main.director._spawn_entry(entry, 0.5, 0.0) as AttackUav
+	var threat := _spawn_entry_for(entry.threat_definition.id, 0.5) as AttackUav
 	for tick: int in 4500:
 		threat.gameplay_tick(1.0 / 30.0)
 		if threat.resolved_state:
@@ -373,7 +411,7 @@ func test_missile_can_reach_rooftop_and_skips_a_disabled_asset() -> void:
 	target.receive_damage(30.0)
 	var before := target.integrity
 	main.enemy_knowledge.record_recon(target)
-	var other := main.director._spawn_entry(entry, 0.5, 0.0) as AttackUav
+	var other := _spawn_entry_for(entry.threat_definition.id, 0.5) as AttackUav
 	other.global_position = target.global_position + Vector3(100, 20, 0)
 	other.gameplay_tick(0.1)
 	assert_eq(other.mission_runtime.target_defense_id, 0)
@@ -385,7 +423,7 @@ func test_lost_missile_reference_and_aircraft_missions_round_trip() -> void:
 		var target := target_for(entry.threat_definition.adaptive_knowledge_role)
 		main.enemy_knowledge.reset()
 		main.enemy_knowledge.record_recon(target)
-		var threat := main.director._spawn_entry(entry, 0.5, 0.0) as AttackUav
+		var threat := _spawn_entry_for(id, 0.5) as AttackUav
 		var runtime_id := threat.runtime_id
 		if threat.mission_runtime.profile.type == ThreatMissionDefinition.Type.IMPACT:
 			var site := threat.mission_runtime.fixed_target
@@ -394,19 +432,19 @@ func test_lost_missile_reference_and_aircraft_missions_round_trip() -> void:
 			threat.gameplay_tick(0.01)
 		var state := threat.capture_content_state()
 		var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
-		assert_eq(main.restore_from_document(document), "")
+		assert_eq(main.restore_from_document(document), "", "%s: 저장 문서를 복원합니다" % id)
 		var restored: AttackUav
 		for child: Node in main.threat_parent.get_children():
 			if child is AttackUav and child.runtime_id == runtime_id:
 				restored = child as AttackUav
-		assert_not_null(restored)
+		assert_not_null(restored, "%s: 같은 runtime ID의 위협을 복원합니다" % id)
 		if restored != null:
-			assert_eq(restored.capture_content_state().mission, state.mission)
+			assert_eq(restored.capture_content_state().mission, state.mission, "%s: 임무 상태를 보존합니다" % id)
 
 func test_jet_approach_cue_tracks_actual_release_and_restore() -> void:
 	main.combat_audio.enabled = true
 	main.combat_audio.set_process(false)
-	var aircraft := main.director._spawn_entry(entry_for(&"strike_aircraft"), 0.0, 0.0) as AttackUav
+	var aircraft := _spawn_entry_for(&"strike_aircraft") as AttackUav
 	assert_not_null(aircraft)
 	var audio := main.combat_audio.approaches
 	var start_time := -1.0
@@ -439,12 +477,13 @@ func test_all_automatic_threat_groups_start_beyond_haze() -> void:
 	main.director.elapsed = 3600.0
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
 		for angle: float in [0.0, PI * 0.5, PI, PI * 1.5]:
-			var threat := main.director._spawn_entry(entry, angle, float(entry.group_size - 1) * 3.0)
-			assert_gt(Vector2(threat.global_position.x, threat.global_position.z).length(), main.scenario.battlefield_size * DistantContactHaze.END_RATIO, String(entry.threat_definition.id))
-			assert_eq(DistantContactHaze.opacity_at(threat.global_position, main.scenario.battlefield_size), 0.0)
+			var case_context := "id=%s angle=%.2f" % [entry.threat_definition.id, angle]
+			var threat := _spawn_entry_for(entry.threat_definition.id, angle, float(entry.group_size - 1) * 3.0)
+			assert_gt(Vector2(threat.global_position.x, threat.global_position.z).length(), main.scenario.battlefield_size * DistantContactHaze.END_RATIO, case_context)
+			assert_eq(DistantContactHaze.opacity_at(threat.global_position, main.scenario.battlefield_size), 0.0, case_context)
 			var eta := threat.presentation_action_seconds()
 			if is_finite(eta):
-				assert_gt(eta, ThreatApproachAudio.PEAK_SECONDS)
+				assert_gt(eta, ThreatApproachAudio.PEAK_SECONDS, case_context)
 			main.registry.remove(threat)
 			threat.free()
 
@@ -453,7 +492,7 @@ func test_cruise_approach_precedes_actual_collision() -> void:
 	for candidate: ThreatSpawnEntry in main.scenario.threat_entries:
 		if candidate.threat_definition.id == &"cruise_missile":
 			entry = candidate
-	var missile := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var missile := _spawn_entry_for(entry.threat_definition.id) as AttackUav
 	var audio := ThreatApproachAudio.new()
 	audio.configure_cruise()
 	add_child_autofree(audio)
@@ -554,54 +593,53 @@ func test_cruise_audio_does_not_predict_terrain_collision_during_safe_cruise() -
 		missile.free()
 
 func test_uav_bombs_confirm_offset_reports_before_release() -> void:
-	for definition_index: int in [0]:
-		var target := target_for_index(definition_index)
-		for case: int in 12:
-			var angle := float(case % 4) * 1.5
-			var time_step := 1.0 / 30.0 if case < 4 else 0.1
-			target.complete_repair()
-			var definition := entry_for(&"battery_strike_uav").threat_definition
-			var aircraft := definition.scene.instantiate() as AttackUav
-			main.threat_parent.add_child(aircraft)
-			aircraft.setup(9000, definition)
-			aircraft.global_position = target.global_position + Vector3(cos(angle) * 450.0, 180.0, sin(angle) * 450.0)
-			aircraft.configure_mission(main.objective, main.battlefield, target.global_position + Vector3(26.0, 0.0, 0.0), [1.0, 1.35, 2.0][case / 4], target, aircraft.global_position)
-			for tick: int in 4500:
-				aircraft.gameplay_tick(time_step)
-				if aircraft.mission_runtime.effect_applied:
-					break
-			var bomb: AirStrikeMunition
-			for child: Node in main.threat_parent.get_children():
-				if child is AirStrikeMunition and not child.is_queued_for_deletion():
-					bomb = child as AirStrikeMunition
-			assert_not_null(bomb, "Bomb release: %d / %.1f" % [definition_index, angle])
-			if bomb != null:
-				bomb.managed = true
-				bomb.gameplay_tick(15.0)
-				assert_lt(target.integrity, target.definition.maximum_integrity, "asset=%s angle=%.1f miss=%.3f impact=%s target=%s" % [target.definition.id, angle, bomb.global_position.distance_to(target.global_position), bomb.global_position, target.global_position])
-				bomb.free()
-			aircraft.free()
+	var target := target_for_definition(&"missile_battery")
+	for case: int in 12:
+		var angle := float(case % 4) * 1.5
+		var time_step := 1.0 / 30.0 if case < 4 else 0.1
+		target.complete_repair()
+		var definition := entry_for(&"battery_strike_uav").threat_definition
+		var aircraft := definition.scene.instantiate() as AttackUav
+		main.threat_parent.add_child(aircraft)
+		aircraft.setup(9000, definition)
+		aircraft.global_position = target.global_position + Vector3(cos(angle) * 450.0, 180.0, sin(angle) * 450.0)
+		aircraft.configure_mission(main.objective, main.battlefield, target.global_position + Vector3(26.0, 0.0, 0.0), [1.0, 1.35, 2.0][case / 4], target, aircraft.global_position)
+		for tick: int in 4500:
+			aircraft.gameplay_tick(time_step)
+			if aircraft.mission_runtime.effect_applied:
+				break
+		var bomb: AirStrikeMunition
+		for child: Node in main.threat_parent.get_children():
+			if child is AirStrikeMunition and not child.is_queued_for_deletion():
+				bomb = child as AirStrikeMunition
+		assert_not_null(bomb, "Bomb release: %s / %.1f" % [target.definition.id, angle])
+		if bomb != null:
+			bomb.managed = true
+			bomb.gameplay_tick(15.0)
+			assert_lt(target.integrity, target.definition.maximum_integrity, "asset=%s angle=%.1f miss=%.3f impact=%s target=%s" % [target.definition.id, angle, bomb.global_position.distance_to(target.global_position), bomb.global_position, target.global_position])
+			bomb.free()
+		aircraft.free()
 
 func test_recon_search_routes_ignore_live_asset_layout_and_partition_work() -> void:
 	var radar := target_for(&"sensor")
 	var battery := target_for(&"weapon")
 	var entry := entry_for(&"recon_uav")
 	main.enemy_knowledge.reset()
-	var first := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var first := _spawn_entry_for(entry.threat_definition.id) as AttackUav
 	var route := first.mission_runtime.fixed_target
 	assert_null(first.mission_runtime.target_asset)
-	var second := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var second := _spawn_entry_for(entry.threat_definition.id) as AttackUav
 	assert_ne(second.mission_runtime.fixed_target, route)
 	first.resolve_once(true)
 	second.resolve_once(true)
 	radar.global_position += Vector3(900, 0, 0)
 	battery.global_position += Vector3(-700, 0, 0)
 	main.enemy_knowledge.reset()
-	var moved := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
+	var moved := _spawn_entry_for(entry.threat_definition.id) as AttackUav
 	assert_eq(moved.mission_runtime.fixed_target, route, "미관측 자산 이동은 정찰 경로를 바꾸지 않습니다")
 
 func test_search_flight_changes_sectors_then_releases_its_reservation() -> void:
-	var recon := main.director._spawn_entry(entry_for(&"recon_uav"), 0.0, 0.0) as AttackUav
+	var recon := _spawn_entry_for(&"recon_uav") as AttackUav
 	recon.global_position = Vector3(900, 145, 180)
 	var visited: Dictionary[int, bool] = {}
 	for tick: int in 7000:

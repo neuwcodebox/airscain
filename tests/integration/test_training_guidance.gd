@@ -3,14 +3,22 @@ extends GutTest
 const MAIN := preload("res://main/main.tscn")
 var main: AirscainMain
 var guidance: TrainingGuidance
+var original_requested_seed: int
+var original_requested_mode: AirscainMain.GameMode
 
 func before_each() -> void:
+	original_requested_seed = AirscainMain.requested_seed
+	original_requested_mode = AirscainMain.requested_mode
 	AirscainMain.requested_mode = AirscainMain.GameMode.TRAINING
 	AirscainMain.requested_seed = 73129
 	main = add_child_autofree(MAIN.instantiate()) as AirscainMain
-	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	AirscainMain.requested_mode = original_requested_mode
 	await get_tree().process_frame
 	guidance = main.hud.get_node("TrainingGuidance") as TrainingGuidance
+
+func after_each() -> void:
+	AirscainMain.requested_seed = original_requested_seed
+	AirscainMain.requested_mode = original_requested_mode
 
 func test_menu_cue_follows_open_catalog_and_keeps_clicks_available() -> void:
 	main.hud.training_next_button.pressed.emit()
@@ -19,11 +27,11 @@ func test_menu_cue_follows_open_catalog_and_keeps_clicks_available() -> void:
 	main.hud.set_catalog_expanded(true)
 	await get_tree().process_frame
 	guidance.refresh()
-	assert_same(guidance.target_control, main.hud.defense_buttons[1])
+	assert_same(guidance.target_control, _catalog_button(&"search_radar"))
 	assert_false(main.hud.training_panel.visible)
 	assert_eq(guidance.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 	assert_gt(guidance.z_index, main.hud.catalog.z_index)
-	main.hud.defense_buttons[1].pressed.emit()
+	_catalog_button(&"search_radar").pressed.emit()
 	guidance.refresh()
 	assert_true(guidance.suggestion.is_finite())
 	assert_true(main.battlefield.placement_result(guidance.suggestion, main.placement.selected.placement_profile).valid)
@@ -89,12 +97,12 @@ func test_track_selection_rejects_unconfirmed_and_non_hostile_contacts() -> void
 func test_terrain_obstruction_requires_relocation_then_returns_to_detection() -> void:
 	main.training_controller.next_requested()
 	guidance.refresh()
-	main.placement.select(main.scenario.available_defenses[1])
+	main.placement.select(_defense_definition(&"search_radar"))
 	guidance.refresh()
 	main.placement.candidate_position = guidance.suggestion
 	assert_true(main.placement.request_selected_defense_placement())
 	var radar := main.defenses.back() as SearchRadar
-	main.placement.select(main.scenario.available_defenses[0])
+	main.placement.select(_defense_definition(&"missile_battery"))
 	guidance.refresh()
 	main.placement.candidate_position = guidance.suggestion
 	assert_true(main.placement.request_selected_defense_placement())
@@ -115,7 +123,7 @@ func test_terrain_obstruction_requires_relocation_then_returns_to_detection() ->
 	assert_eq(main.training_controller.step, TrainingController.Step.RELOCATE)
 	assert_eq(main.session.simulation_speed, 0.0)
 	assert_same(main.training_controller.relocation_subject, radar)
-	main._on_asset_selected(radar)
+	main.placement.asset_selected.emit(radar)
 	main.hud.relocation_button.pressed.emit()
 	guidance.refresh()
 	assert_true(guidance.suggestion.is_finite())
@@ -129,8 +137,8 @@ func test_terrain_obstruction_requires_relocation_then_returns_to_detection() ->
 
 func test_recommended_deployment_confirms_contact_within_ten_seconds() -> void:
 	main.training_controller.next_requested()
-	for index: int in [1, 0]:
-		main.placement.select(main.scenario.available_defenses[index])
+	for definition_id: StringName in [&"search_radar", &"missile_battery"]:
+		main.placement.select(_defense_definition(definition_id))
 		guidance.refresh()
 		main.placement.candidate_position = guidance.suggestion
 		assert_true(main.placement.request_selected_defense_placement())
@@ -142,3 +150,18 @@ func test_recommended_deployment_confirms_contact_within_ten_seconds() -> void:
 	assert_eq(main.training_controller.step, TrainingController.Step.SELECT_TRACK)
 	assert_eq(main.session.simulation_speed, 0.0)
 	assert_false(main.training_controller.training_battery.doctrine.hold_fire)
+
+func _defense_definition(definition_id: StringName) -> DefenseDefinition:
+	for definition: DefenseDefinition in main.scenario.available_defenses:
+		if definition.id == definition_id:
+			return definition
+	fail_test("방어 자산 정의를 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _catalog_button(definition_id: StringName) -> Button:
+	var definition := _defense_definition(definition_id)
+	var index := main.scenario.available_defenses.find(definition)
+	if index >= 0 and index < main.hud.defense_buttons.size():
+		return main.hud.defense_buttons[index]
+	fail_test("방어 자산 카탈로그 버튼을 찾지 못했습니다: %s" % definition_id)
+	return null

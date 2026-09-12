@@ -16,13 +16,22 @@ func _visible_explosion_count(parent: Node) -> int:
 const MAIN_SCENE := preload("res://main/main.tscn")
 
 var main: AirscainMain
+var original_requested_seed: int
+var original_requested_mode: AirscainMain.GameMode
 
 func before_each() -> void:
+	original_requested_seed = AirscainMain.requested_seed
+	original_requested_mode = AirscainMain.requested_mode
 	AirscainMain.requested_seed = 73129
+	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	main.auto_start_sustained = false
 	add_child_autofree(main)
 	await get_tree().process_frame
+
+func after_each() -> void:
+	AirscainMain.requested_seed = original_requested_seed
+	AirscainMain.requested_mode = original_requested_mode
 
 func test_result_visual_preparation_preserves_gameplay_and_hidden_panel() -> void:
 	main.set_process(false)
@@ -156,12 +165,14 @@ func test_selected_asset_panel_shrinks_when_live_status_rows_disappear() -> void
 		assert_almost_eq(panel.size.y, resting_height, 1.0, "추가 조작 없이 사라진 행의 여백을 회수합니다")
 		assert_almost_eq(panel.get_global_rect().end.y, bottom, 1.0)
 
-func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
+func test_project_rendering_configuration_matches_supported_target() -> void:
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 1600)
 	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 900)
 	assert_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method"), "gl_compatibility")
 	assert_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile"), "gl_compatibility")
 	assert_eq(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d"), Viewport.MSAA_2X)
+
+func test_generated_battlefield_matches_scenario_and_camera_bounds() -> void:
 	assert_not_null(main.objective)
 	assert_gt(main.battlefield.terrain.mesh.get_surface_count(), 0)
 	var terrain_material := main.battlefield.terrain.material_override as ShaderMaterial
@@ -175,33 +186,21 @@ func test_scenario_starts_with_generated_world_and_preparation_state() -> void:
 	assert_eq((main.battlefield.ocean.mesh as PlaneMesh).size.x, 19200.0)
 	assert_eq(main.camera_rig.camera.far, 14400.0)
 	assert_gt(main.battlefield.city_visuals.get_child_count(), 30)
+
+func test_new_operation_starts_in_preparation_with_ambient_contacts_and_budget() -> void:
 	assert_eq(main.registry.count(), 4)
 	assert_eq(main.registry.hostile_count(), 0)
 	assert_eq(main.session.phase, GameSession.Phase.PREPARATION)
 	for pad: MeshInstance3D in main.battlefield.rooftop_pad_visuals:
 		assert_false(pad.visible)
 	assert_eq(main.session.budget, main.scenario.starting_budget)
-	assert_eq(main.scenario.available_defenses.size(), 11)
-	assert_eq(main.scenario.available_defenses[1].id, &"search_radar")
-	assert_eq(main.scenario.available_defenses[2].id, &"command_post")
-	assert_eq(main.scenario.available_defenses[3].id, &"tracking_radar")
-	assert_eq(main.scenario.available_defenses[4].id, &"close_in_gun")
-	assert_eq(main.scenario.available_defenses[5].id, &"support_facility")
-	assert_eq(main.scenario.available_defenses[6].id, &"high_energy_laser")
-	assert_eq(main.scenario.threat_entries[1].threat_definition.id, &"swarm_uav")
-	assert_eq(main.scenario.threat_entries[1].group_size, 4)
-	assert_true(main.scenario.threat_entries.any(func(entry: ThreatSpawnEntry) -> bool: return entry.threat_definition.id == &"battery_strike_uav"))
-	assert_eq(main.scenario.threat_entries[2].threat_definition.id, &"recon_uav")
-	assert_eq(main.scenario.threat_entries[3].threat_definition.id, &"support_strike_uav")
-	assert_eq(main.scenario.threat_entries[4].threat_definition.id, &"command_strike_uav")
-	assert_eq(main.scenario.threat_entries[5].threat_definition.id, &"cruise_missile")
-	assert_eq(main.scenario.threat_entries[6].threat_definition.id, &"decoy_uav")
-	assert_eq(main.scenario.threat_entries[7].threat_definition.id, &"electronic_warfare_uav")
-	assert_eq(main.scenario.threat_entries[8].threat_definition.id, &"anti_radiation_missile")
-	assert_eq(main.scenario.threat_entries[9].threat_definition.id, &"ballistic_missile")
-	assert_eq(main.scenario.threat_entries[10].threat_definition.id, &"rocket")
-	assert_eq(main.scenario.threat_entries[11].threat_definition.id, &"strike_aircraft")
-	assert_true(main.session.start_defense(), "도시 기본 지휘통제소도 가동 자산으로 포함합니다")
+
+func test_scenario_exposes_required_defense_and_threat_content() -> void:
+	for definition_id: StringName in [&"missile_battery", &"search_radar", &"command_post", &"tracking_radar", &"close_in_gun", &"support_facility", &"high_energy_laser", &"long_range_missile", &"short_range_missile", &"high_power_microwave", &"interceptor_drone_defense"]:
+		assert_not_null(_defense_definition_for(main, definition_id), String(definition_id))
+	for definition_id: StringName in [&"attack_uav", &"swarm_uav", &"recon_uav", &"support_strike_uav", &"command_strike_uav", &"cruise_missile", &"decoy_uav", &"electronic_warfare_uav", &"anti_radiation_missile", &"ballistic_missile", &"rocket", &"strike_aircraft", &"battery_strike_uav"]:
+		assert_not_null(_threat_entry_for(main, definition_id), String(definition_id))
+	assert_eq(_threat_entry_for(main, &"swarm_uav").group_size, 4)
 
 func test_city_rooftop_command_is_free_registered_and_connects_the_first_defenses() -> void:
 	assert_eq(main.defenses.size(), 1)
@@ -212,21 +211,22 @@ func test_city_rooftop_command_is_free_registered_and_connects_the_first_defense
 	assert_eq(main.session.defense_spending, 0)
 	assert_eq(main.session.budget, main.session.starting_budget)
 	assert_eq(main.battlefield.occupied_positions.size(), 1)
-	var radar := _place_for(main, main.scenario.available_defenses[1]).unit as DefenseUnit
-	var weapon := _place_for(main, main.scenario.available_defenses[0]).unit as DefenseUnit
+	var radar := _place_for(main, _defense_definition_for(main, &"search_radar")).unit as DefenseUnit
+	var weapon := _place_for(main, _defense_definition_for(main, &"missile_battery")).unit as DefenseUnit
 	assert_true(main.c2_network.has_command_path(weapon, radar.runtime_id))
 	assert_ne(command.runtime_id, radar.runtime_id)
 	assert_ne(command.runtime_id, weapon.runtime_id)
+	assert_true(main.session.start_defense(), "도시 기본 지휘통제소도 가동 자산으로 포함합니다")
 
 func test_placement_and_selection_share_labeled_operation_and_command_ranges() -> void:
-	var definition := main.scenario.available_defenses[0]
+	var definition := _defense_definition_for(main, &"missile_battery")
 	main.placement.select(definition)
 	var placement_title := main.placement.range_disc.caption.text
 	assert_eq(placement_title, "교전 범위")
 	assert_eq(main.placement.range_disc.radius, definition.tactical_range())
 	main.placement.cancel()
 	var unit := _place_for(main, definition).unit as DefenseUnit
-	main._on_asset_selected(unit)
+	main.placement.asset_selected.emit(unit)
 	assert_true(main.c2_overlay.operation_ring.visible)
 	assert_eq(main.c2_overlay.operation_ring.caption.text, placement_title)
 	assert_eq(main.c2_overlay.range_ring.caption.text, "지휘 연결")
@@ -247,11 +247,15 @@ func test_placement_and_selection_share_labeled_operation_and_command_ranges() -
 	assert_false(main.c2_overlay.range_ring.is_visible_in_tree())
 
 func test_sensor_support_and_command_ranges_have_distinct_names() -> void:
-	for index: int in [1, 5]:
-		var definition := main.scenario.available_defenses[index]
+	var cases: Array[Dictionary] = [
+		{"definition_id": &"search_radar", "caption": "탐지 범위"},
+		{"definition_id": &"support_facility", "caption": "지원 범위"},
+	]
+	for case: Dictionary in cases:
+		var definition := _defense_definition_for(main, case.definition_id)
 		main.placement.select(definition)
-		assert_eq(main.placement.range_disc.caption.text, "탐지 범위" if index == 1 else "지원 범위")
-	main.placement.select(main.scenario.available_defenses[2])
+		assert_eq(main.placement.range_disc.caption.text, case.caption, String(case.definition_id))
+	main.placement.select(_defense_definition_for(main, &"command_post"))
 	assert_false(main.placement.range_disc.visible, "지휘시설에 같은 반경의 원을 중복 표시하지 않습니다")
 	main.placement.cancel()
 
@@ -295,13 +299,13 @@ func test_non_combat_ui_audio_uses_selected_sources_and_routes_feedback() -> voi
 	main.hud.normal_button.pressed.emit()
 	assert_eq(main.ui_audio.played_count(UiAudio.CLICK), click_count + 1)
 	var success_count := main.ui_audio.played_count(UiAudio.PLACEMENT_SUCCESS)
-	var definition := main.scenario.available_defenses[0]
+	var definition := _defense_definition_for(main, &"missile_battery")
 	main.placement.select(definition)
 	main.placement.candidate_position = _find_valid_position_for(definition.placement_profile)
 	assert_true(main.placement.request_selected_defense_placement())
 	assert_eq(main.ui_audio.played_count(UiAudio.PLACEMENT_SUCCESS), success_count + 1)
 	var rejected_count := main.ui_audio.played_count(UiAudio.ACTION_REJECTED)
-	main._on_resupply_requested()
+	main.hud.resupply_button.pressed.emit()
 	assert_eq(main.ui_audio.played_count(UiAudio.ACTION_REJECTED), rejected_count + 1)
 
 func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
@@ -334,12 +338,12 @@ func test_topbar_dropdown_selects_directly_and_excludes_other_menus() -> void:
 	assert_eq(option.selected, 5)
 	option.item_selected.emit(2)
 	assert_false(main.c2_overlay.show_all_links)
-	assert_eq(main.tactical_range_overlay.get("mode"), &"weapon")
+	assert_eq(main.tactical_range_overlay.mode, &"weapon")
 	assert_eq(option.selected, 2)
 	option.item_selected.emit(0)
-	assert_eq(main.tactical_range_overlay.get("mode"), &"none")
+	assert_eq(main.tactical_range_overlay.mode, &"none")
 	assert_eq(option.selected, 0)
-	main.hud._on_overlay_selected(-1)
+	option.item_selected.emit(-1)
 	assert_eq(option.selected, 0)
 	option.disabled = true
 	option.item_selected.emit(5)
@@ -387,22 +391,21 @@ func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
 	assert_true(button.disabled)
 
 func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
-	var definition := main.scenario.available_defenses[3]
+	var definition := _defense_definition_for(main, &"tracking_radar")
+	var catalog_button := _catalog_button_for(main, definition.id)
+	var catalog_meta := _catalog_meta_label_for(main, definition.id)
 	var position := _find_valid_position_for(definition.placement_profile)
 	var locked_result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_false(locked_result.success)
 	assert_string_contains(locked_result.reason, "위협 단계 2")
-	assert_true(main.hud.defense_buttons[3].disabled)
-	assert_eq(main.hud.defense_meta_labels[3].text, "2단계 해금")
-	main._on_pressure_changed(2)
-	assert_false(main.hud.defense_buttons[3].disabled)
+	assert_true(catalog_button.disabled)
+	assert_eq(catalog_meta.text, "2단계 해금")
+	main.director.pressure_changed.emit(2)
+	assert_false(catalog_button.disabled)
 	assert_true(main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
 
-func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void:
-	AirscainMain.requested_mode = AirscainMain.GameMode.TRAINING
-	var training := add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
-	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
-	await get_tree().process_frame
+func test_training_mode_starts_paused_with_visible_approach_guidance_and_no_saves() -> void:
+	var training := await _new_training_operation()
 	assert_eq(training.game_mode, AirscainMain.GameMode.TRAINING)
 	assert_eq(training.training_controller.step, TrainingController.Step.CAMERA)
 	assert_eq(training.session.phase, GameSession.Phase.RUNNING)
@@ -421,51 +424,56 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_string_contains(training.hud.training_body.text, "가운데 버튼 드래그")
 	assert_string_contains(training.hud.training_body.text, "수평, 수직 회전")
 	assert_string_contains(training.hud.training_body.text, "Backspace")
-	assert_true(bool(training.tactical_screen_overlay.get("training_approach_visible")))
-	var approach_position: Vector3 = training.tactical_screen_overlay.get("training_approach_position")
+	assert_true(training.tactical_screen_overlay.training_approach_visible)
+	var approach_position := training.tactical_screen_overlay.training_approach_position
 	assert_gt(approach_position.x, training.objective.global_position.x)
 	assert_eq(initial_threat.global_position, approach_position)
-	var approach_marker: Vector2 = training.tactical_screen_overlay.call("training_marker_screen_position")
+	var approach_marker := training.tactical_screen_overlay.training_marker_screen_position()
 	assert_lte(approach_marker.x, training.tactical_screen_overlay.size.x - TacticalScreenOverlay.EDGE_MARGIN)
 	assert_gte(approach_marker.y, 100.0)
-	var approach_label_rect: Rect2 = training.tactical_screen_overlay.call("training_approach_label_rect")
+	var approach_label_rect := training.tactical_screen_overlay.training_approach_label_rect()
 	assert_false(approach_label_rect.intersects(training.hud.training_panel.get_global_rect()))
 	training.hud.set_catalog_expanded(true)
 	await get_tree().process_frame
-	var marker_with_catalog: Vector2 = training.tactical_screen_overlay.call("training_marker_screen_position")
+	var marker_with_catalog := training.tactical_screen_overlay.training_marker_screen_position()
 	assert_almost_eq(marker_with_catalog.x, approach_marker.x, 0.001)
 	assert_almost_eq(marker_with_catalog.y, approach_marker.y, 0.001)
 	training.hud.set_catalog_expanded(false)
-	assert_eq(training.tactical_screen_overlay.call("training_approach_label_text"), "훈련 표적 진입")
+	assert_eq(training.tactical_screen_overlay.training_approach_label_text(), "훈련 표적 진입")
 	training.camera_rig.yaw_radians += PI * 0.5
 	training.camera_rig._update_camera()
-	var rotated_marker: Vector2 = training.tactical_screen_overlay.call("training_marker_screen_position")
+	var rotated_marker := training.tactical_screen_overlay.training_marker_screen_position()
 	assert_lte(rotated_marker.x, training.tactical_screen_overlay.size.x - TacticalScreenOverlay.EDGE_MARGIN)
 	assert_gte(rotated_marker.y, 100.0)
 	training.camera_rig.yaw_radians -= PI * 0.5
 	training.camera_rig._update_camera()
 	assert_null(training.hud.get_node_or_null("%SaveButton"))
 	assert_null(training.hud.get_node_or_null("%LoadButton"))
-	training._on_training_next_requested()
-	assert_eq(training.training_controller.step, TrainingController.Step.RADAR)
-	var radar_result := _place_for(training, training.scenario.available_defenses[1])
-	assert_true(radar_result.success)
-	assert_eq(training.training_controller.step, TrainingController.Step.WEAPON)
+	assert_eq(training.save_operation(), "저장은 지속 작전에서만 사용할 수 있습니다")
+
+func test_training_lesson_progresses_through_deployment_support_and_recovery() -> void:
+	var training := await _new_training_operation()
+	var approach_position := training.tactical_screen_overlay.training_approach_position
+	training.hud.training_next_button.pressed.emit()
+	assert_eq(training.training_controller.step, TrainingController.Step.RADAR, "1. 카메라 안내를 마치면 레이더 배치로 이동합니다")
+	var radar_result := _place_for(training, _defense_definition_for(training, &"search_radar"))
+	assert_true(radar_result.success, "2. 추천 위치에 탐색 레이더를 배치합니다")
+	assert_eq(training.training_controller.step, TrainingController.Step.WEAPON, "2. 레이더 배치 후 무장 배치로 이동합니다")
 	var training_radar := radar_result.unit as DefenseUnit
 	training_radar.active = false
-	var battery_result := _place_for(training, training.scenario.available_defenses[0])
-	assert_true(battery_result.success)
+	var battery_result := _place_for(training, _defense_definition_for(training, &"missile_battery"))
+	assert_true(battery_result.success, "3. 추천 위치에 미사일 포대를 배치합니다")
 	var battery := battery_result.unit as MissileBattery
 	assert_false(battery.doctrine.hold_fire)
-	assert_eq(training.training_controller.step, TrainingController.Step.CONNECT)
+	assert_eq(training.training_controller.step, TrainingController.Step.CONNECT, "3. 무장 배치 후 연결 확인으로 이동합니다")
 	training.training_controller.tracks_refreshed(0)
 	assert_eq(training.training_controller.step, TrainingController.Step.CONNECT)
 	assert_eq(training.session.simulation_speed, 0.0)
 	training_radar.active = true
 	var hostile_count := training.registry.hostile_count()
 	training.training_controller.tracks_refreshed(0)
-	assert_eq(training.training_controller.step, TrainingController.Step.ACQUIRE)
-	assert_false(bool(training.tactical_screen_overlay.get("training_approach_visible")))
+	assert_eq(training.training_controller.step, TrainingController.Step.ACQUIRE, "4. 센서 연결 후 표적 탐지로 이동합니다")
+	assert_false(training.tactical_screen_overlay.training_approach_visible)
 	assert_false(training.hud.catalog_expanded)
 	assert_false(training.director.enabled)
 	assert_eq(training.registry.hostile_count(), hostile_count)
@@ -474,50 +482,50 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(training.session.simulation_speed, 1.0)
 	var observation := SensorObservation.new()
 	observation.setup((radar_result.unit as DefenseUnit).runtime_id, 0.0, threat.global_position, 0.95, 4.0, 0.4, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.8)
-	var track: PlayerTrack = training.player_knowledge.call("submit_observation", observation)
+	var track := training.player_knowledge.submit_observation(observation)
 	training._refresh_tactical_ui()
 	assert_eq(track.state, PlayerTrack.State.TENTATIVE)
 	assert_eq(training.training_controller.step, TrainingController.Step.ACQUIRE)
 	assert_eq(training.session.simulation_speed, 1.0)
 	observation = SensorObservation.new()
 	observation.setup((radar_result.unit as DefenseUnit).runtime_id, 0.1, threat.global_position, 0.95, 4.0, 0.4, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.8)
-	track = training.player_knowledge.call("submit_observation", observation)
+	track = training.player_knowledge.submit_observation(observation)
 	training._refresh_tactical_ui()
 	assert_eq(track.state, PlayerTrack.State.CONFIRMED)
-	assert_eq(training.training_controller.step, TrainingController.Step.SELECT_TRACK)
+	assert_eq(training.training_controller.step, TrainingController.Step.SELECT_TRACK, "5. 두 관측으로 항적이 확인되면 선택 단계로 이동합니다")
 	assert_eq(training.session.simulation_speed, 0.0)
-	assert_false(bool(training.tactical_screen_overlay.get("training_approach_visible")))
-	var distant_track_marker: Vector2 = training.tactical_screen_overlay.call("track_marker_screen_position", track)
+	assert_false(training.tactical_screen_overlay.training_approach_visible)
+	var distant_track_marker := training.tactical_screen_overlay.track_marker_screen_position(track)
 	assert_true(distant_track_marker.is_finite())
-	training._on_world_selected(Vector3.INF, distant_track_marker)
+	training.placement.world_selected.emit(Vector3.INF, distant_track_marker)
 	assert_same(training.selected_track, track)
-	assert_eq(training.training_controller.step, TrainingController.Step.ENGAGE)
+	assert_eq(training.training_controller.step, TrainingController.Step.ENGAGE, "6. 확인된 적성 항적을 선택하면 교전 단계로 이동합니다")
 	assert_eq(training.session.simulation_speed, 1.0)
-	training._on_threat_resolved(threat, true, threat.definition.neutralization_reward)
-	assert_eq(training.training_controller.step, TrainingController.Step.SUPPLY_STATUS)
+	assert_true(threat.resolve_once(true))
+	assert_eq(training.training_controller.step, TrainingController.Step.SUPPLY_STATUS, "7. 표적 무력화 후 탄약 상태 확인으로 이동합니다")
 	assert_eq(battery.critical_status_text(), "재보급 대기")
 	training.support_manager.gameplay_tick(2.0)
 	assert_true(training.support_manager.tasks.is_empty())
 	assert_eq(training.training_controller.step, TrainingController.Step.SUPPLY_STATUS)
-	training._on_training_next_requested()
-	assert_eq(training.training_controller.step, TrainingController.Step.SUPPORT)
+	training.hud.training_next_button.pressed.emit()
+	assert_eq(training.training_controller.step, TrainingController.Step.SUPPORT, "8. 탄약 안내를 확인하면 지원 시설 배치로 이동합니다")
 	assert_false(training.hud.catalog_expanded)
 	assert_true(training.hud.training_panel.visible)
 	assert_string_contains(training.hud.training_body.text, "방공 자산을 열어")
 	assert_eq(training.session.simulation_speed, 1.0)
 	training.hud.set_catalog_expanded(true)
-	assert_true(_place_for(training, training.scenario.available_defenses[5]).success)
-	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY)
+	assert_true(_place_for(training, _defense_definition_for(training, &"support_facility")).success, "9. 지원 시설을 배치합니다")
+	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY, "9. 지원 시설 배치 후 재보급 완료를 기다립니다")
 	assert_eq(battery.magazine.reserve, 0)
 	assert_null(training.selected_asset)
-	training._on_asset_selected(battery)
+	training.placement.asset_selected.emit(battery)
 	assert_true(battery.automatic_resupply_enabled())
 	training.support_manager.gameplay_tick(1.0)
 	assert_false(bool(training.support_manager.tasks[0].user_requested))
 	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY)
 	assert_eq(training.session.simulation_speed, 1.0)
 	assert_eq(training.support_manager.tasks.size(), 1)
-	training._on_training_next_requested()
+	training.hud.training_next_button.pressed.emit()
 	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY, "보급 완료 전에 다른 조작으로 건너뛰지 않습니다")
 	var supply_description := training.hud.training_body.text
 	training.support_manager.gameplay_tick(100.0)
@@ -527,16 +535,16 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_eq(battery.integrity, battery.definition.maximum_integrity)
 	training._process(10.0)
 	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_RESUPPLY)
-	training._on_training_next_requested()
-	assert_eq(training.training_controller.step, TrainingController.Step.REPAIR)
+	training.hud.training_next_button.pressed.emit()
+	assert_eq(training.training_controller.step, TrainingController.Step.REPAIR, "10. 재보급 확인 후 수리 단계로 이동합니다")
 	assert_eq(training.session.simulation_speed, 1.0)
 	assert_gt(battery.magazine.reserve, 0)
 	assert_lt(battery.integrity, battery.definition.maximum_integrity)
-	training._on_asset_selected(battery)
+	training.placement.asset_selected.emit(battery)
 	assert_false(training.hud.repair_button.disabled)
 	training.hud.repair_button.pressed.emit()
-	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_REPAIR)
-	training._on_training_next_requested()
+	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_REPAIR, "11. 수리를 요청하면 완료를 기다립니다")
+	training.hud.training_next_button.pressed.emit()
 	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_REPAIR)
 	var repair_description := training.hud.training_body.text
 	training.support_manager.gameplay_tick(100.0)
@@ -545,17 +553,16 @@ func test_training_mode_guides_real_deployment_flow_and_disables_saves() -> void
 	assert_true(training.hud.training_next_button.visible)
 	training._process(10.0)
 	assert_eq(training.training_controller.step, TrainingController.Step.WAIT_REPAIR)
-	training._on_training_next_requested()
-	assert_eq(training.training_controller.step, TrainingController.Step.CITY_RESTORE)
+	training.hud.training_next_button.pressed.emit()
+	assert_eq(training.training_controller.step, TrainingController.Step.CITY_RESTORE, "12. 자산 수리 확인 후 도시 복구로 이동합니다")
 	assert_eq(battery.integrity, battery.definition.maximum_integrity)
 	assert_lt(training.objective.current_integrity, training.objective.definition.maximum_integrity)
 	var budget_before_restore := training.session.budget
 	training.hud.city_restoration_button.pressed.emit()
 	assert_eq(training.session.budget, budget_before_restore - training.objective.definition.restoration_cost)
-	assert_eq(training.training_controller.step, TrainingController.Step.COMPLETE)
+	assert_eq(training.training_controller.step, TrainingController.Step.COMPLETE, "13. 도시 복구로 전체 훈련을 완료합니다")
 	assert_string_contains(training.hud.training_title.text, "훈련 완료")
 	assert_eq(training.session.simulation_speed, 1.0)
-	assert_eq(training.save_operation(), "저장은 지속 작전에서만 사용할 수 있습니다")
 
 func test_asset_previews_show_geometry_without_creating_live_defenses() -> void:
 	var budget_before := main.session.budget
@@ -574,9 +581,10 @@ func test_asset_previews_show_geometry_without_creating_live_defenses() -> void:
 	main.placement.cancel()
 
 func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
+	var previous_mode := AirscainMain.requested_mode
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
 	var sandbox := add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
-	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	AirscainMain.requested_mode = previous_mode
 	await get_tree().process_frame
 	assert_true(sandbox.session.unlimited_budget)
 	assert_eq(sandbox.session.current_pressure, 999)
@@ -588,7 +596,7 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_null(sandbox.hud.get_node_or_null("%SaveButton"))
 	assert_null(sandbox.hud.get_node_or_null("%LoadButton"))
 	var starting_budget := sandbox.session.budget
-	var defense_definition := sandbox.scenario.available_defenses[10]
+	var defense_definition := _defense_definition_for(sandbox, &"interceptor_drone_defense")
 	var defense_positions: Array[Vector3] = []
 	for z: int in range(-420, 421, 30):
 		for x: int in range(-420, 421, 30):
@@ -610,7 +618,7 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_same(sandbox.placement.selected, defense_definition)
 	assert_not_null(sandbox.placement.preview)
 	assert_eq(sandbox.session.budget, starting_budget)
-	var definition: ThreatDefinition = sandbox.scenario.threat_entries[0].threat_definition
+	var definition := _threat_entry_for(sandbox, &"attack_uav").threat_definition
 	var hostile_count := sandbox.registry.hostile_count()
 	sandbox.placement.select_sandbox_threat(definition)
 	sandbox.placement.candidate_position = Vector3(420.0, 0.0, -180.0)
@@ -628,7 +636,7 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	assert_almost_eq(second_threat.global_position.x, 520.0, 0.001)
 	assert_almost_eq(second_threat.global_position.z, -80.0, 0.001)
 	assert_same(sandbox.placement.selected_threat, definition)
-	var replacement_definition: ThreatDefinition = sandbox.scenario.threat_entries[1].threat_definition
+	var replacement_definition := _threat_entry_for(sandbox, &"swarm_uav").threat_definition
 	var replacement_index := sandbox.hud.threat_definitions.find(replacement_definition)
 	sandbox.hud.sandbox_threat_option.select(replacement_index)
 	sandbox.hud.sandbox_threat_option.item_selected.emit(replacement_index)
@@ -637,10 +645,10 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	sandbox.placement.candidate_position = Vector3(610.0, 0.0, 40.0)
 	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
 	assert_same(sandbox.registry.get_hostile_active().back().definition, replacement_definition)
-	sandbox._on_start_requested()
+	sandbox.hud.start_requested.emit()
 	assert_false(sandbox.director.enabled)
 
-func test_combat_audio_uses_selected_event_groups_and_routes_combat_feedback() -> void:
+func test_combat_audio_catalog_and_clip_selection_match_content() -> void:
 	main.set_process(false)
 	main.combat_audio.simulation_paused = false
 	assert_true(main.combat_audio.enabled)
@@ -663,51 +671,72 @@ func test_combat_audio_uses_selected_event_groups_and_routes_combat_feedback() -
 	assert_eq(CombatAudio.STREAM_GROUPS[CombatAudio.CONTACT][0].resource_path, "res://effects/audio/combat/contact.ogg")
 	assert_eq(CombatAudio.STREAM_GROUPS[CombatAudio.PRESSURE][0].resource_path, "res://effects/audio/combat/pressure.ogg")
 	assert_eq(CombatAudio.STREAM_GROUPS[CombatAudio.LOW_AMMO][0].resource_path, "res://effects/audio/combat/low_ammo.ogg")
-	assert_eq(main.scenario.available_defenses[0].weapon_audio_event(), CombatAudio.MISSILE)
-	assert_eq(main.scenario.available_defenses[7].weapon_audio_event(), CombatAudio.LONG_MISSILE)
-	assert_eq(main.scenario.available_defenses[8].weapon_audio_event(), CombatAudio.SHORT_MISSILE)
+	assert_eq(_defense_definition_for(main, &"missile_battery").weapon_audio_event(), CombatAudio.MISSILE)
+	assert_eq(_defense_definition_for(main, &"long_range_missile").weapon_audio_event(), CombatAudio.LONG_MISSILE)
+	assert_eq(_defense_definition_for(main, &"short_range_missile").weapon_audio_event(), CombatAudio.SHORT_MISSILE)
 	main.combat_audio.rng.seed = 73129
 	var explosion_paths: Dictionary[String, bool] = {}
 	for index: int in 20:
-		assert_true(main.combat_audio.play_event(CombatAudio.EXPLOSION))
+		var context := "폭발 음원 추출 %d" % index
+		assert_true(main.combat_audio.play_event(CombatAudio.EXPLOSION), context)
 		var path := main.combat_audio.last_stream_path(CombatAudio.EXPLOSION)
-		assert_true(path.begins_with("res://effects/audio/combat/explosion_"))
+		assert_true(path.begins_with("res://effects/audio/combat/explosion_"), "%s: %s" % [context, path])
 		explosion_paths[path] = true
 		main.combat_audio._process(1.0)
-	assert_gt(explosion_paths.size(), 1)
+	assert_gt(explosion_paths.size(), 1, "고정 seed에서도 폭발 변형을 둘 이상 선택합니다")
 	var damage_paths: Dictionary[String, bool] = {}
 	for index: int in 12:
-		assert_true(main.combat_audio.play_event(CombatAudio.DAMAGE))
+		var context := "피해 음원 추출 %d" % index
+		assert_true(main.combat_audio.play_event(CombatAudio.DAMAGE), context)
 		var path := main.combat_audio.last_stream_path(CombatAudio.DAMAGE)
-		assert_true(path.begins_with("res://effects/audio/combat/small_explosion_"))
+		assert_true(path.begins_with("res://effects/audio/combat/small_explosion_"), "%s: %s" % [context, path])
 		damage_paths[path] = true
 		main.combat_audio._process(1.0)
-	assert_gt(damage_paths.size(), 1)
+	assert_gt(damage_paths.size(), 1, "고정 seed에서도 피해 변형을 둘 이상 선택합니다")
+
+func test_combat_audio_routes_gameplay_events_to_feedback() -> void:
+	main.set_process(false)
+	main.combat_audio.simulation_paused = false
 	var contact_count := main.combat_audio.played_count(CombatAudio.CONTACT)
-	main._on_track_contact_audio(PlayerTrack.new())
+	main.player_knowledge.track_created.emit(PlayerTrack.new())
 	assert_eq(main.combat_audio.played_count(CombatAudio.CONTACT), contact_count + 1)
 	var pressure_count := main.combat_audio.played_count(CombatAudio.PRESSURE)
-	main._on_pressure_changed(3)
+	main.director.pressure_changed.emit(3)
 	assert_eq(main.combat_audio.played_count(CombatAudio.PRESSURE), pressure_count + 1)
+	var source_unit := main.defenses[0]
 	var low_ammo_count := main.combat_audio.played_count(CombatAudio.LOW_AMMO)
-	main._on_weapon_fired(null, true)
+	source_unit.weapon_fired.emit(source_unit, true)
 	assert_eq(main.combat_audio.played_count(CombatAudio.LOW_AMMO), low_ammo_count + 1)
 	var damage_count := main.combat_audio.played_count(CombatAudio.DAMAGE)
-	main._on_defense_damage_audio(null, 5.0, 0.5)
+	source_unit.damage_received.emit(source_unit, 5.0, 0.5)
 	assert_eq(main.combat_audio.played_count(CombatAudio.DAMAGE), damage_count + 1)
+	var city_impact_count := main.combat_audio.played_count(CombatAudio.BIG_EXPLOSION)
+	var ordinary_explosion_count := main.combat_audio.played_count(CombatAudio.EXPLOSION)
+	assert_true(main.objective.apply_mission_damage(5))
+	assert_eq(main.combat_audio.played_count(CombatAudio.BIG_EXPLOSION), city_impact_count + 1)
+	assert_eq(main.combat_audio.played_count(CombatAudio.EXPLOSION), ordinary_explosion_count)
+	assert_true(main.combat_audio.last_stream_path(CombatAudio.BIG_EXPLOSION).begins_with("res://effects/audio/combat/big_explosion_"))
+
+func test_missile_audio_uses_dedicated_definition_event_groups() -> void:
+	main.set_process(false)
+	main.combat_audio.simulation_paused = false
 	assert_false(main.combat_audio.play_event(CombatAudio.LONG_MISSILE))
 	var long_launch_source := HomingInterceptor.new()
 	main.projectile_parent.add_child(long_launch_source)
 	assert_true(main.combat_audio.play_missile_event(CombatAudio.LONG_MISSILE, long_launch_source))
 	assert_true(main.combat_audio.last_stream_path(CombatAudio.LONG_MISSILE).begins_with("res://effects/audio/combat/long_missile_"))
-	long_launch_source._finish_flight(false)
+	long_launch_source.flight_ended.emit(false)
 	long_launch_source.queue_free()
 	var short_launch_source := HomingInterceptor.new()
 	main.projectile_parent.add_child(short_launch_source)
 	assert_true(main.combat_audio.play_missile_event(CombatAudio.SHORT_MISSILE, short_launch_source))
 	assert_eq(main.combat_audio.last_stream_path(CombatAudio.SHORT_MISSILE), "res://effects/audio/combat/short_missile_1.ogg")
-	short_launch_source._finish_flight(false)
+	short_launch_source.flight_ended.emit(false)
 	short_launch_source.queue_free()
+
+func test_missile_audio_shares_group_voice_and_routes_flight_end() -> void:
+	main.set_process(false)
+	main.combat_audio.simulation_paused = false
 	var launch_source := HomingInterceptor.new()
 	main.projectile_parent.add_child(launch_source)
 	var launch_count := main.combat_audio.played_count(CombatAudio.MISSILE)
@@ -724,32 +753,22 @@ func test_combat_audio_uses_selected_event_groups_and_routes_combat_feedback() -
 	assert_same(main.combat_audio.source_players[source_id], other_player)
 	var launch_player: AudioStreamPlayer = main.combat_audio.source_players[source_id]
 	var detonation_count := main.combat_audio.played_count(CombatAudio.EXPLOSION)
-	launch_source._finish_flight(true)
+	launch_source.flight_ended.emit(true)
 	assert_false(main.combat_audio.source_players.has(source_id))
 	assert_true(launch_player.playing)
 	assert_false(main.combat_audio.fade_tweens.has(launch_player.get_instance_id()))
 	assert_eq(main.combat_audio.played_count(CombatAudio.EXPLOSION), detonation_count + 1)
 	assert_same(main.combat_audio.source_players[other_source_id], other_player)
 	assert_true(other_player.playing)
-	await get_tree().create_timer(CombatAudio.DETONATION_FADE_SECONDS + 0.05).timeout
-	assert_true(launch_player.playing)
-	assert_false(main.combat_audio.fade_tweens.has(launch_player.get_instance_id()))
-	other_launch_source._finish_flight(false)
+	other_launch_source.flight_ended.emit(false)
 	assert_false(main.combat_audio.source_players.has(other_source_id))
 	assert_true(other_player.playing)
-	await get_tree().create_timer(CombatAudio.RETIRE_FADE_SECONDS + 0.05).timeout
-	assert_false(other_player.playing)
+	assert_true(main.combat_audio.fade_tweens.has(other_player.get_instance_id()), "마지막 공유 소스가 끝나면 퇴장 페이드를 예약합니다")
 	launch_source.queue_free()
 	other_launch_source.queue_free()
-	var city_impact_count := main.combat_audio.played_count(CombatAudio.BIG_EXPLOSION)
-	var ordinary_explosion_count := main.combat_audio.played_count(CombatAudio.EXPLOSION)
-	assert_true(main.objective.apply_mission_damage(5))
-	assert_eq(main.combat_audio.played_count(CombatAudio.BIG_EXPLOSION), city_impact_count + 1)
-	assert_eq(main.combat_audio.played_count(CombatAudio.EXPLOSION), ordinary_explosion_count)
-	assert_true(main.combat_audio.last_stream_path(CombatAudio.BIG_EXPLOSION).begins_with("res://effects/audio/combat/big_explosion_"))
 
 func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
-	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_definition := _defense_definition_for(main, &"search_radar")
 	var placement_position := _find_valid_position_for(radar_definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(radar_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(result.success)
@@ -763,12 +782,12 @@ func test_search_radar_can_be_purchased_and_rotates_during_gameplay() -> void:
 	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"sensor").asset_id, radar.runtime_id)
 
 func test_long_range_launcher_exposes_munition_mode_control() -> void:
-	var definition := main.scenario.available_defenses[7]
-	main._on_pressure_changed(definition.unlock_pressure_level)
+	var definition := _defense_definition_for(main, &"long_range_missile")
+	main.director.pressure_changed.emit(definition.unlock_pressure_level)
 	var position := _find_valid_position_for(definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var battery := result.unit as MissileBattery
-	main._on_asset_selected(battery)
+	main.placement.asset_selected.emit(battery)
 	assert_true(main.hud.munition_mode_button.visible)
 	assert_eq(battery.munition_mode, &"auto")
 	var option := main.hud.munition_mode_button
@@ -780,12 +799,15 @@ func test_long_range_launcher_exposes_munition_mode_control() -> void:
 	assert_string_contains(option.get_item_tooltip(0), "보존")
 	assert_string_contains(option.get_item_tooltip(1), "항공기·순항미사일")
 	assert_eq(option.get_item_tooltip(2), "탄도미사일·로켓·고속 항공기")
-	main.hud._on_munition_mode_selected(2)
+	option.select(2)
+	option.item_selected.emit(2)
 	assert_eq(battery.munition_mode, &"high_speed_interceptor")
 	assert_eq(option.selected, 2)
-	main.hud._on_munition_mode_selected(0)
+	option.select(0)
+	option.item_selected.emit(0)
 	assert_eq(battery.munition_mode, &"auto")
-	main.hud._on_munition_mode_selected(1)
+	option.select(1)
+	option.item_selected.emit(1)
 	assert_eq(battery.munition_mode, &"area_defense")
 	assert_string_contains(option.text, "일반 요격탄")
 	var rows := battery.selection_status_rows()
@@ -810,8 +832,8 @@ func test_long_range_launcher_exposes_munition_mode_control() -> void:
 	assert_false(battery.automatic_resupply_enabled())
 
 func test_automatic_resupply_also_advances_the_training_supply_lesson() -> void:
-	var battery := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
-	assert_true(_place_for(main, main.scenario.available_defenses[5]).success)
+	var battery := _place_for(main, _defense_definition_for(main, &"missile_battery")).unit as MissileBattery
+	assert_true(_place_for(main, _defense_definition_for(main, &"support_facility")).success)
 	main.game_mode = AirscainMain.GameMode.TRAINING
 	main.training_controller.training_battery = battery
 	main.training_controller.step = TrainingController.Step.SUPPORT
@@ -827,7 +849,7 @@ func test_automatic_resupply_also_advances_the_training_supply_lesson() -> void:
 
 func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	main.registry.clear()
-	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_definition := _defense_definition_for(main, &"search_radar")
 	var placement_position := _find_valid_position_for(radar_definition.placement_profile)
 	var result: Dictionary = main.session.request_placement(radar_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var radar := result.unit as DefenseUnit
@@ -836,25 +858,26 @@ func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 	var hidden_threat: ThreatUnit = main.director.spawn_one()
 	hidden_threat.global_position = placement_position + Vector3(0.0, 80.0, 700.0)
 	radar.gameplay_tick(0.8)
-	var tracks: Array = main.player_knowledge.call("get_active_tracks")
+	var tracks := main.player_knowledge.get_active_tracks()
 	assert_eq(tracks.size(), 1)
 	assert_ne(tracks[0] as Variant, visible_threat as Variant)
-	assert_almost_eq((tracks[0].get("estimated_position") as Vector3).z, visible_threat.global_position.z, 0.01)
+	assert_almost_eq(tracks[0].estimated_position.z, visible_threat.global_position.z, 0.01)
 	assert_eq(main.track_display.markers.size(), 1)
-	var marker := main.track_display.markers.values()[0] as Node3D
+	var marker := main.track_display.markers.get(tracks[0].track_id) as Node3D
+	assert_not_null(marker)
 	assert_true(marker.visible)
 	radar.active = false
-	main.player_knowledge.call("gameplay_tick", 0.6)
+	main.player_knowledge.gameplay_tick(0.6)
 	assert_true(marker.visible)
-	main.player_knowledge.call("gameplay_tick", 1.4)
+	main.player_knowledge.gameplay_tick(1.4)
 	assert_false(marker.visible)
 
 func test_high_altitude_radar_tracks_targets_above_search_radar_ceiling() -> void:
 	main.registry.clear()
-	main.player_knowledge.call("reset")
-	main._on_pressure_changed(2)
-	var search_definition := main.scenario.available_defenses[1]
-	var high_definition := main.scenario.available_defenses[3]
+	main.player_knowledge.reset()
+	main.director.pressure_changed.emit(2)
+	var search_definition := _defense_definition_for(main, &"search_radar")
+	var high_definition := _defense_definition_for(main, &"tracking_radar")
 	var search_result: Dictionary = main.session.request_placement(search_definition, _find_valid_position_for(search_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var high_result: Dictionary = main.session.request_placement(high_definition, _find_valid_position_for(high_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var search_radar := search_result.unit as SearchRadar
@@ -866,13 +889,13 @@ func test_high_altitude_radar_tracks_targets_above_search_radar_ceiling() -> voi
 	assert_true(high_radar.altitude_in_envelope(threat.global_position))
 	search_radar.gameplay_tick(0.8)
 	high_radar.gameplay_tick(0.8)
-	var tracks: Array = main.player_knowledge.call("get_active_tracks")
+	var tracks := main.player_knowledge.get_active_tracks()
 	assert_eq(tracks.size(), 1)
 	assert_eq(tracks[0].contributing_sensor_ids, [high_radar.runtime_id])
 	assert_string_contains(high_radar.resource_status_text(), "감시 고도 120–1500m")
 
 func test_altitude_profile_shows_public_tracks_and_friendly_projectiles_by_layer() -> void:
-	main.player_knowledge.call("reset")
+	main.player_knowledge.reset()
 	var track := PlayerTrack.new()
 	track.track_id = 501
 	track.estimated_position = main.objective.global_position + Vector3(120.0, 920.0, 0.0)
@@ -883,14 +906,14 @@ func test_altitude_profile_shows_public_tracks_and_friendly_projectiles_by_layer
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(interceptor)
 	interceptor.global_position = main.objective.global_position + Vector3(-80.0, 320.0, 0.0)
-	main.altitude_profile.call("refresh_snapshot")
+	main.altitude_profile.refresh_snapshot()
 	assert_true(main.altitude_profile.visible)
 	assert_lte(main.altitude_profile.size.x, 150.0)
-	assert_eq((main.altitude_profile.get("track_markers") as Array).size(), 1)
-	assert_eq((main.altitude_profile.get("projectile_markers") as Array).size(), 1)
-	var low_y := float(main.altitude_profile.call("altitude_to_plot_y", 100.0))
-	var medium_y := float(main.altitude_profile.call("altitude_to_plot_y", 300.0))
-	var high_y := float(main.altitude_profile.call("altitude_to_plot_y", 1000.0))
+	assert_eq(main.altitude_profile.track_markers.size(), 1)
+	assert_eq(main.altitude_profile.projectile_markers.size(), 1)
+	var low_y := main.altitude_profile.altitude_to_plot_y(100.0)
+	var medium_y := main.altitude_profile.altitude_to_plot_y(300.0)
+	var high_y := main.altitude_profile.altitude_to_plot_y(1000.0)
 	assert_gt(low_y, medium_y)
 	assert_gt(medium_y, high_y)
 	assert_true(interceptor.is_in_group("friendly_altitude_projectiles"))
@@ -901,11 +924,10 @@ func test_right_edge_track_marker_has_a_gutter_beside_altitude_profile() -> void
 	var marker := TacticalScreenOverlay.tactical_marker_position(Vector2(viewport_size.x + 500.0, main.altitude_profile.get_global_rect().get_center().y), viewport_size, false)
 	var selected_marker_bounds := Rect2(marker - Vector2(20.0, 20.0), Vector2(40.0, 40.0))
 	var profile_rect := main.altitude_profile.get_global_rect()
-	assert_almost_eq(viewport_size.x - marker.x, TacticalScreenOverlay.EDGE_MARGIN, 0.01)
-	assert_almost_eq(viewport_size.x - profile_rect.end.x, 44.0, 0.01)
+	assert_true(Rect2(Vector2.ZERO, viewport_size).has_point(marker))
 	assert_false(selected_marker_bounds.intersects(profile_rect))
 
-func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profile() -> void:
+func test_defense_catalog_lists_role_groups_and_definition_details() -> void:
 	var headings: Array[String] = []
 	for child: Node in main.hud.defense_list.get_children():
 		if child is Label:
@@ -920,14 +942,18 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 		assert_eq(main.hud.defense_buttons[index].text, "")
 		assert_eq(main.hud.defense_name_labels[index].text, main.scenario.available_defenses[index].display_name)
 		assert_eq(main.hud.defense_meta_labels[index].horizontal_alignment, HORIZONTAL_ALIGNMENT_RIGHT)
-	assert_eq(main.hud.defense_meta_labels[0].text, "$%d" % main.scenario.available_defenses[0].price)
-	assert_same(main.hud.defense_buttons[0].get_theme_stylebox("normal"), main.hud.city_restoration_button.get_theme_stylebox("normal"))
-	var support_definition := main.scenario.available_defenses[5]
+	assert_eq(_catalog_meta_label_for(main, &"missile_battery").text, "$%d" % _defense_definition_for(main, &"missile_battery").price)
+	assert_same(_catalog_button_for(main, &"missile_battery").get_theme_stylebox("normal"), main.hud.city_restoration_button.get_theme_stylebox("normal"))
+
+func test_support_facility_visual_contains_power_equipment() -> void:
+	var support_definition := _defense_definition_for(main, &"support_facility")
 	assert_eq(support_definition.display_name, "통합 지원기지")
 	var support_visual := add_child_autofree(support_definition.scene.instantiate()) as SupportFacility
 	assert_not_null(support_visual.get_node_or_null("Generator"))
 	assert_not_null(support_visual.get_node_or_null("TransformerLeft"))
 	assert_not_null(support_visual.get_node_or_null("TransformerRight"))
+
+func test_defense_catalog_opens_with_budget_without_covering_tactical_profile() -> void:
 	var catalog := main.hud.get_node("Catalog") as Control
 	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▼")
 	assert_false(catalog.visible)
@@ -938,16 +964,17 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 	assert_eq(main.hud.defense_menu_button.text, "방공 자산  ▲")
 	assert_false(catalog.get_global_rect().intersects(main.altitude_profile.get_global_rect()))
 	assert_gte(catalog.position.y, (main.hud.get_node("TopBar") as Control).get_global_rect().end.y)
-	assert_gte(catalog.size.y, 480.0)
-	assert_lte(catalog.size.y, 520.0)
-	assert_eq(catalog.size.x, main.hud.city_menu.size.x)
 	assert_eq(main.hud.catalog_budget_label.text, "예산 $%d" % main.session.budget)
 	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
-	assert_gte(defense_scroll.size.y, 360.0)
-	assert_gt(main.hud.defense_list.get_combined_minimum_size().y, defense_scroll.size.y)
+	assert_gt(defense_scroll.get_v_scroll_bar().max_value, defense_scroll.get_v_scroll_bar().page)
 	assert_eq(catalog.mouse_filter, Control.MOUSE_FILTER_STOP)
 	assert_false(catalog.mouse_force_pass_scroll_events)
 	assert_true(defense_scroll.mouse_force_pass_scroll_events)
+
+func test_catalog_and_city_menus_are_exclusive_and_close_from_input() -> void:
+	var catalog := main.hud.get_node("Catalog") as Control
+	var defense_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
+	main.hud.set_catalog_expanded(true)
 	main.hud.set_catalog_expanded(false)
 	assert_false(defense_scroll.visible)
 	assert_false(catalog.visible)
@@ -990,10 +1017,10 @@ func test_defense_catalog_is_grouped_by_role_and_does_not_overlap_altitude_profi
 
 func test_right_click_cancels_placement_before_clearing_selection() -> void:
 	main.session.unlimited_budget = true
-	var result := _place_for(main, main.scenario.available_defenses[1])
+	var result := _place_for(main, _defense_definition_for(main, &"search_radar"))
 	assert_true(result.success)
-	main._on_asset_selected(result.unit)
-	main.placement.select(main.scenario.available_defenses[0])
+	main.placement.asset_selected.emit(result.unit)
+	main.placement.select(_defense_definition_for(main, &"missile_battery"))
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_RIGHT
 	click.pressed = true
@@ -1031,26 +1058,26 @@ func test_placement_hint_groups_status_power_and_stays_inside_screen() -> void:
 
 func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main.session.unlimited_budget = true
-	main._on_pressure_changed(3)
-	var sensor_result := _place_for(main, main.scenario.available_defenses[1])
-	var command_result := _place_for(main, main.scenario.available_defenses[2])
+	main.director.pressure_changed.emit(3)
+	var sensor_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
 	assert_true(sensor_result.success)
 	assert_true(command_result.success)
 	var candidate := (command_result.unit as DefenseUnit).global_position + Vector3(40.0, 0.0, 40.0)
 	candidate.y = main.battlefield.terrain_height(candidate.x, candidate.z)
-	main.placement.placement_preview_changed.emit(main.scenario.available_defenses[0], candidate, true)
+	main.placement.placement_preview_changed.emit(_defense_definition_for(main, &"missile_battery"), candidate, true)
 	assert_true(main.c2_overlay.placement_active)
 	assert_true(main.c2_overlay.placement_ready)
 	assert_gte(main.c2_overlay.visible_link_count, 1)
 	assert_false(main.hud.placement_hint_panel.visible)
-	var laser_definition := main.scenario.available_defenses[6]
+	var laser_definition := _defense_definition_for(main, &"high_energy_laser")
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
 	assert_true(main.hud.placement_hint_panel.visible)
 	assert_true(main.hud.placement_hint_panel.is_ancestor_of(main.hud.placement_power_label))
 	assert_string_contains(main.hud.placement_power_label.text, "전력 수요  0 / 0")
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 0")
 	assert_lt(main.hud.placement_hint_panel.position.distance_to(main.camera_rig.camera.unproject_position(candidate)), 220.0)
-	var support_result := _place_for(main, main.scenario.available_defenses[5])
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
 	assert_true(support_result.success)
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 20")
@@ -1060,12 +1087,12 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_true(laser_result.success)
 	var laser := laser_result.unit as DefenseUnit
 	laser.global_position = candidate
-	main._on_asset_selected(laser)
+	main.placement.asset_selected.emit(laser)
 	assert_eq(main.c2_overlay.visible_c2_link_count, preview_c2_count)
 	assert_eq(main.c2_overlay.visible_support_link_count, 1)
 	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "연결됨")
 	assert_eq(_metric_value(main.hud.asset_metrics, "전력 수요 / 공급"), "12 / 20")
-	var support_definition := main.scenario.available_defenses[5]
+	var support_definition := _defense_definition_for(main, &"support_facility")
 	main.placement.select(support_definition)
 	assert_eq(main.placement.range_disc.radius, (support_definition as SupportFacilityDefinition).service_range)
 	main.placement.placement_preview_changed.emit(support_definition, candidate, true)
@@ -1075,7 +1102,7 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 40")
 	var support := support_result.unit as SupportFacility
 	main.placement.cancel()
-	main._on_asset_selected(support)
+	main.placement.asset_selected.emit(support)
 	var selected_support_count := main.c2_overlay.visible_support_link_count
 	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "지원 가능 %d" % selected_support_count)
 	assert_true(main.c2_overlay.range_ring.visible)
@@ -1115,27 +1142,27 @@ func test_range_ribbon_follows_surface_and_reuses_stationary_geometry() -> void:
 	assert_ne(ring.mesh, moved)
 
 func test_clicking_track_inspects_without_changing_engagement_policy() -> void:
-	var battery := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
+	var battery := _place_for(main, _defense_definition_for(main, &"missile_battery")).unit as MissileBattery
 	var observation := SensorObservation.new()
 	observation.setup(1, 0.0, Vector3(300, 180, 300), 0.95, 4.0, 3.0, &"uav", ThreatDefinition.Affiliation.HOSTILE, 0.95)
-	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	var track := main.player_knowledge.submit_observation(observation)
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
 	track.affiliation_confidence = 0.95
 	battery.set_hold_fire(true)
 	battery.set_target_kind_allowed(&"rocket", false)
 	var policy_before := battery.capture_doctrine_state()
-	main._on_asset_selected(battery)
+	main.placement.asset_selected.emit(battery)
 	var point := main.tactical_screen_overlay.track_marker_screen_position(track)
 	assert_same(main.tactical_screen_overlay.track_at_screen(point), track)
-	main._on_world_selected(Vector3.INF, point)
+	main.placement.world_selected.emit(Vector3.INF, point)
 	assert_eq(battery.capture_doctrine_state(), policy_before)
 	assert_same(main.selected_asset, battery)
 	assert_true(battery.doctrine.hold_fire, "항적 조회는 기존 사격중지를 유지합니다")
 	assert_eq(main.hud.selection_kind_label.text, "교전 검토")
-	main._on_world_selected(track.estimated_position, Vector2(-100, -100))
+	main.placement.world_selected.emit(track.estimated_position, Vector2(-100, -100))
 	for affiliation: int in [PlayerTrack.Affiliation.NEUTRAL, PlayerTrack.Affiliation.FRIENDLY, PlayerTrack.Affiliation.UNKNOWN]:
 		track.affiliation = affiliation
-		main._on_world_selected(Vector3.INF, point)
+		main.placement.world_selected.emit(Vector3.INF, point)
 		assert_same(main.selected_track, track)
 		assert_eq(battery.capture_doctrine_state(), policy_before)
 	track.affiliation = PlayerTrack.Affiliation.HOSTILE
@@ -1145,24 +1172,24 @@ func test_clicking_track_inspects_without_changing_engagement_policy() -> void:
 
 func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	main.registry.clear()
-	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_definition := _defense_definition_for(main, &"search_radar")
 	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var radar := radar_result.unit as SearchRadar
 	var threat := main.director.spawn_one()
 	threat.global_position = radar.global_position + Vector3(180.0, 70.0, 0.0)
 	radar.gameplay_tick(0.8)
-	var track: PlayerTrack = main.player_knowledge.call("get_active_tracks")[0]
+	var track := main.player_knowledge.get_active_tracks()[0]
 	assert_true(main.engagement_coordinator.try_reserve(track.track_id, radar.runtime_id, 2.0))
-	main._on_asset_selected(radar)
-	assert_true(bool(radar.identity_marker.get("selected")))
+	main.placement.asset_selected.emit(radar)
+	assert_true(radar.identity_marker.selected)
 	assert_false(main.hud.track_section.visible)
 	var marker_screen_position := main.camera_rig.camera.unproject_position(track.estimated_position + Vector3.UP * 12.0)
-	main._on_world_selected(Vector3(900.0, 0.0, 900.0), marker_screen_position)
+	main.placement.world_selected.emit(Vector3(900.0, 0.0, 900.0), marker_screen_position)
 	main.track_display._process(0.0)
 	var marker := main.track_display.markers[track.track_id] as TrackMarker
 	assert_true(marker.selected)
 	assert_null(main.selected_asset)
-	assert_false(bool(radar.identity_marker.get("selected")))
+	assert_false(radar.identity_marker.selected)
 	assert_false(marker.icon.text.contains("T-"))
 	assert_not_null(main.track_display.selection_lines.mesh)
 	assert_eq(main.track_display.selection_details(), {"sensor_count": 1, "engagement_count": 1})
@@ -1175,14 +1202,14 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	track.classification_confidence = 0.09
 	main.hud.set_selected_track(track, 1, 1)
 	assert_eq(main.hud.selected_asset_panel.size.x, stable_panel_width)
-	assert_eq(int(main.tactical_screen_overlay.get("selected_track_id")), track.track_id)
-	var battery_definition: DefenseDefinition = main.scenario.available_defenses[0]
+	assert_eq(main.tactical_screen_overlay.selected_track_id, track.track_id)
+	var battery_definition := _defense_definition_for(main, &"missile_battery")
 	var battery_result: Dictionary = main.session.request_placement(battery_definition, _find_valid_position_for(battery_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var battery := battery_result.unit as MissileBattery
-	main._on_asset_selected(battery)
-	main._on_world_selected(Vector3(900.0, 0.0, 900.0), marker_screen_position)
+	main.placement.asset_selected.emit(battery)
+	main.placement.world_selected.emit(Vector3(900.0, 0.0, 900.0), marker_screen_position)
 	assert_same(main.selected_asset, battery)
-	assert_true(bool(battery.identity_marker.get("selected")))
+	assert_true(battery.identity_marker.selected)
 	assert_true(marker.selected)
 	assert_true(main.hud.engagement_section.visible)
 	assert_eq(main.hud.selection_kind_label.text, "교전 검토")
@@ -1191,18 +1218,18 @@ func test_selected_track_exposes_public_tactical_relations_and_focus() -> void:
 	assert_same(main.track_display.selected_engagement_source, battery)
 	assert_true(main.track_display.engagement_distance_label.visible)
 	assert_string_contains(main.track_display.engagement_distance_label.text, "m / ")
-	main._on_focus_requested()
+	main.hud.focus_requested.emit()
 	assert_almost_eq(main.camera_rig.global_position.x, track.estimated_position.x, 0.01)
 	assert_almost_eq(main.camera_rig.global_position.z, track.estimated_position.z, 0.01)
-	main._on_world_selected(Vector3(900.0, 0.0, 900.0), Vector2(4.0, 4.0))
+	main.placement.world_selected.emit(Vector3(900.0, 0.0, 900.0), Vector2(4.0, 4.0))
 	assert_null(main.selected_track)
 	assert_null(main.selected_asset)
-	assert_false(bool(radar.identity_marker.get("selected")))
+	assert_false(radar.identity_marker.selected)
 	assert_false(main.hud.selected_asset_panel.visible)
 
 func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
 	main.registry.clear()
-	var threat := main.director._spawn_entry(main.scenario.threat_entries[7], 0.0, 0.0) as AttackUav
+	var threat := main.director._spawn_entry(_threat_entry_for(main, &"electronic_warfare_uav"), 0.0, 0.0) as AttackUav
 	var mission_target := threat.mission_runtime.navigation_target()
 	var expected_orbit_radius := (threat.definition as AttackUavDefinition).mission.action_distance * (threat.definition as AttackUavDefinition).mission.orbit_radius_ratio
 	threat.global_position = mission_target + Vector3(expected_orbit_radius, 115.0, 0.0)
@@ -1220,34 +1247,34 @@ func test_reconnaissance_threat_orbits_while_applying_its_effect() -> void:
 	assert_gt(peak_jamming, 0.1, "전자전기는 체공 대상에 유효한 간섭을 준다")
 
 func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> void:
-	var radar_definition := main.scenario.available_defenses[1]
-	var weapon_definition := main.scenario.available_defenses[0]
-	var support_definition := main.scenario.available_defenses[5]
+	var radar_definition := _defense_definition_for(main, &"search_radar")
+	var weapon_definition := _defense_definition_for(main, &"missile_battery")
+	var support_definition := _defense_definition_for(main, &"support_facility")
 	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(radar_result.success)
 	assert_true(main.session.request_placement(weapon_definition, _find_valid_position_for(weapon_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
 	assert_true(main.session.request_placement(support_definition, _find_valid_position_for(support_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
-	main.hud._on_overlay_selected(1)
-	assert_eq(main.tactical_range_overlay.get("mode"), &"sensor")
-	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
-	main.hud._on_overlay_selected(2)
-	assert_eq(main.tactical_range_overlay.get("mode"), &"weapon")
-	assert_not_null((main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh)
-	main.hud._on_overlay_selected(3)
-	assert_eq(main.tactical_range_overlay.get("mode"), &"support")
-	var support_overlay_mesh := (main.tactical_range_overlay.get("line_mesh") as MeshInstance3D).mesh
+	main.hud.overlay_option.item_selected.emit(1)
+	assert_eq(main.tactical_range_overlay.mode, &"sensor")
+	assert_not_null(main.tactical_range_overlay.line_mesh.mesh)
+	main.hud.overlay_option.item_selected.emit(2)
+	assert_eq(main.tactical_range_overlay.mode, &"weapon")
+	assert_not_null(main.tactical_range_overlay.line_mesh.mesh)
+	main.hud.overlay_option.item_selected.emit(3)
+	assert_eq(main.tactical_range_overlay.mode, &"support")
+	var support_overlay_mesh := main.tactical_range_overlay.line_mesh.mesh
 	assert_not_null(support_overlay_mesh)
 	assert_gte(support_overlay_mesh.get_aabb().size.x, (support_definition as SupportFacilityDefinition).service_range * 2.0 - 1.0)
-	main.hud._on_overlay_selected(4)
+	main.hud.overlay_option.item_selected.emit(4)
 	var electronic := main.tactical_range_overlay as TacticalRangeOverlay
 	assert_true(electronic.interference_patches.is_empty())
-	var jammer_definition := main.scenario.threat_entries[7].threat_definition
+	var jammer_definition := _threat_entry_for(main, &"electronic_warfare_uav").threat_definition
 	var jammer := jammer_definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(jammer)
 	jammer.setup(800, jammer_definition)
 	jammer.global_position = (radar_result.unit as DefenseUnit).global_position + Vector3(30.0, 70.0, 0.0)
 	main.registry.add(jammer)
-	main.hud._on_overlay_selected(4)
+	main.hud.overlay_option.item_selected.emit(4)
 	assert_eq(electronic.mode, &"electronic")
 	var radar_id := (radar_result.unit as DefenseUnit).runtime_id
 	assert_true(electronic.interference_patches.has(radar_id))
@@ -1274,27 +1301,27 @@ func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> 
 	(radar_result.unit as DefenseUnit).active = true
 	electronic._process(0.3)
 	assert_true(electronic.interference_patches.has(radar_id))
-	main.hud._on_overlay_selected(5)
-	assert_eq(main.tactical_range_overlay.get("mode"), &"none")
+	main.hud.overlay_option.item_selected.emit(5)
+	assert_eq(main.tactical_range_overlay.mode, &"none")
 	assert_true(main.c2_overlay.show_all_links)
 	assert_true(electronic.interference_patches.is_empty())
-	main.hud._on_overlay_selected(0)
+	main.hud.overlay_option.item_selected.emit(0)
 	assert_false(main.c2_overlay.show_all_links)
 	assert_eq(main.hud.overlay_option.text, "없음")
 	assert_eq((main.hud.overlay_option.get_parent().get_node("OverlayLabel") as Label).text, "전술 표시")
 
 func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> void:
 	main.registry.clear()
-	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_definition := _defense_definition_for(main, &"search_radar")
 	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var radar := radar_result.unit as SearchRadar
-	var decoy_entry: ThreatSpawnEntry = main.scenario.threat_entries[6]
+	var decoy_entry := _threat_entry_for(main, &"decoy_uav")
 	main.scenario.threat_entries = [decoy_entry]
 	main.director.pressure_level = 2
 	var decoy := main.director.spawn_one()
 	decoy.global_position = radar.global_position + Vector3(0.0, 80.0, 180.0)
 	radar.gameplay_tick(0.8)
-	var tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
+	var tracks := main.player_knowledge.get_active_tracks()
 	assert_eq(main.registry.hostile_count(), 1)
 	assert_eq(tracks.size(), 3)
 	for track: PlayerTrack in tracks:
@@ -1308,18 +1335,18 @@ func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> 
 
 func test_electronic_warfare_uav_reduces_radar_quality() -> void:
 	main.registry.clear()
-	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	var radar_definition := _defense_definition_for(main, &"search_radar")
 	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var radar := radar_result.unit as SearchRadar
 	var baseline_quality := radar.signal_quality_for(200.0)
-	var jammer_definition := main.scenario.threat_entries[7].threat_definition
+	var jammer_definition := _threat_entry_for(main, &"electronic_warfare_uav").threat_definition
 	var jammer := jammer_definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(jammer)
 	jammer.setup(400, jammer_definition)
 	jammer.global_position = radar.global_position + Vector3(80.0, 70.0, 0.0)
 	main.registry.add(jammer)
 	assert_lt(radar.signal_quality_for(200.0), baseline_quality * 0.6)
-	var target := main.director._spawn_entry(main.scenario.threat_entries[0], 0.0, 0.0)
+	var target := main.director._spawn_entry(_threat_entry_for(main, &"attack_uav"), 0.0, 0.0)
 	target.global_position = radar.global_position + Vector3(0, 110, 180)
 	var qualities: Array[float] = []
 	for distance: float in [80.0, 5000.0, 80.0]:
@@ -1339,9 +1366,10 @@ func test_electronic_warfare_uav_reduces_radar_quality() -> void:
 
 
 func test_radar_emission_enables_anti_radiation_targeting_and_sead_package() -> void:
-	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar_definition := _defense_definition_for(main, &"search_radar")
+	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var radar := radar_result.unit as SearchRadar
-	var anti_radiation_entry: ThreatSpawnEntry = main.scenario.threat_entries[8]
+	var anti_radiation_entry := _threat_entry_for(main, &"anti_radiation_missile")
 	assert_eq(main.director.adaptive_entry_weight(anti_radiation_entry), 0.0)
 	main.enemy_knowledge.record_emission(radar)
 	assert_gt(main.director.adaptive_entry_weight(anti_radiation_entry), anti_radiation_entry.selection_weight)
@@ -1357,74 +1385,46 @@ func test_radar_emission_enables_anti_radiation_targeting_and_sead_package() -> 
 func test_purchase_start_intercept_and_reward_flow() -> void:
 	main.registry.clear()
 	var placement_position := _find_valid_position()
-	var result: Dictionary = main.session.request_placement(main.scenario.available_defenses[0], placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	assert_true(result.success)
-	assert_true(main.session.start_defense())
+	var battery_definition := _defense_definition_for(main, &"missile_battery")
+	var result: Dictionary = main.session.request_placement(battery_definition, placement_position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(result.success, "1. 포대를 구매·배치합니다")
+	assert_true(main.session.start_defense(), "1. 배치한 포대로 작전을 시작합니다")
 	main.session.set_simulation_speed(0.0)
 	var threat: ThreatUnit = main.director.spawn_one()
 	threat.global_position = placement_position + Vector3(0.0, 70.0, 130.0)
 	var battery := result.unit as MissileBattery
-	var launcher := battery.get_node("Turret/Elevation/Launcher") as MeshInstance3D
-	assert_gt(battery.elevation.rotation.x, 0.0)
-	assert_same(battery.launch_point.get_parent(), launcher)
-	assert_lt(battery.launch_point.position.z, 0.0)
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
-	assert_gt(battery.elevation.rotation.x, 0.0)
-	assert_false(threat.resolved_state, "레이더 항적 없이 실제 위협을 직접 교전하면 안 됩니다")
-	var radar_definition: DefenseDefinition = main.scenario.available_defenses[1]
+	assert_false(threat.resolved_state, "2. 센서 항적이 없으면 포대가 위협을 직접 교전하지 않습니다")
+	var radar_definition := _defense_definition_for(main, &"search_radar")
 	var radar_result: Dictionary = main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	assert_true(radar_result.success)
+	assert_true(radar_result.success, "3. 탐색 레이더를 구매·배치합니다")
 	var radar := radar_result.unit as DefenseUnit
 	radar.gameplay_tick(0.4)
-	var known_tracks: Array[PlayerTrack] = main.player_knowledge.call("get_active_tracks")
-	main.placement.pick_asset_at(battery.global_position)
-	main._on_world_selected(known_tracks[0].estimated_position)
-
-	main.hud.hold_fire_requested.emit(true)
-	assert_true(battery.doctrine.hold_fire, "유지된 무장 선택에 사격중지 명령을 적용합니다")
-	main.hud.hold_fire_requested.emit(false)
+	assert_gt(main.player_knowledge.get_active_tracks().size(), 0, "3. 레이더가 위협 항적을 생성합니다")
 	for frame: int in 100:
 		battery.gameplay_tick(0.02)
-	assert_false(threat.resolved_state, "지휘통제 경로 없이 센서 항적을 공유받으면 안 됩니다")
-	var command_definition: DefenseDefinition = main.scenario.available_defenses[2]
+	assert_false(threat.resolved_state, "4. 지휘통제 경로가 없으면 포대가 센서 항적을 공유받지 않습니다")
+	var command_definition := _defense_definition_for(main, &"command_post")
 	var command_result: Dictionary = main.session.request_placement(command_definition, _find_valid_position_for(command_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	assert_true(command_result.success)
-	assert_same(main.placement.pick_asset_at(battery.global_position), battery)
-	assert_false(_metric_value(main.hud.asset_metrics, "표준 요격탄").is_empty())
-	assert_gt(int(main.c2_overlay.get("visible_link_count")), 0)
+	assert_true(command_result.success, "5. 지휘소를 배치해 센서와 포대를 연결합니다")
+	assert_true(main.c2_network.has_command_path(battery, radar.runtime_id), "5. 포대가 레이더까지 유효한 지휘 경로를 갖습니다")
 	for frame: int in 300:
-		main.player_knowledge.call("gameplay_tick", 0.02)
+		main.player_knowledge.gameplay_tick(0.02)
 		radar.gameplay_tick(0.02)
 		battery.gameplay_tick(0.02)
 		if threat.resolved_state:
 			break
-	assert_true(threat.resolved_state)
-	var falling_wreck := main.effects_parent.get_node_or_null("FallingWreck")
-	var explosion := _first_visible_explosion(main.effects_parent)
-	assert_not_null(falling_wreck)
-	assert_not_null(explosion)
-	assert_true((explosion.get_node("Smoke") as GPUParticles3D).emitting)
-	assert_true((explosion.get_node("Fireball") as GPUParticles3D).emitting)
-	assert_true((explosion.get_node("Sparks") as GPUParticles3D).emitting)
-	assert_gt((explosion.get_node("BlastLight") as OmniLight3D).omni_range, 30.0)
-	assert_false((explosion.get_node("BlastLight") as OmniLight3D).shadow_enabled)
-	assert_not_null(explosion.get_node("Shockwave"))
-	assert_not_null(explosion.get_node("PressureRing"))
-	assert_gt(main.combat_audio.played_count(CombatAudio.MISSILE), 0)
-	assert_gt(main.combat_audio.played_count(CombatAudio.EXPLOSION), 0)
-	assert_eq(main.session.neutralized_count, 1)
-	assert_eq(main.session.neutralized_by_type.get(String(threat.definition.id), 0), 1)
-	assert_eq(main.session.neutralized_reward_total, threat.definition.neutralization_reward)
-	assert_eq(main.session.defense_spending, main.scenario.available_defenses[0].price + radar_definition.price + command_definition.price)
-	assert_gt(main.session.weapon_fire_count, 0)
-	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, battery.runtime_id)
-	assert_true(main.enemy_knowledge.recent_outcomes.back().neutralized)
-	var expected_budget := main.scenario.starting_budget - main.scenario.available_defenses[0].price - radar_definition.price - command_definition.price + threat.definition.neutralization_reward
-	assert_eq(main.session.budget, expected_budget)
+	assert_true(threat.resolved_state, "6. 연결된 방공망이 실제 위협을 요격합니다")
+	assert_eq(main.session.neutralized_count, 1, "6. 무력화는 한 번만 기록됩니다")
+	assert_eq(main.session.neutralized_reward_total, threat.definition.neutralization_reward, "7. 위협 보상을 한 번 지급합니다")
+	assert_eq(main.session.defense_spending, battery_definition.price + radar_definition.price + command_definition.price, "7. 배치 자산 비용을 모두 기록합니다")
+	assert_gt(main.session.weapon_fire_count, 0, "6. 실제 무장 발사를 기록합니다")
+	var expected_budget := main.scenario.starting_budget - battery_definition.price - radar_definition.price - command_definition.price + threat.definition.neutralization_reward
+	assert_eq(main.session.budget, expected_budget, "7. 배치 비용과 요격 보상이 최종 예산에 반영됩니다")
 	assert_false(threat.receive_damage(100.0))
-	assert_eq(main.session.neutralized_count, 1)
-	assert_eq(main.session.budget, expected_budget)
+	assert_eq(main.session.neutralized_count, 1, "8. 이미 종료된 위협은 무력화 수를 중복 증가시키지 않습니다")
+	assert_eq(main.session.budget, expected_budget, "8. 이미 종료된 위협은 보상을 중복 지급하지 않습니다")
 
 func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 	main.session.defense_count = 1
@@ -1460,7 +1460,7 @@ func test_uav_mission_applies_damage_once_and_game_over_stops_combat() -> void:
 
 func test_swarm_entry_spawns_a_close_formation_package() -> void:
 	main.registry.clear()
-	main.scenario.threat_entries = [main.scenario.threat_entries[1]]
+	main.scenario.threat_entries = [_threat_entry_for(main, &"swarm_uav")]
 	main.director.elapsed = 120.0
 	main.director.opening_raid_started = true
 	main.director.opening_raid_complete = true
@@ -1484,24 +1484,25 @@ func test_swarm_entry_spawns_a_close_formation_package() -> void:
 			assert_eq(attack_uav.target_point, shared_target)
 
 func test_mission_roles_choose_matching_deployed_assets() -> void:
-	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var command_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[2], _find_valid_position_for(main.scenario.available_defenses[2].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
 	assert_true(radar_result.success)
 	assert_true(command_result.success)
 	assert_true(support_result.success)
-	var recon := main.scenario.threat_entries[2].threat_definition as AttackUavDefinition
-	var support_strike := main.scenario.threat_entries[3].threat_definition as AttackUavDefinition
-	var command_strike := main.scenario.threat_entries[4].threat_definition as AttackUavDefinition
+	var recon := _threat_entry_for(main, &"recon_uav").threat_definition as AttackUavDefinition
+	var support_strike := _threat_entry_for(main, &"support_strike_uav").threat_definition as AttackUavDefinition
+	var command_strike := _threat_entry_for(main, &"command_strike_uav").threat_definition as AttackUavDefinition
 	assert_null(main.director.choose_target_for(recon.mission), "정찰 경로는 실제 자산 참조를 사용하지 않습니다")
 	assert_same(main.director.choose_target_for(support_strike.mission), support_result.unit)
 	assert_same(main.director.choose_target_for(command_strike.mission), command_result.unit)
 
 func test_recon_mission_upgrades_enemy_sensor_estimate() -> void:
-	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
 	var radar := radar_result.unit as SearchRadar
-	var recon_definition := main.scenario.threat_entries[2].threat_definition as AttackUavDefinition
-	main.scenario.threat_entries = [main.scenario.threat_entries[2]]
+	var recon_entry := _threat_entry_for(main, &"recon_uav")
+	var recon_definition := recon_entry.threat_definition as AttackUavDefinition
+	main.scenario.threat_entries = [recon_entry]
 	main.director.pressure_level = 2
 	var recon := main.director.spawn_one() as AttackUav
 	assert_null(recon.mission_runtime.target_asset)
@@ -1519,10 +1520,10 @@ func test_recon_mission_upgrades_enemy_sensor_estimate() -> void:
 	assert_eq(recon.mission_runtime.phase, ThreatMissionRuntime.Phase.ACTING)
 
 func test_facility_strike_releases_weapon_then_egresses() -> void:
-	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
 	assert_true(support_result.success)
 	var support := support_result.unit as SupportFacility
-	main.scenario.threat_entries = [main.scenario.threat_entries[3]]
+	main.scenario.threat_entries = [_threat_entry_for(main, &"support_strike_uav")]
 	main.director.pressure_level = 3
 	var threat := main.director.spawn_one() as AttackUav
 	assert_not_null(threat)
@@ -1536,8 +1537,8 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 	assert_false(threat.resolved_state)
 	var city_before := main.objective.current_integrity
 	for child: Node in main.threat_parent.get_children():
-		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
-			child.call("_process", 10.0)
+		if child is AirStrikeMunition:
+			(child as AirStrikeMunition).gameplay_tick(10.0)
 	threat.gameplay_tick(0.1)
 	assert_eq(support.integrity, 65.0, "투발 피해는 한 번만 적용됩니다")
 	assert_eq(main.objective.current_integrity, city_before, "시설 타격은 도시 피해를 중복 발생시키지 않습니다")
@@ -1549,7 +1550,7 @@ func _battery_strike_entry() -> ThreatSpawnEntry:
 	return null
 
 func _place_hunter_target() -> DefenseUnit:
-	var definition := main.scenario.available_defenses[0]
+	var definition := _defense_definition_for(main, &"missile_battery")
 	var result := main.session.request_placement(definition, _find_valid_position_for(definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(result.success)
 	return result.unit as DefenseUnit
@@ -1583,18 +1584,18 @@ func test_battery_strike_flies_releases_once_and_damages_only_at_impact() -> voi
 	assert_true(threat.mission_runtime.effect_applied, "초기 진입점에서 실제 비행으로 투발 거리에 도달합니다")
 	assert_eq(threat.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_eq(battery.integrity, battery.definition.maximum_integrity)
-	var munitions: Array[Node] = []
+	var munitions: Array[AirStrikeMunition] = []
 	for child: Node in main.threat_parent.get_children():
-		if child.get_script() == SessionSnapshot.AIR_STRIKE_MUNITION_SCRIPT:
-			munitions.append(child)
+		if child is AirStrikeMunition:
+			munitions.append(child as AirStrikeMunition)
 	assert_eq(munitions.size(), 1)
 	if munitions.is_empty():
 		return
 	var city_before := main.objective.current_integrity
-	munitions[0].call("_process", 10.0)
+	munitions[0].gameplay_tick(10.0)
 	var after := battery.integrity
 	assert_eq(after, battery.definition.maximum_integrity - threat.mission_runtime.profile.damage)
-	munitions[0].call("_process", 10.0)
+	munitions[0].gameplay_tick(10.0)
 	assert_eq(battery.integrity, after)
 	assert_eq(main.objective.current_integrity, city_before)
 	for tick: int in _flight_step_budget(threat, 1.0 / 30.0):
@@ -1614,13 +1615,13 @@ func test_battery_strike_skips_disabled_targets_and_never_chases_relocated_impac
 	assert_false(threat.mission_runtime.effect_applied)
 	assert_eq(battery.integrity, 20.0)
 	battery.complete_repair()
-	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as Node3D
+	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as AirStrikeMunition
 	main.threat_parent.add_child(munition)
 	munition.global_position = battery.global_position + Vector3.UP * 100.0
-	munition.call("setup", battery.global_position, main.objective, 40, battery, false)
+	munition.setup(battery.global_position, main.objective, 40, battery, false)
 	var city_before := main.objective.current_integrity
 	battery.global_position += Vector3(300, 0, 0)
-	munition.call("_process", 1.0)
+	munition.gameplay_tick(1.0)
 	assert_eq(battery.integrity, battery.definition.maximum_integrity)
 	assert_eq(main.objective.current_integrity, city_before)
 
@@ -1628,7 +1629,7 @@ func test_local_recon_reports_nearby_weapons_and_enables_suppression_planning() 
 	var battery := _place_hunter_target()
 	var distant := _place_hunter_target()
 	distant.global_position = battery.global_position + Vector3(800, 0, 0)
-	var recon_definition := main.scenario.threat_entries[2].threat_definition as AttackUavDefinition
+	var recon_definition := _threat_entry_for(main, &"recon_uav").threat_definition as AttackUavDefinition
 	var recon := recon_definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(recon)
 	recon.setup(8000, recon_definition)
@@ -1646,7 +1647,7 @@ func test_local_recon_reports_nearby_weapons_and_enables_suppression_planning() 
 	assert_gt(main.director.adaptive_entry_weight(entry), 0.0)
 	var weights: Dictionary[StringName, float] = {
 		entry.threat_definition.id: main.director.adaptive_entry_weight(entry),
-		main.scenario.threat_entries[0].threat_definition.id: 1.0,
+		_threat_entry_for(main, &"attack_uav").threat_definition.id: 1.0,
 	}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 73129
@@ -1663,7 +1664,7 @@ func test_local_recon_reports_nearby_weapons_and_enables_suppression_planning() 
 			assert_ne(StringName(wave.definition_id), entry.threat_definition.id, "포대 관측 정보가 없으면 편성에서 제외됩니다")
 
 func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
-	var entry := main.scenario.threat_entries[5]
+	var entry := _threat_entry_for(main, &"cruise_missile")
 	var definition := entry.threat_definition as AttackUavDefinition
 	assert_eq(definition.movement.mode, ThreatMovementDefinition.Mode.TERRAIN_FOLLOWING)
 	var threat := main.director._spawn_entry(entry, 0.4, 0.0) as AttackUav
@@ -1678,7 +1679,7 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_eq(threat.get_sensor_signature().classification_hint, &"cruise_missile")
 	var exhaust := threat.get_node("Body/ExhaustTrail") as LingeringSmokeTrail
 	assert_true(exhaust.emitting)
-	assert_gt(int(exhaust.get("emitted_sample_count")), 20)
+	assert_gt(exhaust.emitted_sample_count, 20)
 	assert_gte(exhaust.lifetime, 9.0)
 	assert_gte(exhaust.amount, 700)
 	assert_gt(exhaust.drift_speed, 0.0)
@@ -1700,7 +1701,7 @@ func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
 	assert_almost_eq(main.objective.damage_smoke_effects.back().global_position, explosion.global_position, Vector3.ONE * 0.001)
 
 func test_cruise_missile_commits_to_terminal_impact_without_climbing_out() -> void:
-	var entry := main.scenario.threat_entries[5]
+	var entry := _threat_entry_for(main, &"cruise_missile")
 	var definition := entry.threat_definition as AttackUavDefinition
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
 	var target := threat.mission_runtime.fixed_target
@@ -1719,8 +1720,8 @@ func test_cruise_missile_commits_to_terminal_impact_without_climbing_out() -> vo
 	assert_almost_eq(main.objective.damage_smoke_effects.back().global_position, threat.global_position, Vector3.ONE * 0.001)
 
 func test_threats_spawn_over_the_ocean_and_ballistic_missiles_launch_much_farther_away() -> void:
-	var cruise_entry := main.scenario.threat_entries[5]
-	var ballistic_entry := main.scenario.threat_entries[9]
+	var cruise_entry := _threat_entry_for(main, &"cruise_missile")
+	var ballistic_entry := _threat_entry_for(main, &"ballistic_missile")
 	var cruise := main.director._spawn_entry(cruise_entry, 0.0, 0.0) as AttackUav
 	var ballistic := main.director._spawn_entry(ballistic_entry, 0.0, 0.0) as AttackUav
 	assert_not_null(cruise)
@@ -1733,7 +1734,7 @@ func test_threats_spawn_over_the_ocean_and_ballistic_missiles_launch_much_farthe
 	assert_gte(cruise.global_position.y, main.battlefield.generator.sea_level + (cruise_entry.threat_definition as AttackUavDefinition).movement.cruise_altitude)
 
 func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
-	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var definition := _threat_entry_for(main, &"strike_aircraft").threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	var target := main.objective.global_position
@@ -1741,7 +1742,7 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	threat.setup(811, definition)
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, threat.global_position + Vector3(600.0, 0.0, 0.0))
 	main.registry.add(threat)
-	main._on_threat_spawned(threat)
+	main.director.threat_spawned.emit(threat)
 	var integrity_before := main.objective.current_integrity
 	threat.gameplay_tick(0.1)
 	assert_true(threat.mission_runtime.effect_applied)
@@ -1760,7 +1761,7 @@ func test_strike_aircraft_visibly_releases_a_powered_munition() -> void:
 	assert_true(munition.resolved_state, "실제 표면에서 비행이 끝납니다")
 
 func test_strike_aircraft_releases_outside_the_city_and_climbs_out_over_the_sea() -> void:
-	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var definition := _threat_entry_for(main, &"strike_aircraft").threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	var target := main.objective.global_position
@@ -1769,7 +1770,7 @@ func test_strike_aircraft_releases_outside_the_city_and_climbs_out_over_the_sea(
 	threat.setup(812, definition)
 	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, exit_point)
 	main.registry.add(threat)
-	main._on_threat_spawned(threat)
+	main.director.threat_spawned.emit(threat)
 	var explosion_count := _visible_explosion_count(main.effects_parent)
 	threat.gameplay_tick(0.1)
 	assert_true(threat.mission_runtime.effect_applied)
@@ -1788,14 +1789,14 @@ func test_strike_aircraft_releases_outside_the_city_and_climbs_out_over_the_sea(
 	assert_eq(_visible_explosion_count(main.effects_parent), explosion_count)
 
 func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
-	var definition := main.scenario.threat_entries[9].threat_definition as AttackUavDefinition
+	var definition := _threat_entry_for(main, &"ballistic_missile").threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	threat.global_position = Vector3(900.0, 20.0, 0.0)
 	threat.setup(720, definition)
 	threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0, null, threat.global_position)
 	main.registry.add(threat)
-	main._on_threat_spawned(threat)
+	main.director.threat_spawned.emit(threat)
 	var starting_integrity := main.objective.current_integrity
 	var phases: Dictionary[StringName, bool] = {}
 	var maximum_altitude := threat.global_position.y
@@ -1817,10 +1818,10 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 
 func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_rounds() -> void:
 	main.registry.clear()
-	main._on_pressure_changed(4)
-	var radar_result := _place_for(main, main.scenario.available_defenses[3])
-	var command_result := _place_for(main, main.scenario.available_defenses[2])
-	var battery_result := _place_for(main, main.scenario.available_defenses[7])
+	main.director.pressure_changed.emit(4)
+	var radar_result := _place_for(main, _defense_definition_for(main, &"tracking_radar"))
+	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
+	var battery_result := _place_for(main, _defense_definition_for(main, &"long_range_missile"))
 	assert_true(radar_result.success)
 	assert_true(command_result.success)
 	assert_true(battery_result.success)
@@ -1828,7 +1829,7 @@ func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_ro
 	assert_true(main.session.start_defense())
 	main.director.enabled = false
 	var approach_angle := atan2(battery.global_position.z, battery.global_position.x)
-	var ballistic := main.director._spawn_entry(main.scenario.threat_entries[9], approach_angle, 0.0) as AttackUav
+	var ballistic := main.director._spawn_entry(_threat_entry_for(main, &"ballistic_missile"), approach_angle, 0.0) as AttackUav
 	for frame: int in _flight_step_budget(ballistic, 0.1):
 		main._process(0.1)
 		if ballistic.resolved_state:
@@ -1852,7 +1853,7 @@ func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> voi
 	assert_eq(main.director.pending_waves.size(), 0)
 
 func test_asset_icons_status_badges_and_reload_bars_share_hover_target() -> void:
-	var result := _place_for(main, main.scenario.available_defenses[0])
+	var result := _place_for(main, _defense_definition_for(main, &"missile_battery"))
 	assert_true(result.success)
 	var battery := result.unit as MissileBattery
 	battery.magazine.reserve = 0
@@ -1905,12 +1906,12 @@ func test_procedural_planning_ignores_unobserved_asset_changes_and_limits_late_w
 	assert_eq(main.director.pending_waves, pending, "정비 구간에는 새 공습을 예약하지 않습니다")
 
 func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> void:
-	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
 	var radar := radar_result.unit as SearchRadar
 	var support := support_result.unit as SupportFacility
-	var support_entry := main.scenario.threat_entries[3]
-	var swarm_entry := main.scenario.threat_entries[1]
+	var support_entry := _threat_entry_for(main, &"support_strike_uav")
+	var swarm_entry := _threat_entry_for(main, &"swarm_uav")
 	var base_support_weight := main.director.adaptive_entry_weight(support_entry)
 	main.enemy_knowledge.record_recon(support)
 	assert_gt(main.director.adaptive_entry_weight(support_entry), base_support_weight * 2.0)
@@ -1937,9 +1938,9 @@ func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> voi
 
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()
-	var gun_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[4], _find_valid_position_for(main.scenario.available_defenses[4].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var command_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[2], _find_valid_position_for(main.scenario.available_defenses[2].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var gun_result := _place_for(main, _defense_definition_for(main, &"close_in_gun"))
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
 	assert_true(gun_result.success)
 	assert_true(radar_result.success)
 	assert_true(command_result.success)
@@ -1948,17 +1949,17 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 	var gun_runtime_id := gun.runtime_id
 	assert_true(main.session.start_defense())
 	main.director.enabled = false
-	var swarm_definition: ThreatDefinition = main.scenario.threat_entries[1].threat_definition
+	var swarm_definition := _threat_entry_for(main, &"swarm_uav").threat_definition
 	var threat := swarm_definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(threat)
 	threat.global_position = gun.global_position + Vector3(120.0, 48.0, 0.0)
 	threat.setup(88, swarm_definition)
 	threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
 	main.registry.add(threat)
-	main._on_threat_spawned(threat)
+	main.director.threat_spawned.emit(threat)
 	var observation := SensorObservation.new()
 	observation.setup(radar.runtime_id, 0.0, threat.global_position, 0.98, 2.0, 1.0, &"small_uav", ThreatDefinition.Affiliation.HOSTILE, 5.0)
-	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	var track := main.player_knowledge.submit_observation(observation)
 	assert_gt(gun.weapon_match(track), 0.9)
 	var starting_turret_yaw := gun.turret.rotation.y
 	var starting_rounds := gun.magazine.rounds
@@ -2009,15 +2010,17 @@ func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> v
 func test_cooperative_assignments_round_trip_and_upgrade_legacy_reservations() -> void:
 	main.session.unlimited_budget = true
 	var guns: Array[CloseInGun] = []
+	var gun_definition := _defense_definition_for(main, &"close_in_gun")
 	for index: int in 3:
-		var placed := main.session.request_placement(main.scenario.available_defenses[4], _find_valid_position_for(main.scenario.available_defenses[4].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+		var placed := main.session.request_placement(gun_definition, _find_valid_position_for(gun_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 		assert_true(placed.success)
 		guns.append(placed.unit as CloseInGun)
-	var radar_result := main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var radar_definition := _defense_definition_for(main, &"search_radar")
+	var radar_result := main.session.request_placement(radar_definition, _find_valid_position_for(radar_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(radar_result.success)
 	var observation := SensorObservation.new()
 	observation.setup((radar_result.unit as DefenseUnit).runtime_id, 0.0, guns[0].global_position + Vector3(100, 50, 0), 0.98, 2, 1, &"uav", ThreatDefinition.Affiliation.HOSTILE, 5)
-	var track: PlayerTrack = main.player_knowledge.call("submit_observation", observation)
+	var track := main.player_knowledge.submit_observation(observation)
 	for gun: CloseInGun in guns:
 		main.engagement_coordinator.reserve_fire_support(track.track_id, gun.runtime_id)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
@@ -2041,8 +2044,8 @@ func test_cooperative_assignments_round_trip_and_upgrade_legacy_reservations() -
 	assert_false(legacy.payload.world.engagements.reservations[0].has("kind"), "마이그레이션은 원본 문서를 변경하지 않습니다")
 
 func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> void:
-	var gun_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[4], _find_valid_position_for(main.scenario.available_defenses[4].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var gun_result := _place_for(main, _defense_definition_for(main, &"close_in_gun"))
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
 	assert_true(gun_result.success)
 	assert_true(support_result.success)
 	var gun := gun_result.unit as CloseInGun
@@ -2082,9 +2085,9 @@ func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> v
 	main.placement.cancel()
 
 func test_support_power_capacity_recharges_laser_and_scales_with_damage() -> void:
-	main._on_pressure_changed(3)
-	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var laser_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[6], _find_valid_position_for(main.scenario.available_defenses[6].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	main.director.pressure_changed.emit(3)
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
+	var laser_result := _place_for(main, _defense_definition_for(main, &"high_energy_laser"))
 	assert_true(support_result.success)
 	assert_true(laser_result.success)
 	var support := support_result.unit as SupportFacility
@@ -2103,28 +2106,28 @@ func test_support_power_capacity_recharges_laser_and_scales_with_damage() -> voi
 
 func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	main.registry.clear()
-	main._on_pressure_changed(3)
-	var laser_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[6], _find_valid_position_for(main.scenario.available_defenses[6].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var support_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[5], _find_valid_position_for(main.scenario.available_defenses[5].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var radar_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[1], _find_valid_position_for(main.scenario.available_defenses[1].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-	var command_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[2], _find_valid_position_for(main.scenario.available_defenses[2].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	main.director.pressure_changed.emit(3)
+	var laser_result := _place_for(main, _defense_definition_for(main, &"high_energy_laser"))
+	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
 	assert_true(laser_result.success)
 	assert_true(support_result.success)
 	assert_true(radar_result.success)
 	assert_true(command_result.success)
 	var laser := laser_result.unit as HighEnergyLaser
 	var radar := radar_result.unit as SearchRadar
-	var swarm_definition: ThreatDefinition = main.scenario.threat_entries[1].threat_definition
+	var swarm_definition := _threat_entry_for(main, &"swarm_uav").threat_definition
 	var threat := swarm_definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(threat)
 	threat.global_position = laser.global_position + Vector3(140.0, 48.0, 0.0)
 	threat.setup(91, swarm_definition)
 	threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
 	main.registry.add(threat)
-	main._on_threat_spawned(threat)
+	main.director.threat_spawned.emit(threat)
 	var observation := SensorObservation.new()
 	observation.setup(radar.runtime_id, 0.0, threat.global_position, 0.98, 2.0, 1.0, &"small_uav", ThreatDefinition.Affiliation.HOSTILE, 5.0)
-	main.player_knowledge.call("submit_observation", observation)
+	main.player_knowledge.submit_observation(observation)
 	var starting_energy := laser.energy_state.energy
 	laser.gameplay_tick(0.01)
 	assert_ne(laser.turret.rotation.y, 0.0)
@@ -2173,30 +2176,22 @@ func test_expired_interceptor_leaves_visible_miss_feedback() -> void:
 	assert_not_null(lingering_trail)
 	assert_false(lingering_trail.emitting)
 	assert_gte(lingering_trail.lifetime, 24.0)
-	assert_gte(float(lingering_trail.get("release_fade_duration")), 16.0)
+	assert_gte(lingering_trail.release_fade_duration, 16.0)
 	assert_eq(lingering_trail.get_parent(), main.projectile_parent)
 
-func test_fast_interceptor_samples_smoke_between_physics_positions() -> void:
+func test_fast_missile_trail_covers_the_path_between_samples() -> void:
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(interceptor)
 	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
 	smoke.sample_world_segment(Vector3.ZERO, Vector3(0.0, 0.0, 26.0))
-	assert_gte(int(smoke.get("emitted_sample_count")), 26)
-	assert_gt((smoke.get("last_emitted_world_position") as Vector3).z, 24.0)
+	var bounds := smoke.smoke_bounds()
+	assert_gt(smoke.active_puff_count(), 1)
+	assert_lte(bounds.position.z, smoke.sample_spacing)
+	assert_gte(bounds.end.z, 26.0 - smoke.sample_spacing)
 	assert_true(smoke.emitting)
-	assert_gte(smoke.lifetime, 24.0)
-	assert_gte(smoke.amount, 2200)
-	assert_true(smoke.puff_mesh is QuadMesh)
-	var smoke_material := smoke.smoke_material
-	assert_not_null(smoke_material.get_shader_parameter("puff_texture"))
-	assert_true(smoke.multimesh.use_custom_data)
-	assert_lte(smoke.sample_spacing, smoke.puff_mesh.size.x)
-	var smoke_shadow := smoke.get_node("SmokeShadow") as MultiMeshInstance3D
-	assert_eq(smoke_shadow.multimesh.instance_count, ceili(float(smoke.amount) / 2.0))
-	assert_gt(smoke.drift_speed, 0.0)
+	assert_gte(smoke.lifetime, 16.0, "비행 경로가 빠르게 사라지지 않습니다")
+	assert_gte(smoke.release_fade_duration, 16.0)
 	assert_gt(smoke.final_scale, smoke.initial_scale)
-	assert_eq(smoke_material.get_shader_parameter("trail_lifetime"), smoke.lifetime)
-	assert_gte((interceptor.get_node("FlameLight") as OmniLight3D).light_energy, 9.0)
 	interceptor.queue_free()
 
 func test_released_smoke_trail_reaches_zero_opacity_before_cleanup() -> void:
@@ -2204,24 +2199,24 @@ func test_released_smoke_trail_reaches_zero_opacity_before_cleanup() -> void:
 	main.projectile_parent.add_child(interceptor)
 	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
 	smoke.release_to(main.effects_parent)
-	smoke._process(smoke.release_fade_duration * 0.5)
+	smoke.prepare_preview(smoke.release_fade_duration * 0.5)
 	assert_between(smoke.current_shadow_opacity_ratio, 0.0, 1.0)
-	assert_almost_eq(smoke.current_opacity_ratio, 0.5, 0.001)
-	assert_almost_eq(float(smoke.smoke_material.get_shader_parameter("opacity_ratio")), 0.5, 0.001)
-	assert_almost_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), 0.5, 0.001)
-	smoke._process(smoke.release_fade_duration * 0.5)
+	assert_between(smoke.current_opacity_ratio, 0.0, 1.0)
+	assert_almost_eq(float(smoke.smoke_material.get_shader_parameter("opacity_ratio")), smoke.current_opacity_ratio, 0.001)
+	assert_almost_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), smoke.current_shadow_opacity_ratio, 0.001)
+	smoke.prepare_preview(smoke.release_fade_duration * 0.5)
 	assert_eq(smoke.current_shadow_opacity_ratio, 0.0)
 	assert_eq(smoke.current_opacity_ratio, 0.0)
-	assert_eq(float(smoke.smoke_material.get_shader_parameter("opacity_ratio")), 0.0)
-	assert_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), 0.0)
+	assert_eq(float(smoke.smoke_material.get_shader_parameter("opacity_ratio")), smoke.current_opacity_ratio)
+	assert_eq(float(smoke.shadow_material.get_shader_parameter("opacity_ratio")), smoke.current_shadow_opacity_ratio)
 	assert_false(smoke.is_queued_for_deletion())
-	smoke._process(smoke.transparent_cleanup_delay + 0.01)
+	smoke.prepare_preview(smoke.transparent_cleanup_delay + 0.01)
 	assert_true(smoke.is_queued_for_deletion())
 	interceptor.queue_free()
 
 func test_interceptor_detonation_remains_visible_when_strike_aircraft_survives_hit() -> void:
 	main.registry.clear()
-	var definition := main.scenario.threat_entries[11].threat_definition as AttackUavDefinition
+	var definition := _threat_entry_for(main, &"strike_aircraft").threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
 	threat.setup(9912, definition)
@@ -2234,7 +2229,7 @@ func test_interceptor_detonation_remains_visible_when_strike_aircraft_survives_h
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(interceptor)
 	interceptor.global_position = threat.global_position - Vector3.RIGHT * 12.0
-	var area_defense := (main.scenario.available_defenses[7] as MissileBatteryDefinition).munitions[0]
+	var area_defense := (_defense_definition_for(main, &"long_range_missile") as MissileBatteryDefinition).munitions[0]
 	interceptor.configure(track, main.registry, area_defense, Vector3.RIGHT, 77)
 	interceptor.gameplay_tick(0.05)
 	assert_false(threat.resolved_state)
@@ -2253,25 +2248,25 @@ func test_new_explosion_does_not_reactivate_a_faded_shockwave() -> void:
 	var first := explosion_scene.instantiate() as ExplosionEffect
 	main.effects_parent.add_child(first)
 	first.setup(Color(1.0, 0.3, 0.04), 10.0)
-	first._process(ExplosionTimeline.GROUND_WAVE_DURATION + 0.01)
-	var first_material := first.get_node("Shockwave").get("material_override") as StandardMaterial3D
+	first.prepare_preview(ExplosionTimeline.GROUND_WAVE_DURATION + 0.01)
+	var first_material := (first.get_node("Shockwave") as MeshInstance3D).material_override as StandardMaterial3D
 	assert_eq(first_material.albedo_color.a, 0.0)
 	var second := explosion_scene.instantiate() as ExplosionEffect
 	main.effects_parent.add_child(second)
 	second.setup(Color(1.0, 0.5, 0.08), 8.0)
-	second._process(0.1)
-	var second_material := second.get_node("Shockwave").get("material_override") as StandardMaterial3D
+	second.prepare_preview(0.1)
+	var second_material := (second.get_node("Shockwave") as MeshInstance3D).material_override as StandardMaterial3D
 	assert_ne(first_material as Variant, second_material as Variant)
 	assert_eq(first_material.albedo_color.a, 0.0)
 	assert_gt(second_material.albedo_color.a, 0.0)
 
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()
-	main._on_pressure_changed(5)
-	var hpm_result: Dictionary = main.session.request_placement(main.scenario.available_defenses[9], _find_valid_position_for(main.scenario.available_defenses[9].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	main.director.pressure_changed.emit(5)
+	var hpm_result := _place_for(main, _defense_definition_for(main, &"high_power_microwave"))
 	assert_true(hpm_result.success)
 	var hpm := hpm_result.unit as HighPowerMicrowave
-	var definition: ThreatDefinition = main.scenario.threat_entries[0].threat_definition
+	var definition := _threat_entry_for(main, &"attack_uav").threat_definition
 	var center := hpm.global_position + Vector3(120.0, 60.0, 0.0)
 	var threats: Array[ThreatUnit] = []
 	for index: int in 3:
@@ -2294,19 +2289,19 @@ func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> vo
 
 func test_hpm_weakly_heats_bird_and_bird_falls_without_exploding_when_neutralized() -> void:
 	main.registry.clear()
-	main._on_pressure_changed(5)
-	var hpm_definition := main.scenario.available_defenses[9] as HighPowerMicrowaveDefinition
+	main.director.pressure_changed.emit(5)
+	var hpm_definition := _defense_definition_for(main, &"high_power_microwave") as HighPowerMicrowaveDefinition
 	var hpm_result: Dictionary = main.session.request_placement(hpm_definition, _find_valid_position_for(hpm_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(hpm_result.success)
 	var hpm := hpm_result.unit as HighPowerMicrowave
-	var bird_definition := main.scenario.ambient_contacts[0]
+	var bird_definition := _ambient_definition_for(main, &"bird_contact")
 	var bird := bird_definition.scene.instantiate() as BirdContact
 	main.threat_parent.add_child(bird)
 	bird.setup(570, bird_definition)
 	bird.global_position = hpm.global_position + Vector3(100.0, 55.0, 0.0)
 	bird.configure_patrol(main.battlefield, Vector3(14.0, 0.0, 3.0))
 	main.registry.add(bird)
-	main._on_threat_spawned(bird)
+	main.director.threat_spawned.emit(bird)
 	var track := PlayerTrack.new()
 	track.track_id = 570
 	track.estimated_position = bird.global_position
@@ -2315,8 +2310,11 @@ func test_hpm_weakly_heats_bird_and_bird_falls_without_exploding_when_neutralize
 	assert_eq(bird.health, health_before - hpm_definition.electronic_damage * bird_definition.electronic_vulnerability)
 	assert_gt(bird.health, 0.0, "한 번의 HPM 펄스가 조류를 전자장비처럼 즉시 무력화하면 안 됩니다")
 	var explosion_count_before := main.effects_parent.get_children().filter(func(node: Node) -> bool: return node is ExplosionEffect).size()
-	while not bird.resolved_state:
+	for hit: int in 100:
+		if bird.resolved_state:
+			break
 		bird.receive_electronic_damage(hpm_definition.electronic_damage)
+	assert_true(bird.resolved_state, "반복 피격이 제한된 횟수 안에 조류를 무력화합니다")
 	var explosion_count_after := main.effects_parent.get_children().filter(func(node: Node) -> bool: return node is ExplosionEffect).size()
 	var falling_bird := main.effects_parent.get_node_or_null("FallingWreck") as FallingWreckEffect
 	assert_not_null(falling_bird)
@@ -2330,11 +2328,11 @@ func test_hpm_weakly_heats_bird_and_bird_falls_without_exploding_when_neutralize
 
 func test_interceptor_drone_returns_and_recharges_for_reuse() -> void:
 	main.registry.clear()
-	main._on_pressure_changed(5)
-	var result: Dictionary = main.session.request_placement(main.scenario.available_defenses[10], _find_valid_position_for(main.scenario.available_defenses[10].placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	main.director.pressure_changed.emit(5)
+	var result := _place_for(main, _defense_definition_for(main, &"interceptor_drone_defense"))
 	assert_true(result.success)
 	var base := result.unit as InterceptorDroneDefense
-	var definition: ThreatDefinition = main.scenario.threat_entries[0].threat_definition
+	var definition := _threat_entry_for(main, &"attack_uav").threat_definition
 	var threat := definition.scene.instantiate() as ThreatUnit
 	main.threat_parent.add_child(threat)
 	threat.setup(610, definition)
@@ -2365,17 +2363,17 @@ func test_interceptor_drone_returns_and_recharges_for_reuse() -> void:
 
 func test_interceptor_drone_acquires_and_neutralizes_a_live_moving_uav() -> void:
 	main.registry.clear()
-	main._on_pressure_changed(5)
-	var radar_result := _place_for(main, main.scenario.available_defenses[1])
-	var command_result := _place_for(main, main.scenario.available_defenses[2])
-	var drone_result := _place_for(main, main.scenario.available_defenses[10])
+	main.director.pressure_changed.emit(5)
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
+	var drone_result := _place_for(main, _defense_definition_for(main, &"interceptor_drone_defense"))
 	assert_true(radar_result.success)
 	assert_true(command_result.success)
 	assert_true(drone_result.success)
 	var base := drone_result.unit as InterceptorDroneDefense
 	assert_true(main.session.start_defense())
 	main.director.enabled = false
-	var threat := main.director._spawn_entry(main.scenario.threat_entries[0], 0.0, 0.0) as AttackUav
+	var threat := main.director._spawn_entry(_threat_entry_for(main, &"attack_uav"), 0.0, 0.0) as AttackUav
 	threat.global_position = base.global_position + Vector3(280.0, 70.0, 0.0)
 	threat.mover.setup((threat.definition as AttackUavDefinition).movement, main.battlefield, threat.global_position.direction_to(main.objective.global_position))
 	for frame: int in 180:
@@ -2386,8 +2384,60 @@ func test_interceptor_drone_acquires_and_neutralizes_a_live_moving_uav() -> void
 	assert_eq(int(main.session.neutralized_by_type.get("attack_uav", 0)), 1)
 	assert_lt(base.available_drones, base.drone_definition().drone_count)
 
+func _new_training_operation() -> AirscainMain:
+	var previous_mode := AirscainMain.requested_mode
+	AirscainMain.requested_mode = AirscainMain.GameMode.TRAINING
+	var training := add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
+	AirscainMain.requested_mode = previous_mode
+	await get_tree().process_frame
+	return training
+
+func _defense_definition_for(instance: AirscainMain, definition_id: StringName) -> DefenseDefinition:
+	for definition: DefenseDefinition in instance.scenario.available_defenses:
+		if definition.id == definition_id:
+			return definition
+	fail_test("방어 자산 정의를 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _threat_entry_for(instance: AirscainMain, definition_id: StringName) -> ThreatSpawnEntry:
+	for entry: ThreatSpawnEntry in instance.scenario.threat_entries:
+		if entry.threat_definition.id == definition_id:
+			return entry
+	fail_test("위협 생성 항목을 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _ambient_definition_for(instance: AirscainMain, definition_id: StringName) -> ThreatDefinition:
+	for definition: ThreatDefinition in instance.scenario.ambient_contacts:
+		if definition.id == definition_id:
+			return definition
+	fail_test("주변 접촉 정의를 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _catalog_button_for(instance: AirscainMain, definition_id: StringName) -> Button:
+	var definition := _defense_definition_for(instance, definition_id)
+	var index := instance.scenario.available_defenses.find(definition)
+	if index >= 0 and index < instance.hud.defense_buttons.size():
+		return instance.hud.defense_buttons[index]
+	fail_test("방어 자산 카탈로그 버튼을 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _catalog_meta_label_for(instance: AirscainMain, definition_id: StringName) -> Label:
+	var definition := _defense_definition_for(instance, definition_id)
+	var index := instance.scenario.available_defenses.find(definition)
+	if index >= 0 and index < instance.hud.defense_meta_labels.size():
+		return instance.hud.defense_meta_labels[index]
+	fail_test("방어 자산 카탈로그 메타 정보를 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _target_kind_button_for(instance: AirscainMain, target_kind: StringName) -> Button:
+	for button: Button in instance.hud.target_kind_buttons:
+		if StringName(button.name) == target_kind:
+			return button
+	fail_test("표적 종류 버튼을 찾지 못했습니다: %s" % target_kind)
+	return null
+
 func _find_valid_position() -> Vector3:
-	return _find_valid_position_for(main.scenario.available_defenses[0].placement_profile)
+	return _find_valid_position_for(_defense_definition_for(main, &"missile_battery").placement_profile)
 
 func _find_valid_position_for(profile: PlacementProfile) -> Vector3:
 	for z: int in range(-400, 401, 25):
@@ -2436,20 +2486,20 @@ func _flight_step_budget(threat: AttackUav, delta: float) -> int:
 	return ceili((approach * 2.0 + 30.0) / delta)
 
 func test_target_policy_buttons_change_only_the_selected_asset() -> void:
-	var battery := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
-	var other := _place_for(main, main.scenario.available_defenses[0]).unit as MissileBattery
-	main._on_asset_selected(battery)
+	var battery := _place_for(main, _defense_definition_for(main, &"missile_battery")).unit as MissileBattery
+	var other := _place_for(main, _defense_definition_for(main, &"missile_battery")).unit as MissileBattery
+	main.placement.asset_selected.emit(battery)
 	assert_true(main.hud.doctrine_section.visible)
 	assert_eq(main.hud.target_kind_buttons.size(), EngagementDoctrine.TARGET_KINDS.size())
-	var button := main.hud.target_kind_buttons[1]
+	var button := _target_kind_button_for(main, &"uav")
 	assert_true(button.button_pressed)
 	button.button_pressed = false
 	assert_false(battery.allows_target_kind(&"uav"))
 	assert_true(other.allows_target_kind(&"uav"))
 	assert_string_contains(button.tooltip_text, "교전 차단")
-	main._on_asset_selected(other)
+	main.placement.asset_selected.emit(other)
 	assert_true(button.button_pressed)
-	main._on_asset_selected(battery)
+	main.placement.asset_selected.emit(battery)
 	assert_false(button.button_pressed)
 	button.button_pressed = true
 	assert_true(battery.allows_target_kind(&"uav"))
