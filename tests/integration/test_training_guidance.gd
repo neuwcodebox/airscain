@@ -113,7 +113,7 @@ func test_terrain_obstruction_requires_relocation_then_returns_to_detection() ->
 	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE)
 	main.training_controller.tracks_refreshed(0)
 	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE, "시야가 트인 표적에 사각 해결을 요구하지 않습니다")
-	var threat := main.registry.get_hostile_active()[0]
+	var threat := _training_threat()
 	var blocked := Vector3.INF
 	for index: int in 720:
 		var candidate := radar.global_position + Vector3(cos(index * 0.2), 0, sin(index * 0.2)) * (100.0 + float(index % 12) * 45.0)
@@ -173,6 +173,13 @@ func _new_defense_since(existing_ids: Dictionary[int, bool], definition_id: Stri
 		if not existing_ids.has(unit.runtime_id) and unit.definition.id == definition_id:
 			return unit
 	fail_test("새로 배치한 방어 자산을 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _training_threat() -> ThreatUnit:
+	for threat: ThreatUnit in main.registry.get_hostile_active():
+		if threat.runtime_id == main.training_controller.training_threat_runtime_id:
+			return threat
+	fail_test("훈련 표적을 찾지 못했습니다: %d" % main.training_controller.training_threat_runtime_id)
 	return null
 
 func _catalog_button(definition_id: StringName) -> Button:

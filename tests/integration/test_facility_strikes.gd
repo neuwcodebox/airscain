@@ -456,7 +456,7 @@ func test_jet_approach_cue_tracks_actual_release_and_restore() -> void:
 		audio.update_audio(1.0 / 60.0, false, 1.0, true)
 		if start_time < 0.0 and audio.played_count > 0:
 			start_time = time
-			start_position = audio.voices[0].player.get_playback_position()
+			start_position = _approach_voice_for(audio, aircraft).player.get_playback_position()
 			assert_lt(start_position, 0.1, "자동 생성한 타격기는 접근음 첫 부분부터 재생합니다")
 		if aircraft.mission_runtime.effect_applied:
 			released_at = time
@@ -465,7 +465,7 @@ func test_jet_approach_cue_tracks_actual_release_and_restore() -> void:
 	assert_gt(released_at, start_time)
 	assert_almost_eq(released_at - start_time + start_position, ThreatApproachAudio.PEAK_SECONDS, 0.75, "투발이 음원 최근접 구간에 맞습니다")
 	assert_eq(audio.played_count, 1)
-	assert_true(audio.voices[0].player.playing)
+	assert_true(_approach_voice_for(audio, aircraft).player.playing)
 	var saved := aircraft.capture_state()
 	audio.reset()
 	aircraft.restore_state(saved, main.objective, main.battlefield)
@@ -510,9 +510,10 @@ func test_cruise_approach_precedes_actual_collision() -> void:
 	assert_gt(started_at, 0.0)
 	assert_gt(ended_at, started_at)
 	assert_almost_eq(ended_at - started_at, 5.0, 0.75, "현재 경로의 예상 충돌 약 5초 전 접근음을 시작합니다")
-	assert_true(audio.voices[0].retiring)
+	var voice := _approach_voice_for(audio, missile)
+	assert_true(voice.retiring)
 	audio.update_audio(0.2, false, 1.0, true)
-	assert_false(audio.voices[0].player.playing)
+	assert_false(voice.player.playing)
 
 func test_uav_loop_content_roles_and_live_release_envelope() -> void:
 	for id: StringName in [&"recon_uav", &"electronic_warfare_uav", &"decoy_uav"]:
@@ -548,12 +549,29 @@ func test_uav_loop_content_roles_and_live_release_envelope() -> void:
 			assert_almost_eq(finished - started, float(UavLoopAudio.LEAD_SECONDS[definition.loop_audio_event]), 2.0, "충돌 예상시간 기반 시작: " + String(id))
 		if definition.mission.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
 			assert_almost_eq(finished - started, 16.0, 2.0, "투하 예상시간 기반 시작: " + String(id))
-			assert_true(audio.voices[0].player.playing, "투하 후 이탈 꼬리")
+			assert_true(_uav_voice_for(audio, aircraft).player.playing, "투하 후 이탈 꼬리")
 		for tick: int in 50:
 			audio.update_audio(0.05, false, 1.0, true)
 		for voice: UavLoopAudio.Voice in audio.voices:
 			assert_false(voice.player.playing, String(id))
 		aircraft.free()
+
+func _approach_voice_for(audio: ThreatApproachAudio, threat: ThreatUnit) -> ThreatApproachAudio.Voice:
+	var source_id := threat.get_instance_id()
+	for voice: ThreatApproachAudio.Voice in audio.voices:
+		if voice.source_id == source_id or voice.members.has(source_id):
+			return voice
+	fail_test("위협에 할당된 접근음 음성을 찾지 못했습니다: %d" % threat.runtime_id)
+	return null
+
+func _uav_voice_for(audio: UavLoopAudio, threat: ThreatUnit) -> UavLoopAudio.Voice:
+	var source := audio.sources.get(threat.get_instance_id()) as UavLoopAudio.Source
+	if source != null:
+		for voice: UavLoopAudio.Voice in audio.voices:
+			if voice.group_id == source.group_id:
+				return voice
+	fail_test("위협에 할당된 UAV 음성을 찾지 못했습니다: %d" % threat.runtime_id)
+	return null
 
 func test_cruise_audio_does_not_predict_terrain_collision_during_safe_cruise() -> void:
 	for content: String in ["anti_radiation_missile/anti_radiation_missile", "cruise_missile/cruise_missile", "cruise_missile/battery_strike_cruise", "cruise_missile/support_strike_cruise"]:

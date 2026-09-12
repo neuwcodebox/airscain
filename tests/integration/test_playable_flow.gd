@@ -1113,8 +1113,8 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main.placement.asset_selected.emit(laser)
 	assert_eq(main.c2_overlay.visible_c2_link_count, preview_c2_count)
 	assert_eq(main.c2_overlay.visible_support_link_count, 1)
-	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "연결됨")
-	assert_eq(_metric_value(main.hud.asset_metrics, "전력 수요 / 공급"), "12 / 20")
+	_assert_metric_displayed(main.hud.asset_metrics, "지역 지원", "연결됨")
+	_assert_metric_displayed(main.hud.asset_metrics, "전력 수요 / 공급", "12 / 20")
 	var support_definition := _defense_definition_for(main, &"support_facility")
 	main.placement.select(support_definition)
 	assert_eq(main.placement.range_disc.radius, (support_definition as SupportFacilityDefinition).service_range)
@@ -1127,7 +1127,7 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	main.placement.cancel()
 	main.placement.asset_selected.emit(support)
 	var selected_support_count := main.c2_overlay.visible_support_link_count
-	assert_eq(_metric_value(main.hud.asset_metrics, "지역 지원"), "지원 가능 %d" % selected_support_count)
+	_assert_metric_displayed(main.hud.asset_metrics, "지역 지원", "지원 가능 %d" % selected_support_count)
 	assert_true(main.c2_overlay.range_ring.visible)
 	assert_true(main.c2_overlay.range_ring.mesh is ArrayMesh)
 	main.c2_overlay.preview_placement(support_definition, support.global_position, true)
@@ -2268,7 +2268,10 @@ func test_interceptor_detonation_remains_visible_when_strike_aircraft_survives_h
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(interceptor)
 	interceptor.global_position = threat.global_position - Vector3.RIGHT * 12.0
-	var area_defense := (_defense_definition_for(main, &"long_range_missile") as MissileBatteryDefinition).munitions[0]
+	var area_defense := _munition_for(
+		_defense_definition_for(main, &"long_range_missile") as MissileBatteryDefinition,
+		&"area_defense"
+	)
 	interceptor.configure(track, main.registry, area_defense, Vector3.RIGHT, 77)
 	interceptor.gameplay_tick(0.05)
 	assert_false(threat.resolved_state)
@@ -2452,6 +2455,13 @@ func _raid_archetype_for(instance: AirscainMain, archetype_id: StringName) -> Ra
 	fail_test("공습 원형을 찾지 못했습니다: %s" % archetype_id)
 	return null
 
+func _munition_for(definition: MissileBatteryDefinition, munition_id: StringName) -> MissileMunitionDefinition:
+	for munition: MissileMunitionDefinition in definition.munitions:
+		if munition.id == munition_id:
+			return munition
+	fail_test("요격탄 정의를 찾지 못했습니다: %s/%s" % [definition.id, munition_id])
+	return null
+
 func _hostile_by_runtime_id(instance: AirscainMain, runtime_id: int) -> ThreatUnit:
 	for threat: ThreatUnit in instance.registry.get_hostile_active():
 		if threat.runtime_id == runtime_id:
@@ -2521,11 +2531,14 @@ func _place_for(instance: AirscainMain, definition: DefenseDefinition) -> Dictio
 				return instance.session.request_placement(definition, position, instance.battlefield, instance.defense_parent, instance.registry, instance.projectile_parent)
 	return {"success": false, "reason": "테스트 배치 위치 없음"}
 
-func _metric_value(grid: GridContainer, key: String) -> String:
-	for index: int in range(0, grid.get_child_count(), 2):
-		if (grid.get_child(index) as Label).text == key:
-			return (grid.get_child(index + 1) as Label).text
-	return ""
+func _assert_metric_displayed(grid: GridContainer, key: String, value: String) -> void:
+	var visible_texts: Array[String] = []
+	for node: Node in grid.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label.visible:
+			visible_texts.append(label.text)
+	assert_has(visible_texts, key, "상태 항목 이름이 표시됩니다")
+	assert_has(visible_texts, value, "%s 상태 값이 표시됩니다" % key)
 
 func _find_defense(runtime_id: int) -> DefenseUnit:
 	for unit: DefenseUnit in main.defenses:

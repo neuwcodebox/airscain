@@ -50,11 +50,14 @@ func test_combat_pause_pauses_active_voices_and_new_retirement_fades() -> void:
 	var source := add_child_autofree(FlightSource.new()) as FlightSource
 	assert_true(context.play_missile_event(CombatAudio.LONG_MISSILE, source))
 	assert_true(context.play_event(CombatAudio.EXPLOSION))
+	var event_path := context.last_stream_path(CombatAudio.EXPLOSION)
 	context.simulation_paused = true
 	_advance_combat_audio(context, 0.1)
-	var missile := context.missile_players[0]
+	var missile := context.source_players[source.get_instance_id()] as AudioStreamPlayer
+	var event_voice := _player_with_stream_path(context.players, event_path)
+	assert_not_null(event_voice)
 	assert_true(missile.stream_paused)
-	assert_true(context.players[0].stream_paused)
+	assert_true(event_voice.stream_paused)
 	source.flight_ended.emit(false)
 	var gain := missile.volume_linear
 	var fade := context.fade_tweens[missile.get_instance_id()] as Tween
@@ -109,6 +112,12 @@ func test_operation_cleanup_stops_gun_loops_and_releases_owners() -> void:
 	assert_false(gun.ending_player.playing)
 	assert_false(gun.firing)
 	assert_true(context.gun_voices.is_empty())
+
+func _player_with_stream_path(players: Array[AudioStreamPlayer], stream_path: String) -> AudioStreamPlayer:
+	for player: AudioStreamPlayer in players:
+		if player.stream != null and player.stream.resource_path == stream_path:
+			return player
+	return null
 
 
 func test_loop_region_preserves_resource_time_precision() -> void:

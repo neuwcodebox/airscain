@@ -279,12 +279,13 @@ func test_invalid_content_id_does_not_mutate_live_session() -> void:
 
 func test_non_finite_or_non_numeric_world_vectors_do_not_mutate_live_session() -> void:
 	var original_budget := main.session.budget
+	var command := _find_defense_for_definition(&"command_post")
 	for invalid_component: Variant in ["높이", INF, NAN]:
 		var document := main.capture_save_document()
-		document.payload.world.defenses[0].position = [invalid_component, 0.0, 0.0]
+		_saved_defense(document, command.runtime_id).position = [invalid_component, 0.0, 0.0]
 		assert_eq(SessionSnapshot.validation_error(document.payload, main.scenario), "방공망 위치가 올바르지 않습니다")
 		assert_eq(main.session.budget, original_budget)
-		assert_eq(main.defenses[0].global_position.is_finite(), true)
+		assert_true(command.global_position.is_finite())
 
 func test_snapshot_delegates_content_state_validation_to_definitions() -> void:
 	var defense_definition := ValidatingDefenseDefinition.new()
@@ -375,7 +376,7 @@ func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
 	threat.gameplay_tick(0.1)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
-	document.payload.world.contacts.back().content_state.movement.ballistic_duration = 0.0
+	_saved_contact(document, threat.runtime_id).content_state.movement.ballistic_duration = 0.0
 	assert_ne(main.restore_from_document(document), "")
 	assert_same(_find_contact(threat.runtime_id), threat)
 
@@ -388,7 +389,7 @@ func test_multi_munition_inventory_mode_and_validation_restore() -> void:
 	battery.magazines[&"high_speed_interceptor"].reserve = 0
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var invalid_document := document.duplicate(true)
-	invalid_document.payload.world.defenses.back().content_state.munition_magazines.erase("high_speed_interceptor")
+	_saved_defense(invalid_document, battery_id).content_state.munition_magazines.erase("high_speed_interceptor")
 	assert_ne(main.restore_from_document(invalid_document), "")
 	assert_same(_find_defense(battery_id), battery)
 	assert_eq(main.restore_from_document(document), "")
@@ -513,7 +514,7 @@ func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
 func test_all_asset_types_relocate_with_their_duration_including_city_command() -> void:
 	main.session.budget = 10000
 	main.director.pressure_changed.emit(5)
-	var units: Array[DefenseUnit] = [main.defenses[0]]
+	var units: Array[DefenseUnit] = [_find_defense_for_definition(&"command_post")]
 	for definition: DefenseDefinition in main.scenario.available_defenses:
 		assert_true(definition.mobile, definition.display_name)
 		assert_gt(definition.relocation_duration, 0.0)
@@ -690,17 +691,17 @@ func test_version_17_gun_migrates_without_inventing_rounds_or_changing_ammunitio
 	var id := gun.runtime_id
 	gun.magazine.rounds = 23
 	var document := main.capture_save_document()
-	document.payload.world.defenses.back().content_state.erase("gunfire")
+	_saved_defense(document, id).content_state.erase("gunfire")
 	assert_ne(main.restore_from_document(document), "", "현재 버전은 비행탄 필드를 생략할 수 없습니다")
 	document.version = 17
 	assert_eq(main.restore_from_document(document), "")
 	var restored := _find_defense(id) as CloseInGun
 	assert_eq(restored.magazine.rounds, 23)
 	assert_eq(restored.gunfire.rounds.size(), 0)
-	assert_false(document.payload.world.defenses.back().content_state.has("gunfire"))
+	assert_false(_saved_defense(document, id).content_state.has("gunfire"))
 
 func test_initial_city_command_preserves_damage_and_does_not_respawn_on_restore() -> void:
-	var command := main.defenses[0]
+	var command := _find_defense_for_definition(&"command_post")
 	var id := command.runtime_id
 	command.receive_damage(25.0)
 	var position := command.global_position
@@ -725,6 +726,27 @@ func _find_defense(runtime_id: int) -> DefenseUnit:
 		if unit.runtime_id == runtime_id:
 			return unit
 	return null
+
+func _find_defense_for_definition(definition_id: StringName) -> DefenseUnit:
+	for unit: DefenseUnit in main.defenses:
+		if unit.definition.id == definition_id:
+			return unit
+	fail_test("배치된 방어 자산을 찾지 못했습니다: %s" % definition_id)
+	return null
+
+func _saved_defense(document: Dictionary, runtime_id: int) -> Dictionary:
+	for state: Dictionary in document.payload.world.defenses:
+		if int(state.get("runtime_id", 0)) == runtime_id:
+			return state
+	fail_test("저장된 방어 자산을 찾지 못했습니다: %d" % runtime_id)
+	return {}
+
+func _saved_contact(document: Dictionary, runtime_id: int) -> Dictionary:
+	for state: Dictionary in document.payload.world.contacts:
+		if int(state.get("runtime_id", 0)) == runtime_id:
+			return state
+	fail_test("저장된 위협을 찾지 못했습니다: %d" % runtime_id)
+	return {}
 
 func _defense_definition(definition_id: StringName) -> DefenseDefinition:
 	for definition: DefenseDefinition in main.scenario.available_defenses:
