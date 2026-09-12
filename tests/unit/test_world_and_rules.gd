@@ -1553,16 +1553,16 @@ func test_transient_warmup_has_visible_world_space_trails_without_simulation() -
 				assert_lt(smoke._elapsed, smoke.lifetime)
 	assert_gt(trail_count, 0)
 
-func test_transient_warmup_retains_materials_after_samples_are_removed() -> void:
+func test_world_prewarmer_retains_transient_materials_after_samples_are_removed() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D
-	var pool := add_child_autofree(CombatEffectPool.new()) as CombatEffectPool
-	var samples := CombatVfxWarmup.create_transient_samples(parent, Vector3(0, 80, 0))
-	pool._retain_sample_materials(samples)
-	var count := pool.prepared_materials.size()
+	var samples := CombatVfxSampleCatalog.create_transient_samples(parent, Vector3(0, 80, 0))
+	var materials: Array[Material] = []
+	CombatVfxWorldPrewarmer.retain_sample_materials(samples, materials)
+	var count := materials.size()
 	assert_gt(count, 0)
-	pool._retain_sample_materials(samples)
-	assert_eq(pool.prepared_materials.size(), count)
+	CombatVfxWorldPrewarmer.retain_sample_materials(samples, materials)
+	assert_eq(materials.size(), count)
 	for sample: Node3D in samples:
 		sample.free()
-	for material: Material in pool.prepared_materials:
+	for material: Material in materials:
 		assert_true(is_instance_valid(material))

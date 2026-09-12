@@ -74,6 +74,12 @@ static func _smoke_mesh() -> QuadMesh:
 		smoke_mesh.material = material
 	return smoke_mesh
 
+## Advances the burst and its owned trails together for renderer warmup.
+func prepare_preview(delta: float) -> void:
+	_process(delta)
+	for trail: LingeringSmokeTrail in smoke_trails:
+		trail.prepare_preview(delta)
+
 func _process(delta: float) -> void:
 	var before := elapsed
 	elapsed += delta

@@ -152,6 +152,11 @@ func gameplay_tick(delta: float) -> void:
 		remaining -= step
 	_sync_visuals()
 
+## Adds and synchronizes one inert airburst for renderer warmup.
+func prepare_airburst_preview(position: Vector3, reason: StringName = &"timeout") -> void:
+	_detonate(position, reason)
+	_sync_visuals()
+
 func _step(delta: float) -> void:
 	for index: int in range(bursts.size() - 1, -1, -1):
 		bursts[index].age = float(bursts[index].age) + delta

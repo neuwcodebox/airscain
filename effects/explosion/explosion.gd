@@ -25,8 +25,9 @@ var fireball_material: StandardMaterial3D
 
 static func spawn(parent: Node3D, position: Vector3, color: Color, radius: float) -> ExplosionEffect:
 	for node: Node in parent.get_tree().get_nodes_in_group("combat_effect_pool"):
-		if (node as Node3D).get_world_3d() == parent.get_world_3d():
-			return node.call("spawn_explosion", parent, position, color, radius) as ExplosionEffect
+		var pool := node as CombatEffectPool
+		if pool != null and pool.get_world_3d() == parent.get_world_3d():
+			return pool.spawn_explosion(parent, position, color, radius)
 	var effect := (load("res://effects/explosion/explosion.tscn") as PackedScene).instantiate() as ExplosionEffect
 	parent.add_child(effect)
 	effect.global_position = position
@@ -70,6 +71,10 @@ func setup(color: Color, radius: float) -> void:
 	fireball.emitting = true
 	smoke.emitting = true
 	sparks.emitting = true
+
+## Advances an inert sample without exposing the frame callback.
+func prepare_preview(delta: float) -> void:
+	_process(delta)
 
 func _process(delta: float) -> void:
 	elapsed += delta

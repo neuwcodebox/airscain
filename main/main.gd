@@ -662,7 +662,7 @@ func _clear_runtime_objects() -> void:
 				continue
 			if child is ExplosionEffect and (child as ExplosionEffect).reusable:
 				(child as ExplosionEffect).deactivate()
-				combat_effect_pool._recycle(child as ExplosionEffect)
+				combat_effect_pool.recycle(child as ExplosionEffect)
 			else:
 				child.free()
 	defenses.clear()

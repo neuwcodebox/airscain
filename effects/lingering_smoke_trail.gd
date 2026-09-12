@@ -106,6 +106,10 @@ func smoke_bounds() -> AABB:
 func active_puff_count() -> int:
 	return _active_slots.size()
 
+## Advances an inert sample without exposing the frame callback.
+func prepare_preview(delta: float) -> void:
+	_process(delta)
+
 func _process(delta: float) -> void:
 	_elapsed += delta
 	smoke_material.set_shader_parameter("trail_time", _elapsed)

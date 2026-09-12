@@ -4,16 +4,18 @@ extends SubViewport
 signal completed
 signal progress_changed(fraction: float)
 
-const INTERCEPTOR_SCENE := preload("res://defense/missile_battery/homing_interceptor.tscn")
-const EXPLOSION_SCENE := preload("res://effects/explosion/explosion.tscn")
-const LASER_SCENE := preload("res://effects/laser_pulse/laser_pulse.tscn")
-const FIELD_SHADER := preload("res://effects/field_pulse.gdshader")
-const DAMAGE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
-const COUNTERMEASURE_SCENE := preload("res://effects/countermeasure_burst/countermeasure_burst.tscn")
-const MISS_SCENE := preload("res://effects/interceptor_miss/interceptor_miss.tscn")
-const WRECK_SCENE := preload("res://effects/falling_wreck/falling_wreck.tscn")
-const STRIKE_SCENE := preload("res://effects/air_strike_munition/air_strike_munition.tscn")
-const DRONE_SCENE := preload("res://defense/interceptor_drone/interceptor_drone.tscn")
+const SAMPLE_CATALOG := preload("res://effects/combat_vfx_sample_catalog.gd")
+# Diagnostics use these public aliases to instantiate individual warmup assets.
+const INTERCEPTOR_SCENE := SAMPLE_CATALOG.INTERCEPTOR_SCENE
+const EXPLOSION_SCENE := SAMPLE_CATALOG.EXPLOSION_SCENE
+const LASER_SCENE := SAMPLE_CATALOG.LASER_SCENE
+const FIELD_SHADER := SAMPLE_CATALOG.FIELD_SHADER
+const DAMAGE_SCENE := SAMPLE_CATALOG.DAMAGE_SCENE
+const COUNTERMEASURE_SCENE := SAMPLE_CATALOG.COUNTERMEASURE_SCENE
+const MISS_SCENE := SAMPLE_CATALOG.MISS_SCENE
+const WRECK_SCENE := SAMPLE_CATALOG.WRECK_SCENE
+const STRIKE_SCENE := SAMPLE_CATALOG.STRIKE_SCENE
+const DRONE_SCENE := SAMPLE_CATALOG.DRONE_SCENE
 const SCENARIO := preload("res://main/first_scenario.tres")
 const WARMUP_POSITION := Vector3(0.0, 0.0, -8.0)
 
@@ -28,18 +30,16 @@ func _init() -> void:
 func _ready() -> void:
 	_add_camera_and_light()
 	_add_shadow_receiver()
-	_add_interceptor_sample()
-	_add_explosion_sample()
-	_add_energy_samples()
+	SAMPLE_CATALOG.add_initial_effect_samples(self, WARMUP_POSITION)
 	await _render_samples()
 	progress_changed.emit(0.2)
-	_add_damage_and_countermeasures()
+	SAMPLE_CATALOG.add_damage_and_countermeasure_samples(self, WARMUP_POSITION)
 	await _render_samples()
 	progress_changed.emit(0.4)
-	_add_secondary_effects()
+	SAMPLE_CATALOG.add_secondary_effect_samples(self, WARMUP_POSITION, SCENARIO)
 	await _render_samples()
 	progress_changed.emit(0.6)
-	var definitions := content_definitions(SCENARIO)
+	var definitions := SAMPLE_CATALOG.content_definitions(SCENARIO)
 	for index: int in definitions.size():
 		_add_content_sample(definitions[index])
 		if index % 4 == 3 or index == definitions.size() - 1:
@@ -48,95 +48,21 @@ func _ready() -> void:
 	completed.emit()
 	queue_free()
 
+# Public creation helpers delegate to the shared sample catalog.
+static func content_definitions(scenario: ScenarioDefinition) -> Array[Resource]:
+	return SAMPLE_CATALOG.content_definitions(scenario)
+
+static func create_content_sample(parent: Node, definition: Resource) -> Node3D:
+	return SAMPLE_CATALOG.create_content_sample(parent, definition)
+
+static func create_transient_samples(parent: Node3D, position_value: Vector3) -> Array[Node3D]:
+	return SAMPLE_CATALOG.create_transient_samples(parent, position_value)
+
 func _add_content_sample(definition: Resource) -> Node3D:
-	var model := create_content_sample(self, definition)
+	var model := SAMPLE_CATALOG.create_content_sample(self, definition)
 	model.position = WARMUP_POSITION
 	model.scale = Vector3.ONE * 0.18
 	return model
-
-static func content_definitions(scenario: ScenarioDefinition) -> Array[Resource]:
-	var definitions: Array[Resource] = []
-	definitions.append_array(scenario.available_defenses)
-	for entry: ThreatSpawnEntry in scenario.threat_entries:
-		if not definitions.has(entry.threat_definition):
-			definitions.append(entry.threat_definition)
-	for definition: ThreatDefinition in scenario.ambient_contacts:
-		if not definitions.has(definition):
-			definitions.append(definition)
-	# Released weapons also acquire runtime haze materials when registered.
-	var index := 0
-	while index < definitions.size():
-		var threat := definitions[index] as ThreatDefinition
-		if threat != null:
-			for released: ThreatDefinition in threat.released_threat_definitions():
-				if not definitions.has(released):
-					definitions.append(released)
-		index += 1
-	return definitions
-
-static func create_content_sample(parent: Node, definition: Resource) -> Node3D:
-	var model: Node3D
-	if definition is DefenseDefinition:
-		var content := definition as DefenseDefinition
-		var unit := content.scene.instantiate() as DefenseUnit
-		parent.add_child(unit)
-		unit.setup(1, content)
-		model = unit
-	else:
-		var content := definition as ThreatDefinition
-		var unit := content.scene.instantiate() as ThreatUnit
-		parent.add_child(unit)
-		unit.setup(1, content)
-		model = unit
-	model.process_mode = Node.PROCESS_MODE_DISABLED
-	for visual: Node in model.find_children("*", "GeometryInstance3D", true, false):
-		if visual.get_meta("warmup_visible", false):
-			(visual as GeometryInstance3D).visible = true
-	return model
-
-static func create_transient_samples(parent: Node3D, position_value: Vector3) -> Array[Node3D]:
-	var samples: Array[Node3D] = []
-	for scene: PackedScene in [INTERCEPTOR_SCENE, STRIKE_SCENE, DRONE_SCENE]:
-		var model := scene.instantiate() as Node3D
-		parent.add_child(model)
-		model.global_position = position_value
-		model.process_mode = Node.PROCESS_MODE_DISABLED
-		for child: Node in model.find_children("*", "MultiMeshInstance3D", true, false):
-			if child is LingeringSmokeTrail:
-				var smoke := child as LingeringSmokeTrail
-				smoke.sample_world_segment(position_value + Vector3.LEFT * 20, position_value + Vector3.RIGHT * 20)
-				# Birth alpha is zero; render after fade-in, not invisible cards.
-				smoke._process(minf(1.0, smoke.lifetime * 0.25))
-		samples.append(model)
-	var laser := LASER_SCENE.instantiate() as LaserPulse
-	parent.add_child(laser)
-	laser.setup(position_value + Vector3.LEFT * 20, position_value + Vector3.RIGHT * 20)
-	samples.append(laser)
-	var miss := MISS_SCENE.instantiate() as InterceptorMissEffect
-	parent.add_child(miss)
-	miss.global_position = position_value
-	miss.setup(Color.ORANGE, "지형 충돌 · 유도 상실 · 표적 소실 · 요격 실패")
-	samples.append(miss)
-	for kind: StringName in [&"flare", &"chaff"]:
-		var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
-		parent.add_child(burst)
-		burst.global_position = position_value
-		burst.call("setup", kind, Vector3(90, 0, 0))
-		# Include the last sequential flare and advance smoke past birth fade-in.
-		var preview_age := CountermeasureBurst.RELEASE_INTERVAL * (CountermeasureBurst.HEAD_COUNT - 1) + 0.3
-		burst.call("_process", preview_age)
-		for child: Node in burst.get_children():
-			if child is LingeringSmokeTrail:
-				(child as LingeringSmokeTrail)._process(preview_age)
-		samples.append(burst)
-	for sample: Node3D in samples:
-		sample.process_mode = Node.PROCESS_MODE_DISABLED
-		for child: Node in sample.find_children("*", "GPUParticles3D", true, false):
-			var particles := child as GPUParticles3D
-			particles.process_mode = Node.PROCESS_MODE_ALWAYS
-			particles.preprocess = 0.2
-			particles.restart()
-	return samples
 
 func _render_samples() -> void:
 	for node: Node in get_children():
@@ -156,43 +82,6 @@ func _render_samples() -> void:
 		if not node.has_meta("warmup_fixture"):
 			node.queue_free()
 	await get_tree().process_frame
-
-func _add_damage_and_countermeasures() -> void:
-	var smoke := DAMAGE_SCENE.instantiate() as DamageSmokeEffect
-	smoke.position = WARMUP_POSITION
-	add_child(smoke)
-	smoke.set_city_scale(0.12)
-	for kind: StringName in [&"flare", &"chaff"]:
-		var burst := COUNTERMEASURE_SCENE.instantiate() as Node3D
-		burst.position = WARMUP_POSITION
-		burst.scale = Vector3.ONE * 0.1
-		add_child(burst)
-		burst.call("setup", kind)
-
-func _add_secondary_effects() -> void:
-	var tracer := GunfireRuntime.new()
-	add_child(tracer)
-	var gun_definition := SCENARIO.available_defenses[4] as CloseInGunDefinition
-	tracer.enqueue(WARMUP_POSITION, WARMUP_POSITION + Vector3.RIGHT * 100, Vector3.ZERO, 1, 1, gun_definition, RandomNumberGenerator.new())
-	tracer.gameplay_tick(0.01)
-	tracer._detonate(WARMUP_POSITION, &"timeout")
-	tracer._sync_visuals()
-	var miss := MISS_SCENE.instantiate() as InterceptorMissEffect
-	miss.position = WARMUP_POSITION
-	add_child(miss)
-	miss.setup(Color.ORANGE, "지형 충돌 · 유도 상실 · 표적 소실")
-	var wreck := WRECK_SCENE.instantiate() as FallingWreckEffect
-	wreck.position = WARMUP_POSITION
-	add_child(wreck)
-	wreck.setup(Color.GRAY, Vector3.ZERO, -100)
-	wreck.smoke.sample_world_segment(WARMUP_POSITION, WARMUP_POSITION + Vector3.RIGHT * 2)
-	for scene: PackedScene in [STRIKE_SCENE, DRONE_SCENE]:
-		var model := scene.instantiate() as Node3D
-		model.position = WARMUP_POSITION
-		add_child(model)
-		model.set_process(false)
-		if scene == STRIKE_SCENE:
-			wreck.use_airframe(model)
 
 func _add_camera_and_light() -> void:
 	var camera := Camera3D.new()
@@ -226,30 +115,3 @@ func _add_shadow_receiver() -> void:
 	receiver.set_meta("warmup_fixture", true)
 	receiver.position = WARMUP_POSITION + Vector3.DOWN * 3.0
 	add_child(receiver)
-
-func _add_interceptor_sample() -> void:
-	var interceptor := INTERCEPTOR_SCENE.instantiate() as HomingInterceptor
-	interceptor.position = WARMUP_POSITION
-	add_child(interceptor)
-	var smoke := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
-	smoke.sample_world_segment(WARMUP_POSITION + Vector3.LEFT * 2.0, WARMUP_POSITION + Vector3.RIGHT * 2.0)
-
-func _add_explosion_sample() -> void:
-	var explosion := EXPLOSION_SCENE.instantiate() as ExplosionEffect
-	explosion.position = WARMUP_POSITION + Vector3.RIGHT * 3.0
-	add_child(explosion)
-	explosion.setup(Color(1.0, 0.35, 0.06), 2.0)
-	explosion._process(0.18)
-
-func _add_energy_samples() -> void:
-	var laser := LASER_SCENE.instantiate() as LaserPulse
-	add_child(laser)
-	laser.setup(WARMUP_POSITION + Vector3.LEFT * 2.0, WARMUP_POSITION + Vector3.RIGHT * 2.0)
-	laser.set_process(false)
-	var field := MeshInstance3D.new()
-	field.mesh = SphereMesh.new()
-	var material := ShaderMaterial.new()
-	material.shader = FIELD_SHADER
-	field.material_override = material
-	field.position = WARMUP_POSITION
-	add_child(field)
