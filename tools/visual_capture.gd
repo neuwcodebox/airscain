@@ -2497,6 +2497,9 @@ func _capture_strike_vfx() -> void:
 	main.camera_rig._update_camera()
 
 func _capture_missile_smoke_trail() -> void:
+	main.auto_start_sustained = false
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	var interceptor := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(interceptor)
 	var start := main.objective.global_position + Vector3(-120.0, 95.0, -35.0)
@@ -2536,7 +2539,7 @@ func _capture_missile_smoke_trail() -> void:
 	smoke.call("release_to", main.effects_parent)
 	interceptor.queue_free()
 	var fade_quarter := smoke.release_fade_duration * 0.25
-	await _wait_seconds(fade_quarter)
+	await _wait_simulation_seconds(fade_quarter)
 	var aged_smoke_bounds := smoke.smoke_bounds()
 	_save_capture("/tmp/airscain_missile_smoke_aged.png")
 	if maxf(aged_smoke_bounds.size.y, aged_smoke_bounds.size.z) < 4.0:
@@ -2544,23 +2547,23 @@ func _capture_missile_smoke_trail() -> void:
 		quit(1)
 		return
 	var aged_opacity := smoke.current_opacity_ratio
-	await _wait_seconds(fade_quarter)
+	await _wait_simulation_seconds(fade_quarter)
 	_save_capture("/tmp/airscain_missile_smoke_fading.png")
 	var fading_opacity := smoke.current_opacity_ratio
-	await _wait_seconds(fade_quarter)
+	await _wait_simulation_seconds(fade_quarter)
 	_save_capture("/tmp/airscain_missile_smoke_near_end.png")
 	var near_end_opacity := smoke.current_opacity_ratio
 	if not (aged_opacity > fading_opacity and fading_opacity > near_end_opacity and near_end_opacity > 0.0):
 		push_error("Missile smoke trail opacity did not decrease continuously")
 		quit(1)
 		return
-	await _wait_seconds(fade_quarter + 0.05)
+	await _wait_simulation_seconds(fade_quarter + 0.05)
 	_save_capture("/tmp/airscain_missile_smoke_transparent_tail.png")
 	if not is_instance_valid(smoke) or smoke.current_opacity_ratio > 0.001 or smoke.release_remaining <= 0.0:
 		push_error("Missile smoke trail was not fully transparent before cleanup")
 		quit(1)
 		return
-	await _wait_seconds(smoke.transparent_cleanup_delay + 0.1)
+	await _wait_simulation_seconds(smoke.transparent_cleanup_delay + 0.1)
 	if is_instance_valid(smoke):
 		push_error("Fully transparent missile smoke trail was not cleaned up")
 		quit(1)

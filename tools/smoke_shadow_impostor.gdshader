@@ -18,7 +18,7 @@ void vertex() {
 	float radius = shadow_radius * sqrt(max(smoothstep(0.02, 0.35, alpha) * opacity_ratio, 0.0));
 	vec3 drift = vec3(0.0);
 	if (trail_enabled) {
-		vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb);
+		vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb, MODEL_MATRIX[3].xyz);
 		drift = motion.xyz;
 		radius *= motion.w * trail_haze(MODEL_MATRIX[3].xyz + drift);
 	}
