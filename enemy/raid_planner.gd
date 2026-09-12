@@ -3,6 +3,7 @@ extends RefCounted
 
 const PATTERNS: Array[StringName] = [&"concentration", &"diversion", &"layered", &"suppression"]
 const MAX_GROUPS := 6
+const MAX_AUXILIARY_GROUPS := 2
 var last_pattern: StringName
 
 # Only content, observed weights and the operation RNG enter this planner.
@@ -72,9 +73,19 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 		spent = _cost(lead) + _cost(strike)
 		anchor_delay = delays.y
 		anchor_eta = _eta(strike, scenario, speed)
+		if last_pattern == &"suppression" and waves.size() - 1 < MAX_AUXILIARY_GROUPS:
+			var complement := _complementary_support(entries, lead, weights, budget - spent, anchor_delay, anchor_eta, scenario, speed, max_delay, angle, rng)
+			if not complement.is_empty():
+				var shift := float(complement.shift)
+				if shift > 0.0:
+					for wave: Dictionary in waves:
+						wave.remaining = float(wave.remaining) + shift
+					anchor_delay += shift
+				waves.append(complement.wave)
+				spent += _cost(complement.entry)
 	# Fill around the main effort, with at most one optional scout/decoy.
-	var has_auxiliary := last_pattern != &"concentration"
-	if not has_auxiliary and asset_pairs.is_empty() and level >= 2 and rng.randf() < 0.5:
+	var auxiliary_groups := 0 if last_pattern == &"concentration" else waves.size() - 1
+	if auxiliary_groups == 0 and asset_pairs.is_empty() and level >= 2 and rng.randf() < 0.5:
 		var scouts: Array[ThreatSpawnEntry] = []
 		for entry: ThreatSpawnEntry in entries:
 			if entry.raid_role == ThreatSpawnEntry.RaidRole.RECON:
@@ -83,14 +94,14 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 		if scout != null:
 			waves.append(_wave(scout, 0.0, angle + 0.3))
 			spent += _cost(scout)
-			has_auxiliary = true
+			auxiliary_groups += 1
 	while waves.size() < MAX_GROUPS:
 		var pool: Array[ThreatSpawnEntry] = []
 		for entry: ThreatSpawnEntry in entries:
 			var desired_delay := anchor_delay + anchor_eta - _eta(entry, scenario, speed)
 			if desired_delay < 0.0 or desired_delay > max_delay:
 				continue
-			if entry.raid_role == ThreatSpawnEntry.RaidRole.STRIKE or not has_auxiliary and entry.raid_role in [ThreatSpawnEntry.RaidRole.RECON, ThreatSpawnEntry.RaidRole.DECEPTION]:
+			if entry.raid_role == ThreatSpawnEntry.RaidRole.STRIKE or auxiliary_groups == 0 and entry.raid_role in [ThreatSpawnEntry.RaidRole.RECON, ThreatSpawnEntry.RaidRole.DECEPTION]:
 				pool.append(entry)
 		var extra := _pick_entry(pool, weights, budget - spent, rng)
 		if extra == null:
@@ -98,7 +109,7 @@ func generate(scenario: ScenarioDefinition, weights: Dictionary[StringName, floa
 		var delay := minf(anchor_delay + anchor_eta - _eta(extra, scenario, speed) + rng.randf_range(0.0, 3.0), max_delay)
 		waves.append(_wave(extra, delay, angle + rng.randf_range(-0.18, 0.18)))
 		spent += _cost(extra)
-		has_auxiliary = has_auxiliary or extra.raid_role != ThreatSpawnEntry.RaidRole.STRIKE
+		auxiliary_groups += int(extra.raid_role != ThreatSpawnEntry.RaidRole.STRIKE)
 	waves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.remaining) < float(b.remaining))
 	return waves
 
@@ -111,6 +122,32 @@ func _matches_pair(pattern: StringName, lead: ThreatSpawnEntry, strike: ThreatSp
 		&"suppression":
 			return lead.raid_role == ThreatSpawnEntry.RaidRole.SUPPRESSION
 	return false
+
+func _complementary_support(entries: Array[ThreatSpawnEntry], lead: ThreatSpawnEntry, weights: Dictionary[StringName, float], budget: float, anchor_delay: float, anchor_eta: float, scenario: ScenarioDefinition, speed: float, max_delay: float, angle: float, rng: RandomNumberGenerator) -> Dictionary:
+	var candidates: Array[Dictionary] = []
+	var lead_is_jammer := lead.threat_definition.jamming_strength > 0.0
+	for entry: ThreatSpawnEntry in entries:
+		if entry == lead or _cost(entry) > budget:
+			continue
+		var is_deception := entry.raid_role == ThreatSpawnEntry.RaidRole.DECEPTION
+		var is_jammer := entry.raid_role == ThreatSpawnEntry.RaidRole.SUPPRESSION and entry.threat_definition.jamming_strength > 0.0
+		var mission := entry.threat_definition.mission_definition()
+		var is_direct_suppression := entry.raid_role == ThreatSpawnEntry.RaidRole.SUPPRESSION and mission != null and mission.target_role != ThreatMissionDefinition.TargetRole.CITY
+		if lead_is_jammer and not is_direct_suppression or not lead_is_jammer and not (is_jammer or is_deception):
+			continue
+		var gap := rng.randf_range(6.0, 12.0) if is_deception else (rng.randf_range(2.0, 5.0) if is_jammer else rng.randf_range(10.0, 18.0))
+		var delay := anchor_delay + anchor_eta - gap - _eta(entry, scenario, speed)
+		var shift := maxf(0.0, -delay)
+		delay += shift
+		if delay > max_delay or anchor_delay + shift > max_delay:
+			continue
+		var entry_angle := angle
+		if is_deception:
+			entry_angle += rng.randf_range(PI * 0.5, PI * 0.9) * (-1.0 if rng.randf() < 0.5 else 1.0)
+		candidates.append({"entry": entry, "wave": _wave(entry, delay, entry_angle), "shift": shift, "weight": weights[entry.threat_definition.id]})
+	if candidates.is_empty():
+		return {}
+	return _weighted_dictionary(candidates, rng)
 
 func _strikes(entries: Array[ThreatSpawnEntry]) -> Array[ThreatSpawnEntry]:
 	var result: Array[ThreatSpawnEntry] = []
