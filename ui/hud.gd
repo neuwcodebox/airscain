@@ -64,8 +64,8 @@ const POWER_INACTIVE_COLOR := Color(0.48, 0.58, 0.62)
 const METRIC_FONT_SIZE := 14
 const MENU_COLLAPSED_SYMBOL := "▼"
 const MENU_EXPANDED_SYMBOL := "▲"
-const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic", &"c2"]
-const OVERLAY_LABELS: Array[String] = ["없음", "탐지 범위", "사거리", "지원 범위", "전자전", "지휘 연결"]
+const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic"]
+const OVERLAY_LABELS: Array[String] = ["없음", "탐지 범위", "사거리", "지원 범위", "전자전"]
 const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special"]
 const CATALOG_GROUP_LABELS := {
 	&"sensor": "감시·추적",

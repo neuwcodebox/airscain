@@ -398,16 +398,15 @@ func test_topbar_power_status_distinguishes_capacity_states() -> void:
 func test_topbar_dropdown_selects_directly_and_excludes_other_menus() -> void:
 	var option := main.hud.overlay_option
 	assert_eq(option.item_count, Hud.OVERLAY_MODES.size())
+	assert_false(Hud.OVERLAY_MODES.has(&"c2"))
+	assert_false(Hud.OVERLAY_LABELS.has("지휘 연결"))
 	main.hud.set_catalog_expanded(true)
 	option.get_popup().about_to_popup.emit()
 	assert_false(main.hud.catalog.visible)
 	assert_false(main.hud.defense_menu_button.button_pressed)
-	option.item_selected.emit(5)
-	assert_true(main.c2_overlay.show_all_links)
-	assert_eq(option.selected, 5)
 	option.item_selected.emit(2)
-	assert_false(main.c2_overlay.show_all_links)
 	assert_eq(main.tactical_range_overlay.mode, &"weapon")
+	assert_false(main.c2_overlay.visible)
 	assert_eq(option.selected, 2)
 	option.item_selected.emit(0)
 	assert_eq(main.tactical_range_overlay.mode, &"none")
@@ -415,7 +414,7 @@ func test_topbar_dropdown_selects_directly_and_excludes_other_menus() -> void:
 	option.item_selected.emit(-1)
 	assert_eq(option.selected, 0)
 	option.disabled = true
-	option.item_selected.emit(5)
+	option.item_selected.emit(4)
 	assert_eq(option.selected, 0)
 
 func test_city_restoration_spends_budget_in_preparation_and_combat() -> void:
@@ -1423,12 +1422,9 @@ func test_tactical_dropdown_selects_one_public_information_layer_at_a_time() -> 
 	(radar_result.unit as DefenseUnit).active = true
 	electronic._process(0.3)
 	assert_true(electronic.interference_patches.has(radar_id))
-	main.hud.overlay_option.item_selected.emit(5)
-	assert_eq(main.tactical_range_overlay.mode, &"none")
-	assert_true(main.c2_overlay.show_all_links)
-	assert_true(electronic.interference_patches.is_empty())
 	main.hud.overlay_option.item_selected.emit(0)
-	assert_false(main.c2_overlay.show_all_links)
+	assert_eq(main.tactical_range_overlay.mode, &"none")
+	assert_true(electronic.interference_patches.is_empty())
 	assert_eq(main.hud.overlay_option.text, "없음")
 	assert_eq((main.hud.overlay_option.get_parent().get_node("OverlayLabel") as Label).text, "전술 표시")
 

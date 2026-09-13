@@ -419,8 +419,7 @@ func _on_placement_preview_changed(definition: DefenseDefinition, position: Vect
 	hud.set_placement_power_preview(power_manager.total_demand(), added_demand, power_manager.generation_capacity(), added_capacity, screen_position, active)
 
 func _on_overlay_requested(mode: StringName) -> void:
-	c2_overlay.set_all_links(mode == &"c2")
-	tactical_range_overlay.set_mode(&"none" if mode == &"c2" else mode)
+	tactical_range_overlay.set_mode(mode)
 
 func _on_world_selected(position: Vector3, screen_position: Vector2 = Vector2.INF) -> void:
 	var nearest_distance := 32.0

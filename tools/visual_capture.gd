@@ -1416,7 +1416,6 @@ func _capture_topbar_menus() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_tactical_dropdown.png")
 	main.hud.overlay_option.get_popup().hide()
-	main.hud.overlay_option.item_selected.emit(5)
 	main.hud.configured_game_mode = AirscainMain.GameMode.SANDBOX
 	main.hud._build_mode_controls(AirscainMain.GameMode.SANDBOX)
 	for index: int in 4:

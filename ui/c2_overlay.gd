@@ -8,7 +8,6 @@ const LINK_HEIGHT := 9.0
 var c2_network: C2Network
 var support_manager: SupportManager
 var selected_asset: DefenseUnit
-var show_all_links: bool = false
 var visible_link_count: int = 0
 var visible_c2_link_count: int = 0
 var visible_support_link_count: int = 0
@@ -70,22 +69,14 @@ func configure(network: C2Network, support: SupportManager, label_obstacles: Arr
 
 func select_asset(unit: DefenseUnit) -> void:
 	selected_asset = unit
-	visible = unit != null or show_all_links
-	_rebuild()
-
-func toggle_all_links() -> void:
-	set_all_links(not show_all_links)
-
-func set_all_links(enabled: bool) -> void:
-	show_all_links = enabled
-	visible = show_all_links or selected_asset != null
+	visible = unit != null
 	_rebuild()
 
 func preview_placement(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
 	placement_definition = definition
 	placement_position = position
 	placement_active = active and definition != null
-	visible = placement_active or show_all_links or selected_asset != null
+	visible = placement_active or selected_asset != null
 	_rebuild()
 
 func _rebuild() -> void:
@@ -111,13 +102,12 @@ func _rebuild() -> void:
 			var first := link[0] as DefenseUnit
 			var second := link[1] as DefenseUnit
 			var touches_selection := selected_asset == first or selected_asset == second
-			if not show_all_links and not touches_selection:
+			if not touches_selection:
 				continue
 			surface_started = _ensure_surface(line_mesh, surface_started)
 			_add_relation(line_mesh, first.global_position, second.global_position, C2_COLOR)
 			visible_link_count += 1
-			if touches_selection or selected_asset == null:
-				visible_c2_link_count += 1
+			visible_c2_link_count += 1
 	var support_relations := _support_relations()
 	for relation: Array in support_relations:
 		surface_started = _ensure_surface(line_mesh, surface_started)
