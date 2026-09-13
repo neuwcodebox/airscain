@@ -99,7 +99,7 @@ func _ready() -> void:
 	c2_overlay.configure(c2_network, support_manager, range_label_obstacles, battlefield)
 	tactical_range_overlay.configure(defense_parent, registry, support_manager, battlefield)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
-	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager, range_label_obstacles)
+	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager, range_label_obstacles, game_mode != GameMode.TRAINING)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
 	ui_audio.connect_buttons(hud)
 	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)

@@ -34,9 +34,11 @@ var last_dependency_position: Vector3
 var dependency_preview_active: bool = false
 var hovered_asset: DefenseUnit
 var range_label_obstacles: Array[Control] = []
+var continuous_defense_placement: bool = false
 
-func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager, label_obstacles: Array[Control] = []) -> void:
+func configure(session_value: GameSession, battlefield_value: Battlefield, camera_value: Camera3D, defense_parent_value: Node3D, projectile_parent_value: Node3D, registry_value: ThreatRegistry, relocation_manager_value: RelocationManager, label_obstacles: Array[Control] = [], continuous_defense_placement_value: bool = false) -> void:
 	range_label_obstacles = label_obstacles
+	continuous_defense_placement = continuous_defense_placement_value
 	session = session_value
 	battlefield = battlefield_value
 	battlefield.set_rooftop_pads_visible(false)
@@ -192,7 +194,7 @@ func request_selected_defense_placement() -> bool:
 		placement_rejected.emit()
 		return false
 	placement_succeeded.emit()
-	if session.unlimited_budget and relocating_unit == null:
+	if continuous_defense_placement and relocating_unit == null:
 		_publish_dependency_preview(selected, candidate_position, true, true)
 		feedback_changed.emit("배치했습니다. 같은 자산을 계속 배치할 수 있습니다.", true)
 	else:

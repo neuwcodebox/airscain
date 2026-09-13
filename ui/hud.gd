@@ -72,6 +72,7 @@ const CATALOG_GROUP_LABELS := {
 
 @onready var budget_label: Label = %BudgetLabel
 @onready var city_status_label: Label = %CityStatusLabel
+@onready var city_damage_vignette: CityDamageVignette = %CityDamageVignette
 @onready var defense_menu_button: Button = %DefenseMenuButton
 @onready var city_menu_button: Button = %CityMenuButton
 @onready var threat_menu_button: Button = %ThreatMenuButton
@@ -172,6 +173,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	session.phase_changed.connect(_on_phase_changed)
 	session.statistics_changed.connect(_on_state_changed)
 	objective.integrity_changed.connect(_on_integrity_changed)
+	objective.damage_received.connect(city_damage_vignette.show_damage)
 	_on_state_changed()
 	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
 	set_selected_asset(null, 0)

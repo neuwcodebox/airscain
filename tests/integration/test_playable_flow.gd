@@ -47,6 +47,23 @@ func test_result_visual_preparation_preserves_gameplay_and_hidden_panel() -> voi
 	assert_false(main.hud.game_over_panel.visible)
 	assert_false(main.hud.game_over_blocker.visible)
 
+func test_city_damage_vignette_appears_immediately_and_fades_once() -> void:
+	var vignette := main.hud.city_damage_vignette
+	var material := vignette.material as ShaderMaterial
+	assert_false(vignette.visible)
+	assert_true(main.objective.apply_mission_damage(10))
+	assert_true(vignette.visible)
+	assert_eq(float(material.get_shader_parameter("strength")), 1.0)
+	vignette._process(CityDamageVignette.FADE_DURATION * 0.5)
+	var partial_strength := float(material.get_shader_parameter("strength"))
+	assert_gt(partial_strength, 0.0)
+	assert_lt(partial_strength, 1.0)
+	assert_true(main.objective.apply_mission_damage(10))
+	assert_eq(float(material.get_shader_parameter("strength")), 1.0, "연속 피격은 효과를 중첩하지 않고 처음 농도로 갱신합니다")
+	vignette._process(CityDamageVignette.FADE_DURATION)
+	assert_false(vignette.visible)
+	assert_false(vignette.is_processing())
+
 func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	main.set_process(false)
 	main.session.phase = GameSession.Phase.RUNNING
@@ -634,6 +651,18 @@ func test_asset_previews_show_geometry_without_creating_live_defenses() -> void:
 	assert_eq(main.session.defense_count, defenses_before)
 	assert_eq(main.registry.count(), contact_count)
 	main.placement.cancel()
+
+func test_sustained_mode_keeps_the_same_defense_selected_after_placement() -> void:
+	var definition := _defense_definition_for(main, &"search_radar")
+	main.session.budget = definition.price
+	main.placement.select(definition)
+	main.placement.candidate_position = _find_valid_position_for(definition.placement_profile)
+	assert_true(main.placement.request_selected_defense_placement())
+	assert_same(main.placement.selected, definition)
+	assert_not_null(main.placement.preview)
+	assert_eq(main.session.budget, 0)
+	assert_false(main.placement.request_selected_defense_placement(), "예산이 다시 생길 때까지 선택 상태에서 배치만 거부합니다")
+	assert_same(main.placement.selected, definition)
 
 func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	var previous_mode := AirscainMain.requested_mode
