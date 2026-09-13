@@ -68,6 +68,9 @@ func configure_c2(_network: C2Network) -> void:
 func configure_engagements(_coordinator: EngagementCoordinator) -> void:
 	pass
 
+func configure_sensor_tracking(_coordinator: RadarTrackingCoordinator) -> void:
+	pass
+
 func configure_support(manager: SupportManager) -> void:
 	support_manager = manager
 

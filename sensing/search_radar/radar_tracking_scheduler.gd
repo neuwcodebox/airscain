@@ -30,13 +30,37 @@ func priority_for(
 	var engagement_support := ACTIVE_ENGAGEMENT_BONUS if actively_engaged else 0.0
 	return imminent_risk + quality * SIGNAL_QUALITY_WEIGHT + continuity + engagement_support
 
-func select(candidates: Array[RadarTrackCandidate], scan_index: int) -> Array[RadarTrackCandidate]:
-	var ranked := candidates.duplicate()
-	ranked.sort_custom(_ranks_before)
-	if ranked.size() <= capacity:
-		return ranked
-	var cycling_slots := capacity / CYCLING_SLOT_DIVISOR
-	var stable_slots := capacity - cycling_slots
+func select(
+	candidates: Array[RadarTrackCandidate],
+	scan_index: int,
+	external_support: Dictionary[String, int] = {},
+) -> Array[RadarTrackCandidate]:
+	var strata: Dictionary[int, Array] = {}
+	for candidate: RadarTrackCandidate in candidates:
+		var support_count := int(external_support.get(candidate.key, 0))
+		if not strata.has(support_count):
+			strata[support_count] = []
+		strata[support_count].append(candidate)
+	var support_levels: Array[int] = []
+	support_levels.assign(strata.keys())
+	support_levels.sort()
+	var selected: Array[RadarTrackCandidate] = []
+	for support_count: int in support_levels:
+		var ranked: Array[RadarTrackCandidate] = []
+		ranked.assign(strata[support_count])
+		ranked.sort_custom(_ranks_before)
+		var available_slots := capacity - selected.size()
+		if ranked.size() <= available_slots:
+			selected.append_array(ranked)
+		else:
+			selected.append_array(_select_from_stratum(ranked, available_slots, scan_index))
+		if selected.size() >= capacity:
+			break
+	return selected
+
+func _select_from_stratum(ranked: Array[RadarTrackCandidate], slots: int, scan_index: int) -> Array[RadarTrackCandidate]:
+	var cycling_slots := slots / CYCLING_SLOT_DIVISOR
+	var stable_slots := slots - cycling_slots
 	var selected: Array[RadarTrackCandidate] = []
 	selected.append_array(ranked.slice(0, stable_slots))
 	if cycling_slots <= 0:

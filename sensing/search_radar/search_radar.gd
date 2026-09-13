@@ -13,6 +13,7 @@ var scan_index: int = 0
 var saturated: bool = false
 var _definition: SearchRadarDefinition
 var _tracking_scheduler := RadarTrackingScheduler.new()
+var _tracking_coordinator: RadarTrackingCoordinator
 
 @onready var antenna: Node3D = $Antenna
 
@@ -34,6 +35,9 @@ func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge
 
 func configure_engagements(coordinator: EngagementCoordinator) -> void:
 	engagement_coordinator = coordinator
+
+func configure_sensor_tracking(coordinator: RadarTrackingCoordinator) -> void:
+	_tracking_coordinator = coordinator
 
 func c2_roles() -> int:
 	return C2Role.SENSOR
@@ -138,8 +142,12 @@ func _apply_tracking_capacity(candidates: Array[RadarTrackCandidate], timestamp:
 	for candidate: RadarTrackCandidate in candidates:
 		candidate_keys[candidate.key] = true
 	saturated = candidates.size() > _definition.tracking_capacity
-	var selected := _tracking_scheduler.select(candidates, scan_index)
+	var external_support: Dictionary[String, int] = {}
+	if _tracking_coordinator != null:
+		external_support = _tracking_coordinator.begin_selection(runtime_id, timestamp)
+	var selected := _tracking_scheduler.select(candidates, scan_index, external_support)
 	var next_contacts: Dictionary[String, int] = {}
+	var selected_keys: Array[String] = []
 	for candidate: RadarTrackCandidate in selected:
 		var observation := SensorObservation.new()
 		var uncertainty := lerpf(18.0, 70.0, 1.0 - candidate.quality) if candidate.false_echo else lerpf(5.0, 45.0, 1.0 - candidate.quality)
@@ -147,6 +155,9 @@ func _apply_tracking_capacity(candidates: Array[RadarTrackCandidate], timestamp:
 		observation.setup(runtime_id, timestamp, candidate.measured_position, candidate.quality, uncertainty, _definition.scan_interval, candidate.classification_hint, candidate.affiliation_hint, candidate.quality * identity_scale)
 		var track := player_knowledge.submit_observation(observation)
 		next_contacts[candidate.key] = track.track_id
+		selected_keys.append(candidate.key)
+	if _tracking_coordinator != null:
+		_tracking_coordinator.commit_selection(runtime_id, selected_keys, timestamp + _definition.scan_interval * 1.5)
 	for key: String in tracked_contacts:
 		if candidate_keys.has(key) and not next_contacts.has(key):
 			player_knowledge.note_capacity_gap(tracked_contacts[key], runtime_id, timestamp)

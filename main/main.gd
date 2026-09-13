@@ -32,6 +32,7 @@ var save_path: String = SaveStore.DEFAULT_PATH
 var tactical_ui_refresh_remaining: float = 0.0
 var game_mode: GameMode = GameMode.SUSTAINED
 var combat_effect_pool: CombatEffectPool
+var radar_tracking_coordinator := RadarTrackingCoordinator.new()
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -92,6 +93,7 @@ func _ready() -> void:
 	relocation_manager.configure(battlefield)
 	enemy_knowledge.reset()
 	player_knowledge.reset()
+	radar_tracking_coordinator.reset()
 	c2_network.reset()
 	c2_network.configure(registry)
 	track_display.configure(player_knowledge, defense_parent, engagement_coordinator)
@@ -279,6 +281,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	unit.configure_c2(c2_network)
 	unit.configure_audio(combat_audio)
 	unit.configure_engagements(engagement_coordinator)
+	unit.configure_sensor_tracking(radar_tracking_coordinator)
 	unit.configure_support(support_manager)
 	unit.configure_power(power_manager)
 	unit.configure_relocation(relocation_manager)

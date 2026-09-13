@@ -297,6 +297,41 @@ func test_radar_priority_preserves_an_actively_engaged_track() -> void:
 	var imminent := add_child_autofree(_timed_threat(104, preload("res://enemy/ballistic_missile/ballistic_missile.tres"), 3.0)) as TimedThreat
 	assert_gt(scheduler.priority_for(engaged, 0.2, true, true), scheduler.priority_for(imminent, 1.0, false, false))
 
+func test_multiple_radars_cover_distinct_contacts_before_duplicating_support() -> void:
+	var coordinator := RadarTrackingCoordinator.new()
+	var combined: Dictionary[String, bool] = {}
+	for sensor_id: int in [11, 12, 13]:
+		var scheduler := RadarTrackingScheduler.new()
+		scheduler.setup(sensor_id, 10)
+		var selected := scheduler.select(_tracking_candidates(30), 0, coordinator.begin_selection(sensor_id, 0.0))
+		var keys: Array[String] = []
+		for candidate: RadarTrackCandidate in selected:
+			keys.append(candidate.key)
+			combined[candidate.key] = true
+		coordinator.commit_selection(sensor_id, keys, 1.0)
+	assert_eq(combined.size(), 30, "세 레이더의 전체 용량만큼 우선순위가 다른 접촉도 중복 없이 분담합니다")
+
+func test_multiple_radars_use_spare_capacity_for_redundant_support() -> void:
+	var coordinator := RadarTrackingCoordinator.new()
+	var combined: Dictionary[String, bool] = {}
+	for sensor_id: int in [11, 12]:
+		var scheduler := RadarTrackingScheduler.new()
+		scheduler.setup(sensor_id, 10)
+		var selected := scheduler.select(_tracking_candidates(15), 0, coordinator.begin_selection(sensor_id, 0.0))
+		assert_eq(selected.size(), 10, "센서 %d은 남는 슬롯도 비우지 않습니다" % sensor_id)
+		var keys: Array[String] = []
+		for candidate: RadarTrackCandidate in selected:
+			keys.append(candidate.key)
+			combined[candidate.key] = true
+		coordinator.commit_selection(sensor_id, keys, 1.0)
+	assert_eq(combined.size(), 15, "모든 접촉을 담당한 뒤에만 남는 슬롯이 중복 지원에 쓰입니다")
+
+func test_radar_tracking_leases_allow_reassignment_after_a_sensor_stops() -> void:
+	var coordinator := RadarTrackingCoordinator.new()
+	coordinator.commit_selection(11, ["threat:1", "threat:2"], 0.5)
+	assert_eq(coordinator.begin_selection(12, 0.49), {"threat:1": 1, "threat:2": 1})
+	assert_true(coordinator.begin_selection(12, 0.5).is_empty(), "갱신되지 않은 센서 배정은 다른 레이더의 선택을 막지 않습니다")
+
 func test_saturated_radar_limits_tracks_and_cycles_unstable_contacts() -> void:
 	var radar := CapacityRadar.new()
 	var antenna := Node3D.new()
@@ -335,6 +370,7 @@ func test_overlapping_radars_diversify_marginal_capacity_slots() -> void:
 	var registry := ThreatRegistry.new()
 	var knowledge := add_child_autofree(PlayerKnowledge.new()) as PlayerKnowledge
 	var battlefield := Battlefield.new()
+	var coordinator := RadarTrackingCoordinator.new()
 	var radars: Array[CapacityRadar] = []
 	for runtime_id: int in [7, 8]:
 		var radar := CapacityRadar.new()
@@ -345,8 +381,9 @@ func test_overlapping_radars_diversify_marginal_capacity_slots() -> void:
 		radar.setup(runtime_id, definition)
 		radar.configure_combat(registry, null)
 		radar.configure_player_knowledge(battlefield, knowledge)
+		radar.configure_sensor_tracking(coordinator)
 		radars.append(radar)
-	for index: int in 6:
+	for index: int in 10:
 		var threat := add_child_autofree(_timed_threat(300 + index, preload("res://enemy/rocket_salvo/rocket.tres"), 20.0)) as TimedThreat
 		threat.position = Vector3(index * 400.0, 100.0, 300.0)
 		registry.add(threat)
@@ -356,7 +393,7 @@ func test_overlapping_radars_diversify_marginal_capacity_slots() -> void:
 	for radar: CapacityRadar in radars:
 		for key: String in radar.tracked_contacts:
 			combined[key] = true
-	assert_gt(combined.size(), definition.tracking_capacity, "겹친 레이더의 순환 슬롯은 같은 한계 접촉만 중복하지 않습니다")
+	assert_eq(combined.size(), definition.tracking_capacity * radars.size(), "겹친 레이더는 합산 추적 용량까지 서로 다른 접촉을 담당합니다")
 	battlefield.free()
 
 func test_capacity_limited_marker_uses_irregular_yellow_visibility() -> void:
@@ -382,3 +419,12 @@ func _timed_threat(id: int, definition: ThreatDefinition, seconds: float) -> Tim
 	threat.setup(id, definition)
 	threat.action_seconds = seconds
 	return threat
+
+func _tracking_candidates(count: int) -> Array[RadarTrackCandidate]:
+	var candidates: Array[RadarTrackCandidate] = []
+	for index: int in count:
+		var candidate := RadarTrackCandidate.new()
+		candidate.key = "threat:%d" % (index + 1)
+		candidate.priority = 1.0 - float(index) * 0.001
+		candidates.append(candidate)
+	return candidates
