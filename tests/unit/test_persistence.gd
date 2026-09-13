@@ -78,6 +78,16 @@ func test_save_store_round_trips_a_valid_document() -> void:
 	assert_eq(loaded.error, "")
 	assert_eq(int(loaded.document.payload.scenario.world_seed), 48127)
 
+func test_save_store_retains_the_previous_successful_document_as_backup() -> void:
+	assert_eq(SAVE_STORE.write(_document_with_seed(48127), save_path), "")
+	assert_eq(SAVE_STORE.write(_document_with_seed(99241), save_path), "")
+	var current := SAVE_STORE.read(save_path) as Dictionary
+	var backup := SAVE_STORE.read_backup(save_path) as Dictionary
+	assert_eq(current.error, "")
+	assert_eq(backup.error, "")
+	assert_eq(int(current.document.payload.scenario.world_seed), 99241)
+	assert_eq(int(backup.document.payload.scenario.world_seed), 48127)
+
 func test_invalid_write_preserves_the_previous_document() -> void:
 	var document := _document_with_seed(48127)
 	assert_eq(SAVE_STORE.write(document, save_path), "")

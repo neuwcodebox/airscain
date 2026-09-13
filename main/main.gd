@@ -33,6 +33,7 @@ var tactical_ui_refresh_remaining: float = 0.0
 var game_mode: GameMode = GameMode.SUSTAINED
 var combat_effect_pool: CombatEffectPool
 var radar_tracking_coordinator := RadarTrackingCoordinator.new()
+var last_persistence_repairs: Array[String] = []
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -567,19 +568,36 @@ func save_operation() -> String:
 	if game_mode != GameMode.SUSTAINED:
 		return "저장은 지속 작전에서만 사용할 수 있습니다"
 	var document := capture_save_document()
-	var snapshot_error := SessionSnapshot.validation_error(document.payload, scenario)
-	if not snapshot_error.is_empty():
-		return snapshot_error
+	var prepared := SessionSnapshot.prepare(document.payload, scenario)
+	last_persistence_repairs.assign(prepared.repairs)
+	if not prepared.error.is_empty():
+		return prepared.error
+	document.payload = prepared.payload
+	_report_persistence_repairs("저장")
 	return SaveStore.write(document, save_path)
 
 func load_operation() -> String:
+	last_persistence_repairs.clear()
 	if game_mode != GameMode.SUSTAINED:
 		return "불러오기는 지속 작전에서만 사용할 수 있습니다"
 	var result := SaveStore.read(save_path)
 	var error: String = result.error
 	if error.is_empty():
 		error = restore_from_document(result.document)
-	return error
+	if error.is_empty():
+		return ""
+	var primary_error := error
+	var backup := SaveStore.read_backup(save_path)
+	error = backup.error
+	if error.is_empty():
+		error = restore_from_document(backup.document)
+	if error.is_empty():
+		last_persistence_repairs.push_front("기본 저장 대신 마지막 정상 백업을 사용했습니다")
+		push_warning("불러오기 자동 복구: 기본 저장 대신 마지막 정상 백업을 사용했습니다")
+		return ""
+	if backup.error == "저장 파일이 없습니다":
+		return primary_error
+	return "%s · 백업도 복원할 수 없습니다: %s" % [primary_error, error]
 
 func capture_save_document() -> Dictionary:
 	return SaveDocument.create(SessionSnapshot.capture_payload(self))
@@ -634,16 +652,28 @@ func _set_selected_asset(unit: DefenseUnit) -> void:
 		selected_asset.set_selected(true)
 
 func restore_from_document(document: Dictionary) -> String:
+	last_persistence_repairs.clear()
 	var current_document := SaveDocument.migrate(document)
 	var document_error := SaveDocument.validation_error(current_document)
 	if not document_error.is_empty():
 		return document_error
 	var payload := SessionSnapshot.migrate_content(current_document.payload, int(current_document.version), scenario)
-	var snapshot_error := SessionSnapshot.validation_error(payload, scenario)
-	if not snapshot_error.is_empty():
-		return snapshot_error
-	_apply_runtime_snapshot(payload)
+	var prepared := SessionSnapshot.prepare(payload, scenario)
+	last_persistence_repairs.assign(prepared.repairs)
+	if not prepared.error.is_empty():
+		return prepared.error
+	_report_persistence_repairs("불러오기")
+	_apply_runtime_snapshot(prepared.payload)
 	return ""
+
+func persistence_success_message(action: String) -> String:
+	if last_persistence_repairs.is_empty():
+		return "%s 완료" % action
+	return "%s 완료 · 상태 %d건 자동 정리" % [action, last_persistence_repairs.size()]
+
+func _report_persistence_repairs(action: String) -> void:
+	for repair: String in last_persistence_repairs:
+		push_warning("%s 자동 복구: %s" % [action, repair])
 
 func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	_clear_runtime_objects()

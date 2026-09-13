@@ -276,12 +276,21 @@ func test_save_and_load_controls_belong_to_main_and_pause_menus() -> void:
 	assert_eq(app.pause_feedback_label.text, "불러오기 완료")
 	assert_eq(app.gameplay.session.budget, 317)
 	assert_eq(app.gameplay.session.simulation_speed, 0.0)
+	app.gameplay.session.budget = 654
+	app.pause_save_button.pressed.emit()
+	assert_eq(app.pause_feedback_label.text, "저장 완료")
 	app.return_to_main_menu()
 	assert_false(app.main_load_button.disabled)
+	var damaged: Dictionary = SaveStore.read(test_save_path).document
+	damaged.payload.session.budget = -1
+	var file := FileAccess.open(test_save_path, FileAccess.WRITE)
+	file.store_string(SaveDocument.encode(damaged))
+	file.close()
 	app.main_load_button.pressed.emit()
 	await get_tree().process_frame
 	assert_not_null(app.gameplay)
 	assert_eq(app.gameplay.session.budget, 317)
+	assert_eq(app.gameplay.hud.feedback_label.text, "불러오기 완료 · 상태 1건 자동 정리")
 	assert_false(app.main_menu.visible)
 
 func _temporary_path(stem: String, extension: String) -> String:

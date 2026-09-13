@@ -341,11 +341,12 @@ func test_missile_flight_round_trips_before_and_after_ignition() -> void:
 			else:
 				assert_eq(after[key], before[key], key)
 		assert_eq(missile.health, 21.0)
-		var invalid := document.duplicate(true)
-		for state: Dictionary in invalid.payload.world.contacts:
-			if int(state.runtime_id) == id:
-				state.content_state.velocity = [NAN, 0, 0]
-		assert_ne(main.restore_from_document(invalid), "")
+	var invalid := main.capture_save_document()
+	for state: Dictionary in invalid.payload.world.contacts:
+		if int(state.runtime_id) == id:
+			state.content_state.velocity = [NAN, 0, 0]
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_false(main.registry.get_active().any(func(candidate: ThreatUnit) -> bool: return candidate.runtime_id == id))
 
 func test_release_alignment_rejects_sideways_and_backward_missile_shots() -> void:
 	var target := target_for(&"weapon")

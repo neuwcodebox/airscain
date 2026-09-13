@@ -463,6 +463,23 @@ static func opening_state_validation_error(state: Dictionary) -> String:
 		return "시작하지 않은 첫 공습이 완료되었습니다"
 	return ""
 
+static func repair_history_state(state: Dictionary, valid_definition_ids: Dictionary[StringName, bool]) -> Dictionary:
+	var repaired := state.duplicate(true)
+	var last_pattern: Variant = repaired.get("last_raid_pattern")
+	if not last_pattern is String or not (String(last_pattern).is_empty() or StringName(last_pattern) in RaidPlanner.PATTERNS):
+		repaired.last_raid_pattern = ""
+	var recent: Array = []
+	var seen: Dictionary[StringName, bool] = {}
+	var values: Variant = repaired.get("recent_raid_definitions")
+	if values is Array:
+		for value: Variant in values:
+			var definition_id := StringName(String(value))
+			if value is String and valid_definition_ids.has(definition_id) and not seen.has(definition_id) and recent.size() < RaidPlanner.MAX_GROUPS:
+				recent.append(String(definition_id))
+				seen[definition_id] = true
+	repaired.recent_raid_definitions = recent
+	return repaired
+
 func _mission_assignments() -> Dictionary[int, int]:
 	var result: Dictionary[int, int] = {}
 	if registry != null:

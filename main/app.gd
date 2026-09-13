@@ -92,7 +92,7 @@ func _on_combat_vfx_warmup_completed() -> void:
 func _set_preparation_ui(ready: bool) -> void:
 	for path: String in ["Panel/VBox/SustainedButton", "Panel/VBox/TrainingButton", "Panel/VBox/SandboxButton"]:
 		(main_menu.get_node(path) as Button).disabled = not ready
-	main_load_button.disabled = not ready or not FileAccess.file_exists(save_path)
+	main_load_button.disabled = not ready or not _has_save_candidate()
 	if not ready:
 		menu_feedback_label.text = "로딩 중…"
 
@@ -146,7 +146,7 @@ func set_pause_menu(open: bool) -> void:
 		previous_simulation_speed = gameplay.session.simulation_speed
 		gameplay.session.set_simulation_speed(0.0)
 		pause_save_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED
-		pause_load_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED or not FileAccess.file_exists(save_path)
+		pause_load_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED or not _has_save_candidate()
 		pause_feedback_label.text = ""
 	else:
 		gameplay.session.set_simulation_speed(previous_simulation_speed)
@@ -177,9 +177,9 @@ func _on_pause_save_pressed() -> void:
 		gameplay.session.set_simulation_speed(previous_simulation_speed)
 		var error := gameplay.save_operation()
 		gameplay.session.set_simulation_speed(0.0)
-		pause_feedback_label.text = "저장 완료" if error.is_empty() else "저장 실패 · %s" % error
+		pause_feedback_label.text = gameplay.persistence_success_message("저장") if error.is_empty() else "저장 실패 · %s" % error
 		ui_audio.play_event(UiAudio.ACTION_COMPLETE if error.is_empty() else UiAudio.ACTION_REJECTED)
-		pause_load_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED or not FileAccess.file_exists(save_path)
+		pause_load_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED or not _has_save_candidate()
 
 func _on_pause_load_pressed() -> void:
 	if gameplay == null:
@@ -188,37 +188,48 @@ func _on_pause_load_pressed() -> void:
 	if error.is_empty():
 		previous_simulation_speed = gameplay.session.simulation_speed
 		gameplay.session.set_simulation_speed(0.0)
-	pause_feedback_label.text = "불러오기 완료" if error.is_empty() else "불러오기 실패 · %s" % error
+	pause_feedback_label.text = gameplay.persistence_success_message("불러오기") if error.is_empty() else "불러오기 실패 · %s" % error
 	ui_audio.play_event(UiAudio.ACTION_COMPLETE if error.is_empty() else UiAudio.ACTION_REJECTED)
 
 func _on_main_load_pressed() -> void:
-	var result := SaveStore.read(save_path)
-	var error: String = result.error
-	if not error.is_empty():
-		menu_feedback_label.text = "불러오기 실패 · %s" % error
-		ui_audio.play_event(UiAudio.ACTION_REJECTED)
-		_refresh_main_load_button()
-		return
-	var document: Dictionary = result.document
-	var world_seed := int(document.payload.scenario.world_seed)
-	_create_gameplay(AirscainMain.GameMode.SUSTAINED, world_seed, false)
-	while not gameplay.combat_effect_pool.prepared:
+	var candidates: Array[Dictionary] = [SaveStore.read(save_path), SaveStore.read_backup(save_path)]
+	var errors: Array[String] = []
+	for candidate_index: int in candidates.size():
+		var result: Dictionary = candidates[candidate_index]
+		var error := String(result.error)
+		if not error.is_empty():
+			errors.append(error)
+			continue
+		var document: Dictionary = result.document
+		var world_seed := int(document.payload.scenario.world_seed)
+		_create_gameplay(AirscainMain.GameMode.SUSTAINED, world_seed, false)
+		while not gameplay.combat_effect_pool.prepared:
+			await get_tree().process_frame
+		error = gameplay.restore_from_document(document)
+		if error.is_empty():
+			if candidate_index == 1:
+				gameplay.last_persistence_repairs.push_front("기본 저장 대신 마지막 정상 백업을 사용했습니다")
+				push_warning("불러오기 자동 복구: 기본 저장 대신 마지막 정상 백업을 사용했습니다")
+			gameplay.hud.set_feedback(gameplay.persistence_success_message("불러오기"))
+			ui_audio.play_event(UiAudio.ACTION_COMPLETE)
+			return
+		errors.append(error)
+		var failed_gameplay := gameplay
+		gameplay = null
+		failed_gameplay.queue_free()
 		await get_tree().process_frame
-	error = gameplay.restore_from_document(document)
-	if error.is_empty():
-		gameplay.hud.set_feedback("불러오기 완료")
-		ui_audio.play_event(UiAudio.ACTION_COMPLETE)
-		return
-	var failed_gameplay := gameplay
-	gameplay = null
-	remove_child(failed_gameplay)
-	failed_gameplay.queue_free()
 	main_menu.visible = true
-	menu_feedback_label.text = "불러오기 실패 · %s" % error
+	var primary_error := errors[0] if not errors.is_empty() else "저장 파일이 없습니다"
+	var backup_error := errors[1] if errors.size() > 1 else "저장 파일이 없습니다"
+	menu_feedback_label.text = "불러오기 실패 · %s" % primary_error if backup_error == "저장 파일이 없습니다" else "불러오기 실패 · %s · 백업: %s" % [primary_error, backup_error]
 	ui_audio.play_event(UiAudio.ACTION_REJECTED)
+	_refresh_main_load_button()
 
 func _refresh_main_load_button() -> void:
-	main_load_button.disabled = not FileAccess.file_exists(save_path)
+	main_load_button.disabled = not _has_save_candidate()
+
+func _has_save_candidate() -> bool:
+	return FileAccess.file_exists(save_path) or FileAccess.file_exists(save_path + ".bak")
 
 func _on_main_menu_pressed() -> void:
 	return_to_main_menu()

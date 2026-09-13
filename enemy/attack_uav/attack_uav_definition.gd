@@ -47,6 +47,17 @@ func runtime_state_validation_error(content_state: Dictionary, defense_ids: Dict
 		return "위협 임무 대상 또는 진행 상태가 올바르지 않습니다"
 	return ""
 
+func repair_runtime_state(content_state: Dictionary, defense_ids: Dictionary[int, bool]) -> Dictionary:
+	var mission_state: Variant = content_state.get("mission")
+	if mission_state is Dictionary:
+		var target_id := int(mission_state.get("target_defense_id", 0))
+		if target_id != 0 and not defense_ids.has(target_id):
+			var repaired := content_state.duplicate(true)
+			mission_state = repaired.mission
+			mission_state.target_defense_id = 0
+			return repaired
+	return content_state
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

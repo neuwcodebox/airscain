@@ -2223,11 +2223,12 @@ func test_cooperative_assignments_round_trip_and_upgrade_legacy_reservations() -
 	assert_eq(main.engagement_coordinator.reservation_count(track.track_id), 3)
 	var duplicate := document.duplicate(true)
 	duplicate.payload.world.engagements.reservations.append(duplicate.payload.world.engagements.reservations[0].duplicate(true))
-	assert_ne(main.restore_from_document(duplicate), "", "현재 버전은 자산별 중복 배정을 거절합니다")
-	assert_eq(main.engagement_coordinator.reservation_count(track.track_id), 3, "잘못된 저장이 현재 상태를 변경하지 않습니다")
+	assert_eq(main.restore_from_document(duplicate), "", "현재 버전은 자산별 중복 배정만 제거합니다")
+	assert_eq(main.engagement_coordinator.reservation_count(track.track_id), 3)
 	var invalid := document.duplicate(true)
 	invalid.payload.world.engagements.reservations[0].kind = "interceptor"
-	assert_ne(main.restore_from_document(invalid), "", "콘텐츠의 교전 방식과 다른 예약은 거절합니다")
+	assert_eq(main.restore_from_document(invalid), "", "콘텐츠의 교전 방식과 다른 예약만 제거합니다")
+	assert_eq(main.engagement_coordinator.reservation_count(track.track_id), 2)
 	var legacy := document.duplicate(true)
 	legacy.version = 18
 	legacy.payload.world.engagements.reservations.resize(2)

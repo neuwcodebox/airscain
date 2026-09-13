@@ -3,6 +3,13 @@ extends RefCounted
 
 const AIR_STRIKE_MUNITION_SCRIPT := preload("res://effects/air_strike_munition/air_strike_munition.gd")
 
+class PreparationResult:
+	extends RefCounted
+
+	var payload: Dictionary = {}
+	var repairs: Array[String] = []
+	var error: String = ""
+
 static func migrate_content(payload: Dictionary, version: int, scenario: ScenarioDefinition) -> Dictionary:
 	if version >= SaveDocument.CURRENT_VERSION:
 		return payload
@@ -15,6 +22,353 @@ static func migrate_content(payload: Dictionary, version: int, scenario: Scenari
 
 static func capture_payload(main: AirscainMain) -> Dictionary:
 	return SessionSnapshotCapture.capture_payload(main)
+
+static func prepare(payload: Dictionary, scenario: ScenarioDefinition) -> PreparationResult:
+	var result := PreparationResult.new()
+	result.payload = payload.duplicate(true)
+	var structure_error := _repairable_structure_error(result.payload)
+	if not structure_error.is_empty():
+		result.error = structure_error
+		return result
+	_repair_cross_references(result.payload, scenario, result.repairs)
+	result.error = validation_error(result.payload, scenario)
+	return result
+
+static func _repairable_structure_error(payload: Dictionary) -> String:
+	for section: String in SaveDocument.REQUIRED_SECTIONS:
+		if not payload.get(section) is Dictionary:
+			return "저장 섹션이 없거나 올바르지 않습니다: %s" % section
+	var world: Dictionary = payload.world
+	for key: String in ["defenses", "contacts", "projectiles"]:
+		if not world.get(key) is Array:
+			return "월드 객체 목록이 올바르지 않습니다"
+	for key: String in ["engagements", "support", "relocations", "enemy_knowledge"]:
+		if not world.get(key) is Dictionary:
+			return "월드 객체 목록이 올바르지 않습니다"
+	if not payload.player_knowledge.get("tracks") is Array:
+		return "플레이어 지식 상태가 올바르지 않습니다"
+	return ""
+
+static func _repair_cross_references(payload: Dictionary, scenario: ScenarioDefinition, repairs: Array[String]) -> void:
+	var world: Dictionary = payload.world
+	var defense_definitions := defense_definition_map(scenario)
+	var contact_definitions := contact_definition_map(scenario)
+	var raid_definition_ids: Dictionary[StringName, bool] = {}
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		raid_definition_ids[entry.threat_definition.id] = true
+	var defense_ids: Dictionary[int, bool] = {}
+	var sensor_ids: Dictionary[int, bool] = {}
+	var armed_ids: Dictionary[int, bool] = {}
+	var mobile_ids: Dictionary[int, bool] = {}
+	var projectile_owner_definitions: Dictionary[int, DefenseDefinition] = {}
+	var defense_definitions_by_runtime_id: Dictionary[int, DefenseDefinition] = {}
+	var reservation_kinds: Dictionary[int, StringName] = {}
+	var valid_defenses: Array = []
+	for value: Variant in world.defenses:
+		if not value is Dictionary:
+			repairs.append("형식이 손상된 방공 자산을 제거했습니다")
+			continue
+		var state := value as Dictionary
+		var definition_id := StringName(String(state.get("definition_id", "")))
+		var definition: DefenseDefinition = defense_definitions.get(definition_id)
+		var runtime_id := int(state.get("runtime_id", 0))
+		if definition == null or runtime_id <= 0 or defense_ids.has(runtime_id) or not SaveDocument.is_valid_vector3_data(state.get("position")) or not state.get("content_state", {}) is Dictionary:
+			repairs.append("복원할 수 없는 방공 자산 %d을 제거했습니다" % runtime_id)
+			continue
+		var integrity := float(state.get("integrity", -1.0))
+		var neutralized_count: Variant = state.get("neutralized_count", 0)
+		var original_content: Dictionary = state.get("content_state", {})
+		var repaired_content := definition.repair_runtime_state(original_content)
+		if repaired_content != original_content:
+			state.content_state = repaired_content
+			repairs.append("방공 자산 %d의 콘텐츠 상태를 정리했습니다" % runtime_id)
+		var content_error := definition.runtime_state_validation_error(repaired_content)
+		if not is_finite(integrity) or integrity < 0.0 or integrity > definition.maximum_integrity or not (neutralized_count is int or neutralized_count is float) or not is_finite(float(neutralized_count)) or float(neutralized_count) != floorf(float(neutralized_count)) or int(neutralized_count) < 0 or not content_error.is_empty():
+			repairs.append("상태가 손상된 방공 자산 %d을 제거했습니다" % runtime_id)
+			continue
+		valid_defenses.append(state)
+		defense_ids[runtime_id] = true
+		defense_definitions_by_runtime_id[runtime_id] = definition
+		reservation_kinds[runtime_id] = definition.engagement_reservation_kind()
+		if definition.mobile:
+			mobile_ids[runtime_id] = true
+		if definition.has_ammunition_state():
+			armed_ids[runtime_id] = true
+		if (definition.placement_c2_roles() & DefenseUnit.C2Role.SENSOR) != 0:
+			sensor_ids[runtime_id] = true
+		if not definition.persistent_projectile_types().is_empty():
+			projectile_owner_definitions[runtime_id] = definition
+	world.defenses = valid_defenses
+
+	var hostile_contact_ids: Dictionary[int, bool] = {}
+	var all_contact_ids: Dictionary[int, bool] = {}
+	var valid_contacts: Array = []
+	for value: Variant in world.contacts:
+		if not value is Dictionary:
+			repairs.append("형식이 손상된 접촉을 제거했습니다")
+			continue
+		var state := value as Dictionary
+		var definition_id := StringName(String(state.get("definition_id", "")))
+		var definition: ThreatDefinition = contact_definitions.get(definition_id)
+		var runtime_id := int(state.get("runtime_id", 0))
+		if definition == null or runtime_id == 0 or all_contact_ids.has(runtime_id) or not SaveDocument.is_valid_vector3_data(state.get("position")) or not state.get("content_state", {}) is Dictionary or not state.get("countermeasure", {}) is Dictionary:
+			repairs.append("복원할 수 없는 접촉 %d을 제거했습니다" % runtime_id)
+			continue
+		var charge_count := int(state.get("countermeasure_charges", -1))
+		var original_content: Dictionary = state.get("content_state", {})
+		var repaired_content := definition.repair_runtime_state(original_content, defense_ids)
+		if repaired_content != original_content:
+			state.content_state = repaired_content
+			repairs.append("접촉 %d의 콘텐츠 상태를 정리했습니다" % runtime_id)
+		var original_countermeasure: Dictionary = state.get("countermeasure", {})
+		var repaired_countermeasure := definition.repair_countermeasure_state(original_countermeasure, state.get("position"))
+		if repaired_countermeasure != original_countermeasure:
+			state.countermeasure = repaired_countermeasure
+			repairs.append("접촉 %d의 대응책 상태를 초기화했습니다" % runtime_id)
+		var content_error := definition.runtime_state_validation_error(repaired_content, defense_ids)
+		var countermeasure_error := definition.countermeasure_state_validation_error(repaired_countermeasure)
+		if charge_count < 0 or charge_count > definition.countermeasure_charges or not content_error.is_empty() or not countermeasure_error.is_empty():
+			repairs.append("상태가 손상된 접촉 %d을 제거했습니다" % runtime_id)
+			continue
+		valid_contacts.append(state)
+		all_contact_ids[runtime_id] = true
+		if definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
+			hostile_contact_ids[runtime_id] = true
+	world.contacts = valid_contacts
+
+	var knowledge: Dictionary = payload.player_knowledge
+	var track_ids: Dictionary[int, bool] = {}
+	var valid_tracks: Array = []
+	var highest_track_id := 0
+	for value: Variant in knowledge.tracks:
+		if not value is Dictionary:
+			repairs.append("형식이 손상된 항적을 제거했습니다")
+			continue
+		var track := value as Dictionary
+		var track_id := int(track.get("track_id", 0))
+		var contributions: Variant = track.get("contributing_sensor_ids")
+		var observed_at: Variant = track.get("sensor_observed_at")
+		if contributions is Array and observed_at is Dictionary:
+			var valid_contributions: Array = []
+			var valid_times: Dictionary = {}
+			for sensor_value: Variant in contributions:
+				var sensor_id := int(sensor_value)
+				var key := str(sensor_id)
+				if sensor_ids.has(sensor_id) and observed_at.has(key) and not valid_contributions.has(sensor_id):
+					valid_contributions.append(sensor_id)
+					valid_times[key] = observed_at[key]
+			if valid_contributions.size() != contributions.size() or valid_times.size() != observed_at.size():
+				track.contributing_sensor_ids = valid_contributions
+				track.sensor_observed_at = valid_times
+				repairs.append("항적 %d의 없는 센서 기여를 정리했습니다" % track_id)
+		if track_ids.has(track_id) or not _track_validation_error(track, sensor_ids).is_empty():
+			repairs.append("상태가 손상된 항적 %d을 제거했습니다" % track_id)
+			continue
+		track_ids[track_id] = true
+		highest_track_id = maxi(highest_track_id, track_id)
+		valid_tracks.append(track)
+	knowledge.tracks = valid_tracks
+	if int(knowledge.get("next_track_id", 0)) <= highest_track_id:
+		knowledge.next_track_id = highest_track_id + 1
+		repairs.append("다음 항적 ID를 복구했습니다")
+
+	_repair_engagements(world.engagements, track_ids, defense_ids, reservation_kinds, repairs)
+	_repair_support(world.support, defense_ids, armed_ids, defense_definitions_by_runtime_id, repairs)
+	_repair_relocations(world.relocations, defense_ids, mobile_ids, world.support, repairs)
+	_repair_projectiles(world, track_ids, defense_ids, projectile_owner_definitions, repairs)
+	_repair_director(payload.director, hostile_contact_ids, contact_definitions, raid_definition_ids, repairs)
+	_repair_enemy_knowledge(world.enemy_knowledge, defense_ids, world.contacts, contact_definitions, repairs)
+
+static func _repair_engagements(state: Dictionary, track_ids: Dictionary[int, bool], defense_ids: Dictionary[int, bool], reservation_kinds: Dictionary[int, StringName], repairs: Array[String]) -> void:
+	if not state.get("reservations") is Array:
+		return
+	var valid: Array = []
+	var interceptor_counts: Dictionary[int, int] = {}
+	var support_owners: Dictionary[int, bool] = {}
+	for value: Variant in state.reservations:
+		if not value is Dictionary:
+			repairs.append("형식이 손상된 교전 예약을 제거했습니다")
+			continue
+		var reservation := value as Dictionary
+		var track_id := int(reservation.get("track_id", 0))
+		var owner_id := int(reservation.get("owner_defense_id", 0))
+		var kind := StringName(String(reservation.get("kind", "")))
+		var keep: bool = track_ids.has(track_id) and defense_ids.has(owner_id) and reservation_kinds.get(owner_id, &"") == kind and float(reservation.get("remaining", 0.0)) > 0.0
+		if keep and kind == EngagementCoordinator.INTERCEPTOR:
+			interceptor_counts[track_id] = interceptor_counts.get(track_id, 0) + 1
+			keep = interceptor_counts[track_id] <= 2
+		elif keep and kind == EngagementCoordinator.FIRE_SUPPORT:
+			keep = not support_owners.has(owner_id)
+			if keep:
+				support_owners[owner_id] = true
+		else:
+			keep = false
+		if keep:
+			valid.append(reservation)
+		else:
+			repairs.append("유효하지 않은 교전 예약을 제거했습니다")
+	state.reservations = valid
+
+static func _track_validation_error(track: Dictionary, sensor_ids: Dictionary[int, bool]) -> String:
+	var track_id := int(track.get("track_id", 0))
+	if track_id <= 0:
+		return "항적 ID가 올바르지 않습니다"
+	if not SaveDocument.is_valid_vector3_data(track.get("estimated_position")) or not SaveDocument.is_valid_vector3_data(track.get("estimated_velocity")) or not SaveDocument.is_valid_vector3_data(track.get("last_measured_position")):
+		return "항적 위치 또는 속도가 올바르지 않습니다"
+	var lifecycle := int(track.get("state", -1))
+	if lifecycle < PlayerTrack.State.TENTATIVE or lifecycle > PlayerTrack.State.LOST:
+		return "항적 생명주기 상태가 올바르지 않습니다"
+	if not track.get("contributing_sensor_ids") is Array or not track.get("sensor_observed_at") is Dictionary:
+		return "항적 센서 기여 상태가 올바르지 않습니다"
+	for sensor_id: Variant in track.contributing_sensor_ids:
+		if not sensor_ids.has(int(sensor_id)) or not track.sensor_observed_at.has(str(int(sensor_id))):
+			return "항적이 존재하지 않는 센서를 참조합니다"
+	for key: String in ["last_observed_at", "track_quality", "position_uncertainty"]:
+		var value := float(track.get(key, -1.0))
+		if not is_finite(value) or value < 0.0:
+			return "항적 추정 상태가 올바르지 않습니다"
+	if float(track.get("track_quality", 2.0)) > 1.0:
+		return "항적 추정 상태가 올바르지 않습니다"
+	if track.has("capacity_limited") and not track.capacity_limited is bool:
+		return "항적 추적 용량 상태가 올바르지 않습니다"
+	if not track.get("classification_scores") is Dictionary or not track.get("affiliation_scores") is Dictionary:
+		return "항적 분류 상태가 올바르지 않습니다"
+	return ""
+
+static func _repair_support(state: Dictionary, defense_ids: Dictionary[int, bool], armed_ids: Dictionary[int, bool], definitions: Dictionary[int, DefenseDefinition], repairs: Array[String]) -> void:
+	if state.get("automatic_resupply_ids") is Array:
+		var automatic: Array = []
+		for value: Variant in state.automatic_resupply_ids:
+			var id := int(value)
+			if (value is int or value is float) and is_finite(float(value)) and float(value) == floorf(float(value)) and armed_ids.has(id) and not automatic.has(id):
+				automatic.append(id)
+			else:
+				repairs.append("유효하지 않은 자동 재보급 대상을 제거했습니다")
+		state.automatic_resupply_ids = automatic
+	if not state.get("tasks") is Array:
+		return
+	var tasks: Array = []
+	var targets: Dictionary[int, bool] = {}
+	for value: Variant in state.tasks:
+		if not value is Dictionary:
+			repairs.append("형식이 손상된 지원 작업을 제거했습니다")
+			continue
+		var task := value as Dictionary
+		var kind := String(task.get("kind", ""))
+		var id := int(task.get("target_defense_id", 0))
+		var keep: bool = (kind == SupportManager.RESUPPLY or kind == SupportManager.REPAIR) and defense_ids.has(id) and not targets.has(id) and float(task.get("remaining_work", 0.0)) > 0.0 and task.get("user_requested") is bool
+		if keep and kind == SupportManager.RESUPPLY:
+			keep = armed_ids.has(id)
+		elif keep and kind == SupportManager.REPAIR:
+			keep = definitions[id].repair_amount_validation_error(task.get("repair_amount")).is_empty()
+		if keep:
+			targets[id] = true
+			tasks.append(task)
+		else:
+			repairs.append("유효하지 않은 지원 작업을 제거했습니다")
+	state.tasks = tasks
+
+static func _repair_relocations(state: Dictionary, defense_ids: Dictionary[int, bool], mobile_ids: Dictionary[int, bool], support: Dictionary, repairs: Array[String]) -> void:
+	if not state.get("tasks") is Array:
+		return
+	var support_targets: Dictionary[int, bool] = {}
+	for value: Variant in support.get("tasks", []):
+		if value is Dictionary:
+			support_targets[int(value.get("target_defense_id", 0))] = true
+	var targets: Dictionary[int, bool] = {}
+	var tasks: Array = []
+	for value: Variant in state.tasks:
+		if not value is Dictionary:
+			repairs.append("형식이 손상된 재배치 작업을 제거했습니다")
+			continue
+		var task := value as Dictionary
+		var id := int(task.get("target_defense_id", 0))
+		var keep: bool = defense_ids.has(id) and mobile_ids.has(id) and not support_targets.has(id) and not targets.has(id) and float(task.get("remaining", 0.0)) > 0.0 and SaveDocument.is_valid_vector3_data(task.get("origin")) and SaveDocument.is_valid_vector3_data(task.get("destination"))
+		if keep:
+			targets[id] = true
+			tasks.append(task)
+		else:
+			repairs.append("유효하지 않은 재배치 작업을 제거했습니다")
+	state.tasks = tasks
+
+static func _repair_projectiles(world: Dictionary, track_ids: Dictionary[int, bool], defense_ids: Dictionary[int, bool], owner_definitions: Dictionary[int, DefenseDefinition], repairs: Array[String]) -> void:
+	var projectiles: Array = []
+	for value: Variant in world.projectiles:
+		if not value is Dictionary:
+			repairs.append("형식이 손상된 발사체를 제거했습니다")
+			continue
+		var state := value as Dictionary
+		var projectile_type := StringName(String(state.get("type", "")))
+		var keep: bool = true
+		if projectile_type == &"air_strike_munition":
+			var target_id := int(state.get("target_defense_id", 0))
+			keep = (target_id == 0 or defense_ids.has(target_id)) and AIR_STRIKE_MUNITION_SCRIPT.state_validation_error(state).is_empty()
+		else:
+			var owner_id := int(state.get("owner_defense_id", 0))
+			var definition: DefenseDefinition = owner_definitions.get(owner_id)
+			if definition != null:
+				var repaired_state := definition.repair_persistent_projectile_state(projectile_type, state)
+				if repaired_state != state:
+					state = repaired_state
+					repairs.append("발사체의 콘텐츠 상태를 정리했습니다")
+			keep = definition != null and definition.persistent_projectile_types().has(projectile_type) and track_ids.has(int(state.get("target_track_id", 0))) and SaveDocument.is_valid_vector3_data(state.get("position")) and SaveDocument.is_valid_vector3_data(state.get("velocity")) and definition.persistent_projectile_state_validation_error(projectile_type, state).is_empty()
+		if keep:
+			projectiles.append(state)
+		else:
+			repairs.append("참조나 상태가 유효하지 않은 발사체를 제거했습니다")
+	world.projectiles = projectiles
+
+static func _repair_director(state: Dictionary, contact_ids: Dictionary[int, bool], contact_definitions: Dictionary[StringName, ThreatDefinition], raid_definition_ids: Dictionary[StringName, bool], repairs: Array[String]) -> void:
+	var repaired_history := ThreatDirector.repair_history_state(state, raid_definition_ids)
+	if repaired_history != state:
+		state.merge(repaired_history, true)
+		repairs.append("공습 생성 이력을 정리했습니다")
+	if state.get("opening_threat_ids") is Array:
+		var ids: Array = []
+		for value: Variant in state.opening_threat_ids:
+			var id := int(value)
+			if (value is int or value is float) and is_finite(float(value)) and float(value) == floorf(float(value)) and contact_ids.has(id) and not ids.has(id):
+				ids.append(id)
+			else:
+				repairs.append("없는 위협을 참조하는 첫 공습 ID를 제거했습니다")
+		state.opening_threat_ids = ids
+	if state.get("pending_waves") is Array:
+		var waves: Array = []
+		for value: Variant in state.pending_waves:
+			if value is Dictionary and contact_definitions.has(StringName(String(value.get("definition_id", "")))) and float(value.get("remaining", -1.0)) >= 0.0 and is_finite(float(value.get("angle", NAN))) and value.get("opening_raid", false) is bool:
+				waves.append(value)
+			else:
+				repairs.append("유효하지 않은 예약 공격 파동을 제거했습니다")
+		state.pending_waves = waves
+
+static func _repair_enemy_knowledge(state: Dictionary, defense_ids: Dictionary[int, bool], contacts: Array, contact_definitions: Dictionary[StringName, ThreatDefinition], repairs: Array[String]) -> void:
+	for key: String in ["estimates", "reports", "recon_sightings"]:
+		if not state.get(key) is Array:
+			continue
+		var entries: Array = []
+		for value: Variant in state[key]:
+			if value is Dictionary and defense_ids.has(int(value.get("asset_id", value.get("id", 0)))):
+				entries.append(value)
+			else:
+				repairs.append("없는 자산을 참조하는 적 지식을 제거했습니다")
+		state[key] = entries
+	var recon_owners: Dictionary[int, bool] = {}
+	for value: Variant in contacts:
+		if not value is Dictionary:
+			continue
+		var definition: ThreatDefinition = contact_definitions.get(StringName(String(value.get("definition_id", ""))))
+		var mission := definition.mission_definition() if definition != null else null
+		if mission != null and mission.area_recon and bool(value.get("active", false)):
+			recon_owners[int(value.get("runtime_id", 0))] = true
+	var search: Variant = state.get("recon_search")
+	if search is Dictionary and search.get("assignments") is Array:
+		var assignments: Array = []
+		for value: Variant in search.assignments:
+			if value is Dictionary and recon_owners.has(int(value.get("owner", 0))):
+				assignments.append(value)
+			else:
+				repairs.append("없는 정찰기의 구역 배정을 제거했습니다")
+		search.assignments = assignments
 
 static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) -> String:
 	if int(payload.scenario.get("world_seed", -1)) < 0:
@@ -89,10 +443,15 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if not content_error.is_empty():
 			return "%s: %s" % [definition_id, content_error]
 	var contact_ids: Dictionary[int, bool] = {}
+	var all_contact_ids: Dictionary[int, bool] = {}
 	for state: Dictionary in world_state.contacts:
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		if not contact_definitions.has(definition_id):
 			return "저장된 접촉 콘텐츠를 찾을 수 없습니다: %s" % definition_id
+		var runtime_id := int(state.get("runtime_id", 0))
+		if runtime_id == 0 or all_contact_ids.has(runtime_id):
+			return "접촉 runtime ID가 올바르지 않습니다"
+		all_contact_ids[runtime_id] = true
 		if not SaveDocument.is_valid_vector3_data(state.get("position")):
 			return "접촉 위치가 올바르지 않습니다"
 		var countermeasure_charges := int(state.get("countermeasure_charges", -1))
@@ -105,7 +464,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if not countermeasure_error.is_empty():
 			return countermeasure_error
 		if contact_definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
-			contact_ids[int(state.get("runtime_id", 0))] = true
+			contact_ids[runtime_id] = true
 		var content_error := contact_definition.runtime_state_validation_error(state.get("content_state", {}), defense_ids)
 		if not content_error.is_empty():
 			return "%s: %s" % [definition_id, content_error]
@@ -120,22 +479,9 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 			return "항적 ID가 올바르지 않습니다"
 		track_ids[track_id] = true
 		highest_track_id = maxi(highest_track_id, track_id)
-		if not SaveDocument.is_valid_vector3_data(track_state.get("estimated_position")) or not SaveDocument.is_valid_vector3_data(track_state.get("estimated_velocity")) or not SaveDocument.is_valid_vector3_data(track_state.get("last_measured_position")):
-			return "항적 위치 또는 속도가 올바르지 않습니다"
-		var track_lifecycle := int(track_state.get("state", -1))
-		if track_lifecycle < PlayerTrack.State.TENTATIVE or track_lifecycle > PlayerTrack.State.LOST:
-			return "항적 생명주기 상태가 올바르지 않습니다"
-		if not track_state.get("contributing_sensor_ids", null) is Array or not track_state.get("sensor_observed_at", null) is Dictionary:
-			return "항적 센서 기여 상태가 올바르지 않습니다"
-		for sensor_id: Variant in track_state.contributing_sensor_ids:
-			if not sensor_ids.has(int(sensor_id)) or not track_state.sensor_observed_at.has(str(int(sensor_id))):
-				return "항적이 존재하지 않는 센서를 참조합니다"
-		if float(track_state.get("last_observed_at", -1.0)) < 0.0 or float(track_state.get("track_quality", -1.0)) < 0.0 or float(track_state.get("track_quality", 2.0)) > 1.0 or float(track_state.get("position_uncertainty", -1.0)) < 0.0:
-			return "항적 추정 상태가 올바르지 않습니다"
-		if track_state.has("capacity_limited") and not track_state.capacity_limited is bool:
-			return "항적 추적 용량 상태가 올바르지 않습니다"
-		if not track_state.get("classification_scores", null) is Dictionary or not track_state.get("affiliation_scores", null) is Dictionary:
-			return "항적 분류 상태가 올바르지 않습니다"
+		var track_error := _track_validation_error(track_state, sensor_ids)
+		if not track_error.is_empty():
+			return track_error
 	if int(knowledge_state.next_track_id) <= highest_track_id:
 		return "다음 항적 ID가 올바르지 않습니다"
 	var engagement_state: Dictionary = world_state.engagements

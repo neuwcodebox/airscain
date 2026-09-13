@@ -83,6 +83,9 @@ func persistent_projectile_types() -> Array[StringName]:
 func runtime_state_validation_error(_content_state: Dictionary) -> String:
 	return ""
 
+func repair_runtime_state(content_state: Dictionary) -> Dictionary:
+	return content_state
+
 func migrate_runtime_state(content_state: Dictionary, _version: int) -> Dictionary:
 	return content_state.duplicate(true)
 
@@ -91,6 +94,9 @@ func engagement_reservation_kind() -> StringName:
 
 func persistent_projectile_state_validation_error(_projectile_type: StringName, _state: Dictionary) -> String:
 	return "지원하지 않는 방어 발사체 형식입니다"
+
+func repair_persistent_projectile_state(_projectile_type: StringName, state: Dictionary) -> Dictionary:
+	return state
 
 func repair_amount_validation_error(value: Variant) -> String:
 	if not (value is float or value is int) or not is_finite(float(value)) or float(value) <= 0.0 or float(value) > maximum_integrity:

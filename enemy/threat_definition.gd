@@ -55,6 +55,9 @@ func shares_city_impact_target() -> bool:
 func runtime_state_validation_error(_content_state: Dictionary, _defense_ids: Dictionary[int, bool]) -> String:
 	return ""
 
+func repair_runtime_state(content_state: Dictionary, _defense_ids: Dictionary[int, bool]) -> Dictionary:
+	return content_state
+
 func validation_error() -> String:
 	if resolution_profile != null:
 		var effect_error := resolution_profile.validation_error()
@@ -89,3 +92,13 @@ func countermeasure_state_validation_error(state: Dictionary) -> String:
 	if not SaveDocument.is_valid_vector3_data(origin):
 		return "대응탄 위치가 올바르지 않습니다"
 	return ""
+
+func repair_countermeasure_state(state: Dictionary, fallback_origin: Variant) -> Dictionary:
+	if countermeasure_state_validation_error(state).is_empty():
+		return state
+	return {
+		"cooldown": 0.0,
+		"evasion": 0.0,
+		"kind": "",
+		"origin": fallback_origin.duplicate(true) if fallback_origin is Array else [0.0, 0.0, 0.0],
+	}

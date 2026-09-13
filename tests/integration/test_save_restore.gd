@@ -73,12 +73,14 @@ func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void
 	assert_eq(main.director.capture_state(), expected)
 	var invalid := document.duplicate(true)
 	invalid.payload.director.last_raid_pattern = "missing_pattern"
-	assert_ne(main.restore_from_document(invalid), "")
-	assert_eq(main.director.capture_state(), expected, "잘못된 이력은 현재 작전을 변경하지 않습니다")
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_eq(main.director.raid_planner.last_pattern, &"")
+	assert_false(main.last_persistence_repairs.is_empty())
 	invalid = document.duplicate(true)
 	invalid.payload.director.recent_raid_definitions = ["missing_threat"]
-	assert_ne(main.restore_from_document(invalid), "")
-	assert_eq(main.director.capture_state(), expected, "잘못된 위협 이력은 현재 작전을 변경하지 않습니다")
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_true(main.director.raid_planner.recent_definition_ids.is_empty())
+	assert_false(main.last_persistence_repairs.is_empty())
 	var legacy := document.duplicate(true)
 	legacy.version = 25
 	legacy.payload.director.erase("recent_raid_definitions")
@@ -119,16 +121,19 @@ func test_disabled_battery_and_pending_repair_survive_document_restore() -> void
 	battery.receive_damage(1000.0)
 	var id := battery.runtime_id
 	var facility_id := facility.runtime_id
+	var maximum_integrity := battery.definition.maximum_integrity
 	var budget := main.session.budget
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var invalid := document.duplicate(true)
 	invalid.payload.world.support.tasks[0].repair_amount = INF
-	assert_ne(main.restore_from_document(invalid), "")
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_true(main.support_manager.tasks.is_empty())
+	assert_eq(main.last_persistence_repairs.size(), 1)
 	var legacy := document.duplicate(true)
 	legacy.version = 24
 	legacy.payload.world.support.tasks[0].erase("repair_amount")
 	var migrated := SessionSnapshot.migrate_content(legacy.payload, 24, main.scenario)
-	assert_eq(float(migrated.world.support.tasks[0].repair_amount), battery.definition.maximum_integrity)
+	assert_eq(float(migrated.world.support.tasks[0].repair_amount), maximum_integrity)
 	assert_false(legacy.payload.world.support.tasks[0].has("repair_amount"))
 	assert_eq(main.restore_from_document(document), "")
 	var restored := _find_defense(id) as MissileBattery
@@ -286,7 +291,7 @@ func test_runtime_snapshot_restores_session_world_assets_and_contacts() -> void:
 	assert_eq(main.director.completed_attack_windows, 1)
 	assert_eq(main.director.rng.state, saved_director_rng_state)
 
-func test_invalid_content_id_does_not_mutate_live_session() -> void:
+func test_missing_defense_content_is_removed_without_blocking_restore() -> void:
 	var document := main.capture_save_document()
 	document.payload.world.defenses = [{
 		"definition_id": "missing_content",
@@ -295,9 +300,11 @@ func test_invalid_content_id_does_not_mutate_live_session() -> void:
 	}]
 	var original_budget := main.session.budget
 	var error := main.restore_from_document(document)
-	assert_ne(error, "")
+	assert_eq(error, "")
 	assert_eq(main.session.budget, original_budget)
 	assert_eq(main.registry.count(), 4)
+	assert_true(main.defenses.is_empty())
+	assert_eq(main.last_persistence_repairs.size(), 1)
 
 func test_non_finite_or_non_numeric_world_vectors_do_not_mutate_live_session() -> void:
 	var original_budget := main.session.budget
@@ -373,7 +380,7 @@ func test_battery_strike_restores_observed_target_without_following_hidden_movem
 	assert_eq(restored.mission_runtime.phase, ThreatMissionRuntime.Phase.EGRESS)
 	assert_false(restored.mission_runtime.effect_applied)
 
-func test_asset_strike_munition_restores_target_and_rejects_invalid_reference() -> void:
+func test_asset_strike_munition_restores_target_and_removes_invalid_reference() -> void:
 	var battery := _place_defense(_defense_definition(&"missile_battery"))
 	var battery_id := battery.runtime_id
 	var munition := preload("res://effects/air_strike_munition/air_strike_munition.tscn").instantiate() as AirStrikeMunition
@@ -383,8 +390,10 @@ func test_asset_strike_munition_restores_target_and_rejects_invalid_reference() 
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var invalid := document.duplicate(true)
 	invalid.payload.world.projectiles.back().target_defense_id = 999999
-	assert_ne(main.restore_from_document(invalid), "")
-	assert_same(_find_defense(battery_id), battery)
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_not_null(_find_defense(battery_id))
+	assert_eq(main.threat_parent.get_node_or_null("StrikeMunition"), null)
+	assert_eq(main.last_persistence_repairs.size(), 1)
 	assert_eq(main.restore_from_document(document), "")
 	var restored_battery := _find_defense(battery_id)
 	var restored := main.threat_parent.get_node("StrikeMunition") as AirStrikeMunition
@@ -393,16 +402,18 @@ func test_asset_strike_munition_restores_target_and_rejects_invalid_reference() 
 	assert_eq(restored_battery.integrity, restored_battery.definition.maximum_integrity - 40.0)
 	assert_eq(main.objective.current_integrity, city_before)
 
-func test_invalid_ballistic_flight_state_is_rejected_before_restore() -> void:
+func test_invalid_ballistic_flight_state_removes_only_the_contact() -> void:
 	var entry := _threat_entry(&"ballistic_missile")
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
 	threat.gameplay_tick(0.1)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	_saved_contact(document, threat.runtime_id).content_state.movement.ballistic_duration = 0.0
-	assert_ne(main.restore_from_document(document), "")
-	assert_same(_find_contact(threat.runtime_id), threat)
+	var runtime_id := threat.runtime_id
+	assert_eq(main.restore_from_document(document), "")
+	assert_null(_find_contact(runtime_id))
+	assert_eq(main.last_persistence_repairs.size(), 1)
 
-func test_multi_munition_inventory_mode_and_validation_restore() -> void:
+func test_multi_munition_inventory_mode_and_invalid_asset_recovery() -> void:
 	var battery := _place_defense(_defense_definition(&"long_range_missile")) as MissileBattery
 	var battery_id := battery.runtime_id
 	battery.set_munition_mode(&"high_speed_interceptor")
@@ -412,8 +423,9 @@ func test_multi_munition_inventory_mode_and_validation_restore() -> void:
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var invalid_document := document.duplicate(true)
 	_saved_defense(invalid_document, battery_id).content_state.munition_magazines.erase("high_speed_interceptor")
-	assert_ne(main.restore_from_document(invalid_document), "")
-	assert_same(_find_defense(battery_id), battery)
+	assert_eq(main.restore_from_document(invalid_document), "")
+	assert_null(_find_defense(battery_id))
+	assert_false(main.last_persistence_repairs.is_empty())
 	assert_eq(main.restore_from_document(document), "")
 	var restored := _find_defense(battery_id) as MissileBattery
 	assert_eq(restored.munition_mode, &"high_speed_interceptor")
@@ -452,12 +464,11 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	var saved_interceptor_age := interceptor.age
 	var saved_document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	var invalid_document := saved_document.duplicate(true)
-	invalid_document.payload.world.projectiles[0].owner_defense_id = 9999
-	assert_ne(main.restore_from_document(invalid_document), "")
+	invalid_document.payload.world.projectiles[0].target_track_id = 9999
+	assert_eq(main.restore_from_document(invalid_document), "")
 	var unchanged_interceptors := _interceptors()
-	assert_eq(unchanged_interceptors.size(), 1)
-	assert_same(unchanged_interceptors[0], interceptor)
-	assert_eq(interceptor.age, saved_interceptor_age)
+	assert_eq(unchanged_interceptors.size(), 0)
+	assert_eq(main.last_persistence_repairs.size(), 1)
 	assert_eq(main.restore_from_document(saved_document), "")
 	var restored_battery := _find_defense(battery_runtime_id) as MissileBattery
 	var restored_radar := _find_defense(radar_runtime_id) as SearchRadar
@@ -508,16 +519,38 @@ func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes()
 	assert_eq(main.battlefield.terrain.get_child_count(), 1)
 	assert_eq(main.battlefield.city_visuals.get_child_count(), expected_building_count)
 
-func test_save_rejects_invalid_runtime_snapshot_without_replacing_previous_file() -> void:
+func test_load_falls_back_to_last_valid_backup_after_semantic_corruption() -> void:
+	main.session.budget = 317
+	assert_eq(main.save_operation(), "")
+	main.session.budget = 912
+	assert_eq(main.save_operation(), "")
+	var current := SaveStore.read(save_path) as Dictionary
+	assert_eq(current.error, "")
+	current.document.payload.session.budget = -1
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	assert_not_null(file)
+	file.store_string(SaveDocument.encode(current.document))
+	file.close()
+	main.session.budget = 9999
+	assert_eq(main.load_operation(), "")
+	assert_eq(main.session.budget, 317)
+	assert_true(main.last_persistence_repairs[0].contains("백업"))
+
+func test_save_repairs_invalid_runtime_state_and_replaces_previous_file() -> void:
 	assert_eq(main.save_operation(), "")
 	var saved: Dictionary = SaveStore.read(save_path)
 	assert_eq(saved.error, "")
 	var contact: ThreatUnit = main.registry.get_active()[0]
 	contact.countermeasure_origin = Vector3(INF, 0.0, 0.0)
-	assert_eq(main.save_operation(), "대응탄 위치가 올바르지 않습니다")
-	var unchanged: Dictionary = SaveStore.read(save_path)
-	assert_eq(unchanged.error, "")
-	assert_eq(unchanged.document, saved.document)
+	assert_eq(main.save_operation(), "")
+	var repaired: Dictionary = SaveStore.read(save_path)
+	assert_eq(repaired.error, "")
+	assert_ne(repaired.document, saved.document)
+	assert_eq(repaired.document.payload.world.contacts.size(), saved.document.payload.world.contacts.size())
+	var repaired_contact := _saved_contact(repaired.document, contact.runtime_id)
+	assert_eq(repaired_contact.countermeasure.origin, repaired_contact.position)
+	assert_eq(repaired_contact.countermeasure.kind, "")
+	assert_eq(main.last_persistence_repairs.size(), 1)
 
 func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
 	var support := _place_defense(_defense_definition(&"support_facility")) as SupportFacility
@@ -688,20 +721,42 @@ func _find_contact(runtime_id: int) -> ThreatUnit:
 			return contact
 	return null
 
-func test_automatic_resupply_save_rejects_invalid_targets_before_changing_runtime() -> void:
+func test_automatic_resupply_recovery_removes_invalid_targets() -> void:
 	var battery := _place_defense(_defense_definition(&"missile_battery"))
 	var facility := _place_defense(_defense_definition(&"support_facility"))
 	battery.set_automatic_resupply(true)
+	var battery_id := battery.runtime_id
 	var original := main.capture_save_document()
 	for invalid: Variant in [null, "bad", [999999], [facility.runtime_id], [battery.runtime_id, battery.runtime_id], [1.5], ["1"]]:
 		var document := original.duplicate(true)
 		document.payload.world.support.automatic_resupply_ids = invalid
-		assert_ne(main.restore_from_document(document), "")
-		assert_true(battery.automatic_resupply_enabled())
+		if invalid is Array:
+			assert_eq(main.restore_from_document(document), "")
+			var restored := _find_defense(battery_id)
+			assert_not_null(restored)
+			assert_eq(restored.automatic_resupply_enabled(), invalid == [battery_id, battery_id])
+		else:
+			assert_ne(main.restore_from_document(document), "")
 		assert_eq(main.defenses.size(), 3)
 	var missing := original.duplicate(true)
 	missing.payload.world.support.erase("automatic_resupply_ids")
 	assert_ne(main.restore_from_document(missing), "")
+
+func test_snapshot_preparation_is_pure_idempotent_and_strictly_valid() -> void:
+	var battery := _place_defense(_defense_definition(&"missile_battery"))
+	var document := main.capture_save_document()
+	document.payload.world.support.automatic_resupply_ids = [battery.runtime_id, 999999, battery.runtime_id]
+	var source: Dictionary = document.payload.duplicate(true)
+	var prepared := SessionSnapshot.prepare(document.payload, main.scenario)
+	assert_eq(document.payload, source, "준비 과정은 입력 문서를 변경하지 않습니다")
+	assert_eq(prepared.error, "")
+	assert_eq(prepared.payload.world.support.automatic_resupply_ids, [battery.runtime_id])
+	assert_eq(prepared.repairs.size(), 2)
+	assert_eq(SessionSnapshot.validation_error(prepared.payload, main.scenario), "")
+	var repeated := SessionSnapshot.prepare(prepared.payload, main.scenario)
+	assert_eq(repeated.error, "")
+	assert_true(repeated.repairs.is_empty())
+	assert_eq(repeated.payload, prepared.payload)
 
 func test_version_16_operation_restores_with_automatic_resupply_disabled() -> void:
 	var battery := _place_defense(_defense_definition(&"missile_battery"))
@@ -725,7 +780,8 @@ func test_version_17_gun_migrates_without_inventing_rounds_or_changing_ammunitio
 	gun.magazine.rounds = 23
 	var document := main.capture_save_document()
 	_saved_defense(document, id).content_state.erase("gunfire")
-	assert_ne(main.restore_from_document(document), "", "현재 버전은 비행탄 필드를 생략할 수 없습니다")
+	assert_eq(main.restore_from_document(document), "", "현재 버전의 손상된 자산은 작전 전체 대신 해당 자산만 제거합니다")
+	assert_null(_find_defense(id))
 	document.version = 17
 	assert_eq(main.restore_from_document(document), "")
 	var restored := _find_defense(id) as CloseInGun
@@ -853,7 +909,8 @@ func test_recon_search_and_flight_restore_without_using_asset_waypoints() -> voi
 	assert_null(restored.mission_runtime.target_asset)
 	var invalid := document.duplicate(true)
 	invalid.payload.world.enemy_knowledge.recon_search.assignments[0].owner = 9999999
-	assert_ne(main.restore_from_document(invalid), "")
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_true(main.enemy_knowledge.search.assignments.is_empty())
 	var legacy := document.duplicate(true)
 	legacy.payload.world.enemy_knowledge.erase("recon_search")
 	legacy.payload.world.enemy_knowledge.erase("recon_sightings")
@@ -902,20 +959,21 @@ func test_opening_raid_members_pending_groups_and_rest_round_trip() -> void:
 	main.director.gameplay_tick(main.scenario.pressure_step_duration)
 	assert_eq(main.director.pressure_level, 3)
 
-func test_invalid_opening_raid_state_does_not_mutate_operation() -> void:
+func test_invalid_opening_raid_references_are_removed_but_invalid_clock_is_fatal() -> void:
 	main.director.launch_budgeted_raid()
 	main.director._tick_pending_waves(32.0)
 	var document := main.capture_save_document()
-	var expected := main.director.capture_state()
 	for invalid_ids: Array in [[999999], [1, 1], [0], [1.5]]:
 		var invalid := document.duplicate(true)
 		invalid.payload.director.opening_threat_ids = invalid_ids
-		assert_ne(main.restore_from_document(invalid), "")
-		assert_eq(main.director.capture_state(), expected)
+		assert_eq(main.restore_from_document(invalid), "")
+		assert_eq(main.director.opening_threat_ids, [1] if invalid_ids == [1, 1] else [])
+		assert_false(main.last_persistence_repairs.is_empty())
 	var invalid := document.duplicate(true)
 	invalid.payload.director.pressure_started_at = NAN
+	var state_before_fatal := main.director.capture_state()
 	assert_ne(main.restore_from_document(invalid), "")
-	assert_eq(main.director.capture_state(), expected)
+	assert_eq(main.director.capture_state(), state_before_fatal)
 
 func test_version_22_preserves_existing_pressure_without_catching_up() -> void:
 	var document := main.capture_save_document()

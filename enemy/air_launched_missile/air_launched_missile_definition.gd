@@ -13,6 +13,14 @@ func runtime_state_validation_error(state: Dictionary, defense_ids: Dictionary[i
 		return "공대지 미사일의 비행 방식이 올바르지 않습니다"
 	return AirStrikeMunition.state_validation_error(state)
 
+func repair_runtime_state(state: Dictionary, defense_ids: Dictionary[int, bool]) -> Dictionary:
+	var target_id := int(state.get("target_defense_id", 0))
+	if target_id != 0 and not defense_ids.has(target_id):
+		var repaired := state.duplicate(true)
+		repaired.target_defense_id = 0
+		return repaired
+	return state
+
 func validation_error() -> String:
 	if not is_finite(maximum_health) or maximum_health <= 0.0 or not is_finite(flight_speed) or flight_speed <= 0.0 or not is_finite(flight_acceleration) or flight_acceleration <= 0.0:
 		return "공대지 미사일 성능이 올바르지 않습니다"
