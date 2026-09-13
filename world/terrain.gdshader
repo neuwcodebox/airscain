@@ -8,6 +8,9 @@ varying vec3 terrain_position;
 varying vec3 terrain_normal;
 uniform bool placement_contours = false;
 uniform vec3 placement_center = vec3(0.0);
+uniform bool radar_coverage_enabled = false;
+uniform sampler2D radar_coverage_map : filter_linear, repeat_disable;
+uniform float battlefield_size = 2400.0;
 
 void vertex() {
 	shadow_receiver_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -39,6 +42,11 @@ void fragment() {
 	// Fade subpixel contours and keep level plateaus free of painted bands.
 	contour *= smoothstep(0.0003, 0.003, slope) * (1.0 - smoothstep(2.0, 5.0, footprint));
 	ALBEDO = base * 0.68 * (1.0 - contour * mix(0.07, 0.28, local_weight));
+	if (radar_coverage_enabled) {
+		vec2 coverage_uv = terrain_position.xz / battlefield_size + vec2(0.5);
+		vec4 coverage = texture(radar_coverage_map, clamp(coverage_uv, vec2(0.0), vec2(1.0)));
+		ALBEDO = mix(ALBEDO, coverage.rgb, coverage.a);
+	}
 	ROUGHNESS = 0.94;
 	ALBEDO *= 1.0 - projected_smoke_shadow(shadow_receiver_position);
 	EMISSION = placement_surface_light(shadow_receiver_position, ALBEDO);

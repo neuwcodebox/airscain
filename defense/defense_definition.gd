@@ -50,6 +50,16 @@ func tactical_overlay_mode() -> StringName:
 func tactical_range() -> float:
 	return preview_range
 
+func tactical_overlay_color() -> Color:
+	match tactical_overlay_mode():
+		&"sensor": return Color(0.18, 0.82, 1.0, 0.72)
+		&"weapon": return Color(1.0, 0.48, 0.18, 0.72)
+		&"support": return Color(0.36, 1.0, 0.54, 0.86)
+	return Color.TRANSPARENT
+
+func terrain_coverage_color() -> Color:
+	return Color.TRANSPARENT
+
 func placement_support_range() -> float:
 	return 0.0
 

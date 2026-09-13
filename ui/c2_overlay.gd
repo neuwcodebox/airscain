@@ -135,6 +135,7 @@ func _rebuild_range() -> void:
 	var center := Vector3.ZERO
 	var radius := 0.0
 	var title := "지휘 연결"
+	operation_material.albedo_color = SUPPORT_COLOR
 	operation_ring.hide()
 	if placement_active:
 		center = placement_position
@@ -151,6 +152,8 @@ func _rebuild_range() -> void:
 			radius = selected_asset.c2_link_range()
 			range_material.albedo_color = C2_COLOR
 			var operation_radius := LabeledRangeRing.primary_radius(selected_asset.definition) * selected_asset.operational_efficiency()
+			if selected_asset.definition.terrain_coverage_color().a > 0.0:
+				operation_material.albedo_color = selected_asset.definition.tactical_overlay_color()
 			operation_ring.global_position = center + Vector3.UP * 1.5
 			operation_ring.set_range(operation_radius, LabeledRangeRing.primary_title(selected_asset.definition))
 	if radius <= 0.0:

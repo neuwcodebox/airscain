@@ -113,6 +113,62 @@ func test_placement_range_color_is_independent_of_model_validity() -> void:
 		overlay._rebuild_range()
 		assert_eq(overlay.range_material.albedo_color, C2Overlay.C2_COLOR)
 
+func test_radar_terrain_coverage_splits_work_and_leaves_ridge_shadow_unpainted() -> void:
+	var field := _flat_battlefield(80.0, 9)
+	for z: int in field.generator.resolution:
+		field.generator.heights[z * field.generator.resolution + 4] = 30.0
+	var coverage := add_child_autofree(RadarTerrainCoverage.new()) as RadarTerrainCoverage
+	coverage.configure(field)
+	coverage.maximum_cells_per_frame = 4
+	coverage.work_budget_usec = 1000000
+	coverage.set_sources([{
+		"key": "radar",
+		"position": Vector3(-30.0, 0.0, 0.0),
+		"radius": 80.0,
+		"color": Color(0.18, 0.82, 1.0, 0.18),
+	}])
+	coverage._process(0.0)
+	assert_true(coverage.is_calculating())
+	assert_eq(coverage.completed_source_count(), 0)
+	coverage.maximum_cells_per_frame = 10000
+	coverage._process(0.0)
+	assert_false(coverage.is_calculating())
+	assert_eq(coverage.completed_source_count(), 1)
+	assert_gt(coverage.coverage_color_at(Vector2(-20.0, 0.0)).a, 0.0)
+	assert_eq(coverage.coverage_color_at(Vector2(30.0, 0.0)).a, 0.0)
+	var origin := Vector3(-30.0, RadarTerrainCoverage.ANTENNA_HEIGHT, 0.0)
+	var shadowed_surface := Vector3(30.0, RadarTerrainCoverage.SURFACE_CLEARANCE, 0.0)
+	assert_false(TerrainLineOfSight.is_clear(field, origin, shadowed_surface))
+
+func test_radar_coverage_targets_follow_preview_overlay_and_selection_priority() -> void:
+	var field := _flat_battlefield(80.0, 9)
+	var defense_parent := add_child_autofree(Node3D.new()) as Node3D
+	var low_radar := _defense(&"search_radar").scene.instantiate() as DefenseUnit
+	var high_radar := _defense(&"tracking_radar").scene.instantiate() as DefenseUnit
+	defense_parent.add_child(low_radar)
+	defense_parent.add_child(high_radar)
+	low_radar.setup(1, _defense(&"search_radar"))
+	high_radar.setup(2, _defense(&"tracking_radar"))
+	var overlay := add_child_autofree(TacticalRangeOverlay.new()) as TacticalRangeOverlay
+	overlay.configure(defense_parent, null, null, field)
+	overlay.select_asset(low_radar)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 1)
+	overlay.set_mode(TacticalRangeOverlay.MODE_SENSOR)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 2)
+	overlay.preview_placement(_defense(&"missile_battery"), Vector3.ZERO, true)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 0)
+	overlay.preview_placement(_defense(&"tracking_radar"), Vector3.ZERO, true)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 0)
+	overlay._process(TacticalRangeOverlay.PLACEMENT_PREVIEW_DELAY)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 1)
+	overlay.preview_placement(null, Vector3.ZERO, false)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 2)
+	overlay.set_mode(TacticalRangeOverlay.MODE_NONE)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 1)
+	overlay.select_asset(null)
+	assert_eq(overlay.terrain_coverage.requested_source_count(), 0)
+	assert_ne(_defense(&"search_radar").tactical_overlay_color(), _defense(&"tracking_radar").tactical_overlay_color())
+
 func test_expired_smoke_can_reuse_slots_without_restoring_old_puffs() -> void:
 	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
 	var trail := effect.smoke
@@ -1720,6 +1776,16 @@ func _defense(id: StringName) -> DefenseDefinition:
 			return definition
 	fail_test("missing defense definition %s" % id)
 	return null
+
+func _flat_battlefield(size: float, resolution: int) -> Battlefield:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.battlefield_size = size
+	field.generator.size = size
+	field.generator.resolution = resolution
+	field.generator.sea_level = 0.0
+	field.generator.heights.resize(resolution * resolution)
+	field.generator.heights.fill(0.0)
+	return field
 
 func _threat(id: StringName) -> ThreatDefinition:
 	return _threat_entry(id).threat_definition

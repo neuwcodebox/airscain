@@ -97,7 +97,7 @@ func _ready() -> void:
 	track_display.configure(player_knowledge, defense_parent, engagement_coordinator)
 	var range_label_obstacles: Array[Control] = [hud.catalog, hud.city_menu, hud.selected_asset_panel, hud.placement_hint_panel, hud.training_panel, altitude_profile]
 	c2_overlay.configure(c2_network, support_manager, range_label_obstacles, battlefield)
-	tactical_range_overlay.configure(defense_parent, registry, support_manager)
+	tactical_range_overlay.configure(defense_parent, registry, support_manager, battlefield)
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager, range_label_obstacles)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
@@ -408,6 +408,7 @@ func _on_asset_selected(unit: DefenseUnit) -> void:
 
 func _on_placement_preview_changed(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
 	c2_overlay.preview_placement(definition, position, active)
+	tactical_range_overlay.preview_placement(definition, position, active)
 	var added_demand := definition.placement_power_demand() if definition != null else 0.0
 	var added_capacity := definition.placement_power_capacity() if definition != null else 0.0
 	var screen_position := camera_rig.camera.unproject_position(position) if active and definition != null else Vector2.ZERO
@@ -621,6 +622,7 @@ func _set_selected_asset(unit: DefenseUnit) -> void:
 	if selected_asset != null and is_instance_valid(selected_asset):
 		selected_asset.set_selected(false)
 	selected_asset = unit
+	tactical_range_overlay.select_asset(unit)
 	if selected_asset != null and is_instance_valid(selected_asset):
 		selected_asset.set_selected(true)
 

@@ -101,12 +101,7 @@ func _submit_false_echoes(threat: ThreatUnit, target_position: Vector3, quality:
 		player_knowledge.submit_observation(echo)
 
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
-	for sample_index: int in range(1, 12):
-		var weight := float(sample_index) / 12.0
-		var sample_position := from.lerp(to, weight)
-		if battlefield.terrain_height(sample_position.x, sample_position.z) + 2.0 > sample_position.y:
-			return false
-	return true
+	return TerrainLineOfSight.is_clear(battlefield, from, to)
 
 func capture_content_state() -> Dictionary:
 	return {"scan_cooldown": scan_cooldown}

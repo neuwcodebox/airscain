@@ -289,6 +289,10 @@ func _create_preview() -> void:
 	range_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	range_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	range_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48)
+	if selected.terrain_coverage_color().a > 0.0:
+		var radar_color := selected.tactical_overlay_color()
+		radar_color.a = 0.48
+		range_material.albedo_color = radar_color
 	range_disc.material_override = range_material
 	preview.add_child(range_disc)
 	range_disc.set_range(LabeledRangeRing.primary_radius(selected), LabeledRangeRing.primary_title(selected))

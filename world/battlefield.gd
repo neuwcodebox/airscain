@@ -356,6 +356,14 @@ func set_placement_contours(enabled: bool, center: Vector3 = Vector3.ZERO) -> vo
 	if enabled:
 		material.set_shader_parameter("placement_center", center)
 
+func set_radar_coverage(texture: Texture2D, enabled: bool) -> void:
+	if terrain == null or not terrain.material_override is ShaderMaterial:
+		return
+	var material := terrain.material_override as ShaderMaterial
+	material.set_shader_parameter("radar_coverage_map", texture)
+	material.set_shader_parameter("battlefield_size", battlefield_size)
+	material.set_shader_parameter("radar_coverage_enabled", enabled)
+
 func terrain_height(x: float, z: float) -> float:
 	return generator.height_at(x, z)
 

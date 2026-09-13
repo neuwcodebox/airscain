@@ -25,6 +25,12 @@ func tactical_overlay_mode() -> StringName:
 func tactical_range() -> float:
 	return detection_range
 
+func tactical_overlay_color() -> Color:
+	return range_overlay_color
+
+func terrain_coverage_color() -> Color:
+	return Color(range_overlay_color.r, range_overlay_color.g, range_overlay_color.b, 0.18)
+
 func validation_error() -> String:
 	var base_error := super.validation_error()
 	if not base_error.is_empty():

@@ -8,16 +8,24 @@ const MODE_SENSOR := &"sensor"
 const MODE_WEAPON := &"weapon"
 const MODE_SUPPORT := &"support"
 const MODE_ELECTRONIC := &"electronic"
+const PLACEMENT_PREVIEW_DELAY := 0.15
 
 var mode: StringName = MODE_NONE
 var defense_parent: Node3D
 var registry: ThreatRegistry
 var support_manager: SupportManager
+var selected_asset: DefenseUnit
+var placement_definition: DefenseDefinition
+var placement_position := Vector3.ZERO
+var placement_active: bool = false
+var placement_preview_ready: bool = false
+var placement_preview_remaining: float = 0.0
 var rebuild_remaining: float = 0.0
 var interference_patches: Dictionary[int, MeshInstance3D] = {}
 var interference_plane := PlaneMesh.new()
 var line_mesh := MeshInstance3D.new()
 var line_material := StandardMaterial3D.new()
+var terrain_coverage := RadarTerrainCoverage.new()
 
 func _ready() -> void:
 	interference_plane.size = Vector2(140.0, 140.0)
@@ -27,26 +35,52 @@ func _ready() -> void:
 	line_material.no_depth_test = true
 	line_mesh.material_override = line_material
 	add_child(line_mesh)
+	terrain_coverage.name = "RadarTerrainCoverage"
+	add_child(terrain_coverage)
 	visible = false
 
-func configure(defense_parent_value: Node3D, registry_value: ThreatRegistry, support: SupportManager) -> void:
+func configure(defense_parent_value: Node3D, registry_value: ThreatRegistry, support: SupportManager, battlefield: Battlefield) -> void:
 	defense_parent = defense_parent_value
 	registry = registry_value
 	support_manager = support
+	terrain_coverage.configure(battlefield)
 
 func set_mode(mode_value: StringName) -> void:
 	mode = mode_value
-	visible = mode != MODE_NONE
 	rebuild_remaining = 0.0
 	_rebuild()
+	_refresh_coverage_sources()
+	_update_visibility()
+
+func select_asset(unit: DefenseUnit) -> void:
+	selected_asset = unit
+	_refresh_coverage_sources()
+	_update_visibility()
+
+func preview_placement(definition: DefenseDefinition, position: Vector3, active: bool) -> void:
+	var changed := definition != placement_definition or active != placement_active or not position.is_equal_approx(placement_position)
+	placement_definition = definition
+	placement_position = position
+	placement_active = active and definition != null
+	if changed:
+		placement_preview_ready = false
+		placement_preview_remaining = PLACEMENT_PREVIEW_DELAY
+		_refresh_coverage_sources()
+		_update_visibility()
 
 func _process(delta: float) -> void:
-	if mode == MODE_NONE:
-		return
+	if placement_active and not placement_preview_ready:
+		placement_preview_remaining -= delta
+		if placement_preview_remaining <= 0.0:
+			placement_preview_ready = true
+			_refresh_coverage_sources()
+			_update_visibility()
 	rebuild_remaining -= delta
 	if rebuild_remaining <= 0.0:
 		rebuild_remaining += 0.25
 		_rebuild()
+		_refresh_coverage_sources()
+		_update_visibility()
 
 func _rebuild() -> void:
 	if mode == MODE_NONE or defense_parent == null:
@@ -64,15 +98,13 @@ func _rebuild() -> void:
 		match mode:
 			MODE_SENSOR:
 				if unit.definition.tactical_overlay_mode() == MODE_SENSOR:
-					var radar_definition := unit.definition as SearchRadarDefinition
-					var color := radar_definition.range_overlay_color if radar_definition != null else Color(0.18, 0.82, 1.0, 0.72)
-					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), color, 96, 0)
+					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), unit.definition.tactical_overlay_color(), 96, 0)
 			MODE_WEAPON:
 				if unit.definition.tactical_overlay_mode() == MODE_WEAPON:
-					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), Color(1.0, 0.48, 0.18, 0.72), 96, 2)
+					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), unit.definition.tactical_overlay_color(), 96, 2)
 			MODE_SUPPORT:
 				if unit.definition.tactical_overlay_mode() == MODE_SUPPORT:
-					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range(), Color(0.36, 1.0, 0.54, 0.86), 96, 0)
+					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range(), unit.definition.tactical_overlay_color(), 96, 0)
 			MODE_ELECTRONIC:
 				if unit.c2_roles() == 0:
 					continue
@@ -88,6 +120,27 @@ func _rebuild() -> void:
 		line_mesh.mesh = mesh
 	else:
 		line_mesh.mesh = null
+
+func _refresh_coverage_sources() -> void:
+	var sources: Array[Dictionary] = []
+	if placement_active:
+		if placement_preview_ready and placement_definition.terrain_coverage_color().a > 0.0:
+			sources.append(_coverage_source("preview", placement_position, placement_definition.tactical_range(), placement_definition.terrain_coverage_color()))
+	elif mode == MODE_SENSOR and defense_parent != null:
+		for child: Node in defense_parent.get_children():
+			var unit := child as DefenseUnit
+			if unit == null or not unit.active or unit.definition.terrain_coverage_color().a <= 0.0:
+				continue
+			sources.append(_coverage_source("unit:%d" % unit.runtime_id, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), unit.definition.terrain_coverage_color()))
+	elif is_instance_valid(selected_asset) and selected_asset.active and selected_asset.definition.terrain_coverage_color().a > 0.0:
+		sources.append(_coverage_source("unit:%d" % selected_asset.runtime_id, selected_asset.global_position, selected_asset.definition.tactical_range() * selected_asset.operational_efficiency(), selected_asset.definition.terrain_coverage_color()))
+	terrain_coverage.set_sources(sources)
+
+func _coverage_source(key: String, position: Vector3, radius: float, color: Color) -> Dictionary:
+	return {"key": key, "position": position, "radius": radius, "color": color}
+
+func _update_visibility() -> void:
+	visible = mode != MODE_NONE or terrain_coverage.requested_source_count() > 0 or placement_active
 
 func _update_interference(unit: DefenseUnit, strength: float) -> void:
 	var patch: MeshInstance3D = interference_patches.get(unit.runtime_id)
