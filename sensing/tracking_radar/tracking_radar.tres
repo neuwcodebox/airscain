@@ -31,5 +31,6 @@ c2_range = 900.0
 minimum_detection_altitude = 120.0
 maximum_detection_altitude = 1500.0
 range_overlay_color = Color(0.68, 0.4, 1, 0.72)
+terrain_coverage_tint = Color(0.68, 0.4, 1, 0.18)
 mobile = true
 relocation_duration = 8.0

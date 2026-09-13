@@ -8,7 +8,8 @@ extends DefenseDefinition
 @export var c2_range: float = 700.0
 @export var minimum_detection_altitude: float = 0.0
 @export var maximum_detection_altitude: float = 260.0
-@export var range_overlay_color := Color(0.18, 0.82, 1.0, 0.72)
+@export var range_overlay_color := Color(0.18, 0.95, 0.42, 0.72)
+@export var terrain_coverage_tint := Color(0.18, 0.82, 1.0, 0.18)
 
 func placement_c2_roles() -> int:
 	return DefenseUnit.C2Role.SENSOR
@@ -29,7 +30,7 @@ func tactical_overlay_color() -> Color:
 	return range_overlay_color
 
 func terrain_coverage_color() -> Color:
-	return Color(range_overlay_color.r, range_overlay_color.g, range_overlay_color.b, 0.18)
+	return terrain_coverage_tint
 
 func validation_error() -> String:
 	var base_error := super.validation_error()

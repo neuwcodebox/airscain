@@ -177,7 +177,10 @@ func test_radar_coverage_targets_follow_preview_overlay_and_selection_priority()
 	assert_eq(overlay.terrain_coverage.requested_source_count(), 1)
 	overlay.select_asset(null)
 	assert_eq(overlay.terrain_coverage.requested_source_count(), 0)
-	assert_ne(_defense(&"search_radar").tactical_overlay_color(), _defense(&"tracking_radar").tactical_overlay_color())
+	var low_radar_definition := _defense(&"search_radar")
+	assert_eq(low_radar_definition.tactical_overlay_color(), Color(0.18, 0.95, 0.42, 0.72))
+	assert_eq(low_radar_definition.terrain_coverage_color(), Color(0.18, 0.82, 1.0, 0.18))
+	assert_ne(low_radar_definition.tactical_overlay_color(), _defense(&"tracking_radar").tactical_overlay_color())
 
 func test_expired_smoke_can_reuse_slots_without_restoring_old_puffs() -> void:
 	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
