@@ -80,7 +80,7 @@ func _fire_pulse(track: PlayerTrack) -> int:
 
 func resource_status_text() -> String:
 	var status := "%s\nHPM 충전 %d%%" % [operational_status_text(), roundi(energy_state.energy / energy_state.capacity * 100.0)]
-	status += "\n%s" % (power_manager.consumer_status() if power_manager != null else "전력 공급 없음")
+	status += "\n전력 수요 %d" % roundi(_definition.power_demand)
 	if support_manager != null and not support_manager.task_status(self).is_empty():
 		status += "\n%s" % support_manager.task_status(self)
 	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
@@ -91,10 +91,7 @@ func selection_status_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = [
 		{"label": "HPM 충전", "value": "%d%%" % roundi(energy_state.energy / energy_state.capacity * 100.0)},
 	]
-	if power_manager == null:
-		rows.append({"label": "전력", "value": "공급 없음", "warning": true})
-	else:
-		rows.append(power_manager.power_status_row())
+	rows.append({"label": "전력 수요", "value": str(roundi(_definition.power_demand))})
 	rows.append_array(_selection_task_rows())
 	return rows
 

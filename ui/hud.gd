@@ -57,6 +57,10 @@ const FEEDBACK_DURATION := 3.5
 const METRIC_KEY_COLOR := Color(0.58, 0.68, 0.72)
 const METRIC_VALUE_COLOR := Color(0.86, 0.9, 0.88)
 const METRIC_WARNING_COLOR := Color(1.0, 0.62, 0.3)
+const POWER_NORMAL_COLOR := Color(0.35, 0.86, 0.92)
+const POWER_LIMIT_COLOR := Color(1.0, 0.68, 0.3)
+const POWER_SHORTAGE_COLOR := Color(1.0, 0.36, 0.25)
+const POWER_INACTIVE_COLOR := Color(0.48, 0.58, 0.62)
 const METRIC_FONT_SIZE := 14
 const MENU_COLLAPSED_SYMBOL := "▼"
 const MENU_EXPANDED_SYMBOL := "▲"
@@ -71,6 +75,8 @@ const CATALOG_GROUP_LABELS := {
 }
 
 @onready var budget_label: Label = %BudgetLabel
+@onready var power_icon: TextureRect = %PowerIcon
+@onready var power_label: Label = %PowerLabel
 @onready var city_status_label: Label = %CityStatusLabel
 @onready var city_damage_vignette: CityDamageVignette = %CityDamageVignette
 @onready var defense_menu_button: Button = %DefenseMenuButton
@@ -337,6 +343,21 @@ func set_placement_power_preview(current_demand: float, added_demand: float, cap
 	var color := Color(1.0, 0.48, 0.3) if expected_demand > expected_capacity else Color(0.45, 0.92, 0.82)
 	placement_power_label.add_theme_color_override("font_color", color)
 	_position_placement_hint(screen_position)
+
+func set_power_status(demand: float, capacity: float) -> void:
+	var rounded_demand := roundi(demand)
+	var rounded_capacity := roundi(capacity)
+	var shortage := demand > capacity
+	power_label.text = "전력  %d / %d%s" % [rounded_demand, rounded_capacity, " · 부족" if shortage else ""]
+	var color := POWER_NORMAL_COLOR
+	if capacity <= 0.0:
+		color = POWER_SHORTAGE_COLOR if demand > 0.0 else POWER_INACTIVE_COLOR
+	elif shortage:
+		color = POWER_SHORTAGE_COLOR
+	elif demand >= capacity:
+		color = POWER_LIMIT_COLOR
+	power_label.add_theme_color_override("font_color", color)
+	power_icon.modulate = color
 
 func set_placement_status(message: String, valid: bool, screen_position: Vector2, active: bool) -> void:
 	placement_status_label.visible = active

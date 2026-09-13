@@ -39,16 +39,3 @@ func total_demand() -> float:
 		if is_instance_valid(consumer) and consumer.active:
 			result += consumer.power_demand()
 	return result
-
-func consumer_status() -> String:
-	var row := power_status_row()
-	return "%s  %s" % [row.label, row.value]
-
-func power_status_row() -> Dictionary:
-	var capacity := generation_capacity()
-	var total := total_demand()
-	var shortage := total > capacity
-	var value := "%d / %d" % [roundi(total), roundi(capacity)]
-	if shortage:
-		value += " · 부족"
-	return {"label": "전력 수요 / 공급", "value": value, "warning": shortage}

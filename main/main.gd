@@ -286,6 +286,7 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	support_manager.register_asset(unit)
 	power_manager.register_asset(unit)
 	relocation_manager.register_asset(unit)
+	_refresh_power_status()
 	unit.weapon_fired.connect(_on_weapon_fired)
 	unit.damage_received.connect(_on_defense_damage_audio)
 	unit.projectile_launched.connect(_on_projectile_launched_audio)
@@ -452,6 +453,7 @@ func _refresh_selected_track_panel() -> void:
 	hud.set_selected_track(selected_track, int(details.sensor_count), int(details.engagement_count))
 
 func _refresh_tactical_ui() -> void:
+	_refresh_power_status()
 	var hostile_count := 0
 	var selectable_hostile_count := 0
 	for track: PlayerTrack in player_knowledge.get_active_tracks():
@@ -480,6 +482,9 @@ func _refresh_tactical_ui() -> void:
 		training_controller.tracks_refreshed(selectable_hostile_count)
 	if selected_track != null:
 		_refresh_selected_track_panel()
+
+func _refresh_power_status() -> void:
+	hud.set_power_status(power_manager.total_demand(), power_manager.generation_capacity())
 
 func _on_track_removed(track_id: int) -> void:
 	if selected_track == null or selected_track.track_id != track_id:

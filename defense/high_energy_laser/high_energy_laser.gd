@@ -78,7 +78,7 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 func resource_status_text() -> String:
 	var thermal_status := "과열" if energy_state.overheated else "열 %d%%" % roundi(energy_state.heat / energy_state.heat_capacity * 100.0)
 	var status := "%s\n충전 %d%% · %s" % [operational_status_text(), roundi(energy_state.energy / energy_state.capacity * 100.0), thermal_status]
-	status += "\n%s" % (power_manager.consumer_status() if power_manager != null else "전력 공급 없음")
+	status += "\n전력 수요 %d" % roundi(_definition.power_demand)
 	if support_manager != null and not support_manager.task_status(self).is_empty():
 		status += " · %s" % support_manager.task_status(self)
 	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():
@@ -91,14 +91,9 @@ func selection_status_rows() -> Array[Dictionary]:
 		{"label": "충전", "value": "%d%%" % roundi(energy_state.energy / energy_state.capacity * 100.0)},
 		{"label": "열", "value": "과열" if energy_state.overheated else "%d%%" % heat_ratio, "warning": energy_state.overheated},
 	]
-	rows.append_array(_power_status_rows())
+	rows.append({"label": "전력 수요", "value": str(roundi(_definition.power_demand))})
 	rows.append_array(_selection_task_rows())
 	return rows
-
-func _power_status_rows() -> Array[Dictionary]:
-	if power_manager == null:
-		return [{"label": "전력", "value": "공급 없음", "warning": true}]
-	return [power_manager.power_status_row()]
 
 func _fire_pulse(track: PlayerTrack) -> void:
 	weapon_fired.emit(self, false)

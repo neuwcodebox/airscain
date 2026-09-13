@@ -366,8 +366,10 @@ func test_non_combat_ui_audio_uses_selected_sources_and_routes_feedback() -> voi
 
 func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
 	assert_same(main.hud.time_label.get_parent(), main.hud.pressure_label.get_parent())
-	assert_same(main.hud.budget_label.get_parent(), main.hud.city_status_label.get_parent())
+	assert_same(main.hud.time_label.get_parent(), main.hud.city_status_label.get_parent())
+	assert_same(main.hud.budget_label.get_parent(), main.hud.power_label.get_parent())
 	assert_ne(main.hud.budget_label.get_parent(), main.hud.defense_menu_button.get_parent())
+	assert_not_null(main.hud.power_icon.texture)
 	assert_false(main.hud.defense_menu_button.flat)
 	assert_eq(main.hud.pressure_label.text, "위협 단계  1")
 	var preparation_hint := "적이 외곽에서 접근합니다. 방공 자산을 배치하세요."
@@ -381,6 +383,17 @@ func test_topbar_spacing_and_bottom_feedback_follow_current_context() -> void:
 	assert_eq(main.hud.feedback_label.text, "지도에서 배치 위치를 선택하세요")
 	main.hud.set_feedback("", false)
 	assert_false(main.hud.feedback_label.visible)
+
+func test_topbar_power_status_distinguishes_capacity_states() -> void:
+	main.hud.set_power_status(12.0, 20.0)
+	assert_eq(main.hud.power_label.text, "전력  12 / 20")
+	assert_eq(main.hud.power_label.get_theme_color("font_color"), Hud.POWER_NORMAL_COLOR)
+	main.hud.set_power_status(20.0, 20.0)
+	assert_eq(main.hud.power_label.get_theme_color("font_color"), Hud.POWER_LIMIT_COLOR)
+	main.hud.set_power_status(24.0, 20.0)
+	assert_eq(main.hud.power_label.text, "전력  24 / 20 · 부족")
+	assert_eq(main.hud.power_label.get_theme_color("font_color"), Hud.POWER_SHORTAGE_COLOR)
+	assert_eq(main.hud.power_icon.modulate, Hud.POWER_SHORTAGE_COLOR)
 
 func test_topbar_dropdown_selects_directly_and_excludes_other_menus() -> void:
 	var option := main.hud.overlay_option
@@ -1183,19 +1196,21 @@ func test_placement_and_selection_share_c2_and_support_relations() -> void:
 	assert_lt(main.hud.placement_hint_panel.position.distance_to(main.camera_rig.camera.unproject_position(candidate)), 220.0)
 	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))
 	assert_true(support_result.success)
+	assert_eq(main.hud.power_label.text, "전력  0 / 20")
 	main.placement.placement_preview_changed.emit(laser_definition, candidate, true)
 	assert_string_contains(main.hud.placement_power_label.text, "배치 후  12 / 20")
 	assert_eq(main.c2_overlay.visible_support_link_count, 1)
 	var preview_c2_count := main.c2_overlay.visible_c2_link_count
 	var laser_result := _place_for(main, laser_definition)
 	assert_true(laser_result.success)
+	assert_eq(main.hud.power_label.text, "전력  12 / 20")
 	var laser := laser_result.unit as DefenseUnit
 	laser.global_position = candidate
 	main.placement.asset_selected.emit(laser)
 	assert_eq(main.c2_overlay.visible_c2_link_count, preview_c2_count)
 	assert_eq(main.c2_overlay.visible_support_link_count, 1)
 	_assert_metric_displayed(main.hud.asset_metrics, "지역 지원", "연결됨")
-	_assert_metric_displayed(main.hud.asset_metrics, "전력 수요 / 공급", "12 / 20")
+	_assert_metric_displayed(main.hud.asset_metrics, "전력 수요", "12")
 	var support_definition := _defense_definition_for(main, &"support_facility")
 	main.placement.select(support_definition)
 	assert_eq(main.placement.range_disc.radius, (support_definition as SupportFacilityDefinition).service_range)

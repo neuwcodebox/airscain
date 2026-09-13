@@ -1096,7 +1096,7 @@ func test_power_manager_allocates_finite_generation_capacity() -> void:
 	assert_eq(manager.request_power(12.0), 8.0)
 	assert_eq(manager.request_power(1.0), 0.0)
 
-func test_energy_selection_compares_total_demand_with_total_supply() -> void:
+func test_energy_selection_reports_its_own_power_demand() -> void:
 	var manager: PowerManager = autofree(PowerManager.new()) as PowerManager
 	var facility: SupportFacility = autofree(SupportFacility.new()) as SupportFacility
 	facility.setup(1, _defense(&"support_facility"))
@@ -1110,18 +1110,11 @@ func test_energy_selection_compares_total_demand_with_total_supply() -> void:
 	microwave.configure_power(manager)
 	manager.register_asset(microwave)
 	for unit: DefenseUnit in [laser, microwave]:
+		var expected := str(roundi(unit.power_demand()))
 		var rows := unit.selection_status_rows()
-		assert_true(rows.has({"label": "전력 수요 / 공급", "value": "30 / 20 · 부족", "warning": true}))
+		assert_true(rows.has({"label": "전력 수요", "value": expected}))
 		assert_eq(rows.filter(func(row: Dictionary) -> bool: return str(row.label).contains("전력")).size(), 1)
-		assert_string_contains(unit.resource_status_text(), "전력 수요 / 공급  30 / 20 · 부족")
-	microwave.active = false
-	var rows := laser.selection_status_rows()
-	assert_true(rows.has({"label": "전력 수요 / 공급", "value": "%d / 20" % roundi(laser.power_demand()), "warning": false}))
-	manager.reset()
-	manager.register_asset(laser)
-	assert_true(laser.selection_status_rows().has({"label": "전력 수요 / 공급", "value": "%d / 0 · 부족" % roundi(laser.power_demand()), "warning": true}))
-	laser.configure_power(null)
-	assert_true(laser.selection_status_rows().has({"label": "전력", "value": "공급 없음", "warning": true}))
+		assert_string_contains(unit.resource_status_text(), "전력 수요 %s" % expected)
 
 func test_support_manager_accepts_capability_provider() -> void:
 	var support: SupportManager = autofree(SupportManager.new()) as SupportManager

@@ -1,8 +1,10 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource path="res://ui/hud.gd" type="Script" id="1"]
 [ext_resource type="Shader" path="res://ui/city_damage_vignette.gdshader" id="2_city_damage"]
 [ext_resource type="Script" path="res://ui/city_damage_vignette.gd" id="3_city_damage"]
+[ext_resource type="Texture2D" path="res://ui/icons/status_budget.svg" id="4_budget"]
+[ext_resource type="Texture2D" path="res://ui/icons/status_power.svg" id="5_power"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_city_damage"]
 resource_local_to_scene = true
@@ -90,10 +92,22 @@ custom_minimum_size = Vector2(480, 0)
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
 
-[node name="Resources" type="VBoxContainer" parent="TopBar/Margin/Left"]
+[node name="Resources" type="GridContainer" parent="TopBar/Margin/Left"]
 layout_mode = 2
-custom_minimum_size = Vector2(120, 0)
-theme_override_constants/separation = 3
+custom_minimum_size = Vector2(140, 0)
+theme_override_constants/h_separation = 7
+theme_override_constants/v_separation = 3
+columns = 2
+
+[node name="BudgetIcon" type="TextureRect" parent="TopBar/Margin/Left/Resources"]
+layout_mode = 2
+custom_minimum_size = Vector2(16, 16)
+mouse_filter = 2
+texture = ExtResource("4_budget")
+expand_mode = 1
+stretch_mode = 5
+modulate = Color(0.45, 0.92, 0.66, 1)
+tooltip_text = "현재 운용 예산"
 
 [node name="BudgetLabel" type="Label" parent="TopBar/Margin/Left/Resources"]
 unique_name_in_owner = true
@@ -102,12 +116,24 @@ theme_override_colors/font_color = Color(0.45, 0.92, 0.66, 1)
 theme_override_font_sizes/font_size = 15
 text = "예산  $400"
 
-[node name="CityStatusLabel" type="Label" parent="TopBar/Margin/Left/Resources"]
+[node name="PowerIcon" type="TextureRect" parent="TopBar/Margin/Left/Resources"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.68, 0.8, 0.85, 1)
+custom_minimum_size = Vector2(16, 16)
+mouse_filter = 2
+texture = ExtResource("5_power")
+expand_mode = 1
+stretch_mode = 5
+modulate = Color(0.35, 0.86, 0.92, 1)
+tooltip_text = "가동 중 에너지 무장 수요 / 전체 지원기지 공급"
+
+[node name="PowerLabel" type="Label" parent="TopBar/Margin/Left/Resources"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.35, 0.86, 0.92, 1)
 theme_override_font_sizes/font_size = 15
-text = "도시  100 / 100"
+text = "전력  0 / 0"
+tooltip_text = "가동 중 에너지 무장 수요 / 전체 지원기지 공급"
 
 [node name="Divider" type="VSeparator" parent="TopBar/Margin/Left"]
 layout_mode = 2
@@ -156,6 +182,16 @@ theme_override_font_sizes/font_size = 18
 text = "생존  00:00"
 
 [node name="Divider" type="VSeparator" parent="TopBar/Margin/Status"]
+layout_mode = 2
+
+[node name="CityStatusLabel" type="Label" parent="TopBar/Margin/Status"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.68, 0.8, 0.85, 1)
+theme_override_font_sizes/font_size = 18
+text = "도시  100 / 100"
+
+[node name="Divider2" type="VSeparator" parent="TopBar/Margin/Status"]
 layout_mode = 2
 
 [node name="PressureLabel" type="Label" parent="TopBar/Margin/Status"]
