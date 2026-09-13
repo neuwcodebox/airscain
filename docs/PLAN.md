@@ -1,5 +1,16 @@
 # PLAN.md
 
+## 메인 메뉴 빌드 버전 표시
+
+- [x] 메인 메뉴 우측 하단에 빌드 날짜와 짧은 Git 커밋을 표시한다.
+- [x] GitHub Pages export 직전에 버전 파일을 자동 생성하고 배포물에 포함한다.
+- [x] 생성된 버전 파일을 Git 추적에서 제외하고 주입 뒤 tracked diff가 없음을 CI에서 검사한다.
+- [x] 버전 생성·메뉴 연결을 집중 검증하고 실제 게임 창에서 배치를 확인한다.
+
+게임 버전은 SemVer나 저장 형식 버전과 결합하지 않고 `YYYY.MM.DD · abcdefg` 형식의 빌드 식별자를 사용한다. GitHub Actions는 한국 시간 기준 빌드 날짜와 현재 커밋의 7자리 SHA를 export 직전에 `build_info/build_version.txt`로 생성한다. 이 파일은 export include filter에는 포함되지만 `.gitignore`로 제외되며, 주입 단계에서 tracked 파일이 바뀌지 않았음을 확인하므로 자동 커밋이나 저장소 변경을 만들지 않는다. 생성 파일이 없는 로컬 개발 실행은 `dev`로 표시한다.
+
+검증: 임시 주입 결과 `2026.09.13 · dbf0e0a`와 Git 제외 상태를 확인했고 Web release export가 `res://build_info/build_version.txt`를 패키징했다. 앱 흐름 집중 회귀 10개·106개 단언이 통과했으며 실제 Compatibility 창에서 우측 하단의 저채도 표시를 확인했다(`/tmp/airscain_main_menu.png`).
+
 ## 일반 모드 연속 배치
 
 - [x] 지속 작전에서도 배치 성공 후 같은 방공 자산의 선택과 미리보기를 유지한다.

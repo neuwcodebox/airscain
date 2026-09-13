@@ -19,6 +19,12 @@ func before_each() -> void:
 	original_fallback_font = ThemeDB.fallback_font
 	temporary_paths.clear()
 
+func test_main_menu_displays_the_packaged_build_version() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	assert_eq(app.build_version_label.text, BuildVersion.display_text())
+	assert_eq(BuildVersion.from_build("2026-09-13", "dbf0e0a"), "2026.09.13 · dbf0e0a")
+	assert_eq(BuildVersion.from_build("2026-09-13", "dbf0e0a", true), "2026.09.13 · dbf0e0a-dirty")
+
 func test_settings_from_pause_keep_simulation_paused_and_block_camera() -> void:
 	var preferences := PlayerSettings.instance()
 	preferences.settings_path = _temporary_path("app_settings", "cfg")

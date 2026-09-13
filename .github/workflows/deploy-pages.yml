@@ -92,6 +92,16 @@ jobs:
             -s addons/gut/gut_cmdln.gd \
             -gtest=res://tests/unit/test_recon_search.gd,res://tests/unit/test_recon_observation.gd,res://tests/unit/test_enemy_knowledge.gd,res://tests/integration/test_facility_strikes.gd,res://tests/integration/test_save_restore.gd -gexit
 
+      - name: Inject ephemeral build version
+        shell: bash
+        run: |
+          build_date="$(TZ=Asia/Seoul date +%F)"
+          short_sha="$(git rev-parse --short=7 HEAD)"
+          XDG_DATA_HOME="${RUNNER_TEMP}/godot-data" godot --headless --audio-driver Dummy --path . \
+            --script res://tools/inject_build_version.gd -- "${build_date}" "${short_sha}"
+          test -s build_info/build_version.txt
+          git diff --exit-code
+
       - name: Export Web build
         run: |
           mkdir -p build/web

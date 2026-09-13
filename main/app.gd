@@ -19,6 +19,7 @@ var settings_menu: SettingsMenu
 @onready var pause_load_button: Button = %PauseLoadButton
 @onready var menu_feedback_label: Label = %MenuFeedbackLabel
 @onready var pause_feedback_label: Label = %PauseFeedbackLabel
+@onready var build_version_label: Label = %BuildVersionLabel
 @onready var ui_audio: UiAudio = $UiAudio
 
 func _enter_tree() -> void:
@@ -34,6 +35,7 @@ static func apply_global_font() -> FontFile:
 	return font
 
 func _ready() -> void:
+	build_version_label.text = BuildVersion.display_text()
 	settings_menu = SettingsMenu.new()
 	add_child(settings_menu)
 	prepared_combat_stream_count = CombatAudio.prepare_samples()

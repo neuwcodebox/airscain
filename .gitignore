@@ -2,3 +2,4 @@
 *.import
 tmp/
 build/
+/build_info/
