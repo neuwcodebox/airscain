@@ -160,15 +160,20 @@ func _association_cost(track: PlayerTrack, observation: SensorObservation) -> fl
 		return GlobalNearestNeighbor.BLOCKED_COST
 	if track.sensor_observed_at.has(observation.sensor_id) and is_equal_approx(track.sensor_observed_at[observation.sensor_id], observation.timestamp):
 		return GlobalNearestNeighbor.BLOCKED_COST
-	var prediction_lead := maxf(0.0, observation.timestamp - simulation_time)
-	var predicted_position := track.estimated_position + track.estimated_velocity * prediction_lead
-	var distance_squared := predicted_position.distance_squared_to(observation.measured_position)
 	var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
+	var prediction_lead := maxf(0.0, observation.timestamp - simulation_time)
+	var reference_position := track.estimated_position + track.estimated_velocity * prediction_lead
 	var dynamic_gate := association_gate + maximum_association_speed * elapsed
-	if is_zero_approx(elapsed) and not track.contributing_sensor_ids.has(observation.sensor_id):
+	# A sensor's earlier contribution does not make a different plot from the
+	# current timestamp a plausible continuation. Same-time fusion always uses
+	# the previous raw plot rather than the deliberately lagging filtered state;
+	# duplicate reports from this sensor were already rejected above.
+	if is_zero_approx(elapsed):
+		reference_position = track.last_measured_position
 		dynamic_gate = minf(dynamic_gate, simultaneous_fusion_gate)
 	if dynamic_gate <= 0.0 or not is_finite(dynamic_gate):
 		return GlobalNearestNeighbor.BLOCKED_COST
+	var distance_squared := reference_position.distance_squared_to(observation.measured_position)
 	var gate_squared := dynamic_gate * dynamic_gate
 	if not is_finite(distance_squared) or distance_squared >= gate_squared:
 		return GlobalNearestNeighbor.BLOCKED_COST

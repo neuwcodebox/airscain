@@ -81,6 +81,7 @@ func test_spatial_association_preserves_ties_and_current_sensor_exclusions() -> 
 		var track := PlayerTrack.new()
 		track.track_id = 100 - index
 		track.estimated_position = Vector3(-5 if index == 0 else 5, 100, 0) if index < 2 else Vector3(index * 100, 100, 2000)
+		track.last_measured_position = track.estimated_position
 		track.state = PlayerTrack.State.CONFIRMED
 		knowledge.tracks.append(track)
 	var observation := SensorObservation.new()
@@ -97,7 +98,8 @@ func test_association_index_is_current_inside_observation_callbacks() -> void:
 	var inspect := func(track: PlayerTrack) -> void:
 		callback_result.count += 1
 		var probe := SensorObservation.new()
-		probe.setup(9999, knowledge.simulation_time, track.estimated_position, 0.9, 5.0, 0.1)
+		var probe_position := track.last_measured_position if is_equal_approx(track.last_observed_at, knowledge.simulation_time) else track.estimated_position
+		probe.setup(9999, knowledge.simulation_time, probe_position, 0.9, 5.0, 0.1)
 		if callback_result.first_failure.is_empty() and knowledge._associate(probe) != track:
 			callback_result.first_failure = "callback %d track %d: signal 전에 새 cell membership이 반영되지 않았습니다" % [callback_result.count, track.track_id]
 	knowledge.track_created.connect(inspect)
@@ -296,6 +298,23 @@ func test_different_sensors_fuse_same_time_observations_into_one_track() -> void
 	assert_lt(track.position_uncertainty, 20.0)
 	assert_eq(track.classification, &"uav")
 
+func test_previous_sensor_contribution_does_not_widen_same_time_fusion_gate() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var first := SensorObservation.new()
+	first.setup(1, 0.0, Vector3.ZERO, 0.9, 5.0, 0.4, &"small_uav")
+	var track := knowledge.submit_observation(first)
+	var first_support := SensorObservation.new()
+	first_support.setup(2, 0.0, Vector3.ZERO, 0.9, 5.0, 0.4, &"small_uav")
+	assert_same(knowledge.submit_observation(first_support), track)
+	knowledge.gameplay_tick(0.4)
+	var next_primary := SensorObservation.new()
+	next_primary.setup(1, knowledge.simulation_time, Vector3.ZERO, 0.9, 5.0, 0.4, &"small_uav")
+	assert_same(knowledge.submit_observation(next_primary), track)
+	var adjacent_from_previous_sensor := SensorObservation.new()
+	adjacent_from_previous_sensor.setup(2, knowledge.simulation_time, Vector3(20, 0, 0), 0.9, 5.0, 0.4, &"small_uav")
+	assert_not_same(knowledge.submit_observation(adjacent_from_previous_sensor), track, "과거 기여 센서도 현재 동시각에는 좁은 fusion gate를 사용합니다")
+	assert_eq(knowledge.tracks.size(), 2)
+
 func test_recent_sensor_contributors_replace_stale_history() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
 	var first := SensorObservation.new()
@@ -446,12 +465,23 @@ func test_three_overlapping_radars_keep_twenty_dense_uav_contacts() -> void:
 	for radar: CapacityRadar in radars:
 		radar._scan()
 	assert_eq(knowledge.tracks.size(), 20, "세 레이더의 합산 용량은 밀집 UAV 20대를 서로 다른 항적으로 생성합니다")
+	var track_ids_by_contact: Dictionary[String, int] = {}
+	for radar: CapacityRadar in radars:
+		for key: String in radar.tracked_contacts:
+			var track_id := radar.tracked_contacts[key]
+			if track_ids_by_contact.has(key):
+				assert_eq(track_id, track_ids_by_contact[key], "초기 중복 관측 %s는 같은 항적을 가리킵니다" % key)
+			else:
+				track_ids_by_contact[key] = track_id
+	assert_eq(track_ids_by_contact.size(), 20)
 	for scan_index: int in 3:
 		knowledge.gameplay_tick(definition.scan_interval)
 		for threat: ThreatUnit in registry.get_active():
 			threat.position.z += 14.0
 		for radar: CapacityRadar in radars:
 			radar._scan()
+			for key: String in radar.tracked_contacts:
+				assert_eq(radar.tracked_contacts[key], track_ids_by_contact[key], "밀집 재관측 %d의 %s가 다른 항적으로 넘어가지 않습니다" % [scan_index, key])
 		assert_eq(knowledge.tracks.size(), 20, "밀집 재관측 %d에서 항적 수가 유지됩니다" % scan_index)
 	battlefield.free()
 
