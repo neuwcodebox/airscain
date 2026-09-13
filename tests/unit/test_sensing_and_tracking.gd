@@ -281,15 +281,21 @@ func test_recent_sensor_contributors_replace_stale_history() -> void:
 	assert_eq(track.contributing_sensor_ids, [2], "기여 센서 수는 과거 누적이 아니라 최근 관측을 뜻합니다")
 
 func test_radar_priority_balances_damage_and_time_to_action() -> void:
-	var radar := autofree(CapacityRadar.new()) as CapacityRadar
-	var definition := preload("res://sensing/tracking_radar/tracking_radar.tres").duplicate(true) as SearchRadarDefinition
-	radar.setup(11, definition)
+	var scheduler := RadarTrackingScheduler.new()
+	scheduler.setup(11, 20)
 	var ballistic := add_child_autofree(_timed_threat(101, preload("res://enemy/ballistic_missile/ballistic_missile.tres"), 20.0)) as TimedThreat
 	var rocket := add_child_autofree(_timed_threat(102, preload("res://enemy/rocket_salvo/rocket.tres"), 20.0)) as TimedThreat
-	assert_gt(radar._tracking_priority("ballistic", ballistic, 0.9), radar._tracking_priority("rocket", rocket, 0.9), "도달 시간이 같으면 예상 피해가 큰 탄도미사일을 우선합니다")
+	assert_gt(scheduler.priority_for(ballistic, 0.9, false, false), scheduler.priority_for(rocket, 0.9, false, false), "도달 시간이 같으면 예상 피해가 큰 탄도미사일을 우선합니다")
 	rocket.action_seconds = 3.0
 	ballistic.action_seconds = 40.0
-	assert_gt(radar._tracking_priority("rocket", rocket, 0.9), radar._tracking_priority("ballistic", ballistic, 0.9), "임박한 로켓은 먼 탄도미사일보다 우선합니다")
+	assert_gt(scheduler.priority_for(rocket, 0.9, false, false), scheduler.priority_for(ballistic, 0.9, false, false), "임박한 로켓은 먼 탄도미사일보다 우선합니다")
+
+func test_radar_priority_preserves_an_actively_engaged_track() -> void:
+	var scheduler := RadarTrackingScheduler.new()
+	scheduler.setup(11, 20)
+	var engaged := add_child_autofree(_timed_threat(103, preload("res://enemy/rocket_salvo/rocket.tres"), 60.0)) as TimedThreat
+	var imminent := add_child_autofree(_timed_threat(104, preload("res://enemy/ballistic_missile/ballistic_missile.tres"), 3.0)) as TimedThreat
+	assert_gt(scheduler.priority_for(engaged, 0.2, true, true), scheduler.priority_for(imminent, 1.0, false, false))
 
 func test_saturated_radar_limits_tracks_and_cycles_unstable_contacts() -> void:
 	var radar := CapacityRadar.new()

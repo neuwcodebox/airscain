@@ -12,6 +12,7 @@ var tracked_contacts: Dictionary[String, int] = {}
 var scan_index: int = 0
 var saturated: bool = false
 var _definition: SearchRadarDefinition
+var _tracking_scheduler := RadarTrackingScheduler.new()
 
 @onready var antenna: Node3D = $Antenna
 
@@ -22,6 +23,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	tracked_contacts.clear()
 	scan_index = 0
 	saturated = false
+	_tracking_scheduler.setup(runtime_id, _definition.tracking_capacity)
 
 func configure_combat(registry_value: ThreatRegistry, _projectile_parent: Node3D) -> void:
 	registry = registry_value
@@ -92,7 +94,7 @@ func _scan() -> void:
 	var effective_range := _definition.detection_range * operational_efficiency()
 	var jamming_multiplier := _jamming_multiplier()
 	var timestamp := player_knowledge.simulation_time
-	var candidates: Array[Dictionary] = []
+	var candidates: Array[RadarTrackCandidate] = []
 	for threat: ThreatUnit in registry.get_active():
 		var target_position := threat.get_aim_position()
 		if not altitude_in_envelope(target_position):
@@ -102,21 +104,26 @@ func _scan() -> void:
 			continue
 		var signature := threat.get_sensor_signature()
 		var quality := _signal_quality(distance, effective_range, jamming_multiplier) * float(signature.radar_factor)
-		candidates.append(_candidate("threat:%d" % threat.runtime_id, threat, target_position, quality, signature))
+		candidates.append(_candidate("threat:%d" % threat.runtime_id, threat, target_position, quality, signature, false))
 		_append_false_echoes(candidates, threat, target_position, quality, signature)
 	_apply_tracking_capacity(candidates, timestamp)
 
-func _candidate(key: String, threat: ThreatUnit, measured_position: Vector3, quality: float, signature: Dictionary) -> Dictionary:
-	return {
-		"key": key,
-		"threat": threat,
-		"position": measured_position,
-		"quality": quality,
-		"signature": signature,
-		"priority": _tracking_priority(key, threat, quality),
-	}
+func _candidate(
+	key: String,
+	threat: ThreatUnit,
+	measured_position: Vector3,
+	quality: float,
+	signature: Dictionary,
+	false_echo: bool,
+) -> RadarTrackCandidate:
+	var track_id := int(tracked_contacts.get(key, 0))
+	var actively_engaged := track_id > 0 and engagement_coordinator != null and engagement_coordinator.has_reservation(track_id)
+	var candidate := RadarTrackCandidate.new()
+	var priority := _tracking_scheduler.priority_for(threat, quality, tracked_contacts.has(key), actively_engaged)
+	candidate.setup(key, measured_position, quality, StringName(signature.classification_hint), int(signature.affiliation_hint), false_echo, priority)
+	return candidate
 
-func _append_false_echoes(candidates: Array[Dictionary], threat: ThreatUnit, target_position: Vector3, quality: float, signature: Dictionary) -> void:
+func _append_false_echoes(candidates: Array[RadarTrackCandidate], threat: ThreatUnit, target_position: Vector3, quality: float, signature: Dictionary) -> void:
 	var echo_count := threat.definition.false_echo_count
 	if echo_count <= 0:
 		return
@@ -124,57 +131,22 @@ func _append_false_echoes(candidates: Array[Dictionary], threat: ThreatUnit, tar
 		var angle := fposmod(float(threat.runtime_id) * 1.618034 + float(runtime_id) * 0.754877 + TAU * float(echo_index) / float(echo_count), TAU)
 		var echo_position := target_position + Vector3(cos(angle), 0.0, sin(angle)) * threat.definition.false_echo_radius
 		var echo_quality := quality * 0.78
-		candidates.append(_candidate("echo:%d:%d" % [threat.runtime_id, echo_index], threat, echo_position, echo_quality, signature))
+		candidates.append(_candidate("echo:%d:%d" % [threat.runtime_id, echo_index], threat, echo_position, echo_quality, signature, true))
 
-func _tracking_priority(key: String, threat: ThreatUnit, quality: float) -> float:
-	var expected_damage := 0.0
-	var mission := threat.definition.mission_definition()
-	if mission != null and threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE:
-		expected_damage = mission.damage
-	var seconds := threat.presentation_action_seconds()
-	var imminent_risk := expected_damage / maxf(3.0, seconds) if is_finite(seconds) else 0.0
-	var continuity := 0.2 if tracked_contacts.has(key) else 0.0
-	var engagement_support := 0.0
-	var track_id := int(tracked_contacts.get(key, 0))
-	if track_id > 0 and engagement_coordinator != null and engagement_coordinator.has_reservation(track_id):
-		engagement_support = 1000.0
-	# Nearby radars naturally disagree on signal strength. This small stable bias
-	# also prevents colocated sensors from choosing identical marginal contacts.
-	var diversity := float(posmod(key.hash() ^ runtime_id * 1103515245, 1000)) / 1000.0
-	return engagement_support + imminent_risk + quality * 0.25 + continuity + diversity * 0.08
-
-func _apply_tracking_capacity(candidates: Array[Dictionary], timestamp: float) -> void:
+func _apply_tracking_capacity(candidates: Array[RadarTrackCandidate], timestamp: float) -> void:
 	var candidate_keys: Dictionary[String, bool] = {}
-	for candidate: Dictionary in candidates:
-		candidate_keys[String(candidate.key)] = true
-	candidates.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
-		var first_priority := float(first.priority)
-		var second_priority := float(second.priority)
-		return String(first.key) < String(second.key) if is_equal_approx(first_priority, second_priority) else first_priority > second_priority
-	)
-	var selected: Array[Dictionary] = []
+	for candidate: RadarTrackCandidate in candidates:
+		candidate_keys[candidate.key] = true
 	saturated = candidates.size() > _definition.tracking_capacity
-	if not saturated:
-		selected = candidates
-	else:
-		var cycling_slots := _definition.tracking_capacity / 5
-		var stable_slots := _definition.tracking_capacity - cycling_slots
-		selected.append_array(candidates.slice(0, stable_slots))
-		var remainder := candidates.slice(stable_slots)
-		if cycling_slots > 0:
-			var start := posmod(scan_index * cycling_slots + runtime_id, remainder.size())
-			for offset: int in mini(cycling_slots, remainder.size()):
-				selected.append(remainder[(start + offset) % remainder.size()])
+	var selected := _tracking_scheduler.select(candidates, scan_index)
 	var next_contacts: Dictionary[String, int] = {}
-	for candidate: Dictionary in selected:
+	for candidate: RadarTrackCandidate in selected:
 		var observation := SensorObservation.new()
-		var quality := float(candidate.quality)
-		var signature := candidate.signature as Dictionary
-		var uncertainty := lerpf(18.0, 70.0, 1.0 - quality) if String(candidate.key).begins_with("echo:") else lerpf(5.0, 45.0, 1.0 - quality)
-		var identity_scale := 0.45 if String(candidate.key).begins_with("echo:") else 0.55
-		observation.setup(runtime_id, timestamp, candidate.position, quality, uncertainty, _definition.scan_interval, signature.classification_hint, int(signature.affiliation_hint), quality * identity_scale)
+		var uncertainty := lerpf(18.0, 70.0, 1.0 - candidate.quality) if candidate.false_echo else lerpf(5.0, 45.0, 1.0 - candidate.quality)
+		var identity_scale := 0.45 if candidate.false_echo else 0.55
+		observation.setup(runtime_id, timestamp, candidate.measured_position, candidate.quality, uncertainty, _definition.scan_interval, candidate.classification_hint, candidate.affiliation_hint, candidate.quality * identity_scale)
 		var track := player_knowledge.submit_observation(observation)
-		next_contacts[String(candidate.key)] = track.track_id
+		next_contacts[candidate.key] = track.track_id
 	for key: String in tracked_contacts:
 		if candidate_keys.has(key) and not next_contacts.has(key):
 			player_knowledge.note_capacity_gap(tracked_contacts[key], runtime_id, timestamp)

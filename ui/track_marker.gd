@@ -1,6 +1,9 @@
 class_name TrackMarker
 extends Node3D
 
+const CAPACITY_LIMITED_COLOR := Color(1.0, 0.78, 0.22, 0.92)
+const CAPACITY_PHASE_OFFSET := 0.731
+
 var track: PlayerTrack
 
 var icon := Label3D.new()
@@ -87,8 +90,8 @@ func _refresh_instability() -> void:
 		uncertainty_ring.visible = true
 		icon.position = Vector3.ZERO
 		return
-	var phase := instability_time + float(track.track_id) * 0.731
-	var shown := sin(phase * 9.7) + sin(phase * 16.3 + 1.4) > -0.2
+	var phase := capacity_phase(track, instability_time)
+	var shown := capacity_limited_visible(track, instability_time)
 	icon.visible = shown
 	uncertainty_ring.visible = shown
 	icon.position = Vector3(sin(phase * 7.1), 0.0, cos(phase * 5.3)) * 1.2
@@ -99,7 +102,7 @@ func refresh_state() -> void:
 	if track.capacity_limited and track.state != PlayerTrack.State.LOST:
 		visible = true
 		base_icon_text = "?"
-		icon.modulate = Color(1.0, 0.78, 0.22, 0.92)
+		icon.modulate = CAPACITY_LIMITED_COLOR
 		ring_material.albedo_color = Color(1.0, 0.78, 0.22, 0.28)
 		selection_ring.visible = selected
 		_apply_selection()
@@ -137,3 +140,12 @@ func refresh_state() -> void:
 			visible = false
 	selection_ring.visible = selected and visible
 	_apply_selection()
+
+static func capacity_limited_visible(track_value: PlayerTrack, elapsed: float) -> bool:
+	if track_value == null or not track_value.capacity_limited:
+		return true
+	var phase := capacity_phase(track_value, elapsed)
+	return sin(phase * 9.7) + sin(phase * 16.3 + 1.4) > -0.2
+
+static func capacity_phase(track_value: PlayerTrack, elapsed: float) -> float:
+	return elapsed + float(track_value.track_id) * CAPACITY_PHASE_OFFSET

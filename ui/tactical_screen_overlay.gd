@@ -19,6 +19,7 @@ var hint_icon := TextureRect.new()
 var hint_separator := HSeparator.new()
 var hint_details := VBoxContainer.new()
 var hint_rows: Array[Label] = []
+var instability_time: float = 0.0
 
 func _ready() -> void:
 	pointer_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -101,7 +102,8 @@ func hide_training_approach() -> void:
 	training_approach_visible = false
 	queue_redraw()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	instability_time += delta
 	hovered_track = null
 	pointer_hint.hide()
 	var mouse := get_viewport().get_mouse_position()
@@ -292,7 +294,9 @@ static func marker_position_in_safe_area(projected: Vector2, viewport_size: Vect
 
 func _track_color(track: PlayerTrack) -> Color:
 	if track.capacity_limited:
-		return Color(1.0, 0.78, 0.22, 0.88)
+		var color := TrackMarker.CAPACITY_LIMITED_COLOR
+		color.a = 0.88
+		return color
 	if track.state == PlayerTrack.State.COASTING:
 		return Color(0.78, 0.86, 0.92, 0.72)
 	if track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3:
@@ -302,7 +306,4 @@ func _track_color(track: PlayerTrack) -> Color:
 	return Color(1.0, 0.78, 0.22, 0.88)
 
 func _unstable_track_visible(track: PlayerTrack) -> bool:
-	if not track.capacity_limited or player_knowledge == null:
-		return true
-	var phase := player_knowledge.simulation_time + float(track.track_id) * 0.731
-	return sin(phase * 9.7) + sin(phase * 16.3 + 1.4) > -0.2
+	return TrackMarker.capacity_limited_visible(track, instability_time)
