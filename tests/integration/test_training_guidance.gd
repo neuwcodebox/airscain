@@ -133,9 +133,10 @@ func test_terrain_obstruction_requires_relocation_then_returns_to_detection() ->
 	assert_true(guidance.suggestion.is_finite())
 	assert_true(radar._has_line_of_sight(guidance.suggestion + Vector3.UP * 11.0, threat.get_aim_position()))
 	main.placement.candidate_position = guidance.suggestion
+	var relocation_duration := main.relocation_manager.estimated_duration(radar, guidance.suggestion)
 	assert_true(main.placement.request_selected_defense_placement())
 	assert_eq(main.training_controller.step, TrainingController.Step.WAIT_RELOCATE)
-	main.relocation_manager.gameplay_tick(radar.definition.relocation_duration + 0.1)
+	main.relocation_manager.gameplay_tick(relocation_duration + 0.1)
 	assert_eq(main.training_controller.step, TrainingController.Step.ACQUIRE)
 	assert_eq(main.session.simulation_speed, 1.0)
 

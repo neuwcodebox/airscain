@@ -2285,9 +2285,21 @@ func test_selected_weapon_requests_resupply_from_limited_support_capacity() -> v
 	assert_eq(main.ui_audio.played_count(UiAudio.ACTION_COMPLETE), completion_count + 2, "수동 수리 완료음은 유지합니다")
 	assert_true(main.hud.relocation_button.visible)
 	assert_false(main.hud.relocation_button.disabled)
+	assert_eq(main.hud.relocation_button.text, "재배치  기본 5초")
 	main.hud.relocation_button.pressed.emit()
 	assert_same(main.placement.relocating_unit, gun)
+	var destination := gun.global_position + Vector3(150.0, 0.0, 200.0)
+	main.placement._update_relocation_line(destination, true)
+	main.hud.set_placement_status("재배치 가능\n예상 소요 시간 10초", true, Vector2(400.0, 300.0), true)
+	assert_true(main.placement.relocation_line.visible)
+	var vertices: PackedVector3Array = (main.placement.relocation_line.mesh as ImmediateMesh).surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	assert_eq(vertices.size(), 2)
+	assert_almost_eq(vertices[0], gun.global_position + Vector3.UP * PlacementController.RELOCATION_LINE_HEIGHT, Vector3.ONE * 0.001)
+	assert_almost_eq(vertices[1], destination + Vector3.UP * PlacementController.RELOCATION_LINE_HEIGHT, Vector3.ONE * 0.001)
+	assert_eq(main.hud.placement_status_label.text, "재배치 가능\n예상 소요 시간 10초")
 	main.placement.cancel()
+	assert_null(main.placement.relocation_line)
+	assert_false(main.hud.placement_hint_panel.visible)
 
 func test_support_power_capacity_recharges_laser_and_scales_with_damage() -> void:
 	main.director.pressure_changed.emit(3)

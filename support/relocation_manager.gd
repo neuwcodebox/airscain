@@ -1,6 +1,8 @@
 class_name RelocationManager
 extends Node
 
+const TRAVEL_SPEED := 50.0
+
 signal relocation_started(unit: DefenseUnit)
 signal relocation_completed(unit: DefenseUnit)
 
@@ -18,6 +20,11 @@ func reset() -> void:
 func register_asset(unit: DefenseUnit) -> void:
 	units[unit.runtime_id] = unit
 
+func estimated_duration(unit: DefenseUnit, destination: Vector3) -> float:
+	var origin_flat := Vector2(unit.global_position.x, unit.global_position.z)
+	var destination_flat := Vector2(destination.x, destination.z)
+	return unit.definition.relocation_duration + origin_flat.distance_to(destination_flat) / TRAVEL_SPEED
+
 func request_relocation(unit: DefenseUnit, destination: Vector3) -> bool:
 	if unit == null or not units.has(unit.runtime_id) or not unit.can_request_relocation():
 		return false
@@ -27,7 +34,7 @@ func request_relocation(unit: DefenseUnit, destination: Vector3) -> bool:
 	var target := battlefield.snap_placement_position(destination, unit.definition.placement_profile)
 	battlefield.register_occupancy(target, unit.definition.placement_profile.footprint_radius)
 	unit.active = false
-	tasks.append({"target_defense_id": unit.runtime_id, "origin": SaveDocument.vector3_to_data(unit.global_position), "destination": SaveDocument.vector3_to_data(target), "remaining": unit.definition.relocation_duration})
+	tasks.append({"target_defense_id": unit.runtime_id, "origin": SaveDocument.vector3_to_data(unit.global_position), "destination": SaveDocument.vector3_to_data(target), "remaining": estimated_duration(unit, target)})
 	relocation_started.emit(unit)
 	return true
 

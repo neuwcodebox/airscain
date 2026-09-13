@@ -2,6 +2,9 @@ class_name PlacementController
 extends Node3D
 
 const DEPENDENCY_REFRESH_INTERVAL := 0.2
+const RELOCATION_LINE_HEIGHT := 7.0
+const RELOCATION_LINE_VALID_COLOR := Color(1.0, 0.76, 0.24, 0.92)
+const RELOCATION_LINE_INVALID_COLOR := Color(1.0, 0.2, 0.12, 0.82)
 
 signal feedback_changed(message: String, transient: bool)
 signal placement_status_changed(message: String, valid: bool, screen_position: Vector2, active: bool)
@@ -25,6 +28,7 @@ var relocating_unit: DefenseUnit
 var candidate_position: Vector3
 var candidate_valid: bool = false
 var preview: Node3D
+var relocation_line: MeshInstance3D
 var range_disc: LabeledRangeRing
 var preview_material := StandardMaterial3D.new()
 var range_material := StandardMaterial3D.new()
@@ -52,6 +56,7 @@ func configure(session_value: GameSession, battlefield_value: Battlefield, camer
 
 func select(definition: DefenseDefinition) -> void:
 	placement_status_changed.emit("", false, Vector2.ZERO, false)
+	_remove_relocation_line()
 	relocating_unit = null
 	selected_threat = null
 	selected = definition
@@ -67,11 +72,13 @@ func select_relocation(unit: DefenseUnit) -> void:
 	selected = unit.definition
 	battlefield.set_rooftop_pads_visible(selected.placement_profile.rooftop_allowed)
 	_create_preview()
+	_create_relocation_line()
 	_publish_dependency_preview(null, Vector3.ZERO, false, true)
 	feedback_changed.emit("우클릭 / Esc: 재배치 취소", false)
 
 func select_sandbox_threat(definition: ThreatDefinition) -> void:
 	placement_status_changed.emit("", false, Vector2.ZERO, false)
+	_remove_relocation_line()
 	battlefield.set_placement_contours(false)
 	selected = null
 	relocating_unit = null
@@ -82,6 +89,7 @@ func select_sandbox_threat(definition: ThreatDefinition) -> void:
 	feedback_changed.emit("우클릭 / Esc: 위협 투입 취소", false)
 
 func cancel() -> void:
+	_remove_relocation_line()
 	selected = null
 	selected_threat = null
 	relocating_unit = null
@@ -99,6 +107,7 @@ func cancel() -> void:
 func _process(delta: float) -> void:
 	_update_asset_hover()
 	if selected == null and selected_threat == null or preview == null:
+		_hide_relocation_line()
 		if battlefield != null:
 			battlefield.set_placement_light(false)
 		return
@@ -106,6 +115,7 @@ func _process(delta: float) -> void:
 	if not get_viewport().get_visible_rect().has_point(mouse) or get_viewport().gui_get_hovered_control() != null:
 		battlefield.set_placement_light(false)
 		preview.visible = false
+		_hide_relocation_line()
 		_publish_dependency_preview(null, Vector3.ZERO, false)
 		placement_status_changed.emit("", false, mouse, false)
 		return
@@ -114,6 +124,7 @@ func _process(delta: float) -> void:
 		battlefield.set_placement_light(false)
 		battlefield.set_placement_contours(false)
 		preview.visible = false
+		_hide_relocation_line()
 		candidate_valid = false
 		_publish_dependency_preview(null, Vector3.ZERO, false)
 		placement_status_changed.emit("배치 불가\n지도 위에서 위치를 선택하세요", false, mouse, true)
@@ -125,6 +136,7 @@ func _process(delta: float) -> void:
 	battlefield.set_placement_contours(selected != null, candidate_position)
 	var result := {"valid": true, "reason": "위협 투입 가능"} if selected_threat != null else _validation()
 	candidate_valid = result.valid
+	_update_relocation_line(candidate_position, candidate_valid)
 	if selected != null and selected_threat == null and relocating_unit == null:
 		dependency_refresh_remaining -= delta
 		var refresh_due := dependency_refresh_remaining <= 0.0
@@ -136,7 +148,7 @@ func _process(delta: float) -> void:
 	if not candidate_valid:
 		message = "배치 불가\n%s" % message
 	elif relocating_unit != null:
-		message = "재배치 가능"
+		message = "재배치 가능\n예상 소요 시간 %d초" % ceili(relocation_manager.estimated_duration(relocating_unit, candidate_position))
 	placement_status_changed.emit(message, candidate_valid, mouse, true)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -298,6 +310,48 @@ func _create_preview() -> void:
 	range_disc.material_override = range_material
 	preview.add_child(range_disc)
 	range_disc.set_range(LabeledRangeRing.primary_radius(selected), LabeledRangeRing.primary_title(selected))
+
+func _create_relocation_line() -> void:
+	_remove_relocation_line()
+	relocation_line = MeshInstance3D.new()
+	relocation_line.name = "RelocationPathPreview"
+	relocation_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.no_depth_test = true
+	material.render_priority = 10
+	relocation_line.material_override = material
+	add_child(relocation_line)
+	relocation_line.set_as_top_level(true)
+	relocation_line.global_transform = Transform3D.IDENTITY
+	relocation_line.visible = false
+
+func _update_relocation_line(destination: Vector3, valid: bool) -> void:
+	if relocation_line == null or relocating_unit == null or not is_instance_valid(relocating_unit):
+		return
+	var color := RELOCATION_LINE_VALID_COLOR if valid else RELOCATION_LINE_INVALID_COLOR
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	mesh.surface_set_color(color)
+	mesh.surface_add_vertex(relocating_unit.global_position + Vector3.UP * RELOCATION_LINE_HEIGHT)
+	mesh.surface_set_color(color)
+	mesh.surface_add_vertex(destination + Vector3.UP * RELOCATION_LINE_HEIGHT)
+	mesh.surface_end()
+	relocation_line.mesh = mesh
+	relocation_line.visible = true
+
+func _hide_relocation_line() -> void:
+	if relocation_line != null:
+		relocation_line.visible = false
+
+func _remove_relocation_line() -> void:
+	if relocation_line != null:
+		relocation_line.visible = false
+		relocation_line.mesh = null
+		relocation_line.queue_free()
+	relocation_line = null
 
 func _copy_preview_geometry(source: Node3D, parent_transform: Transform3D) -> void:
 	if not source.visible:

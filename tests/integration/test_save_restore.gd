@@ -548,9 +548,10 @@ func test_all_asset_types_relocate_with_their_duration_including_city_command() 
 	for unit: DefenseUnit in units:
 		var destination := _find_valid_position(unit.definition.placement_profile)
 		var origin := unit.global_position
+		var duration := main.relocation_manager.estimated_duration(unit, destination)
 		assert_true(main.relocation_manager.request_relocation(unit, destination), unit.definition.display_name)
 		assert_false(unit.active)
-		main.relocation_manager.gameplay_tick(unit.definition.relocation_duration - 0.1)
+		main.relocation_manager.gameplay_tick(duration - 0.1)
 		assert_eq(unit.global_position, origin)
 		assert_false(unit.active)
 		main.relocation_manager.gameplay_tick(0.2)
@@ -558,6 +559,11 @@ func test_all_asset_types_relocate_with_their_duration_including_city_command() 
 		assert_true(unit.active)
 	assert_gt(_defense_definition(&"long_range_missile").relocation_duration, _defense_definition(&"short_range_missile").relocation_duration)
 	assert_gt(_defense_definition(&"support_facility").relocation_duration, _defense_definition(&"long_range_missile").relocation_duration)
+
+func test_relocation_duration_adds_horizontal_travel_time_and_ignores_height() -> void:
+	var gun := _place_defense(_defense_definition(&"close_in_gun"))
+	var destination := gun.global_position + Vector3(150.0, 900.0, 200.0)
+	assert_almost_eq(main.relocation_manager.estimated_duration(gun, destination), gun.definition.relocation_duration + 5.0, 0.0001)
 
 func test_radar_rooftop_relocation_keeps_the_roof_height_after_restore() -> void:
 	var radar := _place_defense(_defense_definition(&"search_radar"))
@@ -569,7 +575,7 @@ func test_radar_rooftop_relocation_keeps_the_roof_height_after_restore() -> void
 	assert_ne(destination, Vector3.INF)
 	assert_true(main.relocation_manager.request_relocation(radar, destination))
 	var id := radar.runtime_id
-	var duration := radar.definition.relocation_duration
+	var duration := main.relocation_manager.estimated_duration(radar, destination)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	assert_eq(main.restore_from_document(document), "")
 	main.relocation_manager.gameplay_tick(duration + 0.1)
@@ -579,12 +585,13 @@ func test_mobile_asset_relocation_finishes_after_save_restore() -> void:
 	var gun := _place_defense(_defense_definition(&"close_in_gun")) as CloseInGun
 	var origin := gun.global_position
 	var destination := _find_valid_position(gun.definition.placement_profile)
+	var duration := main.relocation_manager.estimated_duration(gun, destination)
 	var budget_before := main.session.budget
 	assert_true(main.relocation_manager.request_relocation(gun, destination))
 	assert_false(gun.active)
 	assert_eq(main.session.budget, budget_before)
 	assert_eq(main.battlefield.occupied_positions.size(), 3)
-	main.relocation_manager.gameplay_tick(gun.definition.relocation_duration - 0.1)
+	main.relocation_manager.gameplay_tick(duration - 0.1)
 	assert_eq(gun.global_position, origin)
 	var gun_id := gun.runtime_id
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))

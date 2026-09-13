@@ -170,19 +170,31 @@ func run() -> void:
 		_save_capture("/tmp/airscain_relocation_available.png")
 		var positions := _visible_valid_placement_positions(battery.definition.placement_profile, 1)
 		assert(not positions.is_empty())
-		assert(main.relocation_manager.request_relocation(battery, positions[0]))
+		main.hud.relocation_button.pressed.emit()
+		Input.warp_mouse(root.get_final_transform() * main.camera_rig.camera.unproject_position(positions[0]))
+		for frame: int in 10:
+			await process_frame
+		assert(main.placement.candidate_valid)
+		var destination := main.placement.candidate_position
+		var expected_duration := main.relocation_manager.estimated_duration(battery, destination)
+		assert(main.placement.relocation_line != null and main.placement.relocation_line.visible)
+		assert(main.hud.placement_status_label.text == "재배치 가능\n예상 소요 시간 %d초" % ceili(expected_duration))
+		_save_capture("/tmp/airscain_relocation_preview.png")
+		assert(main.placement.request_selected_defense_placement())
+		assert(main.placement.relocation_line == null)
+		assert(not main.hud.placement_hint_panel.visible)
 		main.hud.refresh_selected_asset()
 		for frame: int in 6:
 			await process_frame
 		_save_capture("/tmp/airscain_relocation_running.png")
-		main.relocation_manager.gameplay_tick(battery.definition.relocation_duration + 0.1)
-		assert(battery.global_position.is_equal_approx(positions[0]))
+		main.relocation_manager.gameplay_tick(expected_duration + 0.1)
+		assert(battery.global_position.is_equal_approx(destination))
 		main._on_asset_selected(main.defenses[0])
 		for frame: int in 6:
 			await process_frame
 		assert(main.hud.relocation_button.visible and not main.hud.relocation_button.disabled)
 		_save_capture("/tmp/airscain_relocation_city_command.png")
-		print("ALL_RELOCATION_CAPTURE_OK long_range duration running completed city_command")
+		print("ALL_RELOCATION_CAPTURE_OK distance_duration preview_line preview_tooltip hidden_after_confirm completed city_command")
 		quit()
 		return
 	if OS.get_cmdline_user_args().has("--capture-identity-icons-only") or OS.get_cmdline_user_args().has("--capture-reload-only"):

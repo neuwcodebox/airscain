@@ -437,7 +437,7 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost() if can_repair else "수리 요청"
 	repair_button.disabled = not can_repair
 	var relocating := selected_asset.relocation_manager != null and not selected_asset.relocation_manager.task_status(selected_asset).is_empty()
-	relocation_button.text = "재배치 중" if relocating else "재배치  %d초" % roundi(selected_asset.definition.relocation_duration)
+	relocation_button.text = "재배치 중" if relocating else "재배치  기본 %d초" % roundi(selected_asset.definition.relocation_duration)
 	relocation_button.disabled = not selected_asset.can_request_relocation()
 	_refresh_selection_view(fit_panel)
 
