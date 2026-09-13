@@ -14,6 +14,16 @@ class TrackingLease:
 		expires_at = expiration
 
 var _leases_by_sensor: Dictionary[int, TrackingLease] = {}
+var _scan_phase_by_sensor: Dictionary[int, float] = {}
+var _next_scan_phase_index: int = 0
+
+func reserve_initial_scan_delay(sensor_id: int, scan_interval: float) -> float:
+	if scan_interval <= 0.0:
+		return 0.0
+	if not _scan_phase_by_sensor.has(sensor_id):
+		_scan_phase_by_sensor[sensor_id] = _radical_inverse_base_two(_next_scan_phase_index)
+		_next_scan_phase_index += 1
+	return _scan_phase_by_sensor[sensor_id] * scan_interval
 
 func support_counts_excluding(sensor_id: int, timestamp: float) -> Dictionary[String, int]:
 	_prune(timestamp)
@@ -31,6 +41,17 @@ func renew_lease(sensor_id: int, keys: Array[String], timestamp: float, scan_int
 
 func reset() -> void:
 	_leases_by_sensor.clear()
+	_scan_phase_by_sensor.clear()
+	_next_scan_phase_index = 0
+
+func _radical_inverse_base_two(index: int) -> float:
+	var result := 0.0
+	var place_value := 0.5
+	while index > 0:
+		result += float(index & 1) * place_value
+		index >>= 1
+		place_value *= 0.5
+	return result
 
 func _prune(timestamp: float) -> void:
 	for sensor_id: int in _leases_by_sensor.keys():

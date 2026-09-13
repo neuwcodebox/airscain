@@ -374,6 +374,26 @@ func test_radar_does_not_count_its_own_tracking_lease_as_external_support() -> v
 	coordinator.renew_lease(11, ["threat:1"], 0.0, 1.0)
 	assert_true(coordinator.support_counts_excluding(11, 0.1).is_empty())
 
+func test_coordinator_spreads_initial_radar_scans_across_the_interval() -> void:
+	const SENSOR_COUNT := 16
+	const FRAME_RATE := 60.0
+	var cases: Array[Dictionary] = [
+		{"definition": preload("res://sensing/search_radar/search_radar.tres"), "maximum_per_frame": 1},
+		{"definition": preload("res://sensing/tracking_radar/tracking_radar.tres"), "maximum_per_frame": 2},
+	]
+	for case: Dictionary in cases:
+		var scan_interval := (case.definition as SearchRadarDefinition).scan_interval
+		var coordinator := RadarTrackingCoordinator.new()
+		var scans_by_frame_bucket: Dictionary[int, int] = {}
+		for sensor_index: int in SENSOR_COUNT:
+			var sensor_id := 100 + sensor_index * 13
+			var delay := coordinator.reserve_initial_scan_delay(sensor_id, scan_interval)
+			assert_between(delay, 0.0, scan_interval)
+			var frame_bucket := floori(delay * FRAME_RATE)
+			scans_by_frame_bucket[frame_bucket] = scans_by_frame_bucket.get(frame_bucket, 0) + 1
+		assert_lte(scans_by_frame_bucket.values().max(), case.maximum_per_frame, "%.2f초 주기의 센서 %d대가 frame당 허용 수 이내로 분산됩니다" % [scan_interval, SENSOR_COUNT])
+		assert_eq(coordinator.reserve_initial_scan_delay(100, scan_interval), 0.0, "첫 센서는 즉시 스캔하고 같은 센서 재등록은 기존 위상을 유지합니다")
+
 func test_saturated_radar_limits_tracks_and_cycles_unstable_contacts() -> void:
 	var radar := CapacityRadar.new()
 	var antenna := Node3D.new()

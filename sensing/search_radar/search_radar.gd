@@ -38,6 +38,8 @@ func configure_engagements(coordinator: EngagementCoordinator) -> void:
 
 func configure_sensor_tracking(coordinator: RadarTrackingCoordinator) -> void:
 	_tracking_coordinator = coordinator
+	if _tracking_coordinator != null and scan_index == 0 and tracked_contacts.is_empty():
+		scan_cooldown = _tracking_coordinator.reserve_initial_scan_delay(runtime_id, _definition.scan_interval)
 
 func c2_roles() -> int:
 	return C2Role.SENSOR
