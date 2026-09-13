@@ -15,6 +15,7 @@ This file defines repository-wide operating guidance for AI coding agents: how t
 
 - For non-trivial tasks, track high-level runnable units and validation evidence in `docs/PLAN.md`; keep it aligned with the current intended result rather than conversational history.
 - Complete and validate one unit at a time, then commit its implementation, tests, and plan update together as a runnable checkpoint.
+- Write commit messages in English using Conventional Commits syntax: `<type>(optional-scope): <description>`. Use the narrowest applicable standard type, such as `feat`, `fix`, `refactor`, `test`, `docs`, or `chore`.
 - Before declaring completion, confirm the plan matches the repository and excludes broken, unverified, or unrelated work.
 
 Typical CLI usage:
