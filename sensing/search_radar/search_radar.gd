@@ -160,13 +160,16 @@ func _apply_tracking_capacity(candidates: Array[RadarTrackCandidate], timestamp:
 
 func _submit_observations(selected: Array[RadarTrackCandidate], timestamp: float) -> Dictionary[String, int]:
 	var observed_contacts: Dictionary[String, int] = {}
+	var observations: Array[SensorObservation] = []
 	for candidate: RadarTrackCandidate in selected:
 		var observation := SensorObservation.new()
 		var uncertainty := lerpf(18.0, 70.0, 1.0 - candidate.quality) if candidate.false_echo else lerpf(5.0, 45.0, 1.0 - candidate.quality)
 		var identity_scale := 0.45 if candidate.false_echo else 0.55
 		observation.setup(runtime_id, timestamp, candidate.measured_position, candidate.quality, uncertainty, _definition.scan_interval, candidate.classification_hint, candidate.affiliation_hint, candidate.quality * identity_scale)
-		var track := player_knowledge.submit_observation(observation)
-		observed_contacts[candidate.key] = track.track_id
+		observations.append(observation)
+	var submitted_tracks := player_knowledge.submit_scan(observations)
+	for candidate_index: int in selected.size():
+		observed_contacts[selected[candidate_index].key] = submitted_tracks[candidate_index].track_id
 	return observed_contacts
 
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:

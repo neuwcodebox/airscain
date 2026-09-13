@@ -8,6 +8,7 @@ signal track_removed(track_id: int)
 
 const ASSOCIATION_LINEAR_LIMIT := 64
 @export var association_gate: float = 90.0
+@export var simultaneous_fusion_gate: float = 6.0
 @export var maximum_association_speed: float = 260.0
 @export var confirmation_threshold: float = 0.6
 @export var coast_after: float = 0.6
@@ -55,7 +56,16 @@ func gameplay_tick(delta: float) -> void:
 			track_removed.emit(track.track_id)
 
 func submit_observation(observation: SensorObservation) -> PlayerTrack:
-	var track := _associate(observation)
+	return _apply_observation(observation, _associate(observation))
+
+func submit_scan(observations: Array[SensorObservation]) -> Array[PlayerTrack]:
+	var associated_tracks := _associate_scan(observations)
+	var submitted_tracks: Array[PlayerTrack] = []
+	for observation_index: int in observations.size():
+		submitted_tracks.append(_apply_observation(observations[observation_index], associated_tracks[observation_index]))
+	return submitted_tracks
+
+func _apply_observation(observation: SensorObservation, track: PlayerTrack) -> PlayerTrack:
 	if track == null:
 		track = PlayerTrack.new()
 		track.setup(next_track_id, observation)
@@ -94,26 +104,75 @@ func get_active_tracks() -> Array[PlayerTrack]:
 
 func _associate(observation: SensorObservation) -> PlayerTrack:
 	var selected: PlayerTrack
-	var nearest_distance := INF
-	var prediction_lead := maxf(0.0, observation.timestamp - simulation_time)
+	var lowest_cost := GlobalNearestNeighbor.BLOCKED_COST
 	for index: int in _association_candidates(observation):
 		var track := tracks[index]
-		if track.state == PlayerTrack.State.LOST:
+		var cost := _association_cost(track, observation)
+		if cost >= lowest_cost:
 			continue
-		var predicted_position := track.estimated_position + track.estimated_velocity * prediction_lead
-		var distance := predicted_position.distance_squared_to(observation.measured_position)
-		if distance >= nearest_distance:
-			continue
-		if not _classifications_compatible(track.classification, observation.classification_hint):
-			continue
-		if track.sensor_observed_at.has(observation.sensor_id) and is_equal_approx(track.sensor_observed_at[observation.sensor_id], observation.timestamp):
-			continue
-		var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
-		var dynamic_gate := association_gate + maximum_association_speed * elapsed
-		if distance < dynamic_gate * dynamic_gate:
-			nearest_distance = distance
-			selected = track
+		lowest_cost = cost
+		selected = track
 	return selected
+
+func _associate_scan(observations: Array[SensorObservation]) -> Array[PlayerTrack]:
+	var associated_tracks: Array[PlayerTrack] = []
+	associated_tracks.resize(observations.size())
+	if observations.is_empty():
+		return associated_tracks
+
+	# Candidate pruning stays spatial; only tracks sharing a validation gate with
+	# this small, capacity-limited scan enter the global assignment.
+	var candidate_track_indices: Array[int] = []
+	var candidate_columns: Dictionary[int, int] = {}
+	for observation: SensorObservation in observations:
+		for track_index: int in _association_candidates(observation):
+			if _association_cost(tracks[track_index], observation) >= GlobalNearestNeighbor.BLOCKED_COST:
+				continue
+			if not candidate_columns.has(track_index):
+				candidate_columns[track_index] = candidate_track_indices.size()
+				candidate_track_indices.append(track_index)
+
+	var track_column_count := candidate_track_indices.size()
+	var costs: Array[PackedFloat64Array] = []
+	for observation: SensorObservation in observations:
+		var row := PackedFloat64Array()
+		row.resize(track_column_count + observations.size())
+		row.fill(GlobalNearestNeighbor.BLOCKED_COST)
+		for column_index: int in track_column_count:
+			row[column_index] = _association_cost(tracks[candidate_track_indices[column_index]], observation)
+		# Any dummy column means this plot starts a new track. A valid gated
+		# association is always cheaper, while one-to-one assignment is preserved.
+		for column_index: int in range(track_column_count, row.size()):
+			row[column_index] = 1.0
+		costs.append(row)
+
+	var assigned_columns := GlobalNearestNeighbor.solve(costs)
+	for observation_index: int in observations.size():
+		var column_index := assigned_columns[observation_index]
+		if column_index >= 0 and column_index < track_column_count:
+			associated_tracks[observation_index] = tracks[candidate_track_indices[column_index]]
+	return associated_tracks
+
+func _association_cost(track: PlayerTrack, observation: SensorObservation) -> float:
+	if track.state == PlayerTrack.State.LOST:
+		return GlobalNearestNeighbor.BLOCKED_COST
+	if not _classifications_compatible(track.classification, observation.classification_hint):
+		return GlobalNearestNeighbor.BLOCKED_COST
+	if track.sensor_observed_at.has(observation.sensor_id) and is_equal_approx(track.sensor_observed_at[observation.sensor_id], observation.timestamp):
+		return GlobalNearestNeighbor.BLOCKED_COST
+	var prediction_lead := maxf(0.0, observation.timestamp - simulation_time)
+	var predicted_position := track.estimated_position + track.estimated_velocity * prediction_lead
+	var distance_squared := predicted_position.distance_squared_to(observation.measured_position)
+	var elapsed := maxf(0.0, observation.timestamp - track.last_observed_at)
+	var dynamic_gate := association_gate + maximum_association_speed * elapsed
+	if is_zero_approx(elapsed) and not track.contributing_sensor_ids.has(observation.sensor_id):
+		dynamic_gate = minf(dynamic_gate, simultaneous_fusion_gate)
+	if dynamic_gate <= 0.0 or not is_finite(dynamic_gate):
+		return GlobalNearestNeighbor.BLOCKED_COST
+	var gate_squared := dynamic_gate * dynamic_gate
+	if not is_finite(distance_squared) or distance_squared >= gate_squared:
+		return GlobalNearestNeighbor.BLOCKED_COST
+	return distance_squared / gate_squared
 
 func _association_candidates(observation: SensorObservation) -> PackedInt32Array:
 	# Future observations require extra prediction and a larger gate. Retain the

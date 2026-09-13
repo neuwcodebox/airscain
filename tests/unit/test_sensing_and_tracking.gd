@@ -136,18 +136,12 @@ func test_association_pruning_matches_nearest_compatible_unsampled_track() -> vo
 		var observation := SensorObservation.new()
 		observation.setup(3, 1.0, Vector3(rng.randf_range(-800, 800), rng.randf_range(0, 1000), rng.randf_range(-800, 800)), 0.9, 8, 0.1, classes[query % classes.size()])
 		var expected: PlayerTrack
-		var nearest := INF
+		var lowest_cost := GlobalNearestNeighbor.BLOCKED_COST
 		for track: PlayerTrack in knowledge.tracks:
-			if track.state == PlayerTrack.State.LOST or not knowledge._classifications_compatible(track.classification, observation.classification_hint):
-				continue
-			if track.sensor_observed_at.has(3) and is_equal_approx(track.sensor_observed_at[3], observation.timestamp):
-				continue
-			var prediction := track.estimated_position + track.estimated_velocity * maxf(0, observation.timestamp - knowledge.simulation_time)
-			var distance := prediction.distance_to(observation.measured_position)
-			var gate := knowledge.association_gate + knowledge.maximum_association_speed * maxf(0, observation.timestamp - track.last_observed_at)
-			if distance < gate and distance < nearest:
+			var cost := knowledge._association_cost(track, observation)
+			if cost < lowest_cost:
 				expected = track
-				nearest = distance
+				lowest_cost = cost
 		var actual := knowledge._associate(observation)
 		if actual != expected:
 			var actual_id := actual.track_id if actual != null else -1
@@ -205,21 +199,55 @@ func test_elapsed_time_expands_gate_for_high_speed_contact() -> void:
 	assert_same(knowledge.submit_observation(fast_followup), track)
 	assert_eq(knowledge.tracks.size(), 1)
 
-func test_close_formation_misassociation_cannot_launch_track_marker_away() -> void:
+func test_scan_global_assignment_avoids_greedy_close_formation_swap() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
-	var first := SensorObservation.new()
-	first.setup(1, 0.0, Vector3.ZERO, 0.9, 8.0, 0.4, &"small_uav")
-	var track := knowledge.submit_observation(first)
-	var adjacent_contact := SensorObservation.new()
-	adjacent_contact.setup(1, 0.01, Vector3(80.0, 0.0, 0.0), 0.9, 8.0, 0.4, &"small_uav")
-	assert_same(knowledge.submit_observation(adjacent_contact), track)
-	assert_lte(track.estimated_velocity.length(), knowledge.maximum_association_speed)
+	var initial := _observation_scan(1, 0.0, [Vector3(0, 100, 0), Vector3(8, 100, 0)])
+	var initial_tracks := knowledge.submit_scan(initial)
+	var update := _observation_scan(1, 0.1, [Vector3(7, 100, 0), Vector3(10, 100, 0)])
+	var updated_tracks := knowledge.submit_scan(update)
+	assert_same(updated_tracks[0], initial_tracks[0], "전체 비용은 0→7, 8→10 배정이 더 작습니다")
+	assert_same(updated_tracks[1], initial_tracks[1])
+	assert_eq(knowledge.tracks.size(), 2)
+
+func test_scan_global_assignment_is_independent_of_observation_order() -> void:
+	var forward := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var reverse := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	forward.submit_scan(_observation_scan(1, 0.0, [Vector3(0, 100, 0), Vector3(8, 100, 0)]))
+	reverse.submit_scan(_observation_scan(1, 0.0, [Vector3(0, 100, 0), Vector3(8, 100, 0)]))
+	forward.submit_scan(_observation_scan(1, 0.1, [Vector3(7, 100, 0), Vector3(10, 100, 0)]))
+	reverse.submit_scan(_observation_scan(1, 0.1, [Vector3(10, 100, 0), Vector3(7, 100, 0)]))
+	for track_index: int in forward.tracks.size():
+		assert_eq(forward.tracks[track_index].track_id, reverse.tracks[track_index].track_id)
+		assert_eq(forward.tracks[track_index].estimated_position, reverse.tracks[track_index].estimated_position)
+		assert_eq(forward.tracks[track_index].estimated_velocity, reverse.tracks[track_index].estimated_velocity)
+
+func test_three_sensors_keep_twenty_dense_parallel_tracks_separate() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var initial_positions: Array[Vector3] = []
+	for contact_index: int in 20:
+		initial_positions.append(Vector3(contact_index * 12.0, 100.0, 0.0))
+	knowledge.submit_scan(_observation_scan(1, 0.0, initial_positions))
 	knowledge.gameplay_tick(0.4)
-	var followup := SensorObservation.new()
-	followup.setup(1, knowledge.simulation_time, Vector3(17.0, 0.0, 0.0), 0.9, 8.0, 0.4, &"small_uav")
-	assert_same(knowledge.submit_observation(followup), track)
-	assert_eq(knowledge.tracks.size(), 1)
-	assert_lte(track.estimated_velocity.length(), knowledge.maximum_association_speed)
+
+	var sensor_contacts: Array[Array] = [range(0, 12), range(8, 20), range(0, 20, 2)]
+	for sensor_offset: int in sensor_contacts.size():
+		var positions: Array[Vector3] = []
+		for contact_index: int in sensor_contacts[sensor_offset]:
+			positions.push_front(initial_positions[contact_index] + Vector3(0, 0, 16.8))
+		knowledge.submit_scan(_observation_scan(sensor_offset + 2, knowledge.simulation_time, positions))
+
+	assert_eq(knowledge.tracks.size(), 20)
+	for contact_index: int in 20:
+		assert_almost_eq(knowledge.tracks[contact_index].estimated_position.x, initial_positions[contact_index].x, 0.001, "밀집 항적 %d의 횡방향 ID가 유지됩니다" % contact_index)
+		assert_lte(knowledge.tracks[contact_index].estimated_velocity.length(), knowledge.maximum_association_speed)
+
+func _observation_scan(sensor_id: int, timestamp: float, positions: Array[Vector3]) -> Array[SensorObservation]:
+	var observations: Array[SensorObservation] = []
+	for position: Vector3 in positions:
+		var observation := SensorObservation.new()
+		observation.setup(sensor_id, timestamp, position, 0.9, 8.0, 0.4, &"small_uav")
+		observations.append(observation)
+	return observations
 
 func test_dynamic_gate_does_not_merge_different_classifications() -> void:
 	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
@@ -389,6 +417,42 @@ func test_overlapping_radars_diversify_marginal_capacity_slots() -> void:
 		for key: String in radar.tracked_contacts:
 			combined[key] = true
 	assert_eq(combined.size(), definition.tracking_capacity * radars.size(), "겹친 레이더는 합산 추적 용량까지 서로 다른 접촉을 담당합니다")
+	battlefield.free()
+
+func test_three_overlapping_radars_keep_twenty_dense_uav_contacts() -> void:
+	var definition := preload("res://sensing/search_radar/search_radar.tres").duplicate(true) as SearchRadarDefinition
+	definition.tracking_capacity = 12
+	definition.detection_range = 5000.0
+	var registry := ThreatRegistry.new()
+	var knowledge := add_child_autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var battlefield := Battlefield.new()
+	var coordinator := RadarTrackingCoordinator.new()
+	var radars: Array[CapacityRadar] = []
+	for runtime_id: int in [21, 22, 23]:
+		var radar := CapacityRadar.new()
+		var antenna := Node3D.new()
+		antenna.name = "Antenna"
+		radar.add_child(antenna)
+		add_child_autofree(radar)
+		radar.setup(runtime_id, definition)
+		radar.configure_combat(registry, null)
+		radar.configure_player_knowledge(battlefield, knowledge)
+		radar.configure_sensor_tracking(coordinator)
+		radars.append(radar)
+	for contact_index: int in 20:
+		var threat := add_child_autofree(_timed_threat(500 + contact_index, preload("res://enemy/swarm_uav/swarm_uav.tres"), 20.0)) as TimedThreat
+		threat.position = Vector3(contact_index * 12.0, 100.0, 300.0)
+		registry.add(threat)
+	for radar: CapacityRadar in radars:
+		radar._scan()
+	assert_eq(knowledge.tracks.size(), 20, "세 레이더의 합산 용량은 밀집 UAV 20대를 서로 다른 항적으로 생성합니다")
+	for scan_index: int in 3:
+		knowledge.gameplay_tick(definition.scan_interval)
+		for threat: ThreatUnit in registry.get_active():
+			threat.position.z += 14.0
+		for radar: CapacityRadar in radars:
+			radar._scan()
+		assert_eq(knowledge.tracks.size(), 20, "밀집 재관측 %d에서 항적 수가 유지됩니다" % scan_index)
 	battlefield.free()
 
 func test_capacity_limited_marker_uses_irregular_yellow_visibility() -> void:
