@@ -26,6 +26,7 @@ detection_range = 700.0
 scan_interval = 0.4
 sensor_quality = 0.9
 range_exponent = 4.0
+tracking_capacity = 12
 c2_range = 700.0
 minimum_detection_altitude = 0.0
 maximum_detection_altitude = 260.0

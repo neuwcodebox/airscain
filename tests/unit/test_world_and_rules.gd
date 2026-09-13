@@ -1437,6 +1437,13 @@ func test_specialized_threats_define_recon_jamming_and_suppression_roles() -> vo
 	var anti_radiation := _threat(&"anti_radiation_missile") as AttackUavDefinition
 	assert_eq(anti_radiation.id, &"anti_radiation_missile")
 	assert_eq(anti_radiation.mission.target_role, ThreatMissionDefinition.TargetRole.SENSOR)
+	assert_eq(anti_radiation.mission.damage, 70.0, "대레이더미사일 직격은 내구도 100 레이더를 수리 가능한 기능 정지로 만듭니다")
+	var radar_definition := _defense(&"search_radar") as SearchRadarDefinition
+	var radar := autofree(radar_definition.scene.instantiate()) as SearchRadar
+	radar.setup(711, radar_definition)
+	assert_true(radar.receive_damage(anti_radiation.mission.damage))
+	assert_false(radar.active)
+	assert_eq(radar.integrity, 30.0)
 	var support_strike := _threat(&"support_strike_uav") as AttackUavDefinition
 	assert_true(support_strike.requires_role_knowledge)
 	assert_eq(support_strike.adaptive_knowledge_role, &"support")
@@ -1453,6 +1460,8 @@ func test_ballistic_and_rocket_threats_match_high_altitude_detection_envelope() 
 	assert_lte((rockets.threat_definition as AttackUavDefinition).movement.maximum_speed_multiplier, 1.2)
 	var search_radar := _defense(&"search_radar") as SearchRadarDefinition
 	var high_altitude_radar := _defense(&"tracking_radar") as SearchRadarDefinition
+	assert_eq(search_radar.tracking_capacity, 12)
+	assert_eq(high_altitude_radar.tracking_capacity, 20)
 	assert_lt(search_radar.maximum_detection_altitude, high_altitude_radar.minimum_detection_altitude + 150.0)
 	assert_gt(high_altitude_radar.maximum_detection_altitude, ballistic.movement.ballistic_apex)
 

@@ -132,6 +132,8 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 				return "항적이 존재하지 않는 센서를 참조합니다"
 		if float(track_state.get("last_observed_at", -1.0)) < 0.0 or float(track_state.get("track_quality", -1.0)) < 0.0 or float(track_state.get("track_quality", 2.0)) > 1.0 or float(track_state.get("position_uncertainty", -1.0)) < 0.0:
 			return "항적 추정 상태가 올바르지 않습니다"
+		if track_state.has("capacity_limited") and not track_state.capacity_limited is bool:
+			return "항적 추적 용량 상태가 올바르지 않습니다"
 		if not track_state.get("classification_scores", null) is Dictionary or not track_state.get("affiliation_scores", null) is Dictionary:
 			return "항적 분류 상태가 올바르지 않습니다"
 	if int(knowledge_state.next_track_id) <= highest_track_id:

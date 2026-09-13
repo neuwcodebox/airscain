@@ -11,6 +11,7 @@ var selection_material := StandardMaterial3D.new()
 var position_history: Array[Vector3] = []
 var selected: bool = false
 var base_icon_text: String = "?"
+var instability_time: float = 0.0
 
 func _ready() -> void:
 	icon.name = "Icon"
@@ -54,8 +55,10 @@ func setup(track_value: PlayerTrack) -> void:
 	refresh_state()
 	refresh_position()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	instability_time += delta
 	refresh_position()
+	_refresh_instability()
 
 func refresh_position() -> void:
 	if track == null:
@@ -78,8 +81,28 @@ func _apply_selection() -> void:
 	icon.outline_size = 12 if selected else 8
 	icon.scale = Vector3.ONE * (1.18 if selected else 1.0)
 
+func _refresh_instability() -> void:
+	if track == null or not track.capacity_limited:
+		icon.visible = true
+		uncertainty_ring.visible = true
+		icon.position = Vector3.ZERO
+		return
+	var phase := instability_time + float(track.track_id) * 0.731
+	var shown := sin(phase * 9.7) + sin(phase * 16.3 + 1.4) > -0.2
+	icon.visible = shown
+	uncertainty_ring.visible = shown
+	icon.position = Vector3(sin(phase * 7.1), 0.0, cos(phase * 5.3)) * 1.2
+
 func refresh_state() -> void:
 	if track == null:
+		return
+	if track.capacity_limited and track.state != PlayerTrack.State.LOST:
+		visible = true
+		base_icon_text = "?"
+		icon.modulate = Color(1.0, 0.78, 0.22, 0.92)
+		ring_material.albedo_color = Color(1.0, 0.78, 0.22, 0.28)
+		selection_ring.visible = selected
+		_apply_selection()
 		return
 	match track.state:
 		PlayerTrack.State.TENTATIVE:

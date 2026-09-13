@@ -40,6 +40,9 @@ func gameplay_tick(delta: float) -> void:
 		var track := tracks[index]
 		var previous_state := track.state
 		var unobserved_time := simulation_time - track.last_observed_at
+		if track.prune_sensor_contributions(simulation_time, lost_after):
+			track_revision += 1
+			track_updated.emit(track)
 		track.predict(delta, unobserved_time, coast_after, lost_after)
 		_association_dirty = true
 		if track.state != previous_state:
@@ -73,6 +76,14 @@ func submit_observation(observation: SensorObservation) -> PlayerTrack:
 			track_state_changed.emit(track, previous_state)
 	track_updated.emit(track)
 	return track
+
+func note_capacity_gap(track_id: int, sensor_id: int, timestamp: float) -> void:
+	var track := find_track(track_id)
+	if track == null or not track.sensor_observed_at.has(sensor_id):
+		return
+	if track.mark_capacity_limited(timestamp):
+		track_revision += 1
+		track_updated.emit(track)
 
 func get_active_tracks() -> Array[PlayerTrack]:
 	var result: Array[PlayerTrack] = []

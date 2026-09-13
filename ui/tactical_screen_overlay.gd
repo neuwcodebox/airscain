@@ -72,6 +72,8 @@ func track_at_screen(point: Vector2) -> PlayerTrack:
 	var nearest: PlayerTrack
 	var distance := 34.0
 	for track: PlayerTrack in player_knowledge.get_active_tracks():
+		if not _unstable_track_visible(track):
+			continue
 		var screen := track_marker_screen_position(track)
 		if screen.is_finite() and screen.distance_to(point) < distance:
 			distance = screen.distance_to(point)
@@ -176,6 +178,8 @@ func _draw() -> void:
 		return
 	var viewport_size := size
 	for track: PlayerTrack in player_knowledge.get_active_tracks():
+		if not _unstable_track_visible(track):
+			continue
 		if track.state == PlayerTrack.State.TENTATIVE or _is_on_screen(track.estimated_position + Vector3.UP * 12.0, viewport_size):
 			continue
 		var marker := track_marker_screen_position(track)
@@ -287,6 +291,8 @@ static func marker_position_in_safe_area(projected: Vector2, viewport_size: Vect
 	return center + direction * factor
 
 func _track_color(track: PlayerTrack) -> Color:
+	if track.capacity_limited:
+		return Color(1.0, 0.78, 0.22, 0.88)
 	if track.state == PlayerTrack.State.COASTING:
 		return Color(0.78, 0.86, 0.92, 0.72)
 	if track.affiliation == PlayerTrack.Affiliation.HOSTILE and track.affiliation_confidence >= 0.3:
@@ -294,3 +300,9 @@ func _track_color(track: PlayerTrack) -> Color:
 	if track.affiliation == PlayerTrack.Affiliation.NEUTRAL and track.affiliation_confidence >= 0.3:
 		return Color(0.28, 0.82, 0.92, 0.82)
 	return Color(1.0, 0.78, 0.22, 0.88)
+
+func _unstable_track_visible(track: PlayerTrack) -> bool:
+	if not track.capacity_limited or player_knowledge == null:
+		return true
+	var phase := player_knowledge.simulation_time + float(track.track_id) * 0.731
+	return sin(phase * 9.7) + sin(phase * 16.3 + 1.4) > -0.2

@@ -19,7 +19,7 @@ terrain_lookahead = 120.0
 script = ExtResource("4")
 type = 0
 target_role = 1
-damage = 48.0
+damage = 70.0
 action_distance = 9.0
 acquisition_range = 240.0
 

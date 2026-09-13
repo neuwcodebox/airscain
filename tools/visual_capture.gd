@@ -24,6 +24,9 @@ func run() -> void:
 	main.ui_audio.enabled = false
 	main.combat_audio.stop_all()
 	main.ui_audio.stop_all()
+	if OS.get_cmdline_user_args().has("--capture-radar-saturation-only"):
+		await _capture_radar_saturation()
+		return
 	if OS.get_cmdline_user_args().has("--capture-static-details-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame
@@ -1133,6 +1136,53 @@ func _capture_selection_panel() -> bool:
 		return false
 	_save_capture("/tmp/airscain_engagement_review.png")
 	return true
+
+func _capture_radar_saturation() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
+	AirscainApp.apply_global_font()
+	main.set_process(false)
+	main.director.enabled = false
+	main.session.budget = 5000
+	var radar_definition: SearchRadarDefinition
+	for definition: DefenseDefinition in main.scenario.available_defenses:
+		if definition.id == &"search_radar":
+			radar_definition = definition as SearchRadarDefinition
+			break
+	_place_asset(radar_definition, 1.0)
+	var radar := main.defenses.back() as SearchRadar
+	var threat_definition := main.scenario.threat_entries[0].threat_definition
+	for index: int in 16:
+		var threat := threat_definition.scene.instantiate() as ThreatUnit
+		main.threat_parent.add_child(threat)
+		threat.setup(9800 + index, threat_definition)
+		var column := index % 4
+		var row := index / 4
+		threat.global_position = radar.global_position + Vector3((column - 1.5) * 180.0, 100.0, (row - 1.5) * 180.0)
+		threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0)
+		main.registry.add(threat)
+	radar._scan()
+	for _scan: int in 2:
+		main.player_knowledge.gameplay_tick(radar_definition.scan_interval)
+		radar._scan()
+	main._on_asset_selected(radar)
+	main.camera_rig.camera.global_position = radar.global_position + Vector3(0.0, 610.0, 560.0)
+	main.camera_rig.camera.look_at(radar.global_position + Vector3.UP * 80.0, Vector3.UP)
+	for _frame: int in 8:
+		await process_frame
+	_save_capture("/tmp/airscain_radar_saturation_a.png")
+	for _frame: int in 14:
+		await process_frame
+	_save_capture("/tmp/airscain_radar_saturation_b.png")
+	var unstable_count := main.player_knowledge.get_active_tracks().filter(func(track: PlayerTrack) -> bool: return track.capacity_limited).size()
+	if radar.current_tracking_count() != radar_definition.tracking_capacity or unstable_count <= 0 or not _metric_has_value(main.hud.asset_metrics, "동시 추적", "%d / %d" % [radar_definition.tracking_capacity, radar_definition.tracking_capacity]):
+		push_error("Radar saturation capture did not expose full capacity and unstable tracks")
+		quit(1)
+		return
+	print("RADAR_SATURATION_CAPTURE_OK tracked=%d/%d unstable=%d" % [radar.current_tracking_count(), radar_definition.tracking_capacity, unstable_count])
+	main.queue_free()
+	await process_frame
+	quit(0)
 
 func _spawn_swarm_near_close_in_gun() -> void:
 	var gun: CloseInGun

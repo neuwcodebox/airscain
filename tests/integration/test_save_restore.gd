@@ -442,6 +442,8 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	assert_eq(track.state, PlayerTrack.State.CONFIRMED)
 	var track_id := track.track_id
 	radar.scan_cooldown = 0.23
+	radar.scan_index = 9
+	radar.tracked_contacts["threat:%d" % threat_runtime_id] = track_id
 	assert_true(battery._fire_round(track, battery.munition_for_track(track)))
 	battery.doctrine.hold_fire = true
 	var interceptor := battery.interceptors[0]
@@ -468,6 +470,8 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 	assert_eq(restored_track.classification, &"attack_uav")
 	assert_eq(restored_track.affiliation, PlayerTrack.Affiliation.HOSTILE)
 	assert_eq(restored_radar.scan_cooldown, 0.23)
+	assert_eq(restored_radar.scan_index, 9)
+	assert_eq(restored_radar.tracked_contacts, {"threat:%d" % threat_runtime_id: track_id})
 	assert_true(main.c2_network.has_command_path(restored_battery, restored_radar.runtime_id))
 	var restored_interceptors := _interceptors()
 	assert_eq(restored_interceptors.size(), 1)

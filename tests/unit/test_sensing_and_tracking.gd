@@ -14,6 +14,19 @@ class IndexedKnowledge:
 			narrowed_queries += 1
 		return result
 
+class CapacityRadar:
+	extends SearchRadar
+	func altitude_in_envelope(_target_position: Vector3) -> bool:
+		return true
+	func _has_line_of_sight(_from: Vector3, _to: Vector3) -> bool:
+		return true
+
+class TimedThreat:
+	extends ThreatUnit
+	var action_seconds: float = INF
+	func presentation_action_seconds() -> float:
+		return action_seconds
+
 func test_spatial_association_matches_exhaustive_observation_streams() -> void:
 	for seed_value: int in [71, 73129]:
 		assert_eq(_differential_stream_failure(seed_value), "", "공간 연결 differential stream seed %d" % seed_value)
@@ -254,3 +267,112 @@ func test_different_sensors_fuse_same_time_observations_into_one_track() -> void
 	assert_eq(track.contributing_sensor_ids, [1, 2])
 	assert_lt(track.position_uncertainty, 20.0)
 	assert_eq(track.classification, &"uav")
+
+func test_recent_sensor_contributors_replace_stale_history() -> void:
+	var knowledge := autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var first := SensorObservation.new()
+	first.setup(1, 0.0, Vector3.ZERO, 0.9, 5.0, 0.4, &"uav")
+	var track := knowledge.submit_observation(first)
+	knowledge.gameplay_tick(1.8)
+	var second := SensorObservation.new()
+	second.setup(2, 1.8, Vector3.ZERO, 0.9, 5.0, 0.4, &"uav")
+	knowledge.submit_observation(second)
+	knowledge.gameplay_tick(0.21)
+	assert_eq(track.contributing_sensor_ids, [2], "기여 센서 수는 과거 누적이 아니라 최근 관측을 뜻합니다")
+
+func test_radar_priority_balances_damage_and_time_to_action() -> void:
+	var radar := autofree(CapacityRadar.new()) as CapacityRadar
+	var definition := preload("res://sensing/tracking_radar/tracking_radar.tres").duplicate(true) as SearchRadarDefinition
+	radar.setup(11, definition)
+	var ballistic := add_child_autofree(_timed_threat(101, preload("res://enemy/ballistic_missile/ballistic_missile.tres"), 20.0)) as TimedThreat
+	var rocket := add_child_autofree(_timed_threat(102, preload("res://enemy/rocket_salvo/rocket.tres"), 20.0)) as TimedThreat
+	assert_gt(radar._tracking_priority("ballistic", ballistic, 0.9), radar._tracking_priority("rocket", rocket, 0.9), "도달 시간이 같으면 예상 피해가 큰 탄도미사일을 우선합니다")
+	rocket.action_seconds = 3.0
+	ballistic.action_seconds = 40.0
+	assert_gt(radar._tracking_priority("rocket", rocket, 0.9), radar._tracking_priority("ballistic", ballistic, 0.9), "임박한 로켓은 먼 탄도미사일보다 우선합니다")
+
+func test_saturated_radar_limits_tracks_and_cycles_unstable_contacts() -> void:
+	var radar := CapacityRadar.new()
+	var antenna := Node3D.new()
+	antenna.name = "Antenna"
+	radar.add_child(antenna)
+	add_child_autofree(radar)
+	var definition := preload("res://sensing/search_radar/search_radar.tres").duplicate(true) as SearchRadarDefinition
+	definition.tracking_capacity = 5
+	definition.detection_range = 5000.0
+	radar.setup(7, definition)
+	var registry := ThreatRegistry.new()
+	var knowledge := add_child_autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var battlefield := Battlefield.new()
+	radar.configure_combat(registry, null)
+	radar.configure_player_knowledge(battlefield, knowledge)
+	for index: int in 6:
+		var threat := _timed_threat(200 + index, preload("res://enemy/rocket_salvo/rocket.tres"), 20.0)
+		threat.position = Vector3(index * 400.0, 100.0, 300.0)
+		add_child_autofree(threat)
+		registry.add(threat)
+	radar._scan()
+	assert_true(radar.saturated)
+	assert_eq(radar.current_tracking_count(), 5)
+	assert_true(radar.selection_status_rows().has({"label": "동시 추적", "value": "5 / 5", "warning": true}))
+	knowledge.gameplay_tick(definition.scan_interval)
+	radar._scan()
+	knowledge.gameplay_tick(definition.scan_interval)
+	radar._scan()
+	assert_true(knowledge.tracks.any(func(track: PlayerTrack) -> bool: return track.capacity_limited), "순환 재탐색에서 빠진 기존 항적은 불안정 상태가 됩니다")
+	battlefield.free()
+
+func test_overlapping_radars_diversify_marginal_capacity_slots() -> void:
+	var definition := preload("res://sensing/search_radar/search_radar.tres").duplicate(true) as SearchRadarDefinition
+	definition.tracking_capacity = 5
+	definition.detection_range = 5000.0
+	var registry := ThreatRegistry.new()
+	var knowledge := add_child_autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var battlefield := Battlefield.new()
+	var radars: Array[CapacityRadar] = []
+	for runtime_id: int in [7, 8]:
+		var radar := CapacityRadar.new()
+		var antenna := Node3D.new()
+		antenna.name = "Antenna"
+		radar.add_child(antenna)
+		add_child_autofree(radar)
+		radar.setup(runtime_id, definition)
+		radar.configure_combat(registry, null)
+		radar.configure_player_knowledge(battlefield, knowledge)
+		radars.append(radar)
+	for index: int in 6:
+		var threat := add_child_autofree(_timed_threat(300 + index, preload("res://enemy/rocket_salvo/rocket.tres"), 20.0)) as TimedThreat
+		threat.position = Vector3(index * 400.0, 100.0, 300.0)
+		registry.add(threat)
+	radars[0]._scan()
+	radars[1]._scan()
+	var combined: Dictionary[String, bool] = {}
+	for radar: CapacityRadar in radars:
+		for key: String in radar.tracked_contacts:
+			combined[key] = true
+	assert_gt(combined.size(), definition.tracking_capacity, "겹친 레이더의 순환 슬롯은 같은 한계 접촉만 중복하지 않습니다")
+	battlefield.free()
+
+func test_capacity_limited_marker_uses_irregular_yellow_visibility() -> void:
+	var track := PlayerTrack.new()
+	track.track_id = 77
+	track.state = PlayerTrack.State.CONFIRMED
+	track.affiliation = PlayerTrack.Affiliation.HOSTILE
+	track.affiliation_confidence = 0.9
+	track.capacity_limited = true
+	var marker := add_child_autofree(TrackMarker.new()) as TrackMarker
+	marker.setup(track)
+	assert_eq(marker.icon.modulate, Color(1.0, 0.78, 0.22, 0.92))
+	var saw_visible := false
+	var saw_hidden := false
+	for _sample: int in 100:
+		marker._process(0.03)
+		saw_visible = saw_visible or marker.icon.visible
+		saw_hidden = saw_hidden or not marker.icon.visible
+	assert_true(saw_visible and saw_hidden, "포화 항적은 고정 경고 대신 불규칙하게 나타났다 사라집니다")
+
+func _timed_threat(id: int, definition: ThreatDefinition, seconds: float) -> TimedThreat:
+	var threat := TimedThreat.new()
+	threat.setup(id, definition)
+	threat.action_seconds = seconds
+	return threat

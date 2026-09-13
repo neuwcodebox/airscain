@@ -21,6 +21,7 @@ var classification_confidence: float = 0.0
 var affiliation_scores: Dictionary[int, float] = {}
 var affiliation := Affiliation.UNKNOWN
 var affiliation_confidence: float = 0.0
+var capacity_limited: bool = false
 
 func setup(id_value: int, observation: SensorObservation) -> void:
 	track_id = id_value
@@ -35,6 +36,7 @@ func setup(id_value: int, observation: SensorObservation) -> void:
 	_apply_identity_evidence(observation)
 
 func apply_observation(observation: SensorObservation, confirmation_threshold: float, maximum_speed: float) -> void:
+	capacity_limited = false
 	var elapsed := observation.timestamp - last_observed_at
 	var measured_velocity := estimated_velocity
 	if elapsed > 0.001:
@@ -53,6 +55,22 @@ func apply_observation(observation: SensorObservation, confirmation_threshold: f
 	sensor_observed_at[observation.sensor_id] = observation.timestamp
 	_apply_identity_evidence(observation)
 	state = State.CONFIRMED if detection_evidence >= confirmation_threshold else State.TENTATIVE
+
+func mark_capacity_limited(timestamp: float) -> bool:
+	if last_observed_at >= timestamp or capacity_limited:
+		return false
+	capacity_limited = true
+	return true
+
+func prune_sensor_contributions(timestamp: float, stale_after: float) -> bool:
+	var changed := false
+	for sensor_id: int in contributing_sensor_ids.duplicate():
+		if timestamp - float(sensor_observed_at.get(sensor_id, -INF)) < stale_after:
+			continue
+		contributing_sensor_ids.erase(sensor_id)
+		sensor_observed_at.erase(sensor_id)
+		changed = true
+	return changed
 
 func predict(delta: float, unobserved_time: float, coast_after: float, lost_after: float) -> void:
 	estimated_position += estimated_velocity * delta
@@ -115,6 +133,7 @@ func capture_state() -> Dictionary:
 		"affiliation_scores": affiliation_score_data,
 		"affiliation": int(affiliation),
 		"affiliation_confidence": affiliation_confidence,
+		"capacity_limited": capacity_limited,
 	}
 
 func restore_state(data: Dictionary) -> void:
@@ -143,3 +162,4 @@ func restore_state(data: Dictionary) -> void:
 		affiliation_scores[int(affiliation_id)] = float(data.affiliation_scores[affiliation_id])
 	affiliation = int(data.get("affiliation", Affiliation.UNKNOWN))
 	affiliation_confidence = float(data.get("affiliation_confidence", 0.0))
+	capacity_limited = bool(data.get("capacity_limited", false))
