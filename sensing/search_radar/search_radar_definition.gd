@@ -8,6 +8,7 @@ extends DefenseDefinition
 @export var c2_range: float = 700.0
 @export var minimum_detection_altitude: float = 0.0
 @export var maximum_detection_altitude: float = 260.0
+@export var range_overlay_color := Color(0.18, 0.82, 1.0, 0.72)
 
 func placement_c2_roles() -> int:
 	return DefenseUnit.C2Role.SENSOR

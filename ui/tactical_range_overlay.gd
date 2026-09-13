@@ -64,7 +64,9 @@ func _rebuild() -> void:
 		match mode:
 			MODE_SENSOR:
 				if unit.definition.tactical_overlay_mode() == MODE_SENSOR:
-					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), Color(0.18, 0.82, 1.0, 0.72), 96, 0)
+					var radar_definition := unit.definition as SearchRadarDefinition
+					var color := radar_definition.range_overlay_color if radar_definition != null else Color(0.18, 0.82, 1.0, 0.72)
+					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), color, 96, 0)
 			MODE_WEAPON:
 				if unit.definition.tactical_overlay_mode() == MODE_WEAPON:
 					vertex_count += _add_ring(mesh, unit.global_position, unit.definition.tactical_range() * unit.operational_efficiency(), Color(1.0, 0.48, 0.18, 0.72), 96, 2)
