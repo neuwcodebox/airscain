@@ -52,6 +52,7 @@ var occupied_positions: Array[Vector3] = []
 var occupied_radii: Array[float] = []
 var rooftop_pads: Array[Dictionary] = []
 var battlefield_size: float = 2400.0
+var terrain_revision: int = 0
 var city_block_surface_count: int = 0
 var city_road_width: float = 9.0
 var city_window_band_count: int = 0
@@ -85,6 +86,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	battlefield_size = scenario.battlefield_size
 	var layout := scenario.battlefield_layout()
 	generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size, layout)
+	terrain_revision += 1
 	for child: Node in terrain.get_children():
 		child.free()
 	terrain.mesh = generator.create_terrain_mesh()

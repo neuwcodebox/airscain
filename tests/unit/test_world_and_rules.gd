@@ -121,12 +121,7 @@ func test_radar_terrain_coverage_splits_work_and_leaves_ridge_shadow_unpainted()
 	coverage.configure(field)
 	coverage.maximum_cells_per_frame = 4
 	coverage.work_budget_usec = 1000000
-	coverage.set_sources([{
-		"key": "radar",
-		"position": Vector3(-30.0, 0.0, 0.0),
-		"radius": 80.0,
-		"color": Color(0.18, 0.82, 1.0, 0.18),
-	}])
+	coverage.set_sources([RadarCoverageSource.new("radar", Vector3(-30.0, 0.0, 0.0), 80.0, Color(0.18, 0.82, 1.0, 0.18))])
 	coverage._process(0.0)
 	assert_true(coverage.is_calculating())
 	assert_eq(coverage.completed_source_count(), 0)
@@ -139,6 +134,21 @@ func test_radar_terrain_coverage_splits_work_and_leaves_ridge_shadow_unpainted()
 	var origin := Vector3(-30.0, RadarTerrainCoverage.ANTENNA_HEIGHT, 0.0)
 	var shadowed_surface := Vector3(30.0, RadarTerrainCoverage.SURFACE_CLEARANCE, 0.0)
 	assert_false(TerrainLineOfSight.is_clear(field, origin, shadowed_surface))
+
+func test_radar_terrain_coverage_invalidates_cache_after_terrain_rebuild() -> void:
+	var field := _flat_battlefield(80.0, 9)
+	var coverage := add_child_autofree(RadarTerrainCoverage.new()) as RadarTerrainCoverage
+	coverage.configure(field)
+	coverage.maximum_cells_per_frame = 10000
+	coverage.work_budget_usec = 1000000
+	var source := RadarCoverageSource.new("radar", Vector3.ZERO, 80.0, Color(0.18, 0.82, 1.0, 0.18))
+	coverage.set_sources([source])
+	coverage._process(0.0)
+	assert_eq(coverage.completed_source_count(), 1)
+	field.terrain_revision += 1
+	coverage.set_sources([source])
+	assert_eq(coverage.completed_source_count(), 0)
+	assert_true(coverage.is_calculating())
 
 func test_radar_coverage_targets_follow_preview_overlay_and_selection_priority() -> void:
 	var field := _flat_battlefield(80.0, 9)

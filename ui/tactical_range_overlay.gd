@@ -122,7 +122,7 @@ func _rebuild() -> void:
 		line_mesh.mesh = null
 
 func _refresh_coverage_sources() -> void:
-	var sources: Array[Dictionary] = []
+	var sources: Array[RadarCoverageSource] = []
 	if placement_active:
 		if placement_preview_ready and placement_definition.terrain_coverage_color().a > 0.0:
 			sources.append(_coverage_source("preview", placement_position, placement_definition.tactical_range(), placement_definition.terrain_coverage_color()))
@@ -136,8 +136,8 @@ func _refresh_coverage_sources() -> void:
 		sources.append(_coverage_source("unit:%d" % selected_asset.runtime_id, selected_asset.global_position, selected_asset.definition.tactical_range() * selected_asset.operational_efficiency(), selected_asset.definition.terrain_coverage_color()))
 	terrain_coverage.set_sources(sources)
 
-func _coverage_source(key: String, position: Vector3, radius: float, color: Color) -> Dictionary:
-	return {"key": key, "position": position, "radius": radius, "color": color}
+func _coverage_source(key: String, position: Vector3, radius: float, color: Color) -> RadarCoverageSource:
+	return RadarCoverageSource.new(key, position, radius, color)
 
 func _update_visibility() -> void:
 	visible = mode != MODE_NONE or terrain_coverage.requested_source_count() > 0 or placement_active

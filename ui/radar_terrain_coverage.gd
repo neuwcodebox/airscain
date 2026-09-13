@@ -1,53 +1,81 @@
 class_name RadarTerrainCoverage
 extends Node
 
+class CoverageResult extends RefCounted:
+	var source: RadarCoverageSource
+	var mask: PackedByteArray
+
+	func _init(source_value: RadarCoverageSource, mask_value: PackedByteArray) -> void:
+		source = source_value
+		mask = mask_value
+
+class CoverageJob extends RefCounted:
+	var source: RadarCoverageSource
+	var mask: PackedByteArray
+	var minimum_x: int
+	var maximum_x: int
+	var maximum_z: int
+	var x: int
+	var z: int
+	var complete: bool = false
+
 const ANTENNA_HEIGHT := 11.0
 const SURFACE_CLEARANCE := TerrainLineOfSight.TERRAIN_CLEARANCE + 0.1
 const DEFAULT_WORK_BUDGET_USEC := 1000
 const DEFAULT_MAXIMUM_CELLS_PER_FRAME := 512
+const WORK_BATCH_SIZE := 64
 
 var battlefield: Battlefield
 var work_budget_usec: int = DEFAULT_WORK_BUDGET_USEC
 var maximum_cells_per_frame: int = DEFAULT_MAXIMUM_CELLS_PER_FRAME
 var coverage_texture: ImageTexture
-var _sources: Array[Dictionary] = []
-var _requested_signature: String = ""
-var _cache: Dictionary[String, Dictionary] = {}
-var _jobs: Array[Dictionary] = []
+var _sources: Array[RadarCoverageSource] = []
+var _cache: Dictionary[String, CoverageResult] = {}
+var _jobs: Array[CoverageJob] = []
 var _composite_pixels := PackedByteArray()
+var _terrain_revision: int = -1
 
 func configure(field: Battlefield) -> void:
 	battlefield = field
+	_terrain_revision = field.terrain_revision
 	_rebuild_texture()
 	set_process(false)
 
-func set_sources(sources: Array[Dictionary]) -> void:
-	var requested_signature := _sources_signature(sources)
-	if requested_signature == _requested_signature:
+func _exit_tree() -> void:
+	if is_instance_valid(battlefield):
+		battlefield.set_radar_coverage(coverage_texture, false)
+
+func set_sources(sources: Array[RadarCoverageSource]) -> void:
+	_invalidate_changed_terrain()
+	if _sources_match(sources):
 		return
-	_requested_signature = requested_signature
-	_sources = sources.duplicate(true)
+	_sources = sources.duplicate()
 	_jobs.clear()
-	for source: Dictionary in _sources:
-		var key := String(source.get("key", ""))
-		var signature := _source_signature(source)
-		var cached: Dictionary = _cache.get(key, {})
-		if String(cached.get("signature", "")) == signature:
+	for source: RadarCoverageSource in _sources:
+		var cached: CoverageResult = _cache.get(source.key)
+		if cached != null and cached.source.matches(source):
 			continue
-		_cache.erase(key)
-		_jobs.append(_create_job(source, signature))
+		_cache.erase(source.key)
+		_jobs.append(_create_job(source))
 	_rebuild_texture()
 	set_process(not _jobs.is_empty())
+
+func _invalidate_changed_terrain() -> void:
+	if battlefield.terrain_revision == _terrain_revision:
+		return
+	_terrain_revision = battlefield.terrain_revision
+	_sources.clear()
+	_cache.clear()
+	_jobs.clear()
 
 func requested_source_count() -> int:
 	return _sources.size()
 
 func completed_source_count() -> int:
 	var count := 0
-	for source: Dictionary in _sources:
-		var key := String(source.get("key", ""))
-		var cached: Dictionary = _cache.get(key, {})
-		if String(cached.get("signature", "")) == _source_signature(source):
+	for source: RadarCoverageSource in _sources:
+		var cached: CoverageResult = _cache.get(source.key)
+		if cached != null and cached.source.matches(source):
 			count += 1
 	return count
 
@@ -72,89 +100,66 @@ func _process(_delta: float) -> void:
 	var processed := 0
 	while not _jobs.is_empty() and processed < maximum_cells_per_frame:
 		var job := _jobs[0]
-		processed += _advance_job(job, mini(64, maximum_cells_per_frame - processed))
-		if bool(job.get("complete", false)):
+		processed += _advance_job(job, mini(WORK_BATCH_SIZE, maximum_cells_per_frame - processed))
+		if job.complete:
 			_complete_job(job)
 			_jobs.pop_front()
 		if processed > 0 and Time.get_ticks_usec() - started >= work_budget_usec:
 			break
 	set_process(not _jobs.is_empty())
 
-func _create_job(source: Dictionary, signature: String) -> Dictionary:
+func _create_job(source: RadarCoverageSource) -> CoverageJob:
 	var resolution := battlefield.generator.resolution
 	var size := battlefield.generator.size
 	var half := size * 0.5
 	var step := size / float(resolution - 1)
-	var position: Vector3 = source.position
-	var radius := float(source.radius)
-	var minimum_x := clampi(floori((position.x - radius + half) / step), 0, resolution - 1)
-	var maximum_x := clampi(ceili((position.x + radius + half) / step), 0, resolution - 1)
-	var minimum_z := clampi(floori((position.z - radius + half) / step), 0, resolution - 1)
-	var maximum_z := clampi(ceili((position.z + radius + half) / step), 0, resolution - 1)
-	var mask := PackedByteArray()
-	mask.resize(resolution * resolution)
-	mask.fill(0)
-	return {
-		"key": String(source.key),
-		"signature": signature,
-		"position": position,
-		"radius_squared": radius * radius,
-		"color": source.color as Color,
-		"minimum_x": minimum_x,
-		"maximum_x": maximum_x,
-		"maximum_z": maximum_z,
-		"x": minimum_x,
-		"z": minimum_z,
-		"mask": mask,
-		"complete": false,
-	}
+	var job := CoverageJob.new()
+	job.source = source
+	job.minimum_x = clampi(floori((source.position.x - source.radius + half) / step), 0, resolution - 1)
+	job.maximum_x = clampi(ceili((source.position.x + source.radius + half) / step), 0, resolution - 1)
+	job.x = job.minimum_x
+	job.z = clampi(floori((source.position.z - source.radius + half) / step), 0, resolution - 1)
+	job.maximum_z = clampi(ceili((source.position.z + source.radius + half) / step), 0, resolution - 1)
+	job.mask.resize(resolution * resolution)
+	job.mask.fill(0)
+	return job
 
-func _advance_job(job: Dictionary, cell_limit: int) -> int:
+func _advance_job(job: CoverageJob, cell_limit: int) -> int:
 	var resolution := battlefield.generator.resolution
 	var size := battlefield.generator.size
 	var step := size / float(resolution - 1)
 	var half := size * 0.5
-	var origin: Vector3 = (job.position as Vector3) + Vector3.UP * ANTENNA_HEIGHT
-	var mask: PackedByteArray = job.mask
+	var origin := job.source.position + Vector3.UP * ANTENNA_HEIGHT
+	var radius_squared := job.source.radius * job.source.radius
 	var processed := 0
-	while processed < cell_limit and not bool(job.complete):
-		var x := int(job.x)
-		var z := int(job.z)
-		var world_x := -half + float(x) * step
-		var world_z := -half + float(z) * step
+	while processed < cell_limit and not job.complete:
+		var world_x := -half + float(job.x) * step
+		var world_z := -half + float(job.z) * step
 		var flat_offset := Vector2(world_x - origin.x, world_z - origin.z)
-		if flat_offset.length_squared() <= float(job.radius_squared):
+		if flat_offset.length_squared() <= radius_squared:
 			var target := Vector3(world_x, battlefield.terrain_height(world_x, world_z) + SURFACE_CLEARANCE, world_z)
 			if TerrainLineOfSight.is_clear(battlefield, origin, target):
-				mask[z * resolution + x] = 255
-		x += 1
-		if x > int(job.maximum_x):
-			x = int(job.minimum_x)
-			z += 1
-		job.x = x
-		job.z = z
-		job.complete = z > int(job.maximum_z)
+				job.mask[job.z * resolution + job.x] = 255
+		job.x += 1
+		if job.x > job.maximum_x:
+			job.x = job.minimum_x
+			job.z += 1
+		job.complete = job.z > job.maximum_z
 		processed += 1
-	job.mask = mask
 	return processed
 
-func _complete_job(job: Dictionary) -> void:
-	var key := String(job.key)
-	var desired := _source_for_key(key)
-	if desired.is_empty() or _source_signature(desired) != String(job.signature):
+func _complete_job(job: CoverageJob) -> void:
+	var desired := _source_for_key(job.source.key)
+	if not job.source.matches(desired):
 		return
-	_cache[key] = {
-		"signature": String(job.signature),
-		"mask": job.mask as PackedByteArray,
-		"color": job.color as Color,
-	}
+	_cache[job.source.key] = CoverageResult.new(job.source, job.mask)
 	_rebuild_texture()
 
-func _source_for_key(key: String) -> Dictionary:
-	for source: Dictionary in _sources:
-		if String(source.get("key", "")) == key:
+func _source_for_key(key: String) -> RadarCoverageSource:
+	for source: RadarCoverageSource in _sources:
+		if source.key == key:
 			return source
-	return {}
+	return null
 
 func _rebuild_texture() -> void:
 	if battlefield == null or battlefield.generator.resolution < 2:
@@ -162,11 +167,10 @@ func _rebuild_texture() -> void:
 	var resolution := battlefield.generator.resolution
 	_composite_pixels.resize(resolution * resolution * 4)
 	_composite_pixels.fill(0)
-	for source: Dictionary in _sources:
-		var cached: Dictionary = _cache.get(String(source.get("key", "")), {})
-		if String(cached.get("signature", "")) != _source_signature(source):
-			continue
-		_blend_mask(cached.mask as PackedByteArray, cached.color as Color)
+	for source: RadarCoverageSource in _sources:
+		var cached: CoverageResult = _cache.get(source.key)
+		if cached != null and cached.source.matches(source):
+			_blend_mask(cached.mask, cached.source.color)
 	var image := Image.create_from_data(resolution, resolution, false, Image.FORMAT_RGBA8, _composite_pixels)
 	if coverage_texture == null:
 		coverage_texture = ImageTexture.create_from_image(image)
@@ -194,13 +198,10 @@ func _blend_mask(mask: PackedByteArray, color: Color) -> void:
 			_composite_pixels[offset + 2] = (_composite_pixels[offset + 2] + blue) / 2
 			_composite_pixels[offset + 3] = maxi(_composite_pixels[offset + 3], alpha)
 
-func _sources_signature(sources: Array[Dictionary]) -> String:
-	var parts: PackedStringArray = []
-	for source: Dictionary in sources:
-		parts.append(_source_signature(source))
-	return "\n".join(parts)
-
-func _source_signature(source: Dictionary) -> String:
-	var position: Vector3 = source.position
-	var color: Color = source.color
-	return "%s|%.2f|%.2f|%.2f|%.2f|%s" % [String(source.key), position.x, position.y, position.z, float(source.radius), color.to_html()]
+func _sources_match(sources: Array[RadarCoverageSource]) -> bool:
+	if _sources.size() != sources.size():
+		return false
+	for index: int in sources.size():
+		if not _sources[index].matches(sources[index]):
+			return false
+	return true
