@@ -290,8 +290,19 @@ func test_save_and_load_controls_belong_to_main_and_pause_menus() -> void:
 	await get_tree().process_frame
 	assert_not_null(app.gameplay)
 	assert_eq(app.gameplay.session.budget, 317)
-	assert_eq(app.gameplay.hud.feedback_label.text, "불러오기 완료 · 상태 1건 자동 정리")
+	assert_eq(app.gameplay.hud.feedback_label.text, "불러오기 완료 · 이전 정상 저장을 복구했습니다")
 	assert_false(app.main_menu.visible)
+	app.return_to_main_menu()
+	for candidate_path: String in [test_save_path, test_save_path + ".bak"]:
+		var damaged_file := FileAccess.open(candidate_path, FileAccess.WRITE)
+		damaged_file.store_string(SaveDocument.encode(damaged))
+		damaged_file.close()
+	app.main_load_button.pressed.emit()
+	for frame_index: int in 3:
+		await get_tree().process_frame
+	assert_null(app.gameplay)
+	assert_eq(app.menu_feedback_label.text, "기본 저장과 이전 정상 저장을 모두 불러오지 못했습니다. 새 작전을 시작하거나 다른 저장 파일을 사용해 주세요.")
+	assert_false(app.menu_feedback_label.text.contains("세션 경제"))
 
 func _temporary_path(stem: String, extension: String) -> String:
 	var path := "user://%s_%d.%s" % [stem, get_instance_id(), extension]

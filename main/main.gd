@@ -573,7 +573,7 @@ func save_operation() -> String:
 	if not prepared.error.is_empty():
 		return prepared.error
 	document.payload = prepared.payload
-	_report_persistence_repairs("저장")
+	_report_persistence_repairs(PersistenceFeedback.Action.SAVE)
 	return SaveStore.write(document, save_path)
 
 func load_operation() -> String:
@@ -592,12 +592,9 @@ func load_operation() -> String:
 	if error.is_empty():
 		error = restore_from_document(backup.document)
 	if error.is_empty():
-		last_persistence_repairs.push_front("기본 저장 대신 마지막 정상 백업을 사용했습니다")
-		push_warning("불러오기 자동 복구: 기본 저장 대신 마지막 정상 백업을 사용했습니다")
+		record_backup_recovery()
 		return ""
-	if backup.error == "저장 파일이 없습니다":
-		return primary_error
-	return "%s · 백업도 복원할 수 없습니다: %s" % [primary_error, error]
+	return SaveStore.combined_read_error(primary_error, error)
 
 func capture_save_document() -> Dictionary:
 	return SaveDocument.create(SessionSnapshot.capture_payload(self))
@@ -662,18 +659,22 @@ func restore_from_document(document: Dictionary) -> String:
 	last_persistence_repairs.assign(prepared.repairs)
 	if not prepared.error.is_empty():
 		return prepared.error
-	_report_persistence_repairs("불러오기")
+	_report_persistence_repairs(PersistenceFeedback.Action.LOAD)
 	_apply_runtime_snapshot(prepared.payload)
 	return ""
 
-func persistence_success_message(action: String) -> String:
-	if last_persistence_repairs.is_empty():
-		return "%s 완료" % action
-	return "%s 완료 · 상태 %d건 자동 정리" % [action, last_persistence_repairs.size()]
+func persistence_success_message(action: PersistenceFeedback.Action) -> String:
+	return PersistenceFeedback.success_message(action, last_persistence_repairs)
 
-func _report_persistence_repairs(action: String) -> void:
+func record_backup_recovery() -> void:
+	if last_persistence_repairs.has(PersistenceFeedback.BACKUP_RECOVERY):
+		return
+	last_persistence_repairs.push_front(PersistenceFeedback.BACKUP_RECOVERY)
+	push_warning("불러오기 자동 복구: %s" % PersistenceFeedback.BACKUP_RECOVERY)
+
+func _report_persistence_repairs(action: PersistenceFeedback.Action) -> void:
 	for repair: String in last_persistence_repairs:
-		push_warning("%s 자동 복구: %s" % [action, repair])
+		push_warning("%s 자동 복구: %s" % [PersistenceFeedback.action_name(action), repair])
 
 func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	_clear_runtime_objects()

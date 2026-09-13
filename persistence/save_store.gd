@@ -2,6 +2,7 @@ class_name SaveStore
 extends RefCounted
 
 const DEFAULT_PATH := "user://continuous_operation.json"
+const ERROR_MISSING := "저장 파일이 없습니다"
 
 static func write(document: Dictionary, path: String = DEFAULT_PATH) -> String:
 	var document_error := SaveDocument.validation_error(document)
@@ -51,9 +52,14 @@ static func read(path: String = DEFAULT_PATH) -> Dictionary:
 static func read_backup(path: String = DEFAULT_PATH) -> Dictionary:
 	return _read_path(path + ".bak")
 
+static func combined_read_error(primary_error: String, backup_error: String) -> String:
+	if backup_error == ERROR_MISSING:
+		return primary_error
+	return "%s · 백업도 복원할 수 없습니다: %s" % [primary_error, backup_error]
+
 static func _read_path(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
-		return {"error": "저장 파일이 없습니다", "document": {}}
+		return {"error": ERROR_MISSING, "document": {}}
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {"error": "저장 파일을 열 수 없습니다: %s" % error_string(FileAccess.get_open_error()), "document": {}}

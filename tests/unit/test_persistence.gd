@@ -111,6 +111,18 @@ func test_save_store_reports_missing_file_without_document() -> void:
 	var loaded: Dictionary = SAVE_STORE.read(save_path)
 	assert_ne(loaded.error, "")
 	assert_eq(loaded.document, {})
+	assert_eq(SAVE_STORE.combined_read_error("기본 오류", SaveStore.ERROR_MISSING), "기본 오류")
+	assert_eq(SAVE_STORE.combined_read_error("기본 오류", "백업 오류"), "기본 오류 · 백업도 복원할 수 없습니다: 백업 오류")
+
+func test_persistence_feedback_separates_player_messages_from_diagnostics() -> void:
+	var repairs: Array[String] = [PersistenceFeedback.BACKUP_RECOVERY, "요격체가 존재하지 않는 항적을 참조합니다"]
+	assert_eq(PersistenceFeedback.success_message(PersistenceFeedback.Action.LOAD, repairs), "불러오기 완료 · 이전 정상 저장을 복구하고 상태 1건을 정리했습니다")
+	assert_eq(PersistenceFeedback.failure_message(PersistenceFeedback.Action.LOAD, SaveStore.ERROR_MISSING), "저장된 작전을 찾을 수 없습니다.")
+	var load_message := PersistenceFeedback.failure_message(PersistenceFeedback.Action.LOAD, "요격체 runtime ID가 올바르지 않습니다", true)
+	assert_eq(load_message, "저장 파일이 손상되어 작전을 불러오지 못했습니다. 현재 작전은 그대로 유지됩니다.")
+	assert_false(load_message.contains("runtime"))
+	var save_message := PersistenceFeedback.failure_message(PersistenceFeedback.Action.SAVE, "저장 파일을 기록하지 못했습니다: 권한 없음")
+	assert_eq(save_message, "저장 파일을 쓸 수 없습니다. 저장 공간을 확인한 뒤 다시 시도해 주세요.")
 
 func _valid_payload() -> Dictionary:
 	return {
