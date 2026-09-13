@@ -301,36 +301,31 @@ func test_multiple_radars_cover_distinct_contacts_before_duplicating_support() -
 	var coordinator := RadarTrackingCoordinator.new()
 	var combined: Dictionary[String, bool] = {}
 	for sensor_id: int in [11, 12, 13]:
-		var scheduler := RadarTrackingScheduler.new()
-		scheduler.setup(sensor_id, 10)
-		var selected := scheduler.select(_tracking_candidates(30), 0, coordinator.begin_selection(sensor_id, 0.0))
-		var keys: Array[String] = []
+		var selected := _assign_tracking_capacity(coordinator, sensor_id, 10, _tracking_candidates(30))
 		for candidate: RadarTrackCandidate in selected:
-			keys.append(candidate.key)
 			combined[candidate.key] = true
-		coordinator.commit_selection(sensor_id, keys, 1.0)
 	assert_eq(combined.size(), 30, "세 레이더의 전체 용량만큼 우선순위가 다른 접촉도 중복 없이 분담합니다")
 
 func test_multiple_radars_use_spare_capacity_for_redundant_support() -> void:
 	var coordinator := RadarTrackingCoordinator.new()
 	var combined: Dictionary[String, bool] = {}
 	for sensor_id: int in [11, 12]:
-		var scheduler := RadarTrackingScheduler.new()
-		scheduler.setup(sensor_id, 10)
-		var selected := scheduler.select(_tracking_candidates(15), 0, coordinator.begin_selection(sensor_id, 0.0))
+		var selected := _assign_tracking_capacity(coordinator, sensor_id, 10, _tracking_candidates(15))
 		assert_eq(selected.size(), 10, "센서 %d은 남는 슬롯도 비우지 않습니다" % sensor_id)
-		var keys: Array[String] = []
 		for candidate: RadarTrackCandidate in selected:
-			keys.append(candidate.key)
 			combined[candidate.key] = true
-		coordinator.commit_selection(sensor_id, keys, 1.0)
 	assert_eq(combined.size(), 15, "모든 접촉을 담당한 뒤에만 남는 슬롯이 중복 지원에 쓰입니다")
 
 func test_radar_tracking_leases_allow_reassignment_after_a_sensor_stops() -> void:
 	var coordinator := RadarTrackingCoordinator.new()
-	coordinator.commit_selection(11, ["threat:1", "threat:2"], 0.5)
-	assert_eq(coordinator.begin_selection(12, 0.49), {"threat:1": 1, "threat:2": 1})
-	assert_true(coordinator.begin_selection(12, 0.5).is_empty(), "갱신되지 않은 센서 배정은 다른 레이더의 선택을 막지 않습니다")
+	coordinator.renew_lease(11, ["threat:1", "threat:2"], 0.0, 1.0 / 3.0)
+	assert_eq(coordinator.support_counts_excluding(12, 0.49), {"threat:1": 1, "threat:2": 1})
+	assert_true(coordinator.support_counts_excluding(12, 0.5).is_empty(), "갱신되지 않은 센서 배정은 다른 레이더의 선택을 막지 않습니다")
+
+func test_radar_does_not_count_its_own_tracking_lease_as_external_support() -> void:
+	var coordinator := RadarTrackingCoordinator.new()
+	coordinator.renew_lease(11, ["threat:1"], 0.0, 1.0)
+	assert_true(coordinator.support_counts_excluding(11, 0.1).is_empty())
 
 func test_saturated_radar_limits_tracks_and_cycles_unstable_contacts() -> void:
 	var radar := CapacityRadar.new()
@@ -428,3 +423,18 @@ func _tracking_candidates(count: int) -> Array[RadarTrackCandidate]:
 		candidate.priority = 1.0 - float(index) * 0.001
 		candidates.append(candidate)
 	return candidates
+
+func _assign_tracking_capacity(
+	coordinator: RadarTrackingCoordinator,
+	sensor_id: int,
+	capacity: int,
+	candidates: Array[RadarTrackCandidate],
+) -> Array[RadarTrackCandidate]:
+	var scheduler := RadarTrackingScheduler.new()
+	scheduler.setup(sensor_id, capacity)
+	var selected := scheduler.select(candidates, 0, coordinator.support_counts_excluding(sensor_id, 0.0))
+	var keys: Array[String] = []
+	for candidate: RadarTrackCandidate in selected:
+		keys.append(candidate.key)
+	coordinator.renew_lease(sensor_id, keys, 0.0, 1.0)
+	return selected

@@ -142,27 +142,32 @@ func _apply_tracking_capacity(candidates: Array[RadarTrackCandidate], timestamp:
 	for candidate: RadarTrackCandidate in candidates:
 		candidate_keys[candidate.key] = true
 	saturated = candidates.size() > _definition.tracking_capacity
-	var external_support: Dictionary[String, int] = {}
+	var support_counts: Dictionary[String, int] = {}
 	if _tracking_coordinator != null:
-		external_support = _tracking_coordinator.begin_selection(runtime_id, timestamp)
-	var selected := _tracking_scheduler.select(candidates, scan_index, external_support)
-	var next_contacts: Dictionary[String, int] = {}
+		support_counts = _tracking_coordinator.support_counts_excluding(runtime_id, timestamp)
+	var selected := _tracking_scheduler.select(candidates, scan_index, support_counts)
+	var next_contacts := _submit_observations(selected, timestamp)
 	var selected_keys: Array[String] = []
+	for candidate: RadarTrackCandidate in selected:
+		selected_keys.append(candidate.key)
+	if _tracking_coordinator != null:
+		_tracking_coordinator.renew_lease(runtime_id, selected_keys, timestamp, _definition.scan_interval)
+	for key: String in tracked_contacts:
+		if candidate_keys.has(key) and not next_contacts.has(key):
+			player_knowledge.note_capacity_gap(tracked_contacts[key], runtime_id, timestamp)
+	tracked_contacts = next_contacts
+	scan_index += 1
+
+func _submit_observations(selected: Array[RadarTrackCandidate], timestamp: float) -> Dictionary[String, int]:
+	var observed_contacts: Dictionary[String, int] = {}
 	for candidate: RadarTrackCandidate in selected:
 		var observation := SensorObservation.new()
 		var uncertainty := lerpf(18.0, 70.0, 1.0 - candidate.quality) if candidate.false_echo else lerpf(5.0, 45.0, 1.0 - candidate.quality)
 		var identity_scale := 0.45 if candidate.false_echo else 0.55
 		observation.setup(runtime_id, timestamp, candidate.measured_position, candidate.quality, uncertainty, _definition.scan_interval, candidate.classification_hint, candidate.affiliation_hint, candidate.quality * identity_scale)
 		var track := player_knowledge.submit_observation(observation)
-		next_contacts[candidate.key] = track.track_id
-		selected_keys.append(candidate.key)
-	if _tracking_coordinator != null:
-		_tracking_coordinator.commit_selection(runtime_id, selected_keys, timestamp + _definition.scan_interval * 1.5)
-	for key: String in tracked_contacts:
-		if candidate_keys.has(key) and not next_contacts.has(key):
-			player_knowledge.note_capacity_gap(tracked_contacts[key], runtime_id, timestamp)
-	tracked_contacts = next_contacts
-	scan_index += 1
+		observed_contacts[candidate.key] = track.track_id
+	return observed_contacts
 
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
 	return TerrainLineOfSight.is_clear(battlefield, from, to)

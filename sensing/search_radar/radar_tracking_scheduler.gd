@@ -33,21 +33,21 @@ func priority_for(
 func select(
 	candidates: Array[RadarTrackCandidate],
 	scan_index: int,
-	external_support: Dictionary[String, int] = {},
+	support_counts: Dictionary[String, int] = {},
 ) -> Array[RadarTrackCandidate]:
-	var strata: Dictionary[int, Array] = {}
+	var candidates_by_support_count: Dictionary[int, Array] = {}
 	for candidate: RadarTrackCandidate in candidates:
-		var support_count := int(external_support.get(candidate.key, 0))
-		if not strata.has(support_count):
-			strata[support_count] = []
-		strata[support_count].append(candidate)
+		var support_count := int(support_counts.get(candidate.key, 0))
+		if not candidates_by_support_count.has(support_count):
+			candidates_by_support_count[support_count] = []
+		candidates_by_support_count[support_count].append(candidate)
 	var support_levels: Array[int] = []
-	support_levels.assign(strata.keys())
+	support_levels.assign(candidates_by_support_count.keys())
 	support_levels.sort()
 	var selected: Array[RadarTrackCandidate] = []
 	for support_count: int in support_levels:
 		var ranked: Array[RadarTrackCandidate] = []
-		ranked.assign(strata[support_count])
+		ranked.assign(candidates_by_support_count[support_count])
 		ranked.sort_custom(_ranks_before)
 		var available_slots := capacity - selected.size()
 		if ranked.size() <= available_slots:
