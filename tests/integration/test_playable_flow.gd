@@ -391,7 +391,7 @@ func test_topbar_power_status_distinguishes_capacity_states() -> void:
 	main.hud.set_power_status(20.0, 20.0)
 	assert_eq(main.hud.power_label.get_theme_color("font_color"), Hud.POWER_LIMIT_COLOR)
 	main.hud.set_power_status(24.0, 20.0)
-	assert_eq(main.hud.power_label.text, "전력  24 / 20 · 부족")
+	assert_eq(main.hud.power_label.text, "전력  24 / 20")
 	assert_eq(main.hud.power_label.get_theme_color("font_color"), Hud.POWER_SHORTAGE_COLOR)
 	assert_eq(main.hud.power_icon.modulate, Hud.POWER_SHORTAGE_COLOR)
 

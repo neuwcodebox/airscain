@@ -348,7 +348,7 @@ func set_power_status(demand: float, capacity: float) -> void:
 	var rounded_demand := roundi(demand)
 	var rounded_capacity := roundi(capacity)
 	var shortage := demand > capacity
-	power_label.text = "전력  %d / %d%s" % [rounded_demand, rounded_capacity, " · 부족" if shortage else ""]
+	power_label.text = "전력  %d / %d" % [rounded_demand, rounded_capacity]
 	var color := POWER_NORMAL_COLOR
 	if capacity <= 0.0:
 		color = POWER_SHORTAGE_COLOR if demand > 0.0 else POWER_INACTIVE_COLOR
