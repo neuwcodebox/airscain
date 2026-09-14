@@ -59,8 +59,7 @@ func _select_track() -> PlayerTrack:
 		var target_match := _target_match(track.classification)
 		if target_match <= 0.0:
 			continue
-		var outer_distance := track.estimated_position.distance_to(battlefield.objective.global_position)
-		var score := track.track_quality * target_match * (1.0 + outer_distance / _definition.attack_range)
+		var score := cooperative_target_score(track, battlefield.objective.global_position, target_match)
 		if score > selected_score:
 			selected = track
 			selected_score = score
