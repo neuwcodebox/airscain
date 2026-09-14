@@ -1045,6 +1045,78 @@ func test_weapon_magazine_consumes_reloads_and_restores_finite_ammunition() -> v
 	assert_eq(restored.rounds, 1)
 	assert_eq(restored.reserve, 0)
 
+func test_tactical_reload_preserves_ready_rounds_and_only_tops_up_the_magazine() -> void:
+	var magazine := WeaponMagazine.new()
+	magazine.setup(6, 18, 9.0)
+	magazine.rounds = 3
+	assert_true(magazine.can_start_tactical_reload())
+	assert_true(magazine.start_tactical_reload())
+	assert_false(magazine.can_fire())
+	magazine.gameplay_tick(9.0)
+	assert_eq(magazine.rounds, 6)
+	assert_eq(magazine.reserve, 15)
+
+func test_tactical_reload_requires_a_stable_clear_window() -> void:
+	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
+	unit.magazine.setup(6, 18, 9.0)
+	unit.magazine.rounds = 3
+	unit.update_tactical_reload(&"ammunition", unit.magazine, 4.9, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(unit.magazine.is_reloading())
+	unit.update_tactical_reload(&"ammunition", unit.magazine, 0.1, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
+	assert_true(unit.magazine.is_reloading())
+
+func test_tactical_reload_does_not_start_above_half_or_during_hold_fire() -> void:
+	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
+	unit.magazine.setup(6, 18, 9.0)
+	unit.magazine.rounds = 4
+	unit.update_tactical_reload(&"ammunition", unit.magazine, 10.0, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(unit.magazine.is_reloading())
+	unit.magazine.rounds = 3
+	unit.doctrine.hold_fire = true
+	unit.update_tactical_reload(&"ammunition", unit.magazine, 10.0, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(unit.magazine.is_reloading())
+
+func test_imminent_track_resets_tactical_reload_confirmation() -> void:
+	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
+	unit.magazine.setup(2, 8, 12.0)
+	unit.magazine.rounds = 1
+	var inbound := _confirmed_track(Vector3(1800.0, 0.0, 0.0))
+	inbound.estimated_velocity = Vector3(-100.0, 0.0, 0.0)
+	var tracks: Array[PlayerTrack] = [inbound]
+	unit.update_tactical_reload(&"ammunition", unit.magazine, 5.0, tracks, 300.0, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(unit.magazine.is_reloading(), "재장전 12초와 안전 여유 3초 안에 진입하는 표적이 있으면 남은 준비탄을 유지합니다")
+	inbound.estimated_position = Vector3(1900.0, 0.0, 0.0)
+	unit.update_tactical_reload(&"ammunition", unit.magazine, 4.9, tracks, 300.0, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(unit.magazine.is_reloading())
+	unit.update_tactical_reload(&"ammunition", unit.magazine, 0.1, tracks, 300.0, func(_track: PlayerTrack) -> bool: return true)
+	assert_true(unit.magazine.is_reloading(), "예상 진입이 안전 창 밖이면 5초 확인 후 재장전합니다")
+
+func test_missile_battery_and_gun_apply_tactical_reload_during_gameplay() -> void:
+	var knowledge := add_child_autofree(TrackProviderDouble.new()) as TrackProviderDouble
+	var network := add_child_autofree(C2NetworkDouble.new()) as C2NetworkDouble
+	var coordinator := add_child_autofree(EngagementCoordinator.new()) as EngagementCoordinator
+	var projectiles := add_child_autofree(Node3D.new()) as Node3D
+	var registry := autofree(ThreatRegistry.new()) as ThreatRegistry
+	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery
+	battery.setup(101, _defense(&"missile_battery"))
+	battery.configure_combat(registry, projectiles)
+	battery.configure_player_knowledge(battlefield, knowledge)
+	battery.configure_c2(network)
+	battery.configure_engagements(coordinator)
+	battery.magazine.rounds = battery.magazine.capacity / 2
+	var gun_definition := _defense(&"close_in_gun")
+	var gun := add_child_autofree(gun_definition.scene.instantiate()) as CloseInGun
+	gun.setup(102, gun_definition)
+	gun.configure_combat(registry, projectiles)
+	gun.configure_player_knowledge(battlefield, knowledge)
+	gun.configure_c2(network)
+	gun.configure_engagements(coordinator)
+	gun.magazine.rounds = gun.magazine.capacity / 2
+	battery.gameplay_tick(ArmedDefenseUnit.TACTICAL_RELOAD_CONFIRMATION_DURATION)
+	gun.gameplay_tick(ArmedDefenseUnit.TACTICAL_RELOAD_CONFIRMATION_DURATION)
+	assert_true(battery.magazine.is_reloading())
+	assert_true(gun.magazine.is_reloading())
+
 func test_weapon_magazine_state_validation_rejects_excess_rounds() -> void:
 	var magazine := WeaponMagazine.new()
 	magazine.setup(2, 3, 1.0)

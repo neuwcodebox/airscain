@@ -38,8 +38,8 @@ func gameplay_tick(delta: float) -> void:
 		return
 	reload_remaining = maxf(0.0, reload_remaining - delta)
 	if reload_remaining <= 0.0:
-		var loaded := mini(capacity, reserve)
-		rounds = loaded
+		var loaded := mini(capacity - rounds, reserve)
+		rounds += loaded
 		reserve -= loaded
 
 func can_fire() -> bool:
@@ -51,6 +51,15 @@ func consume() -> bool:
 	rounds -= 1
 	if rounds == 0 and reserve > 0:
 		reload_remaining = reload_duration
+	return true
+
+func can_start_tactical_reload() -> bool:
+	return reload_remaining <= 0.0 and rounds > 0 and rounds < capacity and rounds * 2 <= capacity and reserve > 0
+
+func start_tactical_reload() -> bool:
+	if not can_start_tactical_reload():
+		return false
+	reload_remaining = reload_duration
 	return true
 
 func is_reloading() -> bool:

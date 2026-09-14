@@ -65,7 +65,9 @@ func gameplay_tick(delta: float) -> void:
 		munition_magazine.gameplay_tick(delta)
 	_refresh_launcher_cells()
 	launch_cooldown = maxf(0.0, launch_cooldown - delta)
-	var track := select_track(available_tracks(), battlefield.objective.global_position)
+	var tracks := available_tracks()
+	_update_tactical_reloads(delta, tracks)
+	var track := select_track(tracks, battlefield.objective.global_position)
 	if track == null:
 		return
 	var is_aimed := _aim_turret(track.estimated_position, delta)
@@ -75,6 +77,13 @@ func gameplay_tick(delta: float) -> void:
 			launch_cooldown = _definition.launch_interval
 		else:
 			engagement_coordinator.release_one(track.track_id, runtime_id)
+
+func _update_tactical_reloads(delta: float, tracks: Array[PlayerTrack]) -> void:
+	for munition: MissileMunitionDefinition in _definition.munitions:
+		update_tactical_reload(munition.id, magazines[munition.id], delta, tracks, _definition.attack_range * operational_efficiency(), func(track: PlayerTrack) -> bool:
+			return doctrine.allows(track) and munition.match_for(track.classification, track.estimated_velocity.length()) > 0.0
+		)
+	_refresh_launcher_cells()
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	_refresh_departure_clearance()
