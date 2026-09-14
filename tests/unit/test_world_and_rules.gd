@@ -1119,6 +1119,22 @@ func test_laser_effects_retire_independently() -> void:
 	assert_false(second.is_queued_for_deletion())
 	assert_gt(second.impact_light.light_energy, 0.0)
 
+func test_laser_effect_stays_visible_when_sustained_and_flickers() -> void:
+	var laser_scene := preload("res://effects/laser_pulse/laser_pulse.tscn")
+	var effect := add_child_autofree(laser_scene.instantiate()) as LaserPulse
+	effect.setup(Vector3.ZERO, Vector3(0.0, 20.0, 0.0))
+	var initial_width := effect.beam.scale.x
+	effect._process(effect.lifetime * 0.6)
+	assert_ne(effect.beam.scale.x, initial_width, "지속광의 굵기는 미세하게 흔들립니다")
+	effect.sustain(Vector3(5.0, 0.0, 0.0), Vector3(5.0, 35.0, 0.0))
+	effect._process(effect.lifetime * 0.6)
+	assert_false(effect.is_queued_for_deletion(), "조사를 갱신하면 기존 빔이 유지됩니다")
+	assert_almost_eq(effect.global_position, Vector3(5.0, 17.5, 0.0), Vector3.ONE * 0.001)
+	assert_almost_eq(effect.beam.scale.y, 35.0, 0.001)
+	effect.stop()
+	effect._process(effect.lifetime)
+	assert_true(effect.is_queued_for_deletion(), "조사 중단 뒤에는 짧게 감쇠하고 사라집니다")
+
 func test_field_pulse_can_be_replayed_at_world_scale() -> void:
 	var weapon := add_child_autofree(preload("res://defense/high_power_microwave/high_power_microwave.tscn").instantiate()) as HighPowerMicrowave
 	weapon.scale = Vector3.ONE * 0.9

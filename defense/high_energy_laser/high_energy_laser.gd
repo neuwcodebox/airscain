@@ -14,6 +14,7 @@ var power_manager: PowerManager
 var energy_state := EnergyWeaponState.new()
 var cooldown: float = 0.0
 var _definition: HighEnergyLaserDefinition
+var _active_beam: LaserPulse
 
 @onready var turret: Node3D = $Turret
 @onready var elevation: Node3D = $Turret/Elevation
@@ -40,22 +41,32 @@ func power_demand() -> float:
 func gameplay_tick(delta: float) -> void:
 	if not active:
 		maintain_fire_support(null, false)
+		_stop_beam()
 		return
 	var supplied_power := power_manager.request_power(_definition.power_demand) if power_manager != null else 0.0
 	energy_state.gameplay_tick(delta, supplied_power / _definition.power_demand)
 	cooldown = maxf(0.0, cooldown - delta)
 	if registry == null or player_knowledge == null or c2_network == null:
 		maintain_fire_support(null, false)
+		_stop_beam()
 		return
 	var track := select_track(available_tracks(), battlefield.objective.global_position)
 	var has_assignment := maintain_fire_support(track, energy_state.can_fire(_definition.energy_per_pulse))
 	if track == null:
+		_stop_beam()
 		return
 	var is_aimed := _aim_turret(track.estimated_position, delta)
-	if is_aimed and cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and has_assignment:
+	var can_irradiate := is_aimed and energy_state.can_fire(_definition.energy_per_pulse) and has_assignment
+	if not can_irradiate:
+		_stop_beam()
+		return
+	_sustain_beam(track.estimated_position)
+	if cooldown <= 0.0:
 		energy_state.consume(_definition.energy_per_pulse)
-		_fire_pulse(track)
+		_apply_irradiation(track)
 		cooldown = _definition.pulse_interval
+		if energy_state.overheated:
+			_stop_beam()
 
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, emitter_elevation_speed_degrees, firing_alignment_degrees, delta, -10.0, 85.0)
@@ -95,13 +106,21 @@ func selection_status_rows() -> Array[Dictionary]:
 	rows.append_array(_selection_task_rows())
 	return rows
 
-func _fire_pulse(track: PlayerTrack) -> void:
+func _sustain_beam(target_position: Vector3) -> void:
+	if _active_beam == null or not is_instance_valid(_active_beam):
+		_active_beam = LASER_PULSE_SCENE.instantiate() as LaserPulse
+		projectile_parent.add_child(_active_beam)
+	_active_beam.sustain(emitter.global_position, target_position)
+
+func _stop_beam() -> void:
+	if _active_beam != null and is_instance_valid(_active_beam):
+		_active_beam.stop()
+	_active_beam = null
+
+func _apply_irradiation(track: PlayerTrack) -> void:
 	weapon_fired.emit(self, false)
 	if enemy_knowledge != null:
 		enemy_knowledge.record_engagement(self, &"laser")
-	var pulse := LASER_PULSE_SCENE.instantiate() as LaserPulse
-	projectile_parent.add_child(pulse)
-	pulse.setup(emitter.global_position, track.estimated_position)
 	var target := _physical_target_near(track.estimated_position)
 	if target != null:
 		target.receive_damage(_definition.pulse_damage, self)
@@ -120,6 +139,7 @@ func capture_content_state() -> Dictionary:
 	return {"cooldown": cooldown, "energy": energy_state.capture_state(), "doctrine": capture_doctrine_state()}
 
 func restore_content_state(state: Dictionary) -> void:
+	_stop_beam()
 	cooldown = float(state.get("cooldown", 0.0))
 	energy_state.restore_state(state.get("energy", {}))
 	restore_doctrine_state(state.get("doctrine", {}))

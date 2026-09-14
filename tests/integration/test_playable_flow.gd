@@ -2347,13 +2347,24 @@ func test_laser_uses_energy_and_heat_to_destroy_small_uav() -> void:
 	assert_ne(laser.turret.rotation.y, 0.0)
 	assert_gt(laser.elevation.rotation.x, 0.0)
 	assert_eq(laser.energy_state.energy, starting_energy)
+	var primed_overheat := false
+	var reached_overheat := false
 	for frame: int in 80:
 		main.power_manager.begin_tick()
 		main.engagement_coordinator.gameplay_tick(0.1)
 		laser.gameplay_tick(0.1)
+		var beam_effects := main.projectile_parent.get_children().filter(func(node: Node) -> bool: return node is LaserPulse)
+		if not primed_overheat and not beam_effects.is_empty() and (beam_effects[0] as LaserPulse).emitting:
+			primed_overheat = true
+			laser.energy_state.heat = laser.energy_state.heat_capacity
+		if laser.energy_state.overheated:
+			reached_overheat = true
+			assert_eq(beam_effects.size(), 1, "피해 간격마다 새 빔을 만들지 않습니다")
+			assert_false((beam_effects[0] as LaserPulse).emitting, "과열되는 즉시 지속 조사를 끝냅니다")
 		if threat.resolved_state:
 			break
 	assert_true(threat.resolved_state)
+	assert_true(reached_overheat)
 	assert_lt(laser.energy_state.energy, starting_energy)
 	assert_gt(laser.energy_state.heat, 0.0)
 	var pulse := main.projectile_parent.get_node_or_null("LaserPulse") as LaserPulse
