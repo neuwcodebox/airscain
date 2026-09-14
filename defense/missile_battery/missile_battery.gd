@@ -66,7 +66,9 @@ func gameplay_tick(delta: float) -> void:
 	_refresh_launcher_cells()
 	launch_cooldown = maxf(0.0, launch_cooldown - delta)
 	var tracks := available_tracks()
-	_update_tactical_reloads(delta, tracks)
+	var tactical_reload_delta := tactical_reload_evaluation_delta(delta)
+	if tactical_reload_delta > 0.0:
+		_update_tactical_reloads(tactical_reload_delta, tracks)
 	var track := select_track(tracks, battlefield.objective.global_position)
 	if track == null:
 		return

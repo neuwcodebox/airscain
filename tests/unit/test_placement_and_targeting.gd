@@ -1076,6 +1076,46 @@ func test_tactical_reload_does_not_start_above_half_or_during_hold_fire() -> voi
 	unit.update_tactical_reload(&"ammunition", unit.magazine, 10.0, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
 	assert_false(unit.magazine.is_reloading())
 
+func test_tactical_reload_prediction_runs_at_a_fixed_low_frequency() -> void:
+	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
+	var definition := DefenseDefinition.new()
+	unit.setup(1, definition)
+	unit.magazine.setup(2, 8, 12.0)
+	unit.magazine.rounds = 1
+	var blocker := _confirmed_track(Vector3(100.0, 0.0, 0.0))
+	var tracks: Array[PlayerTrack] = [blocker]
+	var prediction_count: Array[int] = [0]
+	for frame: int in 300:
+		var evaluation_delta := unit.tactical_reload_evaluation_delta(1.0 / 60.0)
+		if evaluation_delta > 0.0:
+			unit.update_tactical_reload(&"ammunition", unit.magazine, evaluation_delta, tracks, 300.0, func(_track: PlayerTrack) -> bool:
+				prediction_count[0] += 1
+				return true
+			)
+	assert_between(prediction_count[0], 9, 11, "5초 동안 매 frame 300회가 아니라 약 0.5초마다 항적을 예측합니다")
+
+func test_tactical_reload_evaluations_are_staggered_without_queue_delay() -> void:
+	const UNIT_COUNT := 64
+	const FRAME_RATE := 60.0
+	var definition := DefenseDefinition.new()
+	var units: Array[ArmedDefenseUnit] = []
+	for index: int in UNIT_COUNT:
+		var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
+		unit.setup(index + 1, definition)
+		units.append(unit)
+	var first_evaluation_frame: Dictionary[int, int] = {}
+	var evaluations_per_frame: Dictionary[int, int] = {}
+	for frame: int in ceili(ArmedDefenseUnit.TACTICAL_RELOAD_EVALUATION_INTERVAL * FRAME_RATE) + 1:
+		for unit_index: int in UNIT_COUNT:
+			if first_evaluation_frame.has(unit_index):
+				continue
+			if units[unit_index].tactical_reload_evaluation_delta(1.0 / FRAME_RATE) <= 0.0:
+				continue
+			first_evaluation_frame[unit_index] = frame
+			evaluations_per_frame[frame] = evaluations_per_frame.get(frame, 0) + 1
+	assert_eq(first_evaluation_frame.size(), UNIT_COUNT, "포대 수와 관계없이 모든 포대가 한 평가 주기 안에 검사됩니다")
+	assert_lt(evaluations_per_frame.values().max(), UNIT_COUNT / 8, "전술 재장전 검사를 같은 frame에 몰지 않습니다")
+
 func test_imminent_track_resets_tactical_reload_confirmation() -> void:
 	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
 	unit.magazine.setup(2, 8, 12.0)
