@@ -1358,6 +1358,8 @@ func _capture_city_detail() -> void:
 	main.placement.cancel()
 
 func _capture_asset_catalog_and_support_base() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
 	main.hud.set_catalog_expanded(true)
 	var support_button := main.hud.defense_buttons[5]
 	main.hud.defense_scroll.ensure_control_visible(support_button)

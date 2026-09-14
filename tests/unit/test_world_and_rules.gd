@@ -1373,6 +1373,9 @@ func test_missile_layers_have_distinct_capacity_channels_and_cadence() -> void:
 	assert_eq(long_area_defense.magazine_capacity + long_high_speed.magazine_capacity, 4)
 	assert_eq(medium.engagement_channels, 6)
 	assert_eq(short_range.engagement_channels, 4)
+	assert_eq(short_range.maximum_interceptors_per_track, 1)
+	assert_gt(short_quick_reaction.interceptor_speed, medium_standard.interceptor_speed)
+	assert_gt(short_quick_reaction.proximity_radius, medium_standard.proximity_radius)
 	assert_eq(long_range.engagement_channels, 4)
 	assert_eq(medium.launch_interval, 0.56)
 	assert_eq(short_range.launch_interval, 0.4)
@@ -1415,8 +1418,13 @@ func test_hpm_definition_has_valid_area_and_energy_cost() -> void:
 
 func test_interceptor_drone_capacity_exceeds_channels_and_recharge_interval() -> void:
 	var drones := _defense(&"interceptor_drone_defense") as InterceptorDroneDefenseDefinition
+	var medium := _defense(&"missile_battery") as MissileBatteryDefinition
 	assert_gt(drones.drone_count, drones.engagement_channels)
 	assert_gt(drones.recharge_duration, drones.launch_interval)
+	assert_gt(drones.attack_range, medium.attack_range)
+	assert_lt(drones.maximum_target_speed, drones.drone_speed)
+	assert_lt(drones.small_target_match, drones.missile_target_match)
+	assert_lt(drones.missile_target_match, 1.0)
 
 func test_impact_threats_compose_distinct_movement_and_mission_profiles() -> void:
 	var attack := _threat(&"attack_uav") as AttackUavDefinition

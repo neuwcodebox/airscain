@@ -49,10 +49,29 @@ func gameplay_tick(delta: float) -> void:
 		cooldown = _definition.launch_interval
 
 func _select_track() -> PlayerTrack:
+	var selected: PlayerTrack
+	var selected_score := -INF
 	for track: PlayerTrack in available_tracks():
-		if doctrine.allows(track) and is_track_available_for_engagement(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency():
-			return track
-	return null
+		if not doctrine.allows(track) or not is_track_available_for_engagement(track):
+			continue
+		if global_position.distance_to(track.estimated_position) > _definition.attack_range * operational_efficiency() or track.estimated_velocity.length() > _definition.maximum_target_speed:
+			continue
+		var target_match := _target_match(track.classification)
+		if target_match <= 0.0:
+			continue
+		var outer_distance := track.estimated_position.distance_to(battlefield.objective.global_position)
+		var score := track.track_quality * target_match * (1.0 + outer_distance / _definition.attack_range)
+		if score > selected_score:
+			selected = track
+			selected_score = score
+	return selected
+
+func _target_match(classification: StringName) -> float:
+	match EngagementDoctrine.target_kind(classification):
+		&"small_uav": return _definition.small_target_match
+		&"cruise_missile": return _definition.missile_target_match
+		&"uav": return 1.0
+	return 0.0
 
 func _launch(track: PlayerTrack) -> InterceptorDrone:
 	weapon_fired.emit(self, false)

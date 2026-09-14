@@ -2602,13 +2602,17 @@ func test_interceptor_drone_acquires_and_neutralizes_a_live_moving_uav() -> void
 	assert_true(main.session.start_defense())
 	main.director.enabled = false
 	var threat := main.director._spawn_entry(_threat_entry_for(main, &"attack_uav"), 0.0, 0.0) as AttackUav
-	threat.global_position = base.global_position + Vector3(280.0, 70.0, 0.0)
+	threat.global_position = base.global_position + Vector3(420.0, 70.0, 0.0)
 	threat.mover.setup((threat.definition as AttackUavDefinition).movement, main.battlefield, threat.global_position.direction_to(main.objective.global_position))
+	var entered_medium_range := false
 	for frame: int in 180:
 		main._process(0.1)
+		if base.global_position.distance_to(threat.global_position) <= 300.0:
+			entered_medium_range = true
 		if threat.resolved_state:
 			break
 	assert_true(threat.resolved_state)
+	assert_false(entered_medium_range, "느린 UAV를 중거리 포대 범위에 들어오기 전에 외곽에서 제거합니다")
 	assert_eq(int(main.session.neutralized_by_type.get("attack_uav", 0)), 1)
 	assert_lt(base.available_drones, base.drone_definition().drone_count)
 

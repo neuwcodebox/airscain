@@ -56,15 +56,24 @@ func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, dish_elevation_speed_degrees, firing_alignment_degrees, delta, -5.0, 80.0)
 
 func _select_track() -> PlayerTrack:
+	var tracks := available_tracks()
 	var selected: PlayerTrack
 	var best_score := -INF
-	for track: PlayerTrack in available_tracks():
+	for track: PlayerTrack in tracks:
 		if doctrine.allows(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency():
-			var score := cooperative_target_score(track, battlefield.objective.global_position, 1.0)
+			var cluster_size := _cluster_size(track, tracks)
+			var score := float(cluster_size) + cooperative_target_score(track, battlefield.objective.global_position, 1.0)
 			if score > best_score:
 				selected = track
 				best_score = score
 	return selected
+
+func _cluster_size(center: PlayerTrack, tracks: Array[PlayerTrack]) -> int:
+	var result := 0
+	for track: PlayerTrack in tracks:
+		if doctrine.allows(track) and track.estimated_position.distance_to(center.estimated_position) <= _definition.effect_radius:
+			result += 1
+	return result
 
 func _fire_pulse(track: PlayerTrack) -> int:
 	weapon_fired.emit(self, false)
