@@ -1057,38 +1057,39 @@ func test_tactical_reload_preserves_ready_rounds_and_only_tops_up_the_magazine()
 	assert_eq(magazine.reserve, 15)
 
 func test_tactical_reload_requires_a_stable_clear_window() -> void:
-	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
-	unit.magazine.setup(6, 18, 9.0)
-	unit.magazine.rounds = 3
-	unit.update_tactical_reload(&"ammunition", unit.magazine, 4.9, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
-	assert_false(unit.magazine.is_reloading())
-	unit.update_tactical_reload(&"ammunition", unit.magazine, 0.1, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
-	assert_true(unit.magazine.is_reloading())
+	var controller := TacticalReloadController.new()
+	var magazine := WeaponMagazine.new()
+	magazine.setup(6, 18, 9.0)
+	magazine.rounds = 3
+	controller.evaluate_magazine(&"ammunition", magazine, 4.9, Vector3.ZERO, [], 300.0, false, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(magazine.is_reloading())
+	controller.evaluate_magazine(&"ammunition", magazine, 0.1, Vector3.ZERO, [], 300.0, false, func(_track: PlayerTrack) -> bool: return true)
+	assert_true(magazine.is_reloading())
 
 func test_tactical_reload_does_not_start_above_half_or_during_hold_fire() -> void:
-	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
-	unit.magazine.setup(6, 18, 9.0)
-	unit.magazine.rounds = 4
-	unit.update_tactical_reload(&"ammunition", unit.magazine, 10.0, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
-	assert_false(unit.magazine.is_reloading())
-	unit.magazine.rounds = 3
-	unit.doctrine.hold_fire = true
-	unit.update_tactical_reload(&"ammunition", unit.magazine, 10.0, [], 300.0, func(_track: PlayerTrack) -> bool: return true)
-	assert_false(unit.magazine.is_reloading())
+	var controller := TacticalReloadController.new()
+	var magazine := WeaponMagazine.new()
+	magazine.setup(6, 18, 9.0)
+	magazine.rounds = 4
+	controller.evaluate_magazine(&"ammunition", magazine, 10.0, Vector3.ZERO, [], 300.0, false, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(magazine.is_reloading())
+	magazine.rounds = 3
+	controller.evaluate_magazine(&"ammunition", magazine, 10.0, Vector3.ZERO, [], 300.0, true, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(magazine.is_reloading())
 
 func test_tactical_reload_prediction_runs_at_a_fixed_low_frequency() -> void:
-	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
-	var definition := DefenseDefinition.new()
-	unit.setup(1, definition)
-	unit.magazine.setup(2, 8, 12.0)
-	unit.magazine.rounds = 1
+	var controller := TacticalReloadController.new()
+	controller.configure(1)
+	var magazine := WeaponMagazine.new()
+	magazine.setup(2, 8, 12.0)
+	magazine.rounds = 1
 	var blocker := _confirmed_track(Vector3(100.0, 0.0, 0.0))
 	var tracks: Array[PlayerTrack] = [blocker]
 	var prediction_count: Array[int] = [0]
 	for frame: int in 300:
-		var evaluation_delta := unit.tactical_reload_evaluation_delta(1.0 / 60.0)
+		var evaluation_delta := controller.take_evaluation_delta(1.0 / 60.0)
 		if evaluation_delta > 0.0:
-			unit.update_tactical_reload(&"ammunition", unit.magazine, evaluation_delta, tracks, 300.0, func(_track: PlayerTrack) -> bool:
+			controller.evaluate_magazine(&"ammunition", magazine, evaluation_delta, Vector3.ZERO, tracks, 300.0, false, func(_track: PlayerTrack) -> bool:
 				prediction_count[0] += 1
 				return true
 			)
@@ -1097,19 +1098,18 @@ func test_tactical_reload_prediction_runs_at_a_fixed_low_frequency() -> void:
 func test_tactical_reload_evaluations_are_staggered_without_queue_delay() -> void:
 	const UNIT_COUNT := 64
 	const FRAME_RATE := 60.0
-	var definition := DefenseDefinition.new()
-	var units: Array[ArmedDefenseUnit] = []
+	var controllers: Array[TacticalReloadController] = []
 	for index: int in UNIT_COUNT:
-		var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
-		unit.setup(index + 1, definition)
-		units.append(unit)
+		var controller := TacticalReloadController.new()
+		controller.configure(index + 1)
+		controllers.append(controller)
 	var first_evaluation_frame: Dictionary[int, int] = {}
 	var evaluations_per_frame: Dictionary[int, int] = {}
-	for frame: int in ceili(ArmedDefenseUnit.TACTICAL_RELOAD_EVALUATION_INTERVAL * FRAME_RATE) + 1:
+	for frame: int in ceili(TacticalReloadController.EVALUATION_INTERVAL * FRAME_RATE) + 1:
 		for unit_index: int in UNIT_COUNT:
 			if first_evaluation_frame.has(unit_index):
 				continue
-			if units[unit_index].tactical_reload_evaluation_delta(1.0 / FRAME_RATE) <= 0.0:
+			if controllers[unit_index].take_evaluation_delta(1.0 / FRAME_RATE) <= 0.0:
 				continue
 			first_evaluation_frame[unit_index] = frame
 			evaluations_per_frame[frame] = evaluations_per_frame.get(frame, 0) + 1
@@ -1117,19 +1117,20 @@ func test_tactical_reload_evaluations_are_staggered_without_queue_delay() -> voi
 	assert_lt(evaluations_per_frame.values().max(), UNIT_COUNT / 8, "전술 재장전 검사를 같은 frame에 몰지 않습니다")
 
 func test_imminent_track_resets_tactical_reload_confirmation() -> void:
-	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
-	unit.magazine.setup(2, 8, 12.0)
-	unit.magazine.rounds = 1
+	var controller := TacticalReloadController.new()
+	var magazine := WeaponMagazine.new()
+	magazine.setup(2, 8, 12.0)
+	magazine.rounds = 1
 	var inbound := _confirmed_track(Vector3(1800.0, 0.0, 0.0))
 	inbound.estimated_velocity = Vector3(-100.0, 0.0, 0.0)
 	var tracks: Array[PlayerTrack] = [inbound]
-	unit.update_tactical_reload(&"ammunition", unit.magazine, 5.0, tracks, 300.0, func(_track: PlayerTrack) -> bool: return true)
-	assert_false(unit.magazine.is_reloading(), "재장전 12초와 안전 여유 3초 안에 진입하는 표적이 있으면 남은 준비탄을 유지합니다")
+	controller.evaluate_magazine(&"ammunition", magazine, 5.0, Vector3.ZERO, tracks, 300.0, false, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(magazine.is_reloading(), "재장전 12초와 안전 여유 3초 안에 진입하는 표적이 있으면 남은 준비탄을 유지합니다")
 	inbound.estimated_position = Vector3(1900.0, 0.0, 0.0)
-	unit.update_tactical_reload(&"ammunition", unit.magazine, 4.9, tracks, 300.0, func(_track: PlayerTrack) -> bool: return true)
-	assert_false(unit.magazine.is_reloading())
-	unit.update_tactical_reload(&"ammunition", unit.magazine, 0.1, tracks, 300.0, func(_track: PlayerTrack) -> bool: return true)
-	assert_true(unit.magazine.is_reloading(), "예상 진입이 안전 창 밖이면 5초 확인 후 재장전합니다")
+	controller.evaluate_magazine(&"ammunition", magazine, 4.9, Vector3.ZERO, tracks, 300.0, false, func(_track: PlayerTrack) -> bool: return true)
+	assert_false(magazine.is_reloading())
+	controller.evaluate_magazine(&"ammunition", magazine, 0.1, Vector3.ZERO, tracks, 300.0, false, func(_track: PlayerTrack) -> bool: return true)
+	assert_true(magazine.is_reloading(), "예상 진입이 안전 창 밖이면 5초 확인 후 재장전합니다")
 
 func test_missile_battery_and_gun_apply_tactical_reload_during_gameplay() -> void:
 	var knowledge := add_child_autofree(TrackProviderDouble.new()) as TrackProviderDouble
@@ -1152,8 +1153,8 @@ func test_missile_battery_and_gun_apply_tactical_reload_during_gameplay() -> voi
 	gun.configure_c2(network)
 	gun.configure_engagements(coordinator)
 	gun.magazine.rounds = gun.magazine.capacity / 2
-	battery.gameplay_tick(ArmedDefenseUnit.TACTICAL_RELOAD_CONFIRMATION_DURATION)
-	gun.gameplay_tick(ArmedDefenseUnit.TACTICAL_RELOAD_CONFIRMATION_DURATION)
+	battery.gameplay_tick(TacticalReloadController.CONFIRMATION_DURATION)
+	gun.gameplay_tick(TacticalReloadController.CONFIRMATION_DURATION)
 	assert_true(battery.magazine.is_reloading())
 	assert_true(gun.magazine.is_reloading())
 

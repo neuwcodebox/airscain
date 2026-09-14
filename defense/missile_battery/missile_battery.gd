@@ -66,7 +66,7 @@ func gameplay_tick(delta: float) -> void:
 	_refresh_launcher_cells()
 	launch_cooldown = maxf(0.0, launch_cooldown - delta)
 	var tracks := available_tracks()
-	var tactical_reload_delta := tactical_reload_evaluation_delta(delta)
+	var tactical_reload_delta := tactical_reload.take_evaluation_delta(delta)
 	if tactical_reload_delta > 0.0:
 		_update_tactical_reloads(tactical_reload_delta, tracks)
 	var track := select_track(tracks, battlefield.objective.global_position)
@@ -82,7 +82,7 @@ func gameplay_tick(delta: float) -> void:
 
 func _update_tactical_reloads(delta: float, tracks: Array[PlayerTrack]) -> void:
 	for munition: MissileMunitionDefinition in _definition.munitions:
-		update_tactical_reload(munition.id, magazines[munition.id], delta, tracks, _definition.attack_range * operational_efficiency(), func(track: PlayerTrack) -> bool:
+		tactical_reload.evaluate_magazine(munition.id, magazines[munition.id], delta, global_position, tracks, _definition.attack_range * operational_efficiency(), doctrine.hold_fire, func(track: PlayerTrack) -> bool:
 			return doctrine.allows(track) and munition.match_for(track.classification, track.estimated_velocity.length()) > 0.0
 		)
 	_refresh_launcher_cells()

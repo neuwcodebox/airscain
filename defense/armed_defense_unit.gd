@@ -1,25 +1,17 @@
 class_name ArmedDefenseUnit
 extends DefenseUnit
 
-const TACTICAL_RELOAD_CONFIRMATION_DURATION := 5.0
-const TACTICAL_RELOAD_SAFETY_MARGIN := 3.0
-const TACTICAL_RELOAD_EVALUATION_INTERVAL := 0.5
-
 var battlefield: Battlefield
 var player_knowledge: PlayerKnowledge
 var c2_network: C2Network
 var engagement_coordinator: EngagementCoordinator
 var doctrine := EngagementDoctrine.new()
 var magazine := WeaponMagazine.new()
-var tactical_reload_clear_times: Dictionary[StringName, float] = {}
-var tactical_reload_evaluation_remaining: float = 0.0
-var tactical_reload_elapsed_since_evaluation: float = 0.0
+var tactical_reload := TacticalReloadController.new()
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
-	tactical_reload_clear_times.clear()
-	tactical_reload_elapsed_since_evaluation = 0.0
-	tactical_reload_evaluation_remaining = _radical_inverse_base_two(maxi(0, id_value - 1)) * TACTICAL_RELOAD_EVALUATION_INTERVAL
+	tactical_reload.configure(id_value)
 
 func configure_player_knowledge(battlefield_value: Battlefield, player_knowledge_value: PlayerKnowledge) -> void:
 	battlefield = battlefield_value
@@ -88,54 +80,6 @@ func maintain_fire_support(track: PlayerTrack, can_supply: bool) -> bool:
 		engagement_coordinator.release_fire_support(runtime_id)
 		return false
 	return engagement_coordinator.reserve_fire_support(track.track_id, runtime_id)
-
-func tactical_reload_evaluation_delta(delta: float) -> float:
-	if delta <= 0.0:
-		return 0.0
-	tactical_reload_elapsed_since_evaluation += delta
-	tactical_reload_evaluation_remaining -= delta
-	if tactical_reload_evaluation_remaining > 0.0:
-		return 0.0
-	var evaluation_delta := tactical_reload_elapsed_since_evaluation
-	tactical_reload_elapsed_since_evaluation = 0.0
-	tactical_reload_evaluation_remaining = fposmod(tactical_reload_evaluation_remaining, TACTICAL_RELOAD_EVALUATION_INTERVAL)
-	if is_zero_approx(tactical_reload_evaluation_remaining):
-		tactical_reload_evaluation_remaining = TACTICAL_RELOAD_EVALUATION_INTERVAL
-	return evaluation_delta
-
-func update_tactical_reload(magazine_id: StringName, stock: WeaponMagazine, delta: float, tracks: Array[PlayerTrack], engagement_range: float, target_filter: Callable) -> void:
-	if not stock.can_start_tactical_reload() or doctrine.hold_fire:
-		tactical_reload_clear_times[magazine_id] = 0.0
-		return
-	var horizon := stock.reload_duration + TACTICAL_RELOAD_SAFETY_MARGIN
-	for track: PlayerTrack in tracks:
-		if bool(target_filter.call(track)) and track_reaches_range_within(track, engagement_range, horizon):
-			tactical_reload_clear_times[magazine_id] = 0.0
-			return
-	var clear_time := float(tactical_reload_clear_times.get(magazine_id, 0.0)) + delta
-	if clear_time >= TACTICAL_RELOAD_CONFIRMATION_DURATION:
-		stock.start_tactical_reload()
-		clear_time = 0.0
-	tactical_reload_clear_times[magazine_id] = clear_time
-
-func track_reaches_range_within(track: PlayerTrack, engagement_range: float, horizon: float) -> bool:
-	var offset := track.estimated_position - global_position
-	if offset.length_squared() <= engagement_range * engagement_range:
-		return true
-	var speed_squared := track.estimated_velocity.length_squared()
-	if speed_squared <= 0.000001:
-		return false
-	var closest_time := clampf(-offset.dot(track.estimated_velocity) / speed_squared, 0.0, horizon)
-	return (offset + track.estimated_velocity * closest_time).length_squared() <= engagement_range * engagement_range
-
-func _radical_inverse_base_two(index: int) -> float:
-	var result := 0.0
-	var place_value := 0.5
-	while index > 0:
-		result += float(index & 1) * place_value
-		index >>= 1
-		place_value *= 0.5
-	return result
 
 func resource_status_text() -> String:
 	if magazine.is_reloading():

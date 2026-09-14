@@ -73,9 +73,9 @@ func gameplay_tick(delta: float) -> void:
 	magazine.gameplay_tick(delta)
 	cooldown = maxf(0.0, cooldown - delta)
 	var tracks := available_tracks()
-	var tactical_reload_delta := tactical_reload_evaluation_delta(delta)
+	var tactical_reload_delta := tactical_reload.take_evaluation_delta(delta)
 	if tactical_reload_delta > 0.0:
-		update_tactical_reload(&"ammunition", magazine, tactical_reload_delta, tracks, _definition.attack_range * operational_efficiency(), func(candidate: PlayerTrack) -> bool:
+		tactical_reload.evaluate_magazine(&"ammunition", magazine, tactical_reload_delta, global_position, tracks, _definition.attack_range * operational_efficiency(), doctrine.hold_fire, func(candidate: PlayerTrack) -> bool:
 			return doctrine.allows(candidate) and weapon_match(candidate) > 0.0
 		)
 	var track := select_track(tracks, battlefield.objective.global_position)
