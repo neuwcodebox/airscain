@@ -438,7 +438,14 @@ func test_variants_require_matching_knowledge_and_join_city_strike_packages() ->
 		var included := false
 		for sample: int in 32:
 			var budget := entry.threat_cost * float(entry.group_size) + city.threat_cost * float(city.group_size)
-			var waves := planner.generate(main.scenario, weights, budget, maxi(entry.unlock_level, city.unlock_level), 0.0, 32.0, 1.0, rng)
+			var request := RaidPlanRequest.new()
+			request.scenario = main.scenario
+			request.weights = weights
+			request.budget = budget
+			request.level = maxi(entry.unlock_level, city.unlock_level)
+			request.max_delay = 32.0
+			request.rng = rng
+			var waves := planner.generate(request)
 			var has_city := false
 			for wave: Dictionary in waves:
 				included = included or StringName(wave.definition_id) == id

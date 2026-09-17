@@ -13,7 +13,7 @@ func test_procedural_raids_obey_budget_unlocks_and_scheduling_limits() -> void:
 		for sample: int in 60:
 			var budget := 3.0 + level
 			var max_delay := 32.0 if sample % 2 == 0 else 0.5
-			var waves := planner.generate(SCENARIO, weights, budget, level, rng.randf_range(0.0, TAU), max_delay, 1.0, rng)
+			var waves := _generate(planner, SCENARIO, weights, budget, level, rng.randf_range(0.0, TAU), max_delay, 1.0, rng)
 			var case_label := "level %d sample %d" % [level, sample]
 			assert_false(waves.is_empty(), case_label)
 			assert_lte(waves.size(), RaidPlanner.MAX_GROUPS, case_label)
@@ -53,7 +53,7 @@ func test_pair_timing_and_directions_follow_the_selected_intent() -> void:
 	var repeated := 0
 	var previous: StringName
 	for sample: int in 240:
-		var waves := planner.generate(scenario, _weights(scenario), 4.0, 1, 0.8, 300.0, 1.0, rng)
+		var waves := _generate(planner, scenario, _weights(scenario), 4.0, 1, 0.8, 300.0, 1.0, rng)
 		var case_label := "seed 125 sample %d pattern %s" % [sample, planner.last_pattern]
 		patterns[planner.last_pattern] = true
 		repeated += int(planner.last_pattern == previous)
@@ -97,30 +97,30 @@ func test_missing_knowledge_zero_weights_and_tight_deadline_fall_back_safely() -
 		if entry.raid_role != ThreatSpawnEntry.RaidRole.STRIKE:
 			weights[entry.threat_definition.id] = 0.0
 	for sample: int in 50:
-		var waves := planner.generate(SCENARIO, weights, 6.0, 20, 0.0, 0.0, 1.0, rng)
+		var waves := _generate(planner, SCENARIO, weights, 6.0, 20, 0.0, 0.0, 1.0, rng)
 		var case_label := "seed 23 sample %d" % sample
 		assert_eq(planner.last_pattern, &"concentration", case_label)
 		for wave: Dictionary in waves:
 			assert_eq(float(wave.remaining), 0.0, case_label)
 			assert_gt(weights[StringName(wave.definition_id)], 0.0, "%s threat %s" % [case_label, wave.definition_id])
-	assert_true(planner.generate(SCENARIO, {}, 100.0, 20, 0.0, 32.0, 1.0, rng).is_empty())
-	assert_true(planner.generate(SCENARIO, weights, 0.1, 20, 0.0, 32.0, 1.0, rng).is_empty())
+	assert_true(_generate(planner, SCENARIO, {}, 100.0, 20, 0.0, 32.0, 1.0, rng).is_empty())
+	assert_true(_generate(planner, SCENARIO, weights, 0.1, 20, 0.0, 32.0, 1.0, rng).is_empty())
 
 func test_same_rng_and_history_reproduce_the_next_plan() -> void:
 	var planner := RaidPlanner.new()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 553
 	var weights := _weights(SCENARIO)
-	planner.generate(SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng)
+	_generate(planner, SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng)
 	var saved_rng := rng.state
 	var saved_pattern := planner.last_pattern
 	var saved_definitions := planner.recent_definition_ids.duplicate()
-	var expected := planner.generate(SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng)
+	var expected := _generate(planner, SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng)
 	var restored := RaidPlanner.new()
 	restored.last_pattern = saved_pattern
 	restored.recent_definition_ids.assign(saved_definitions)
 	rng.state = saved_rng
-	assert_eq(restored.generate(SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng), expected)
+	assert_eq(_generate(restored, SCENARIO, weights, 18.0, 20, 0.2, 32.0, 1.4, rng), expected)
 	assert_eq(restored.last_pattern, planner.last_pattern)
 	assert_eq(restored.recent_definition_ids, planner.recent_definition_ids)
 
@@ -145,7 +145,7 @@ func test_recent_threat_definitions_receive_a_temporary_selection_penalty() -> v
 	var previous: StringName
 	var repeated := 0
 	for sample: int in 400:
-		var waves := planner.generate(scenario, weights, 2.0, 1, 0.0, 0.0, 1.0, rng)
+		var waves := _generate(planner, scenario, weights, 2.0, 1, 0.0, 0.0, 1.0, rng)
 		assert_eq(waves.size(), 1, "sample %d" % sample)
 		var selected := StringName(waves[0].definition_id)
 		repeated += int(selected == previous)
@@ -175,7 +175,7 @@ func test_asset_suppression_priority_still_requires_eligible_observed_entries() 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 41
 	for sample: int in 20:
-		var waves := planner.generate(scenario, _weights(scenario), 25.0, 12, 0.0, 300.0, 1.0, rng)
+		var waves := _generate(planner, scenario, _weights(scenario), 25.0, 12, 0.0, 300.0, 1.0, rng)
 		var asset_strike := false
 		for wave: Dictionary in waves:
 			var entry := _entry(StringName(wave.definition_id))
@@ -186,7 +186,7 @@ func test_asset_suppression_priority_still_requires_eligible_observed_entries() 
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
 		if entry.threat_definition.requires_role_knowledge:
 			unknown_weights[entry.threat_definition.id] = 0.0
-	for wave: Dictionary in planner.generate(scenario, unknown_weights, 25.0, 12, 0.0, 300.0, 1.0, rng):
+	for wave: Dictionary in _generate(planner, scenario, unknown_weights, 25.0, 12, 0.0, 300.0, 1.0, rng):
 		assert_false(_entry(StringName(wave.definition_id)).threat_definition.requires_role_knowledge)
 
 func test_jamming_escort_arrives_with_the_main_effort() -> void:
@@ -204,7 +204,7 @@ func test_jamming_escort_arrives_with_the_main_effort() -> void:
 	rng.seed = 712
 	var checked := 0
 	for sample: int in 60:
-		var waves := planner.generate(scenario, weights, 5.0, 8, 0.0, 300.0, 1.0, rng)
+		var waves := _generate(planner, scenario, weights, 5.0, 8, 0.0, 300.0, 1.0, rng)
 		if planner.last_pattern != &"suppression":
 			continue
 		checked += 1
@@ -243,7 +243,7 @@ func test_suppression_package_combines_jamming_direct_attack_and_city_strike() -
 		jammer.threat_definition.id: 3000.0,
 		anti_radiation.threat_definition.id: 4000.0,
 	}
-	var waves := planner.generate(scenario, weights, 8.0, 8, 0.0, 300.0, 1.0, rng, travel_distances)
+	var waves := _generate(planner, scenario, weights, 8.0, 8, 0.0, 300.0, 1.0, rng, travel_distances)
 	assert_eq(planner.last_pattern, &"suppression")
 	assert_eq(waves.size(), 3)
 	var arrivals: Dictionary[StringName, float] = {}
@@ -276,7 +276,7 @@ func test_late_suppression_package_spreads_four_direct_groups_across_observed_as
 	var planner := RaidPlanner.new()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 8301
-	var waves := planner.generate(scenario, weights, 33.0, 30, 0.4, 300.0, 1.0, rng, {}, 1.0, estimates)
+	var waves := _generate(planner, scenario, weights, 33.0, 30, 0.4, 300.0, 1.0, rng, {}, 1.0, estimates)
 	assert_eq(planner.last_pattern, &"suppression")
 	assert_eq(waves.size(), 6)
 	var direct_arrivals: Array[float] = []
@@ -319,7 +319,7 @@ func test_suppression_package_keeps_early_budget_and_single_report_limits() -> v
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 711
 	var planner := RaidPlanner.new()
-	var waves := planner.generate(SCENARIO, weights, 8.0, 5, 0.0, 300.0, 1.0, rng, {}, 1.0, targets)
+	var waves := _generate(planner, SCENARIO, weights, 8.0, 5, 0.0, 300.0, 1.0, rng, {}, 1.0, targets)
 	var direct_count := 0
 	var cost := 0.0
 	for wave: Dictionary in waves:
@@ -342,3 +342,18 @@ func _estimate(asset_id: int, role: StringName, position: Vector3) -> Dictionary
 		"source": "reconnaissance",
 		"assigned": 0,
 	}
+
+func _generate(planner: RaidPlanner, scenario: ScenarioDefinition, weights: Dictionary[StringName, float], budget: float, level: int, angle: float, max_delay: float, speed: float, rng: RandomNumberGenerator, travel_distances: Dictionary[StringName, float] = {}, priority_chance: float = -1.0, targets: Dictionary = {}) -> Array[Dictionary]:
+	var request := RaidPlanRequest.new()
+	request.scenario = scenario
+	request.weights = weights
+	request.budget = budget
+	request.level = level
+	request.angle = angle
+	request.max_delay = max_delay
+	request.speed = speed
+	request.rng = rng
+	request.travel_distances = travel_distances
+	request.suppression_priority_chance = priority_chance
+	request.suppression_targets = targets
+	return planner.generate(request)

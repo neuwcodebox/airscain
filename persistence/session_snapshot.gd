@@ -337,39 +337,13 @@ static func _repair_director(state: Dictionary, contact_ids: Dictionary[int, boo
 		for value: Variant in state.pending_waves:
 			if value is Dictionary and contact_definitions.has(StringName(String(value.get("definition_id", "")))) and float(value.get("remaining", -1.0)) >= 0.0 and is_finite(float(value.get("angle", NAN))) and value.get("opening_raid", false) is bool:
 				var wave := value as Dictionary
-				if _wave_has_planned_target(wave) and not _planned_target_is_valid(wave, defense_ids):
-					for key: String in ["target_asset_id", "target_role", "target_position", "target_confidence", "target_observed_at"]:
-						wave.erase(key)
+				if not ThreatDirector.planned_target_validation_error(wave, defense_ids).is_empty():
+					ThreatDirector.clear_planned_target(wave)
 					repairs.append("예약 공격의 유효하지 않은 관측 표적을 제거했습니다")
 				waves.append(value)
 			else:
 				repairs.append("유효하지 않은 예약 공격 파동을 제거했습니다")
 		state.pending_waves = waves
-
-static func _planned_target_is_valid(wave: Dictionary, defense_ids: Dictionary[int, bool]) -> bool:
-	var target_id: Variant = wave.get("target_asset_id")
-	var confidence: Variant = wave.get("target_confidence")
-	var observed_at: Variant = wave.get("target_observed_at")
-	return (target_id is int or target_id is float) \
-		and is_finite(float(target_id)) \
-		and float(target_id) == floorf(float(target_id)) \
-		and defense_ids.has(int(target_id)) \
-		and wave.get("target_role") is String \
-		and not String(wave.target_role).is_empty() \
-		and SaveDocument.is_valid_vector3_data(wave.get("target_position")) \
-		and (confidence is int or confidence is float) \
-		and is_finite(float(confidence)) \
-		and float(confidence) >= 0.0 \
-		and float(confidence) <= 1.0 \
-		and (observed_at is int or observed_at is float) \
-		and is_finite(float(observed_at)) \
-		and float(observed_at) >= 0.0
-
-static func _wave_has_planned_target(wave: Dictionary) -> bool:
-	for key: String in ["target_asset_id", "target_role", "target_position", "target_confidence", "target_observed_at"]:
-		if wave.has(key):
-			return true
-	return false
 
 static func _repair_enemy_knowledge(state: Dictionary, defense_ids: Dictionary[int, bool], contacts: Array, contact_definitions: Dictionary[StringName, ThreatDefinition], repairs: Array[String]) -> void:
 	for key: String in ["estimates", "reports", "recon_sightings"]:
@@ -629,8 +603,9 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var definition_id := StringName(String(wave.get("definition_id", "")))
 		if not contact_definitions.has(definition_id) or float(wave.get("remaining", -1.0)) < 0.0 or not is_finite(float(wave.get("angle", NAN))):
 			return "예약 공격 파동 상태가 올바르지 않습니다"
-		if _wave_has_planned_target(wave) and not _planned_target_is_valid(wave, defense_ids):
-			return "예약 공격 관측 표적이 올바르지 않습니다"
+		var target_error := ThreatDirector.planned_target_validation_error(wave, defense_ids)
+		if not target_error.is_empty():
+			return target_error
 	var enemy_state: Dictionary = world_state.enemy_knowledge
 	if float(enemy_state.get("simulation_time", -1.0)) < 0.0 or not enemy_state.get("estimates", null) is Array or not enemy_state.get("reports", null) is Array or not enemy_state.get("recent_outcomes", null) is Array:
 		return "적 지식 상태가 올바르지 않습니다"

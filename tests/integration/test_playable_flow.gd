@@ -1798,13 +1798,14 @@ func test_local_recon_reports_nearby_weapons_and_enables_suppression_planning() 
 	var planner := RaidPlanner.new()
 	var included := false
 	for sample: int in 32:
-		var waves := planner.generate(main.scenario, weights, 8.0, 4, 0.0, 32.0, 1.0, rng)
+		var request := _raid_plan_request(weights, rng)
+		var waves := planner.generate(request)
 		for wave: Dictionary in waves:
 			included = included or StringName(wave.definition_id) == entry.threat_definition.id
 	assert_true(included, "공통 절차 생성기가 도시 타격과 포대 제압을 실제로 조합합니다")
 	weights[entry.threat_definition.id] = 0.0
 	for sample: int in 16:
-		for wave: Dictionary in planner.generate(main.scenario, weights, 8.0, 4, 0.0, 32.0, 1.0, rng):
+		for wave: Dictionary in planner.generate(_raid_plan_request(weights, rng)):
 			assert_ne(StringName(wave.definition_id), entry.threat_definition.id, "포대 관측 정보가 없으면 편성에서 제외됩니다")
 
 func test_cruise_missile_spawns_low_and_follows_terrain() -> void:
@@ -2652,6 +2653,16 @@ func _threat_entry_for(instance: AirscainMain, definition_id: StringName) -> Thr
 			return entry
 	fail_test("위협 생성 항목을 찾지 못했습니다: %s" % definition_id)
 	return null
+
+func _raid_plan_request(weights: Dictionary[StringName, float], rng: RandomNumberGenerator) -> RaidPlanRequest:
+	var request := RaidPlanRequest.new()
+	request.scenario = main.scenario
+	request.weights = weights
+	request.budget = 8.0
+	request.level = 4
+	request.max_delay = 32.0
+	request.rng = rng
+	return request
 
 func _raid_archetype_for(instance: AirscainMain, archetype_id: StringName) -> RaidArchetypeDefinition:
 	for archetype: RaidArchetypeDefinition in instance.scenario.raid_archetypes:

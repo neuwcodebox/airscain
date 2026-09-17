@@ -5,6 +5,8 @@ signal pressure_changed(level: int)
 signal threat_spawned(threat: ThreatUnit)
 signal recovery_started(completed_window: int)
 
+const PLANNED_TARGET_KEYS: Array[String] = ["target_asset_id", "target_role", "target_position", "target_confidence", "target_observed_at"]
+
 var scenario: ScenarioDefinition
 var battlefield: Battlefield
 var objective: ProtectedObjective
@@ -177,8 +179,19 @@ func launch_budgeted_raid(for_next_attack_window: bool = false) -> void:
 	else:
 		approach_angle += rng.randf_range(-0.35, 0.35)
 	var max_delay := minf(32.0, maxf(0.0, remaining_attack - 0.05))
-	var travel_distances := estimated_travel_distances(approach_angle)
-	var waves := raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng, travel_distances, suppression_priority_chance(), suppression_target_options())
+	var request := RaidPlanRequest.new()
+	request.scenario = scenario
+	request.weights = weights
+	request.budget = threat_budget_at(elapsed)
+	request.level = pressure_level
+	request.angle = approach_angle
+	request.max_delay = max_delay
+	request.speed = speed_multiplier_at(elapsed)
+	request.rng = rng
+	request.travel_distances = estimated_travel_distances(approach_angle)
+	request.suppression_targets = suppression_target_options()
+	request.suppression_priority_chance = _suppression_priority_chance(request.suppression_targets)
+	var waves := raid_planner.generate(request)
 	if not opening_raid_started and not waves.is_empty():
 		opening_raid_started = true
 		for wave: Dictionary in waves:
@@ -186,6 +199,9 @@ func launch_budgeted_raid(for_next_attack_window: bool = false) -> void:
 	pending_waves.append_array(waves)
 
 func suppression_priority_chance() -> float:
+	return _suppression_priority_chance(suppression_target_options())
+
+func _suppression_priority_chance(target_options: Dictionary) -> float:
 	if raid_planner.last_pattern == &"suppression":
 		return 0.0
 	var chance := scenario.asset_suppression_chance if pressure_level >= 4 else 0.0
@@ -193,7 +209,7 @@ func suppression_priority_chance() -> float:
 		return chance
 	if pressure_level >= 4:
 		var pressure_bonus := minf(0.15, float((pressure_level - 4) / 5) * 0.03)
-		var observed_bonus := minf(0.08, float(maxi(0, known_suppression_asset_count() - 1)) * 0.04)
+		var observed_bonus := minf(0.08, float(maxi(0, _known_suppression_asset_count(target_options) - 1)) * 0.04)
 		chance = minf(0.5, chance + pressure_bonus + observed_bonus)
 	for estimate: Dictionary in enemy_knowledge.estimates.values():
 		if String(estimate.get("source", "")) != "reconnaissance" or float(estimate.get("confidence", 0.0)) < 0.2:
@@ -227,12 +243,14 @@ func suppression_target_options() -> Dictionary:
 	return result
 
 func known_suppression_asset_count() -> int:
+	return _known_suppression_asset_count(suppression_target_options())
+
+func _known_suppression_asset_count(target_options: Dictionary) -> int:
 	var ids: Dictionary[int, bool] = {}
-	var options := suppression_target_options()
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
 		if entry.threat_definition.jamming_strength > 0.0:
 			continue
-		for estimate: Dictionary in options.get(entry.threat_definition.id, []):
+		for estimate: Dictionary in target_options.get(entry.threat_definition.id, []):
 			ids[int(estimate.asset_id)] = true
 	return ids.size()
 
@@ -516,6 +534,32 @@ static func opening_state_validation_error(state: Dictionary) -> String:
 	if state.opening_raid_complete and not state.opening_raid_started:
 		return "시작하지 않은 첫 공습이 완료되었습니다"
 	return ""
+
+static func planned_target_validation_error(wave: Dictionary, defense_ids: Dictionary[int, bool]) -> String:
+	if not _has_planned_target_data(wave):
+		return ""
+	var target_id: Variant = wave.get("target_asset_id")
+	var confidence: Variant = wave.get("target_confidence")
+	var observed_at: Variant = wave.get("target_observed_at")
+	if not (target_id is int or target_id is float) or not is_finite(float(target_id)) or float(target_id) != floorf(float(target_id)) or not defense_ids.has(int(target_id)):
+		return "예약 공격 관측 표적이 올바르지 않습니다"
+	if not wave.get("target_role") is String or String(wave.target_role).is_empty() or not SaveDocument.is_valid_vector3_data(wave.get("target_position")):
+		return "예약 공격 관측 표적이 올바르지 않습니다"
+	if not (confidence is int or confidence is float) or not is_finite(float(confidence)) or float(confidence) < 0.0 or float(confidence) > 1.0:
+		return "예약 공격 관측 표적이 올바르지 않습니다"
+	if not (observed_at is int or observed_at is float) or not is_finite(float(observed_at)) or float(observed_at) < 0.0:
+		return "예약 공격 관측 표적이 올바르지 않습니다"
+	return ""
+
+static func clear_planned_target(wave: Dictionary) -> void:
+	for key: String in PLANNED_TARGET_KEYS:
+		wave.erase(key)
+
+static func _has_planned_target_data(wave: Dictionary) -> bool:
+	for key: String in PLANNED_TARGET_KEYS:
+		if wave.has(key):
+			return true
+	return false
 
 static func repair_history_state(state: Dictionary, valid_definition_ids: Dictionary[StringName, bool]) -> Dictionary:
 	var repaired := state.duplicate(true)
