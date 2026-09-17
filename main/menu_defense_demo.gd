@@ -2,12 +2,15 @@ class_name MenuDefenseDemo
 extends Node
 ## Bounded attract-mode policy; normal sensing and weapons still resolve combat.
 
-const SPAWN_INTERVAL := 16.0
+const SPAWN_INTERVAL := 10.0
+const INITIAL_SPAWN_DELAY := 1.5
 const MAX_HOSTILES := 2
 const CITY_RECOVERY_DELAY := 12.0
+const OFFSCREEN_SPAWN_MARGIN := 15.0
+const SPAWN_RADIUS_STEP := 40.0
 var main: AirscainMain
 var elapsed: float = 0.0
-var until_spawn: float = 3.0
+var until_spawn: float = INITIAL_SPAWN_DELAY
 var spawn_count: int = 0
 var city_recovery_remaining: float = 0.0
 
@@ -87,8 +90,37 @@ func hostile_count() -> int:
 
 func _spawn_small_attack() -> void:
 	var entry := main.scenario.threat_entries[0]
-	main.director._spawn_entry(entry, 0.0, 0.0)
+	var angle := -0.4 + float(spawn_count % 3) * 0.22
+	var threat := main.director._spawn_entry(entry, angle, 0.0) as AttackUav
+	if threat == null:
+		return
+	var position := spawn_position_just_outside_camera(entry, angle)
+	threat.global_position = position
+	threat.configure_mission(main.objective, main.battlefield, threat.target_point, 0.55, null, position)
 	spawn_count += 1
+
+func spawn_position_just_outside_camera(entry: ThreatSpawnEntry, angle: float) -> Vector3:
+	var camera := main.camera_rig.camera
+	var maximum_radius := main.scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier()
+	var radius := 0.0
+	var position := _spawn_position_at(entry, angle, radius)
+	while radius < maximum_radius and camera.is_position_in_frustum(position):
+		radius = minf(maximum_radius, radius + SPAWN_RADIUS_STEP)
+		position = _spawn_position_at(entry, angle, radius)
+	var inside_radius := maxf(0.0, radius - SPAWN_RADIUS_STEP)
+	var outside_radius := radius
+	for _index: int in 8:
+		var midpoint := (inside_radius + outside_radius) * 0.5
+		if camera.is_position_in_frustum(_spawn_position_at(entry, angle, midpoint)):
+			inside_radius = midpoint
+		else:
+			outside_radius = midpoint
+	return _spawn_position_at(entry, angle, minf(maximum_radius, outside_radius + OFFSCREEN_SPAWN_MARGIN))
+
+func _spawn_position_at(entry: ThreatSpawnEntry, angle: float, radius: float) -> Vector3:
+	var position := Vector3(cos(angle) * radius, 0.0, sin(angle) * radius)
+	position.y = main.battlefield.flight_surface_height(position.x, position.z) + entry.threat_definition.spawn_altitude()
+	return position
 
 func _schedule_city_recovery(_damage: int) -> void:
 	city_recovery_remaining = CITY_RECOVERY_DELAY

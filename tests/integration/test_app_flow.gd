@@ -88,6 +88,8 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 	controller.set_process(false)
 	watch_signals(demo.objective)
 	var visible_seconds: Dictionary[int, float] = {}
+	var spawned_ids: Dictionary[int, bool] = {}
+	var spawn_times: Array[float] = []
 	var maximum_hostiles := 0
 	var maximum_hostiles_tick := -1
 	for index: int in 3000:
@@ -97,14 +99,23 @@ func test_menu_demo_runs_bounded_live_defense_and_keeps_player_state_separate() 
 			maximum_hostiles = hostile_count
 			maximum_hostiles_tick = index
 		for threat: ThreatUnit in demo.registry.get_active():
-			if threat.definition.affiliation == ThreatDefinition.Affiliation.HOSTILE and demo.camera_rig.camera.is_position_in_frustum(threat.global_position):
+			if threat.definition.affiliation != ThreatDefinition.Affiliation.HOSTILE:
+				continue
+			if not spawned_ids.has(threat.runtime_id):
+				spawned_ids[threat.runtime_id] = true
+				spawn_times.append(controller.elapsed)
+				assert_false(demo.camera_rig.camera.is_position_in_frustum(threat.global_position), "메뉴 위협은 현재 카메라 화면 바로 밖에서 생성됩니다")
+			if demo.camera_rig.camera.is_position_in_frustum(threat.global_position):
 				visible_seconds[threat.runtime_id] = visible_seconds.get(threat.runtime_id, 0.0) + 0.1
 		if index % 20 == 0:
 			await get_tree().process_frame
 	assert_lte(maximum_hostiles, MenuDefenseDemo.MAX_HOSTILES, "최대 적기 %d기 발생 시점: tick %d (%.1f초)" % [maximum_hostiles, maximum_hostiles_tick, float(maximum_hostiles_tick + 1) * 0.1])
 	assert_gt(demo.session.weapon_fire_count, 0, "실제 센서·C2·무장이 발사합니다")
 	assert_gt(demo.session.neutralized_count, 0, "실제 요격체로 시연 위협을 격추합니다")
-	assert_gte(controller.spawn_count, 2, "먼 출발점에서도 상한 안에서 위협을 계속 투입합니다")
+	assert_gte(spawn_times.size(), 2)
+	assert_lte(spawn_times[0], 2.0, "첫 위협은 메뉴 진입 직후 투입됩니다")
+	assert_lte(spawn_times[1], 12.0, "후속 위협은 긴 공백 없이 투입됩니다")
+	assert_gte(controller.spawn_count, 15, "상한 안에서 위협을 계속 투입합니다")
 	var readable_approaches := 0
 	for duration: float in visible_seconds.values():
 		if duration >= 2.0:
