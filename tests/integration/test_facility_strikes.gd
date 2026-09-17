@@ -59,6 +59,13 @@ func test_payload_damage_is_independent_of_visuals_and_idempotent() -> void:
 	assert_eq(target.integrity, 70.0)
 
 func test_resolution_policy_is_independent_of_sensor_classification() -> void:
+	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+		var definition := entry.threat_definition as AttackUavDefinition
+		if definition == null or definition.movement.mode != ThreatMovementDefinition.Mode.ALTITUDE_HOLD:
+			continue
+		assert_not_null(definition.resolution_profile, "%s 항공체에 추락 정책이 필요합니다" % definition.id)
+		if definition.resolution_profile != null:
+			assert_true(definition.resolution_profile.leave_wreck, "%s 격추 시 잔해가 추락해야 합니다" % definition.id)
 	var aircraft := entry_for(&"battery_strike_aircraft").threat_definition.duplicate(true) as ThreatDefinition
 	assert_true(aircraft.resolution_profile.leave_wreck)
 	assert_true(aircraft.has_resolution_explosion())
@@ -71,6 +78,18 @@ func test_resolution_policy_is_independent_of_sensor_classification() -> void:
 	assert_false(bird.resolution_profile.landing_flash)
 	assert_eq(bird.validation_error(), "")
 	assert_eq(aircraft.validation_error(), "")
+
+func test_recon_uav_neutralization_spawns_its_falling_airframe() -> void:
+	var recon := _spawn_entry_for(&"recon_uav") as AttackUav
+	assert_not_null(recon)
+	if recon == null:
+		return
+	var effects_before := main.effects_parent.get_children().filter(func(child: Node) -> bool: return child is FallingWreckEffect).size()
+	assert_true(recon.resolve_once(true))
+	var wrecks := main.effects_parent.get_children().filter(func(child: Node) -> bool: return child is FallingWreckEffect)
+	assert_eq(wrecks.size(), effects_before + 1)
+	var wreck := wrecks.back() as FallingWreckEffect
+	assert_not_null(wreck.wreck.find_child("Airframe", true, false), "정찰 UAV 원래 형상이 추락 잔해에 복사됩니다")
 
 func test_root_accepts_impact_free_retirement_without_concrete_aircraft_type() -> void:
 	var threat := RetiringThreat.new()

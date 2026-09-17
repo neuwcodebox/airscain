@@ -1032,7 +1032,17 @@ func _capture_falling_wreck() -> void:
 		await process_frame
 	main.set_process(false)
 	main.hud.visible = false
-	var definition := preload("res://enemy/strike_aircraft/strike_aircraft.tres")
+	var definition: ThreatDefinition = preload("res://enemy/strike_aircraft/strike_aircraft.tres")
+	var capture_prefix := "/tmp/airscain_wreck"
+	for argument: String in OS.get_cmdline_user_args():
+		if not argument.begins_with("--wreck-threat="):
+			continue
+		var requested := StringName(argument.trim_prefix("--wreck-threat="))
+		for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+			if entry.threat_definition.id == requested:
+				definition = entry.threat_definition
+				capture_prefix = "/tmp/airscain_%s_wreck" % requested
+				break
 	var aircraft := definition.scene.instantiate() as ThreatUnit
 	main.effects_parent.add_child(aircraft)
 	aircraft.setup(9999, definition)
@@ -1045,7 +1055,7 @@ func _capture_falling_wreck() -> void:
 	for frame: int in 4:
 		await process_frame
 	await RenderingServer.frame_post_draw
-	_save_capture("/tmp/airscain_wreck_before.png")
+	_save_capture("%s_before.png" % capture_prefix)
 	main.resolution_effects.spawn_wreck(aircraft)
 	var wreck := main.effects_parent.get_node("FallingWreck") as FallingWreckEffect
 	wreck.set_process(false)
@@ -1054,16 +1064,16 @@ func _capture_falling_wreck() -> void:
 	for frame: int in 4:
 		await process_frame
 	await RenderingServer.frame_post_draw
-	_save_capture("/tmp/airscain_wreck_falling.png")
+	_save_capture("%s_falling.png" % capture_prefix)
 	while not wreck.impacted:
 		wreck._process(0.04)
 		await process_frame
 	await _wait_seconds(0.12)
 	await RenderingServer.frame_post_draw
-	_save_capture("/tmp/airscain_wreck_impact.png")
+	_save_capture("%s_impact.png" % capture_prefix)
 	await _wait_seconds(0.65)
 	await RenderingServer.frame_post_draw
-	_save_capture("/tmp/airscain_wreck_afterglow.png")
+	_save_capture("%s_afterglow.png" % capture_prefix)
 	print("VISUAL_CAPTURE_OK falling_airframe composite_impact")
 
 func _capture_selection_panel() -> bool:
