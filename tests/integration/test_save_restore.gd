@@ -670,6 +670,43 @@ func test_pending_raid_waves_restore_with_remaining_delays() -> void:
 	main.director._tick_pending_waves(3.0)
 	assert_eq(main.director.pending_waves.size(), 1)
 
+func test_pending_suppression_target_snapshot_restores_and_guides_the_spawned_group() -> void:
+	var radar := _place_defense(_defense_definition(&"search_radar")) as SearchRadar
+	var radar_id := radar.runtime_id
+	main.enemy_knowledge.record_recon(radar)
+	var estimate := main.enemy_knowledge.best_estimate_for_role(&"sensor")
+	var wave := {
+		"definition_id": "anti_radiation_missile",
+		"remaining": 2.0,
+		"angle": 0.7,
+		"target_asset_id": radar_id,
+		"target_role": "sensor",
+		"target_position": estimate.estimated_position.duplicate(),
+		"target_confidence": float(estimate.confidence),
+		"target_observed_at": float(estimate.observed_at),
+	}
+	main.director.pending_waves.clear()
+	main.director.pending_waves.append(wave)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(int(document.version), 27)
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(main.director.pending_waves.size(), 1)
+	assert_eq(int(main.director.pending_waves[0].target_asset_id), radar_id)
+	assert_eq(main.director.pending_waves[0].target_role, "sensor")
+	assert_eq(SaveDocument.vector3_from_data(main.director.pending_waves[0].target_position), SaveDocument.vector3_from_data(estimate.estimated_position))
+	var invalid := document.duplicate(true)
+	invalid.payload.director.pending_waves[0].target_asset_id = 999999
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_false(main.director.pending_waves[0].has("target_asset_id"))
+	assert_false(main.last_persistence_repairs.is_empty())
+	assert_eq(main.restore_from_document(document), "")
+	var spawned_id := main.director.next_runtime_id
+	main.director._tick_pending_waves(2.0)
+	var threat := _find_contact(spawned_id) as AttackUav
+	assert_not_null(threat)
+	assert_eq(threat.mission_runtime.target_defense_id, radar_id)
+	assert_eq(threat.mission_runtime.fixed_target, SaveDocument.vector3_from_data(estimate.estimated_position))
+
 func test_enemy_knowledge_reports_and_aged_estimates_restore() -> void:
 	var radar := _place_defense(_defense_definition(&"search_radar")) as SearchRadar
 	main.enemy_knowledge.record_emission(radar)

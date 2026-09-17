@@ -19,6 +19,8 @@ static func migrate_content(
 	for task: Dictionary in result.get("world", {}).get("support", {}).get("tasks", []):
 		if String(task.get("kind", "")) == SupportManager.REPAIR and not task.has("repair_amount"):
 			task.repair_amount = legacy_repairs.get(int(task.get("target_defense_id", 0)), 0.0)
+	# Version 27 adds optional observed-target snapshots to newly planned waves.
+	# Older pending waves intentionally retain their legacy spawn-time selection.
 	if version < 26 and result.get("director") is Dictionary:
 		result.director.recent_raid_definitions = []
 	if version >= 25:

@@ -2129,6 +2129,21 @@ func test_recent_recon_prioritizes_followup_and_times_the_reported_target() -> v
 	assert_almost_eq(float(distances[support_entry.threat_definition.id]), expected, 0.001)
 	main.enemy_knowledge.gameplay_tick(main.scenario.recon_followup_window + 0.1)
 	assert_eq(main.director.suppression_priority_chance(), 0.0, "오래된 정찰은 후속 공습 우선권을 주지 않습니다")
+	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
+	var battery_result := _place_for(main, _defense_definition_for(main, &"missile_battery"))
+	assert_true(radar_result.success)
+	assert_true(battery_result.success)
+	main.enemy_knowledge.record_recon(support_result.unit)
+	main.enemy_knowledge.record_recon(radar_result.unit)
+	main.enemy_knowledge.record_recon(battery_result.unit)
+	main.director.pressure_level = 30
+	main.director.raid_planner.last_pattern = &""
+	assert_eq(main.director.known_suppression_asset_count(), 3)
+	assert_eq(main.director.suppression_priority_chance(), 0.75, "새 정찰은 후반 보정 상한보다 강한 단기 우선권을 유지합니다")
+	main.enemy_knowledge.gameplay_tick(main.scenario.recon_followup_window + 0.1)
+	assert_eq(main.director.suppression_priority_chance(), 0.5, "후반 보정은 일반 공습 비중을 남기는 상한을 지킵니다")
+	main.director.raid_planner.last_pattern = &"suppression"
+	assert_eq(main.director.suppression_priority_chance(), 0.0, "직전 제압 뒤에는 강제 우선 보정을 연속 적용하지 않습니다")
 
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()

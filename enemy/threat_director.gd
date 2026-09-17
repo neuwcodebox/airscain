@@ -109,17 +109,22 @@ func _tick_pending_waves(delta: float) -> void:
 			continue
 		var entry := _entry_for_definition(StringName(String(wave.definition_id)))
 		if entry != null:
-			_spawn_group(entry, float(wave.angle), bool(wave.get("opening_raid", false)))
+			var target_position: Variant = null
+			var target_asset: DefenseUnit
+			if SaveDocument.is_valid_vector3_data(wave.get("target_position")):
+				target_position = SaveDocument.vector3_from_data(wave.target_position)
+				target_asset = _defense_for_runtime_id(int(wave.get("target_asset_id", 0)))
+			_spawn_group(entry, float(wave.angle), bool(wave.get("opening_raid", false)), target_position, target_asset)
 		pending_waves.remove_at(index)
 
-func _spawn_group(entry: ThreatSpawnEntry, group_angle: float, opening_raid: bool = false) -> void:
-	var group_target: Variant = null
-	if entry.threat_definition.shares_city_impact_target():
+func _spawn_group(entry: ThreatSpawnEntry, group_angle: float, opening_raid: bool = false, scheduled_target: Variant = null, target_asset: DefenseUnit = null) -> void:
+	var group_target: Variant = scheduled_target
+	if group_target == null and entry.threat_definition.shares_city_impact_target():
 		group_target = battlefield.random_city_building_target(rng)
 	for group_index: int in entry.group_size:
 		if registry.hostile_count() >= scenario.active_threat_cap:
 			return
-		var threat := _spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target)
+		var threat := _spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target, target_asset)
 		if opening_raid and threat != null:
 			opening_threat_ids.append(threat.runtime_id)
 
@@ -173,7 +178,7 @@ func launch_budgeted_raid(for_next_attack_window: bool = false) -> void:
 		approach_angle += rng.randf_range(-0.35, 0.35)
 	var max_delay := minf(32.0, maxf(0.0, remaining_attack - 0.05))
 	var travel_distances := estimated_travel_distances(approach_angle)
-	var waves := raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng, travel_distances, suppression_priority_chance())
+	var waves := raid_planner.generate(scenario, weights, threat_budget_at(elapsed), pressure_level, approach_angle, max_delay, speed_multiplier_at(elapsed), rng, travel_distances, suppression_priority_chance(), suppression_target_options())
 	if not opening_raid_started and not waves.is_empty():
 		opening_raid_started = true
 		for wave: Dictionary in waves:
@@ -181,15 +186,55 @@ func launch_budgeted_raid(for_next_attack_window: bool = false) -> void:
 	pending_waves.append_array(waves)
 
 func suppression_priority_chance() -> float:
+	if raid_planner.last_pattern == &"suppression":
+		return 0.0
 	var chance := scenario.asset_suppression_chance if pressure_level >= 4 else 0.0
 	if enemy_knowledge == null:
 		return chance
+	if pressure_level >= 4:
+		var pressure_bonus := minf(0.15, float((pressure_level - 4) / 5) * 0.03)
+		var observed_bonus := minf(0.08, float(maxi(0, known_suppression_asset_count() - 1)) * 0.04)
+		chance = minf(0.5, chance + pressure_bonus + observed_bonus)
 	for estimate: Dictionary in enemy_knowledge.estimates.values():
 		if String(estimate.get("source", "")) != "reconnaissance" or float(estimate.get("confidence", 0.0)) < 0.2:
 			continue
 		if enemy_knowledge.simulation_time - float(estimate.get("observed_at", 0.0)) <= scenario.recon_followup_window:
 			return maxf(chance, scenario.recon_followup_suppression_chance)
 	return chance
+
+func suppression_target_options() -> Dictionary:
+	var result: Dictionary = {}
+	if enemy_knowledge == null:
+		return result
+	var assignments := _mission_assignments()
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		if entry.raid_role != ThreatSpawnEntry.RaidRole.SUPPRESSION:
+			continue
+		var mission := entry.threat_definition.mission_definition()
+		if mission == null or mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
+			continue
+		var options: Array[Dictionary] = []
+		for estimate: Dictionary in enemy_knowledge.estimates.values():
+			var assigned: int = assignments.get(int(estimate.asset_id), 0)
+			if StringName(estimate.role) != mission.knowledge_role() or float(estimate.confidence) < 0.2 or assigned >= 2:
+				continue
+			var option := estimate.duplicate(true)
+			option["assigned"] = assigned
+			options.append(option)
+		options.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.asset_id) < int(b.asset_id))
+		if not options.is_empty():
+			result[entry.threat_definition.id] = options
+	return result
+
+func known_suppression_asset_count() -> int:
+	var ids: Dictionary[int, bool] = {}
+	var options := suppression_target_options()
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		if entry.threat_definition.jamming_strength > 0.0:
+			continue
+		for estimate: Dictionary in options.get(entry.threat_definition.id, []):
+			ids[int(estimate.asset_id)] = true
+	return ids.size()
 
 func estimated_travel_distances(approach_angle: float) -> Dictionary[StringName, float]:
 	var result: Dictionary[StringName, float] = {}
@@ -277,13 +322,13 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 				target_asset = _known_target_for_role(entry.threat_definition.adaptive_knowledge_role)
 		else:
 			target_asset = choose_target_for(mission)
-	if is_instance_valid(target_asset_override) and target_asset_override.active:
+	if target_override is Vector3:
+		target = target_override
+		target_asset = target_asset_override if is_instance_valid(target_asset_override) and target_asset_override.active else null
+		has_required_target = true
+	elif is_instance_valid(target_asset_override) and target_asset_override.active:
 		target = target_asset_override.global_position
 		target_asset = target_asset_override
-		has_required_target = true
-	elif target_override is Vector3:
-		target = target_override
-		target_asset = null
 		has_required_target = true
 	elif mission != null and entry.threat_definition.requires_role_knowledge and not has_required_target:
 		threat.free()
@@ -350,6 +395,15 @@ func _known_target_for_role(role: StringName) -> DefenseUnit:
 	for child: Node in defense_parent.get_children():
 		var unit := child as DefenseUnit
 		if unit != null and unit.runtime_id == target_id and unit.integrity > 0.0:
+			return unit
+	return null
+
+func _defense_for_runtime_id(runtime_id: int) -> DefenseUnit:
+	if runtime_id <= 0 or defense_parent == null:
+		return null
+	for child: Node in defense_parent.get_children():
+		var unit := child as DefenseUnit
+		if unit != null and unit.runtime_id == runtime_id and unit.active:
 			return unit
 	return null
 

@@ -253,3 +253,92 @@ func test_suppression_package_combines_jamming_direct_attack_and_city_strike() -
 		arrivals[entry.threat_definition.id] = float(wave.remaining) + entry.threat_definition.estimated_approach_seconds(distance, 1.0)
 	assert_between(arrivals[strike.threat_definition.id] - arrivals[anti_radiation.threat_definition.id], 9.999, 18.001)
 	assert_between(arrivals[strike.threat_definition.id] - arrivals[jammer.threat_definition.id], 1.999, 5.001)
+
+func test_late_suppression_package_spreads_four_direct_groups_across_observed_assets() -> void:
+	var scenario := SCENARIO.duplicate() as ScenarioDefinition
+	var direct_ids: Array[StringName] = [&"anti_radiation_missile", &"defense_strike_uav", &"support_strike_uav"]
+	var enabled_ids: Array[StringName] = [&"anti_radiation_missile", &"defense_strike_uav", &"support_strike_uav", &"attack_uav", &"electronic_warfare_uav", &"decoy_uav"]
+	var weights: Dictionary[StringName, float] = {}
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		weights[entry.threat_definition.id] = 1.0 if entry.threat_definition.id in enabled_ids else 0.0
+	var estimates: Dictionary = {}
+	var target_id := 101
+	var target_index := 1
+	for id: StringName in direct_ids:
+		var entry := _entry_in(scenario, id)
+		var mission := entry.threat_definition.mission_definition()
+		var estimate := _estimate(target_id, mission.knowledge_role(), Vector3(120.0 * target_index, 0.0, -40.0 * target_index))
+		estimates[entry.threat_definition.id] = [estimate]
+		target_id += 1
+		target_index += 1
+	var jammer := _entry_in(scenario, &"electronic_warfare_uav")
+	estimates[jammer.threat_definition.id] = estimates[_entry_in(scenario, &"anti_radiation_missile").threat_definition.id]
+	var planner := RaidPlanner.new()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 8301
+	var waves := planner.generate(scenario, weights, 33.0, 30, 0.4, 300.0, 1.0, rng, {}, 1.0, estimates)
+	assert_eq(planner.last_pattern, &"suppression")
+	assert_eq(waves.size(), 6)
+	var direct_arrivals: Array[float] = []
+	var city_arrival := -1.0
+	var support_arrival := -1.0
+	var target_counts: Dictionary[int, int] = {}
+	for wave: Dictionary in waves:
+		var entry := _entry_in(scenario, StringName(wave.definition_id))
+		var mission := entry.threat_definition.mission_definition()
+		var distance := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - (scenario.city_size * 0.5 + 260.0)
+		if wave.has("target_position"):
+			var spawn := Vector2(cos(0.4), sin(0.4)) * scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier()
+			var target := SaveDocument.vector3_from_data(wave.target_position)
+			distance = spawn.distance_to(Vector2(target.x, target.z)) - mission.action_distance
+		var arrival := float(wave.remaining) + entry.threat_definition.estimated_approach_seconds(maxf(0.0, distance), 1.0)
+		if entry.raid_role == ThreatSpawnEntry.RaidRole.STRIKE:
+			city_arrival = arrival
+		elif entry.raid_role == ThreatSpawnEntry.RaidRole.DECEPTION or entry.threat_definition.jamming_strength > 0.0:
+			support_arrival = arrival
+		else:
+			direct_arrivals.append(arrival)
+			var observed_id := int(wave.target_asset_id)
+			target_counts[observed_id] = target_counts.get(observed_id, 0) + 1
+	assert_eq(direct_arrivals.size(), 4)
+	assert_eq(target_counts.size(), 3)
+	for count: int in target_counts.values():
+		assert_lte(count, 2)
+	direct_arrivals.sort()
+	assert_lte(direct_arrivals.back() - direct_arrivals.front(), 2.001)
+	assert_between(direct_arrivals.front() - support_arrival, 1.999, 8.001)
+	assert_between(city_arrival - direct_arrivals.back(), 3.999, 10.001)
+
+func test_suppression_package_keeps_early_budget_and_single_report_limits() -> void:
+	var weights: Dictionary[StringName, float] = {}
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		weights[entry.threat_definition.id] = 1.0 if entry.threat_definition.id in [&"attack_uav", &"anti_radiation_missile"] else 0.0
+	var anti_radiation := _entry(&"anti_radiation_missile")
+	var target := _estimate(701, &"sensor", Vector3(400.0, 0.0, 200.0))
+	var targets: Dictionary = {anti_radiation.threat_definition.id: [target]}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 711
+	var planner := RaidPlanner.new()
+	var waves := planner.generate(SCENARIO, weights, 8.0, 5, 0.0, 300.0, 1.0, rng, {}, 1.0, targets)
+	var direct_count := 0
+	var cost := 0.0
+	for wave: Dictionary in waves:
+		var entry := _entry(StringName(wave.definition_id))
+		cost += entry.threat_cost * float(entry.group_size)
+		direct_count += int(entry.raid_role == ThreatSpawnEntry.RaidRole.SUPPRESSION)
+		if wave.has("target_asset_id"):
+			assert_eq(int(wave.target_asset_id), 701)
+	assert_eq(direct_count, 2)
+	assert_lte(cost, 8.0)
+
+func _estimate(asset_id: int, role: StringName, position: Vector3) -> Dictionary:
+	return {
+		"asset_id": asset_id,
+		"role": String(role),
+		"estimated_position": SaveDocument.vector3_to_data(position),
+		"confidence": 0.9,
+		"uncertainty": 20.0,
+		"observed_at": 12.0,
+		"source": "reconnaissance",
+		"assigned": 0,
+	}
