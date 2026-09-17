@@ -254,7 +254,7 @@ func test_suppression_package_combines_jamming_direct_attack_and_city_strike() -
 	assert_between(arrivals[strike.threat_definition.id] - arrivals[anti_radiation.threat_definition.id], 9.999, 18.001)
 	assert_between(arrivals[strike.threat_definition.id] - arrivals[jammer.threat_definition.id], 1.999, 5.001)
 
-func test_late_suppression_package_spreads_four_direct_groups_across_observed_assets() -> void:
+func test_late_suppression_package_focuses_four_direct_groups_across_observed_assets() -> void:
 	var scenario := SCENARIO.duplicate() as ScenarioDefinition
 	var direct_ids: Array[StringName] = [&"anti_radiation_missile", &"defense_strike_uav", &"support_strike_uav"]
 	var enabled_ids: Array[StringName] = [&"anti_radiation_missile", &"defense_strike_uav", &"support_strike_uav", &"attack_uav", &"electronic_warfare_uav", &"decoy_uav"]
@@ -278,9 +278,8 @@ func test_late_suppression_package_spreads_four_direct_groups_across_observed_as
 	rng.seed = 8301
 	var waves := _generate(planner, scenario, weights, 33.0, 30, 0.4, 300.0, 1.0, rng, {}, 1.0, estimates)
 	assert_eq(planner.last_pattern, &"suppression")
-	assert_eq(waves.size(), 6)
+	assert_eq(waves.size(), 5)
 	var direct_arrivals: Array[float] = []
-	var city_arrival := -1.0
 	var support_arrival := -1.0
 	var target_counts: Dictionary[int, int] = {}
 	for wave: Dictionary in waves:
@@ -293,7 +292,7 @@ func test_late_suppression_package_spreads_four_direct_groups_across_observed_as
 			distance = spawn.distance_to(Vector2(target.x, target.z)) - mission.action_distance
 		var arrival := float(wave.remaining) + entry.threat_definition.estimated_approach_seconds(maxf(0.0, distance), 1.0)
 		if entry.raid_role == ThreatSpawnEntry.RaidRole.STRIKE:
-			city_arrival = arrival
+			fail_test("방공망 제압 패키지는 도시 공격을 섞지 않습니다")
 		elif entry.raid_role == ThreatSpawnEntry.RaidRole.DECEPTION or entry.threat_definition.jamming_strength > 0.0:
 			support_arrival = arrival
 		else:
@@ -307,7 +306,31 @@ func test_late_suppression_package_spreads_four_direct_groups_across_observed_as
 	direct_arrivals.sort()
 	assert_lte(direct_arrivals.back() - direct_arrivals.front(), 2.001)
 	assert_between(direct_arrivals.front() - support_arrival, 1.999, 8.001)
-	assert_between(city_arrival - direct_arrivals.back(), 3.999, 10.001)
+
+func test_late_suppression_sends_mass_uavs_against_the_outer_observed_layer() -> void:
+	var saturation := _entry(&"weapon_saturation_uav")
+	var strike := _entry(&"attack_uav")
+	var weights: Dictionary[StringName, float] = {}
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		weights[entry.threat_definition.id] = 1.0 if entry in [saturation, strike] else 0.0
+	var inner := _estimate(801, &"weapon", Vector3(320.0, 0.0, 0.0))
+	inner["perimeter_distance"] = 320.0
+	var outer := _estimate(802, &"weapon", Vector3(920.0, 0.0, 0.0))
+	outer["perimeter_distance"] = 920.0
+	var targets: Dictionary = {saturation.threat_definition.id: [inner, outer]}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1208
+	var planner := RaidPlanner.new()
+	var waves := _generate(planner, SCENARIO, weights, 12.0, 20, 0.0, 300.0, 1.0, rng, {}, 1.0, targets)
+	assert_eq(planner.last_pattern, &"suppression")
+	var attacking_uavs := 0
+	for wave: Dictionary in waves:
+		var entry := _entry(StringName(wave.definition_id))
+		assert_eq(entry.raid_role, ThreatSpawnEntry.RaidRole.SUPPRESSION)
+		assert_eq(int(wave.target_asset_id), 802, "외곽 관측 자산을 먼저 충분히 압박합니다")
+		attacking_uavs += entry.group_size
+	assert_gte(attacking_uavs, 12)
+	assert_lte(attacking_uavs, 24)
 
 func test_suppression_package_keeps_early_budget_and_single_report_limits() -> void:
 	var weights: Dictionary[StringName, float] = {}

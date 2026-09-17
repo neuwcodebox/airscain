@@ -591,7 +591,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if not value is String or not valid_raid_definitions.has(definition_id) or seen_recent_definitions.has(definition_id):
 			return "최근 공습 위협 이력이 올바르지 않습니다"
 		seen_recent_definitions[definition_id] = true
-	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
+	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or int(director_state.get("last_assessed_outcome_id", -1)) < 0 or int(director_state.get("suppression_failure_streak", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"
 	var opening_error := ThreatDirector.opening_state_validation_error(director_state)
 	if not opening_error.is_empty():
@@ -607,8 +607,18 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if not target_error.is_empty():
 			return target_error
 	var enemy_state: Dictionary = world_state.enemy_knowledge
-	if float(enemy_state.get("simulation_time", -1.0)) < 0.0 or not enemy_state.get("estimates", null) is Array or not enemy_state.get("reports", null) is Array or not enemy_state.get("recent_outcomes", null) is Array:
+	if float(enemy_state.get("simulation_time", -1.0)) < 0.0 or int(enemy_state.get("next_outcome_id", 0)) < 1 or not enemy_state.get("estimates", null) is Array or not enemy_state.get("reports", null) is Array or not enemy_state.get("recent_outcomes", null) is Array:
 		return "적 지식 상태가 올바르지 않습니다"
+	var outcome_ids: Dictionary[int, bool] = {}
+	for outcome: Dictionary in enemy_state.recent_outcomes:
+		var outcome_id := int(outcome.get("outcome_id", 0))
+		if outcome_id <= 0 or outcome_id >= int(enemy_state.next_outcome_id) or outcome_ids.has(outcome_id) or not SaveDocument.is_valid_vector3_data(outcome.get("position")):
+			return "적 전투 결과 상태가 올바르지 않습니다"
+		outcome_ids[outcome_id] = true
+		if outcome.has("target_asset_id") and (not defense_ids.has(int(outcome.target_asset_id)) or not outcome.get("mission_succeeded", false) is bool or float(outcome.get("damage", -1.0)) < 0.0 or not outcome.get("target_disabled", false) is bool):
+			return "적 시설 타격 결과가 올바르지 않습니다"
+	if int(director_state.last_assessed_outcome_id) >= int(enemy_state.next_outcome_id):
+		return "적 전투 결과 평가 위치가 올바르지 않습니다"
 	var recon_error := EnemyKnowledge.recon_validation_error(enemy_state, scenario.battlefield_size, defense_ids)
 	if not recon_error.is_empty():
 		return recon_error

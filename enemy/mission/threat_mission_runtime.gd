@@ -13,6 +13,8 @@ var exit_point: Vector3
 var phase := Phase.INBOUND
 var action_elapsed: float = 0.0
 var effect_applied: bool = false
+var effect_damage: float = 0.0
+var target_disabled: bool = false
 
 func setup(profile_value: ThreatMissionDefinition, objective_value: ProtectedObjective, target_point: Vector3, target_asset_value: DefenseUnit, exit_point_value: Vector3) -> void:
 	profile = profile_value
@@ -24,6 +26,8 @@ func setup(profile_value: ThreatMissionDefinition, objective_value: ProtectedObj
 	phase = Phase.INBOUND
 	action_elapsed = 0.0
 	effect_applied = false
+	effect_damage = 0.0
+	target_disabled = false
 
 func navigation_target() -> Vector3:
 	if phase == Phase.EGRESS:
@@ -87,7 +91,7 @@ func gameplay_tick(unit_position: Vector3, delta: float, release: ReleaseDecisio
 	return false
 
 func capture_state() -> Dictionary:
-	return {"target_defense_id": target_defense_id, "fixed_target": SaveDocument.vector3_to_data(fixed_target), "exit_point": SaveDocument.vector3_to_data(exit_point), "phase": int(phase), "action_elapsed": action_elapsed, "effect_applied": effect_applied}
+	return {"target_defense_id": target_defense_id, "fixed_target": SaveDocument.vector3_to_data(fixed_target), "exit_point": SaveDocument.vector3_to_data(exit_point), "phase": int(phase), "action_elapsed": action_elapsed, "effect_applied": effect_applied, "effect_damage": effect_damage, "target_disabled": target_disabled}
 
 func restore_state(state: Dictionary, profile_value: ThreatMissionDefinition, objective_value: ProtectedObjective, defense_by_id: Dictionary[int, DefenseUnit]) -> void:
 	profile = profile_value
@@ -99,6 +103,8 @@ func restore_state(state: Dictionary, profile_value: ThreatMissionDefinition, ob
 	phase = int(state.get("phase", Phase.INBOUND)) as Phase
 	action_elapsed = float(state.get("action_elapsed", 0.0))
 	effect_applied = bool(state.get("effect_applied", false))
+	effect_damage = float(state.get("effect_damage", 0.0))
+	target_disabled = bool(state.get("target_disabled", false))
 
 func _apply_effect(unit_position: Vector3) -> void:
 	if effect_applied:
@@ -109,4 +115,7 @@ func _apply_effect(unit_position: Vector3) -> void:
 	if profile.target_role == ThreatMissionDefinition.TargetRole.CITY:
 		objective.apply_surface_impact(roundi(profile.damage), unit_position)
 	elif is_instance_valid(target_asset) and target_asset.active and unit_position.distance_to(target_asset.global_position + Vector3.UP * 2.0) <= profile.action_distance:
-		target_asset.receive_damage(profile.damage)
+		var integrity_before := target_asset.integrity
+		if target_asset.receive_damage(profile.damage):
+			effect_damage = maxf(0.0, integrity_before - target_asset.integrity)
+			target_disabled = not target_asset.active

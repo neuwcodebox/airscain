@@ -46,6 +46,19 @@ func resolve_once(neutralized: bool) -> bool:
 	flight.release_trail(get_parent())
 	return super.resolve_once(neutralized)
 
+func assigned_target_id() -> int:
+	return flight.payload.target_defense_id
+
+func mission_result() -> Dictionary:
+	if flight.payload.target_defense_id <= 0:
+		return {}
+	return {
+		"target_asset_id": flight.payload.target_defense_id,
+		"mission_succeeded": flight.payload.effect_damage > 0.0,
+		"damage": flight.payload.effect_damage,
+		"target_disabled": flight.payload.target_disabled,
+	}
+
 func capture_content_state() -> Dictionary:
 	return flight.capture_state()
 

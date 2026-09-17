@@ -5,6 +5,9 @@ const PATTERNS: Array[StringName] = [&"concentration", &"diversion", &"layered",
 const MAX_GROUPS := 6
 const MAX_AUXILIARY_GROUPS := 2
 const RECENT_DEFINITION_WEIGHT := 0.45
+const SATURATION_GROUP_SIZE := 10
+const OUTER_TARGET_BAND := 120.0
+enum SaturationPolicy { ALLOW, REQUIRE, EXCLUDE }
 var last_pattern: StringName
 var recent_definition_ids: Array[StringName] = []
 
@@ -27,6 +30,8 @@ func generate(request: RaidPlanRequest) -> Array[Dictionary]:
 		return []
 	var candidates: Array[Dictionary] = []
 	for pattern: StringName in PATTERNS:
+		if pattern == &"suppression" and not request.allow_suppression:
+			continue
 		var pairs: Array[Dictionary] = []
 		if pattern != &"concentration":
 			for lead: ThreatSpawnEntry in entries:
@@ -61,7 +66,7 @@ func generate(request: RaidPlanRequest) -> Array[Dictionary]:
 		selected = {"pattern": &"suppression", "pairs": asset_pairs, "weight": 1.0}
 	last_pattern = selected.pattern
 	if last_pattern == &"suppression" and not request.suppression_targets.is_empty():
-		var package := _suppression_package(entries, strikes, request)
+		var package := _suppression_package(entries, request)
 		if not package.is_empty():
 			_remember_definitions(package)
 			return package
@@ -132,29 +137,31 @@ func generate(request: RaidPlanRequest) -> Array[Dictionary]:
 	_remember_definitions(waves)
 	return waves
 
-func _suppression_package(entries: Array[ThreatSpawnEntry], strikes: Array[ThreatSpawnEntry], request: RaidPlanRequest) -> Array[Dictionary]:
-	var city := _pick_entry(strikes, request.weights, request.budget, request.rng)
-	if city == null:
-		return []
-	var spent := _cost(city)
+func _suppression_package(entries: Array[ThreatSpawnEntry], request: RaidPlanRequest) -> Array[Dictionary]:
+	var spent := 0.0
 	var desired_direct := 2 if request.level < 10 else (3 if request.level < 20 else 4)
 	var distinct_limit := 1 if request.level < 10 else (2 if request.level < 20 else 3)
+	var desired_saturation := 0 if request.level < 8 else (1 if request.level < 20 else 2)
 	var planned_counts: Dictionary[int, int] = {}
 	var components: Array[Dictionary] = []
-	for direct_index: int in desired_direct:
-		var choices := _direct_suppression_choices(entries, request.weights, request.budget - spent, request.suppression_targets, planned_counts, distinct_limit)
+	for _saturation_index: int in desired_saturation:
+		var saturation_choices := _direct_suppression_choices(entries, request.weights, request.budget - spent, request.suppression_targets, planned_counts, distinct_limit, SaturationPolicy.REQUIRE)
+		if saturation_choices.is_empty():
+			break
+		var choice := _weighted_dictionary(saturation_choices, request.rng)
+		_add_direct_component(components, choice, planned_counts, request.rng)
+		spent += _cost(choice.entry)
+	for _direct_index: int in range(components.size(), desired_direct):
+		var saturation_policy := SaturationPolicy.ALLOW if _saturation_count(components) < 2 else SaturationPolicy.EXCLUDE
+		var choices := _direct_suppression_choices(entries, request.weights, request.budget - spent, request.suppression_targets, planned_counts, distinct_limit, saturation_policy)
 		if choices.is_empty():
 			break
 		var choice := _weighted_dictionary(choices, request.rng)
-		var entry: ThreatSpawnEntry = choice.entry
-		var estimate: Dictionary = choice.estimate
-		components.append({"entry": entry, "estimate": estimate, "kind": &"direct", "arrival_offset": request.rng.randf_range(0.0, 2.0)})
-		spent += _cost(entry)
-		var target_id := int(estimate.asset_id)
-		planned_counts[target_id] = planned_counts.get(target_id, 0) + 1
+		_add_direct_component(components, choice, planned_counts, request.rng)
+		spent += _cost(choice.entry)
 	if components.is_empty():
 		return []
-	if components.size() + 1 < MAX_GROUPS:
+	if components.size() < MAX_GROUPS:
 		var support_choices := _suppression_support_choices(entries, request.weights, request.budget - spent, request.suppression_targets)
 		if not support_choices.is_empty():
 			var support := _weighted_dictionary(support_choices, request.rng)
@@ -167,7 +174,6 @@ func _suppression_package(entries: Array[ThreatSpawnEntry], strikes: Array[Threa
 				"arrival_offset": -request.rng.randf_range(4.0, 8.0) if is_deception else -request.rng.randf_range(2.0, 5.0),
 			})
 			spent += _cost(support_entry)
-	components.append({"entry": city, "estimate": {}, "kind": &"city", "arrival_offset": request.rng.randf_range(6.0, 10.0)})
 	var base_arrival := 0.0
 	for component: Dictionary in components:
 		var eta := _component_eta(component.entry, component.estimate, request)
@@ -185,11 +191,13 @@ func _suppression_package(entries: Array[ThreatSpawnEntry], strikes: Array[Threa
 	waves.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.remaining) < float(b.remaining))
 	return waves
 
-func _direct_suppression_choices(entries: Array[ThreatSpawnEntry], weights: Dictionary[StringName, float], budget: float, suppression_targets: Dictionary, planned_counts: Dictionary[int, int], distinct_limit: int) -> Array[Dictionary]:
+func _direct_suppression_choices(entries: Array[ThreatSpawnEntry], weights: Dictionary[StringName, float], budget: float, suppression_targets: Dictionary, planned_counts: Dictionary[int, int], distinct_limit: int, saturation_policy := SaturationPolicy.ALLOW) -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
-	var new_target_choices: Array[Dictionary] = []
 	for entry: ThreatSpawnEntry in entries:
 		if not _is_direct_suppression(entry) or _cost(entry) > budget:
+			continue
+		var saturation := entry.group_size >= SATURATION_GROUP_SIZE
+		if saturation_policy == SaturationPolicy.REQUIRE and not saturation or saturation_policy == SaturationPolicy.EXCLUDE and saturation:
 			continue
 		for estimate: Dictionary in _target_options(entry, suppression_targets):
 			var target_id := int(estimate.asset_id)
@@ -198,11 +206,39 @@ func _direct_suppression_choices(entries: Array[ThreatSpawnEntry], weights: Dict
 				continue
 			var choice: Dictionary = {"entry": entry, "estimate": estimate, "weight": _entry_weight(entry, weights) * float(estimate.get("confidence", 0.0)) / (1.0 + 4.0 * planned)}
 			choices.append(choice)
-			if planned == 0:
-				new_target_choices.append(choice)
-	if planned_counts.size() < distinct_limit and not new_target_choices.is_empty():
-		return new_target_choices
-	return choices
+	var outer_choices := _outer_target_choices(choices)
+	var outer_new_target_choices: Array[Dictionary] = []
+	for choice: Dictionary in outer_choices:
+		if int(planned_counts.get(int((choice.estimate as Dictionary).asset_id), 0)) == 0:
+			outer_new_target_choices.append(choice)
+	if planned_counts.size() < distinct_limit and not outer_new_target_choices.is_empty():
+		return outer_new_target_choices
+	return outer_choices
+
+func _add_direct_component(components: Array[Dictionary], choice: Dictionary, planned_counts: Dictionary[int, int], rng: RandomNumberGenerator) -> void:
+	var entry: ThreatSpawnEntry = choice.entry
+	var estimate: Dictionary = choice.estimate
+	components.append({"entry": entry, "estimate": estimate, "kind": &"direct", "arrival_offset": rng.randf_range(0.0, 2.0)})
+	var target_id := int(estimate.asset_id)
+	planned_counts[target_id] = planned_counts.get(target_id, 0) + 1
+
+func _saturation_count(components: Array[Dictionary]) -> int:
+	var count := 0
+	for component: Dictionary in components:
+		count += int((component.entry as ThreatSpawnEntry).group_size >= SATURATION_GROUP_SIZE)
+	return count
+
+func _outer_target_choices(choices: Array[Dictionary]) -> Array[Dictionary]:
+	if choices.is_empty():
+		return choices
+	var outermost := 0.0
+	for choice: Dictionary in choices:
+		outermost = maxf(outermost, float((choice.estimate as Dictionary).get("perimeter_distance", 0.0)))
+	var result: Array[Dictionary] = []
+	for choice: Dictionary in choices:
+		if float((choice.estimate as Dictionary).get("perimeter_distance", 0.0)) >= outermost - OUTER_TARGET_BAND:
+			result.append(choice)
+	return result
 
 func _suppression_support_choices(entries: Array[ThreatSpawnEntry], weights: Dictionary[StringName, float], budget: float, suppression_targets: Dictionary) -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []

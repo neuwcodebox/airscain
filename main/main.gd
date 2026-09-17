@@ -307,7 +307,7 @@ func _on_threat_spawned(threat: ThreatUnit) -> void:
 	threat.resolved.connect(_on_threat_resolved)
 
 func _on_threat_resolved(threat: ThreatUnit, neutralized: bool, reward: int) -> void:
-	enemy_knowledge.record_outcome(neutralized, threat.global_position, threat.definition.id)
+	enemy_knowledge.record_outcome(neutralized, threat.global_position, threat.definition.id, threat.mission_result())
 	registry.remove(threat)
 	session.register_threat_resolution(threat, neutralized, reward)
 	if not neutralized and threat.exits_without_impact():

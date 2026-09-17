@@ -37,6 +37,19 @@ func test_engagement_and_outcome_reports_round_trip() -> void:
 	restored.restore_state(knowledge.capture_state())
 	assert_eq(restored.capture_state(), knowledge.capture_state())
 
+func test_successful_facility_outcome_removes_the_disabled_target_and_keeps_assessment_data() -> void:
+	var knowledge: EnemyKnowledge = add_child_autofree(EnemyKnowledge.new()) as EnemyKnowledge
+	var battery_definition := _defense(&"missile_battery") as MissileBatteryDefinition
+	var battery: MissileBattery = add_child_autofree(battery_definition.scene.instantiate()) as MissileBattery
+	battery.setup(31, battery_definition)
+	knowledge.record_recon(battery)
+	knowledge.record_outcome(false, battery.global_position, &"weapon_saturation_uav", {"target_asset_id": 31, "mission_succeeded": true, "damage": 90.0, "target_disabled": true})
+	var outcome: Dictionary = knowledge.recent_outcomes.back()
+	assert_eq(int(outcome.outcome_id), 1)
+	assert_eq(float(outcome.damage), 90.0)
+	assert_false(knowledge.estimates.has(31), "기능 정지를 확인한 자산을 다시 유효 표적으로 취급하지 않습니다")
+	assert_eq(knowledge.next_outcome_id, 2)
+
 func test_unconfirmed_strike_cannot_release_and_empty_report_is_aborted() -> void:
 	var definition := preload("res://enemy/facility_strike_uav/battery_strike_uav.tres") as AttackUavDefinition
 	var mission := ThreatMissionRuntime.new()

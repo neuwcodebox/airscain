@@ -8,6 +8,7 @@ var simulation_time: float = 0.0
 var estimates: Dictionary[int, Dictionary] = {}
 var reports: Array[Dictionary] = []
 var recent_outcomes: Array[Dictionary] = []
+var next_outcome_id: int = 1
 var defense_parent: Node3D
 
 var battlefield: Battlefield
@@ -87,6 +88,7 @@ func reset() -> void:
 	estimates.clear()
 	reports.clear()
 	recent_outcomes.clear()
+	next_outcome_id = 1
 	search.reset()
 	sightings.clear()
 
@@ -113,8 +115,13 @@ func record_recon(target: DefenseUnit) -> void:
 	if target != null:
 		_record_asset(target, "reconnaissance", 0.92, 24.0)
 
-func record_outcome(neutralized: bool, position: Vector3, threat_id: StringName) -> void:
-	recent_outcomes.append({"neutralized": neutralized, "position": SaveDocument.vector3_to_data(position), "threat_id": String(threat_id), "observed_at": simulation_time})
+func record_outcome(neutralized: bool, position: Vector3, threat_id: StringName, mission_result: Dictionary = {}) -> void:
+	var outcome := {"outcome_id": next_outcome_id, "neutralized": neutralized, "position": SaveDocument.vector3_to_data(position), "threat_id": String(threat_id), "observed_at": simulation_time}
+	next_outcome_id += 1
+	outcome.merge(mission_result, true)
+	recent_outcomes.append(outcome)
+	if bool(outcome.get("target_disabled", false)):
+		estimates.erase(int(outcome.get("target_asset_id", 0)))
 	if recent_outcomes.size() > MAX_OUTCOMES:
 		recent_outcomes.pop_front()
 
@@ -140,7 +147,7 @@ func capture_state() -> Dictionary:
 	var estimate_states: Array[Dictionary] = []
 	for estimate: Dictionary in estimates.values():
 		estimate_states.append(estimate.duplicate(true))
-	return {"simulation_time": simulation_time, "estimates": estimate_states, "reports": reports.duplicate(true), "recent_outcomes": recent_outcomes.duplicate(true), "recon_search": search.capture_state(), "recon_sightings": _capture_sightings()}
+	return {"simulation_time": simulation_time, "estimates": estimate_states, "reports": reports.duplicate(true), "recent_outcomes": recent_outcomes.duplicate(true), "next_outcome_id": next_outcome_id, "recon_search": search.capture_state(), "recon_sightings": _capture_sightings()}
 
 func restore_state(state: Dictionary) -> void:
 	reset()
@@ -159,6 +166,13 @@ func restore_state(state: Dictionary) -> void:
 		reports.append(normalized)
 	for outcome: Dictionary in state.get("recent_outcomes", []):
 		recent_outcomes.append(outcome.duplicate(true))
+	next_outcome_id = int(state.get("next_outcome_id", _next_outcome_id_after_restore()))
+
+func _next_outcome_id_after_restore() -> int:
+	var result := 1
+	for outcome: Dictionary in recent_outcomes:
+		result = maxi(result, int(outcome.get("outcome_id", 0)) + 1)
+	return result
 
 func _record_asset(asset: DefenseUnit, source: String, confidence: float, uncertainty: float, classified: bool = true) -> void:
 	if asset == null or not is_instance_valid(asset):

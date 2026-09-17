@@ -1,6 +1,6 @@
 extends GutTest
 
-const IDS: Array[StringName] = [&"defense_strike_uav", &"small_defense_strike_uav", &"battery_strike_cruise", &"support_strike_cruise", &"battery_strike_aircraft", &"radar_strike_aircraft"]
+const IDS: Array[StringName] = [&"defense_strike_uav", &"small_defense_strike_uav", &"weapon_saturation_uav", &"radar_saturation_uav", &"battery_strike_cruise", &"support_strike_cruise", &"battery_strike_aircraft", &"radar_strike_aircraft"]
 var main: AirscainMain
 var original_requested_seed: int
 var original_requested_mode: AirscainMain.GameMode
@@ -416,7 +416,7 @@ func target_for_definition(definition_id: StringName) -> DefenseUnit:
 	fail_test("시설 배치 위치가 없습니다")
 	return null
 
-func test_variants_require_matching_knowledge_and_join_city_strike_packages() -> void:
+func test_variants_require_matching_knowledge_and_join_legacy_pair_candidates() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 73129
 	for id: StringName in IDS:
@@ -450,7 +450,7 @@ func test_variants_require_matching_knowledge_and_join_city_strike_packages() ->
 			for wave: Dictionary in waves:
 				included = included or StringName(wave.definition_id) == id
 				has_city = has_city or StringName(wave.definition_id) == city.threat_definition.id
-			assert_true(has_city, "%s sample=%d: 시설 제압만으로 도시 공격을 대체하지 않습니다" % [case_context, sample])
+			assert_true(has_city, "%s sample=%d: 표적 스냅샷이 없는 기존 두 그룹 편성을 유지합니다" % [case_context, sample])
 		assert_true(included, "%s: 32회 표본 안에 변형이 포함됩니다" % case_context)
 
 func test_each_variant_flies_to_its_role_and_applies_only_one_asset_hit() -> void:

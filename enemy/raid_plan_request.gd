@@ -12,3 +12,4 @@ var rng: RandomNumberGenerator
 var travel_distances: Dictionary[StringName, float] = {}
 var suppression_priority_chance: float = -1.0
 var suppression_targets: Dictionary = {}
+var allow_suppression: bool = true

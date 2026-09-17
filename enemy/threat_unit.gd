@@ -146,3 +146,6 @@ func restore_content_state(_state: Dictionary, _objective: ProtectedObjective, _
 
 func assigned_target_id() -> int:
 	return 0
+
+func mission_result() -> Dictionary:
+	return {}

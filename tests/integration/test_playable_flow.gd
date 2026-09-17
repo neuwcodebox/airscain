@@ -2142,9 +2142,21 @@ func test_recent_recon_prioritizes_followup_and_times_the_reported_target() -> v
 	assert_eq(main.director.known_suppression_asset_count(), 3)
 	assert_eq(main.director.suppression_priority_chance(), 0.75, "새 정찰은 후반 보정 상한보다 강한 단기 우선권을 유지합니다")
 	main.enemy_knowledge.gameplay_tick(main.scenario.recon_followup_window + 0.1)
-	assert_eq(main.director.suppression_priority_chance(), 0.5, "후반 보정은 일반 공습 비중을 남기는 상한을 지킵니다")
+	assert_almost_eq(main.director.suppression_priority_chance(), 0.65, 0.0001, "후반 보정은 일반 공습 비중을 남기는 상한을 지킵니다")
 	main.director.raid_planner.last_pattern = &"suppression"
-	assert_eq(main.director.suppression_priority_chance(), 0.0, "직전 제압 뒤에는 강제 우선 보정을 연속 적용하지 않습니다")
+	assert_eq(main.director.suppression_priority_chance(), ThreatDirector.SUPPRESSION_EXPLOIT_CHANCE, "아직 성과가 없으면 중복 출격을 억제합니다")
+	main.enemy_knowledge.record_outcome(false, battery_result.unit.global_position, &"weapon_saturation_uav", {"target_asset_id": battery_result.unit.runtime_id, "mission_succeeded": true, "damage": 10.0, "target_disabled": false})
+	assert_eq(main.director.suppression_priority_chance(), ThreatDirector.PARTIAL_SUPPRESSION_FOLLOWUP_CHANCE, "부분 손상은 마무리 제압 공습을 유도합니다")
+	main.enemy_knowledge.record_outcome(false, battery_result.unit.global_position, &"weapon_saturation_uav", {"target_asset_id": battery_result.unit.runtime_id, "mission_succeeded": true, "damage": 90.0, "target_disabled": true})
+	assert_eq(main.director.suppression_priority_chance(), ThreatDirector.SUPPRESSION_EXPLOIT_CHANCE, "기능 정지를 확인하면 도시 공습이 열린 축을 활용하게 합니다")
+	main.director.last_assessed_outcome_id = main.enemy_knowledge.next_outcome_id - 1
+	main.enemy_knowledge.record_outcome(true, radar_result.unit.global_position, &"radar_saturation_uav", {"target_asset_id": radar_result.unit.runtime_id, "mission_succeeded": false, "damage": 0.0, "target_disabled": false})
+	assert_eq(main.director.suppression_priority_chance(), ThreatDirector.FIRST_FAILED_SUPPRESSION_FOLLOWUP_CHANCE, "첫 완전 실패는 증강 재시도를 유도합니다")
+	main.director.launch_budgeted_raid()
+	main.enemy_knowledge.record_outcome(true, radar_result.unit.global_position, &"radar_saturation_uav", {"target_asset_id": radar_result.unit.runtime_id, "mission_succeeded": false, "damage": 0.0, "target_disabled": false})
+	assert_eq(main.director.suppression_priority_chance(), ThreatDirector.REPEATED_FAILURE_FOLLOWUP_CHANCE, "반복 실패는 같은 재공습 고집을 낮춥니다")
+	main.director.launch_budgeted_raid()
+	assert_ne(main.director.raid_planner.last_pattern, &"suppression", "반복 실패 직후에는 제압 유형을 제외하고 도시 공습으로 전환합니다")
 
 func test_close_in_gun_restores_and_cheaply_finishes_small_uav_engagement() -> void:
 	main.registry.clear()

@@ -229,6 +229,16 @@ func _exit_tree() -> void:
 func assigned_target_id() -> int:
 	return mission_runtime.target_defense_id if mission_runtime.phase != ThreatMissionRuntime.Phase.EGRESS else 0
 
+func mission_result() -> Dictionary:
+	if mission_runtime.target_defense_id <= 0:
+		return {}
+	return {
+		"target_asset_id": mission_runtime.target_defense_id,
+		"mission_succeeded": mission_runtime.effect_damage > 0.0,
+		"damage": mission_runtime.effect_damage,
+		"target_disabled": mission_runtime.target_disabled,
+	}
+
 func _evasive_target(point: Vector3) -> Vector3:
 	if countermeasure_evasion <= 0.0 or definition.countermeasure_evasion_distance <= 0.0:
 		return point

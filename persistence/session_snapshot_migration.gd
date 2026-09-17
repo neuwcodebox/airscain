@@ -19,6 +19,20 @@ static func migrate_content(
 	for task: Dictionary in result.get("world", {}).get("support", {}).get("tasks", []):
 		if String(task.get("kind", "")) == SupportManager.REPAIR and not task.has("repair_amount"):
 			task.repair_amount = legacy_repairs.get(int(task.get("target_defense_id", 0)), 0.0)
+	# Version 28 gives combat outcomes stable identities and preserves the
+	# suppression follow-up assessment across saves.
+	if version < 28:
+		if result.get("director") is Dictionary:
+			result.director.last_assessed_outcome_id = 0
+			result.director.suppression_failure_streak = 0
+		var enemy_state: Variant = result.get("world", {}).get("enemy_knowledge")
+		if enemy_state is Dictionary:
+			var next_outcome_id := 1
+			for outcome: Variant in enemy_state.get("recent_outcomes", []):
+				if outcome is Dictionary:
+					outcome.outcome_id = next_outcome_id
+					next_outcome_id += 1
+			enemy_state.next_outcome_id = next_outcome_id
 	# Version 27 adds optional observed-target snapshots to newly planned waves.
 	# Older pending waves intentionally retain their legacy spawn-time selection.
 	if version < 26 and result.get("director") is Dictionary:

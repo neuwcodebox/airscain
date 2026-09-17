@@ -6,6 +6,10 @@ signal threat_spawned(threat: ThreatUnit)
 signal recovery_started(completed_window: int)
 
 const PLANNED_TARGET_KEYS: Array[String] = ["target_asset_id", "target_role", "target_position", "target_confidence", "target_observed_at"]
+const PARTIAL_SUPPRESSION_FOLLOWUP_CHANCE := 0.9
+const FIRST_FAILED_SUPPRESSION_FOLLOWUP_CHANCE := 0.8
+const SUPPRESSION_EXPLOIT_CHANCE := 0.0
+const REPEATED_FAILURE_FOLLOWUP_CHANCE := 0.2
 
 var scenario: ScenarioDefinition
 var battlefield: Battlefield
@@ -28,6 +32,8 @@ var opening_raid_started: bool = false
 var opening_raid_complete: bool = false
 var opening_threat_ids: Array[int] = []
 var pressure_started_at: float = 0.0
+var last_assessed_outcome_id: int = 0
+var suppression_failure_streak: int = 0
 
 func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D, enemy_knowledge_value: EnemyKnowledge) -> void:
 	scenario = scenario_value
@@ -55,6 +61,8 @@ func reset() -> void:
 	opening_raid_complete = false
 	opening_threat_ids.clear()
 	pressure_started_at = 0.0
+	last_assessed_outcome_id = 0
+	suppression_failure_streak = 0
 	raid_planner.last_pattern = &""
 	raid_planner.recent_definition_ids.clear()
 	pressure_changed.emit(pressure_level)
@@ -190,8 +198,10 @@ func launch_budgeted_raid(for_next_attack_window: bool = false) -> void:
 	request.rng = rng
 	request.travel_distances = estimated_travel_distances(approach_angle)
 	request.suppression_targets = suppression_target_options()
+	request.allow_suppression = not _should_switch_from_suppression()
 	request.suppression_priority_chance = _suppression_priority_chance(request.suppression_targets)
 	var waves := raid_planner.generate(request)
+	_commit_suppression_assessment()
 	if not opening_raid_started and not waves.is_empty():
 		opening_raid_started = true
 		for wave: Dictionary in waves:
@@ -202,21 +212,57 @@ func suppression_priority_chance() -> float:
 	return _suppression_priority_chance(suppression_target_options())
 
 func _suppression_priority_chance(target_options: Dictionary) -> float:
+	var assessment := _pending_suppression_assessment()
+	if not assessment.is_empty():
+		if bool(assessment.target_disabled):
+			return SUPPRESSION_EXPLOIT_CHANCE
+		if float(assessment.damage) > 0.0:
+			return PARTIAL_SUPPRESSION_FOLLOWUP_CHANCE
+		return FIRST_FAILED_SUPPRESSION_FOLLOWUP_CHANCE if int(assessment.failure_streak) <= 1 else REPEATED_FAILURE_FOLLOWUP_CHANCE
 	if raid_planner.last_pattern == &"suppression":
-		return 0.0
+		return SUPPRESSION_EXPLOIT_CHANCE
 	var chance := scenario.asset_suppression_chance if pressure_level >= 4 else 0.0
 	if enemy_knowledge == null:
 		return chance
 	if pressure_level >= 4:
-		var pressure_bonus := minf(0.15, float((pressure_level - 4) / 5) * 0.03)
+		var pressure_bonus := minf(0.22, float(pressure_level - 4) * 0.01)
 		var observed_bonus := minf(0.08, float(maxi(0, _known_suppression_asset_count(target_options) - 1)) * 0.04)
-		chance = minf(0.5, chance + pressure_bonus + observed_bonus)
+		chance = minf(0.65, chance + pressure_bonus + observed_bonus)
 	for estimate: Dictionary in enemy_knowledge.estimates.values():
 		if String(estimate.get("source", "")) != "reconnaissance" or float(estimate.get("confidence", 0.0)) < 0.2:
 			continue
 		if enemy_knowledge.simulation_time - float(estimate.get("observed_at", 0.0)) <= scenario.recon_followup_window:
 			return maxf(chance, scenario.recon_followup_suppression_chance)
 	return chance
+
+func _pending_suppression_assessment() -> Dictionary:
+	if enemy_knowledge == null:
+		return {}
+	var found := false
+	var damage := 0.0
+	var target_disabled := false
+	for outcome: Dictionary in enemy_knowledge.recent_outcomes:
+		if int(outcome.get("outcome_id", 0)) <= last_assessed_outcome_id or int(outcome.get("target_asset_id", 0)) <= 0:
+			continue
+		found = true
+		damage += maxf(0.0, float(outcome.get("damage", 0.0)))
+		target_disabled = target_disabled or bool(outcome.get("target_disabled", false))
+	if not found:
+		return {}
+	var next_failure_streak := 0 if damage > 0.0 or target_disabled else suppression_failure_streak + 1
+	return {"damage": damage, "target_disabled": target_disabled, "failure_streak": next_failure_streak}
+
+func _commit_suppression_assessment() -> void:
+	if enemy_knowledge == null:
+		return
+	var assessment := _pending_suppression_assessment()
+	if not assessment.is_empty():
+		suppression_failure_streak = int(assessment.failure_streak)
+	last_assessed_outcome_id = maxi(last_assessed_outcome_id, enemy_knowledge.next_outcome_id - 1)
+
+func _should_switch_from_suppression() -> bool:
+	var assessment := _pending_suppression_assessment()
+	return not assessment.is_empty() and (bool(assessment.target_disabled) or float(assessment.damage) <= 0.0 and int(assessment.failure_streak) > 1)
 
 func suppression_target_options() -> Dictionary:
 	var result: Dictionary = {}
@@ -236,6 +282,9 @@ func suppression_target_options() -> Dictionary:
 				continue
 			var option := estimate.duplicate(true)
 			option["assigned"] = assigned
+			var estimated_position := SaveDocument.vector3_from_data(estimate.estimated_position)
+			var center := objective.global_position if objective != null else Vector3.ZERO
+			option["perimeter_distance"] = Vector2(estimated_position.x - center.x, estimated_position.z - center.z).length()
 			options.append(option)
 		options.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.asset_id) < int(b.asset_id))
 		if not options.is_empty():
@@ -491,6 +540,8 @@ func capture_state() -> Dictionary:
 		"opening_raid_complete": opening_raid_complete,
 		"opening_threat_ids": opening_threat_ids.duplicate(),
 		"pressure_started_at": pressure_started_at,
+		"last_assessed_outcome_id": last_assessed_outcome_id,
+		"suppression_failure_streak": suppression_failure_streak,
 	}
 
 func restore_state(state: Dictionary) -> void:
@@ -509,6 +560,8 @@ func restore_state(state: Dictionary) -> void:
 	opening_raid_complete = bool(state.opening_raid_complete)
 	opening_threat_ids.assign(state.opening_threat_ids)
 	pressure_started_at = float(state.pressure_started_at)
+	last_assessed_outcome_id = int(state.get("last_assessed_outcome_id", 0))
+	suppression_failure_streak = int(state.get("suppression_failure_streak", 0))
 	raid_planner.last_pattern = StringName(state.get("last_raid_pattern", ""))
 	raid_planner.restore_recent_definitions(state.get("recent_raid_definitions", []))
 	pressure_changed.emit(pressure_level)

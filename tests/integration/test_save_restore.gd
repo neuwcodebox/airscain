@@ -688,7 +688,7 @@ func test_pending_suppression_target_snapshot_restores_and_guides_the_spawned_gr
 	main.director.pending_waves.clear()
 	main.director.pending_waves.append(wave)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
-	assert_eq(int(document.version), 27)
+	assert_eq(int(document.version), 28)
 	assert_eq(main.restore_from_document(document), "")
 	assert_eq(main.director.pending_waves.size(), 1)
 	assert_eq(int(main.director.pending_waves[0].target_asset_id), radar_id)
@@ -706,6 +706,22 @@ func test_pending_suppression_target_snapshot_restores_and_guides_the_spawned_gr
 	assert_not_null(threat)
 	assert_eq(threat.mission_runtime.target_defense_id, radar_id)
 	assert_eq(threat.mission_runtime.fixed_target, SaveDocument.vector3_from_data(estimate.estimated_position))
+
+func test_version_27_assigns_outcome_ids_and_initializes_suppression_assessment() -> void:
+	var battery := _place_defense(_defense_definition(&"missile_battery"))
+	main.enemy_knowledge.record_outcome(false, battery.global_position, &"small_defense_strike_uav", {"target_asset_id": battery.runtime_id, "mission_succeeded": true, "damage": 10.0, "target_disabled": false})
+	var document := main.capture_save_document()
+	document.version = 27
+	document.payload.director.erase("last_assessed_outcome_id")
+	document.payload.director.erase("suppression_failure_streak")
+	document.payload.world.enemy_knowledge.erase("next_outcome_id")
+	for outcome: Dictionary in document.payload.world.enemy_knowledge.recent_outcomes:
+		outcome.erase("outcome_id")
+	assert_eq(main.restore_from_document(document), "")
+	assert_eq(main.director.last_assessed_outcome_id, 0)
+	assert_eq(main.director.suppression_failure_streak, 0)
+	assert_eq(int(main.enemy_knowledge.recent_outcomes[0].outcome_id), 1)
+	assert_eq(main.enemy_knowledge.next_outcome_id, 2)
 
 func test_enemy_knowledge_reports_and_aged_estimates_restore() -> void:
 	var radar := _place_defense(_defense_definition(&"search_radar")) as SearchRadar

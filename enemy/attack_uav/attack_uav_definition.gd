@@ -45,6 +45,8 @@ func runtime_state_validation_error(content_state: Dictionary, defense_ids: Dict
 			return "탄도 위협 비행 상태가 올바르지 않습니다"
 	if mission_target_id != 0 and not defense_ids.has(mission_target_id) or mission_phase < ThreatMissionRuntime.Phase.INBOUND or mission_phase > ThreatMissionRuntime.Phase.EGRESS or float(mission_state.get("action_elapsed", -1.0)) < 0.0:
 		return "위협 임무 대상 또는 진행 상태가 올바르지 않습니다"
+	if not is_finite(float(mission_state.get("effect_damage", 0.0))) or float(mission_state.get("effect_damage", 0.0)) < 0.0 or mission_state.has("target_disabled") and not mission_state.target_disabled is bool:
+		return "위협 임무 타격 결과가 올바르지 않습니다"
 	return ""
 
 func repair_runtime_state(content_state: Dictionary, defense_ids: Dictionary[int, bool]) -> Dictionary:
