@@ -20,6 +20,9 @@ var prepared_smoke_effects: Array[DamageSmokeEffect] = []
 func initial_defense_mounts() -> Array[Dictionary]:
 	return []
 
+func fit_to_city_block(_block_size: float) -> void:
+	pass
+
 func setup(id_value: int, definition_value: ObjectiveDefinition) -> void:
 	runtime_id = id_value
 	definition = definition_value

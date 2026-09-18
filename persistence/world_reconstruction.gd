@@ -26,7 +26,7 @@ func _init(world: Battlefield, target: ProtectedObjective, contacts: ThreatRegis
 # Signals synchronously attach each restored object to gameplay services.
 func restore_objects(state: Dictionary, scenario: ScenarioDefinition) -> void:
 	defenses_by_id.clear()
-	objective.global_transform = battlefield.primary_city_transform()
+	battlefield.align_primary_city_objective(objective)
 	objective.restore_damage_smoke_state(state.get("objective_damage_smoke", []))
 	objective.restore_integrity(int(state.objective_integrity))
 	var defense_definitions := SessionSnapshot.defense_definition_map(scenario)

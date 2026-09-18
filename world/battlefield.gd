@@ -207,6 +207,19 @@ func primary_city_transform() -> Transform3D:
 	var yaw := deg_to_rad(district.definition.rotation_degrees)
 	return Transform3D(Basis(Vector3.UP, yaw), position)
 
+func primary_city_block_size() -> float:
+	var district := primary_city_district()
+	if district == null:
+		return 0.0
+	for block: Dictionary in district.blocks:
+		if block.grid == Vector2i.ZERO:
+			return maxf(float(block.block_step) - city_road_width, 0.0)
+	return maxf(district.definition.size / float(district.definition.block_count) - city_road_width, 0.0)
+
+func align_primary_city_objective(target: ProtectedObjective) -> void:
+	target.global_transform = primary_city_transform()
+	target.fit_to_city_block(primary_city_block_size())
+
 func random_city_building_target_in_district(district: CityDistrict, rng: RandomNumberGenerator) -> Vector3:
 	if district == null or not district.has_buildings():
 		return Vector3.ZERO

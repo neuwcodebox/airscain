@@ -1,6 +1,9 @@
 class_name CityObjective
 extends ProtectedObjective
 
+const REFERENCE_WIDTH := 34.0
+const BLOCK_MARGIN := 4.0
+
 func initial_defense_mounts() -> Array[Dictionary]:
 	var mount := $CommandMount as Marker3D
 	return [{
@@ -8,6 +11,10 @@ func initial_defense_mounts() -> Array[Dictionary]:
 		"position": mount.global_position,
 		"rotation_y": mount.global_rotation.y,
 	}]
+
+func fit_to_city_block(block_size: float) -> void:
+	var horizontal_scale := maxf((block_size - BLOCK_MARGIN) / REFERENCE_WIDTH, 0.1)
+	scale = Vector3(horizontal_scale, 1.0, horizontal_scale)
 
 func excludes_placement(world_position: Vector3, radius: float) -> bool:
 	var hall := $CivicHall as MeshInstance3D

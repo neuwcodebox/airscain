@@ -698,6 +698,21 @@ func test_city_objective_uses_a_civic_landmark() -> void:
 	assert_true(city.excludes_placement(rotated_inside, 0.0), "회전한 시민청 내부를 배치 금지합니다")
 	assert_false(city.excludes_placement(world_axis_corner, 0.0), "월드 축 사각형을 시민청 점유 영역으로 오인하지 않습니다")
 
+func test_city_objective_width_follows_each_primary_block() -> void:
+	for seed_value: int in 4:
+		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+		scenario.world_seed = seed_value
+		var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+		battlefield.build(scenario)
+		var city := add_child_autofree(preload("res://world/objective/city/city_objective.tscn").instantiate()) as CityObjective
+		battlefield.align_primary_city_objective(city)
+		var hall := city.get_node("CivicHall") as MeshInstance3D
+		var hall_width := (hall.mesh as BoxMesh).size.x * hall.global_basis.get_scale().x
+		var expected_width := battlefield.primary_city_block_size() - CityObjective.BLOCK_MARGIN
+		assert_almost_eq(hall_width, expected_width, 0.001, "seed %d 시민청 폭" % seed_value)
+		assert_lt(hall_width, battlefield.primary_city_block_size(), "seed %d 시민청은 블록 안에 있습니다" % seed_value)
+		assert_almost_eq(city.scale.y, 1.0, 0.0001, "seed %d 시민청 높이는 바꾸지 않습니다" % seed_value)
+
 func test_tactical_units_use_a_smaller_presentation_scale_without_changing_profiles() -> void:
 	var defense := add_child_autofree(_defense(&"missile_battery").scene.instantiate()) as DefenseUnit
 	defense.setup(1, _defense(&"missile_battery"))
