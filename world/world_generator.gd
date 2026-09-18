@@ -151,7 +151,7 @@ func _create_building_transforms(district: CityDistrictDefinition, blocks: Array
 			var depth := rng.randf_range(depth_limit * 0.78, depth_limit)
 			var zone_height_scale := lerpf(0.32, 1.18, center_weight)
 			var height := clampf(rng.randf_range(district.minimum_building_height, district.maximum_building_height) * zone_height_scale, district.minimum_building_height, district.maximum_building_height * 1.08) * CITY_PRESENTATION_SCALE
-			var basis := district_basis.scaled(Vector3(width, height, depth))
+			var basis := district_basis * Basis.from_scale(Vector3(width, height, depth))
 			result.append(Transform3D(basis, Vector3(x, height * 0.5 + height_at(x, z), z)))
 	return result
 

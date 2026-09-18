@@ -60,8 +60,6 @@ var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
 var city_landmark_count: int:
 	get: return _district_presentation.landmark_count
-var city_arterial_segment_count: int:
-	get: return _district_presentation.arterial_segment_count
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_building_footprints: Array[Rect2] = []
 var city_buildings: Array[Transform3D] = []
@@ -110,7 +108,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks)
-	_district_presentation.build(city_districts, primary_city_district(), generator, _city_boxes)
+	_district_presentation.build(city_districts, generator, _city_boxes)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks)
 	_city_boxes.build(city_visuals)
 	_configure_city_shadow_receivers()
@@ -148,7 +146,6 @@ func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 	_building_cells.clear()
 	for index: int in buildings.size():
 		var building := buildings[index]
-		var size := building.basis.get_scale()
 		var bounds := building * AABB(-Vector3.ONE * 0.5, Vector3.ONE)
 		_building_bounds.append(bounds)
 		_city_bounds = bounds if index == 0 else _city_bounds.merge(bounds)
@@ -161,8 +158,8 @@ func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 					_building_cells[cell] = []
 				_building_cells[cell].append(index)
 		var architecture_margin := 1.2 if index % 3 == 0 else 0.35
-		var half_extents := Vector2(size.x, size.z) * 0.5 + Vector2.ONE * architecture_margin
-		city_building_footprints.append(Rect2(Vector2(building.origin.x, building.origin.z) - half_extents, half_extents * 2.0))
+		var footprint := Rect2(Vector2(bounds.position.x, bounds.position.z), Vector2(bounds.size.x, bounds.size.z))
+		city_building_footprints.append(footprint.grow(architecture_margin))
 
 func random_city_building_target(rng: RandomNumberGenerator) -> Vector3:
 	var district := random_city_district(rng)
@@ -560,11 +557,11 @@ func _append_facade_bands(building_transform: Transform3D, bands: Array[Transfor
 			for column: int in columns_x:
 				var local := Vector3((float(column) + 0.5 - float(columns_x) * 0.5) * building_size.x / float(columns_x), 0.0, side * (building_size.z * 0.5 + 0.07))
 				var offset := rotation * local
-				bands.append(Transform3D(rotation.scaled(Vector3(building_size.x / float(columns_x) * 0.52, 1.65, 0.12)), Vector3(building_transform.origin.x + offset.x, y, building_transform.origin.z + offset.z)))
+				bands.append(Transform3D(rotation * Basis.from_scale(Vector3(building_size.x / float(columns_x) * 0.52, 1.65, 0.12)), Vector3(building_transform.origin.x + offset.x, y, building_transform.origin.z + offset.z)))
 			for column: int in columns_z:
 				var local := Vector3(side * (building_size.x * 0.5 + 0.07), 0.0, (float(column) + 0.5 - float(columns_z) * 0.5) * building_size.z / float(columns_z))
 				var offset := rotation * local
-				bands.append(Transform3D(rotation.scaled(Vector3(0.12, 1.65, building_size.z / float(columns_z) * 0.52)), Vector3(building_transform.origin.x + offset.x, y, building_transform.origin.z + offset.z)))
+				bands.append(Transform3D(rotation * Basis.from_scale(Vector3(0.12, 1.65, building_size.z / float(columns_z) * 0.52)), Vector3(building_transform.origin.x + offset.x, y, building_transform.origin.z + offset.z)))
 
 func _build_facade_multimesh(bands: Array[Transform3D]) -> void:
 	if bands.is_empty():
@@ -699,7 +696,7 @@ func _build_road_markings(city_blocks: Array[Dictionary]) -> void:
 			_add_city_box("LaneX%s_%d_%d" % [String(block.district_id), grid.x, grid.y], Vector3(block_step, 0.06, 0.38), lane, marking_material, yaw)
 
 func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, material: StandardMaterial3D, yaw: float = 0.0) -> void:
-	var box_transform := Transform3D(Basis(Vector3.UP, yaw).scaled(box_size), position)
+	var box_transform := Transform3D(Basis(Vector3.UP, yaw) * Basis.from_scale(box_size), position)
 	if not material.emission_enabled:
 		_city_boxes.add_box(box_transform, material)
 		return

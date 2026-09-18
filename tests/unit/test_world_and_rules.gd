@@ -505,8 +505,12 @@ func test_multiple_authored_districts_own_rotated_blocks_and_buildings() -> void
 		for block: Dictionary in district.blocks:
 			assert_eq(StringName(block.district_id), district.id)
 			assert_almost_eq(generator.height_at(block.position.x, block.position.z), WorldGenerator.CITY_GROUND_HEIGHT, 0.25)
-	var rotated_axis := districts[1].buildings[0].basis.orthonormalized() * Vector3.RIGHT
-	assert_gt(absf(rotated_axis.z), 0.1)
+		var district_rotation := Basis(Vector3.UP, deg_to_rad(district.definition.rotation_degrees))
+		var expected_right := district_rotation * Vector3.RIGHT
+		var expected_back := district_rotation * Vector3.BACK
+		for building: Transform3D in district.buildings:
+			assert_almost_eq(building.basis.x.normalized().dot(expected_right), 1.0, 0.0001, "%s right axis" % district.id)
+			assert_almost_eq(building.basis.z.normalized().dot(expected_back), 1.0, 0.0001, "%s back axis" % district.id)
 	assert_gt(districts[0].center.distance_to(districts[1].center), 400.0)
 
 func test_city_keeps_a_dense_core_and_uses_an_irregular_terrain_suitable_edge() -> void:
@@ -842,14 +846,24 @@ func test_every_battlefield_layout_keeps_rooftop_placement_sites() -> void:
 		battlefield.build(scenario)
 		assert_false(battlefield.rooftop_pads.is_empty(), String(scenario.battlefield_layout().id))
 
-func test_distributed_city_districts_have_landmarks_and_overland_connections() -> void:
+func test_distributed_city_districts_have_role_landmarks() -> void:
 	for layout_index: int in [0, 2, 3]:
 		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
 		scenario.world_seed = layout_index
 		var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 		battlefield.build(scenario)
 		assert_eq(battlefield.city_landmark_count, battlefield.city_districts.size(), String(scenario.battlefield_layout().id))
-		assert_gt(battlefield.city_arterial_segment_count, 0, String(scenario.battlefield_layout().id))
+
+func test_rotated_city_building_footprints_cover_world_space_bounds() -> void:
+	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	scenario.world_seed = 2
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(scenario)
+	for index: int in battlefield.city_buildings.size():
+		var bounds := battlefield.city_building_bounds(index)
+		var footprint := battlefield.city_building_footprints[index]
+		assert_true(footprint.has_point(Vector2(bounds.position.x, bounds.position.z)), "building %d minimum" % index)
+		assert_true(footprint.has_point(Vector2(bounds.end.x, bounds.end.z)), "building %d maximum" % index)
 
 func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
 	var generator := WorldGenerator.new()

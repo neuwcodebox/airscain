@@ -530,6 +530,8 @@ func run() -> void:
 		quit(0)
 		return
 	if OS.get_cmdline_user_args().has("--capture-city-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
 		await _capture_city_detail()
 		print("VISUAL_CAPTURE_OK western_city_detail contextual_rooftop_pads")
 		quit(0)
@@ -1397,6 +1399,20 @@ func _capture_world_layout() -> void:
 			return
 	var layout_id := String(main.scenario.battlefield_layout().id)
 	_save_capture("/tmp/airscain_world_%s.png" % layout_id)
+	for district: CityDistrict in main.battlefield.city_districts:
+		main.camera_rig.focus_on(Vector3(
+			district.center.x,
+			main.battlefield.terrain_height(district.center.x, district.center.y),
+			district.center.y
+		))
+		main.camera_rig.yaw_radians = deg_to_rad(district.definition.rotation_degrees + 36.0)
+		main.camera_rig.pitch_radians = deg_to_rad(54.0)
+		main.camera_rig.zoom_distance = clampf(district.definition.size * 0.72, 230.0, 380.0)
+		main.camera_rig._update_camera()
+		for frame: int in 5:
+			await process_frame
+			await RenderingServer.frame_post_draw
+		_save_capture("/tmp/airscain_world_%s_%s.png" % [layout_id, district.id])
 	print("WORLD_LAYOUT_CAPTURE_OK %s districts=%d" % [layout_id, main.battlefield.city_districts.size()])
 	main.queue_free()
 	await process_frame
