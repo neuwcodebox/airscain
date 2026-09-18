@@ -315,10 +315,15 @@ func _sync_city_power(_current: int = 0, _maximum: int = 0) -> void:
 	var damaged := PackedVector4Array()
 	for site: Dictionary in objective.damage_smoke_sites:
 		var impact := objective.to_global(SaveDocument.vector3_from_data(site.offset))
-		for building: Transform3D in city_buildings:
-			var size := building.basis.get_scale()
-			if absf(impact.x - building.origin.x) <= size.x * 0.5 + 0.5 and absf(impact.z - building.origin.z) <= size.z * 0.5 + 0.5:
-				var bounds := Vector4(building.origin.x, building.origin.z, size.x * 0.5 + 0.2, size.z * 0.5 + 0.2)
+		for building_bounds: AABB in _building_bounds:
+			var footprint := Rect2(
+				Vector2(building_bounds.position.x, building_bounds.position.z),
+				Vector2(building_bounds.size.x, building_bounds.size.z)
+			).grow(0.5)
+			if footprint.has_point(Vector2(impact.x, impact.z)):
+				var center := footprint.get_center()
+				var half_extents := footprint.size * 0.5
+				var bounds := Vector4(center.x, center.y, half_extents.x, half_extents.y)
 				if not damaged.has(bounds):
 					damaged.append(bounds)
 				break

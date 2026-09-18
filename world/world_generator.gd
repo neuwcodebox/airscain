@@ -4,6 +4,7 @@ extends RefCounted
 const CITY_GROUND_HEIGHT := 10.0
 const CITY_PRESENTATION_SCALE := 0.9
 const CENTRAL_DISTRICT_ID := &"central"
+const DISTRICT_SITE_CANDIDATES := 32
 
 var size: float
 var resolution: int
@@ -12,9 +13,12 @@ var seed_value: int
 var heights: PackedFloat32Array
 var sea_level: float = 0.0
 var layout: BattlefieldLayoutDefinition
+var terrain_rotation_degrees: float = 0.0
 var _city_blocks: Array[Dictionary] = []
 var _city_buildings: Array[Transform3D] = []
 var _city_districts: Array[CityDistrict] = []
+var _coast_phase_a: float = 0.0
+var _coast_phase_b: float = 0.0
 
 func generate(seed_input: int, size_input: float, resolution_input: int, city_size_input: float, layout_value: BattlefieldLayoutDefinition = null) -> void:
 	seed_value = seed_input
@@ -38,24 +42,22 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 	coast_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	coast_noise.frequency = 0.0014
 	coast_noise.fractal_octaves = 3
-	var coast_phase_a := float(posmod(seed_value * 3, 997)) / 997.0 * TAU
-	var coast_phase_b := float(posmod(seed_value * 11, 991)) / 991.0 * TAU
-	var district_definitions := _district_definitions()
+	_coast_phase_a = float(posmod(seed_value * 3, 997)) / 997.0 * TAU
+	_coast_phase_b = float(posmod(seed_value * 11, 991)) / 991.0 * TAU
+	var terrain_rng := RandomNumberGenerator.new()
+	terrain_rng.seed = seed_value ^ 0x7A31B9
+	terrain_rotation_degrees = layout.terrain_rotation_degrees + terrain_rng.randf_range(-12.0, 12.0)
+	var district_definitions := _resolve_district_definitions(_district_definitions(), coast_noise)
 	for z_index: int in resolution:
 		for x_index: int in resolution:
 			var x := _grid_world(x_index)
 			var z := _grid_world(z_index)
 			var raw := noise.get_noise_2d(x, z) * layout.terrain_height_scale
-			var terrain_local := Vector2(x, z).rotated(-deg_to_rad(layout.terrain_rotation_degrees))
+			var terrain_local := Vector2(x, z).rotated(-deg_to_rad(terrain_rotation_degrees))
 			var flatten := _broad_terrain_weight(Vector2(x, z), district_definitions)
 			var macro_height := _macro_terrain_height(terrain_local)
 			var land_height := maxf((raw + macro_height) * flatten + CITY_GROUND_HEIGHT, sea_level + 6.0)
-			var radial_distance := Vector2(x, z).length() / (size * 0.5)
-			var coast_angle := atan2(z, x)
-			var coast_radius_scale := 1.0 + sin(coast_angle * 3.0 + coast_phase_a) * 0.11 + sin(coast_angle * 5.0 + coast_phase_b) * 0.065 + coast_noise.get_noise_2d(x, z) * 0.075
-			coast_radius_scale = clampf(coast_radius_scale, 0.78, 1.18)
-			var shaped_radial_distance := radial_distance / coast_radius_scale
-			var coast_falloff := _coast_falloff(terrain_local, shaped_radial_distance, radial_distance, coast_noise)
+			var coast_falloff := _coast_falloff(terrain_local, coast_noise)
 			heights[z_index * resolution + x_index] = lerpf(land_height, sea_level - 35.0, coast_falloff)
 	for district_index: int in district_definitions.size():
 		var blocks := _create_city_block_layout(district_definitions[district_index], district_index)
@@ -236,6 +238,50 @@ func _district_definitions() -> Array[CityDistrictDefinition]:
 	var result: Array[CityDistrictDefinition] = [central]
 	return result
 
+func _resolve_district_definitions(authored: Array[CityDistrictDefinition], coast_noise: FastNoiseLite) -> Array[CityDistrictDefinition]:
+	var result: Array[CityDistrictDefinition] = []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value ^ 0x36D4A7
+	var rotation_delta := deg_to_rad(terrain_rotation_degrees - layout.terrain_rotation_degrees)
+	var shared_offset := Vector2.from_angle(rng.randf_range(0.0, TAU)) * rng.randf_range(35.0, 105.0)
+	for district_index: int in authored.size():
+		var source := authored[district_index]
+		var district := source.duplicate(true) as CityDistrictDefinition
+		district.size *= rng.randf_range(0.96, 1.14)
+		district.rotation_degrees = wrapf(source.rotation_degrees + rad_to_deg(rotation_delta) + rng.randf_range(-16.0, 16.0), -180.0, 180.0)
+		var anchor := source.center.rotated(rotation_delta) + shared_offset
+		var jitter_radius := clampf(district.size * 0.38, 90.0, 180.0)
+		var best_center := anchor
+		var best_score := -INF
+		for candidate_index: int in DISTRICT_SITE_CANDIDATES:
+			var offset := Vector2.ZERO
+			if candidate_index > 0:
+				offset = Vector2.from_angle(rng.randf_range(0.0, TAU)) * sqrt(rng.randf()) * jitter_radius
+			var candidate := anchor + offset
+			var score := _district_site_score(candidate, district.size, coast_noise, result)
+			if score > best_score:
+				best_score = score
+				best_center = candidate
+		district.center = best_center
+		result.append(district)
+	return result
+
+func _district_site_score(center: Vector2, district_size: float, coast_noise: FastNoiseLite, accepted: Array[CityDistrictDefinition]) -> float:
+	var local_center := center.rotated(-deg_to_rad(terrain_rotation_degrees))
+	var sample_radius := district_size * 0.42
+	var worst_water := _coast_falloff(local_center, coast_noise)
+	for direction_index: int in 8:
+		var offset := Vector2.from_angle(TAU * float(direction_index) / 8.0) * sample_radius
+		var local_sample := (center + offset).rotated(-deg_to_rad(terrain_rotation_degrees))
+		worst_water = maxf(worst_water, _coast_falloff(local_sample, coast_noise))
+	var score := (1.0 - worst_water) * 12.0
+	for other: CityDistrictDefinition in accepted:
+		var preferred_separation := (district_size + other.size) * 0.56
+		var separation := center.distance_to(other.center)
+		if separation < preferred_separation:
+			score -= (preferred_separation - separation) / preferred_separation * 8.0
+	return score
+
 func _broad_terrain_weight(position: Vector2, districts: Array[CityDistrictDefinition]) -> float:
 	var weight := 1.0
 	for district: CityDistrictDefinition in districts:
@@ -255,21 +301,28 @@ func _macro_terrain_height(local: Vector2) -> float:
 			return smoothstep(-0.2, 0.9, -local.x / half) * layout.terrain_height_scale * 0.18
 	return 0.0
 
-func _coast_falloff(local: Vector2, shaped_radial_distance: float, radial_distance: float, coast_noise: FastNoiseLite) -> float:
-	var edge_falloff := smoothstep(0.9, 0.985, radial_distance)
+func _coast_falloff(local: Vector2, coast_noise: FastNoiseLite) -> float:
+	var half := size * 0.5
+	var radial_distance := local.length() / half
+	var coast_angle := atan2(local.y, local.x)
+	var radius_scale := 0.91 + sin(coast_angle * 3.0 + _coast_phase_a) * 0.075 + sin(coast_angle * 5.0 + _coast_phase_b) * 0.045 + coast_noise.get_noise_2d(local.x, local.y) * 0.055
+	radius_scale = clampf(radius_scale, 0.76, 1.0)
+	var shaped_radial_distance := radial_distance / radius_scale
+	var edge_falloff := smoothstep(0.88, 0.985, shaped_radial_distance)
 	match layout.terrain_shape:
 		BattlefieldLayoutDefinition.TerrainShape.BAY:
-			var ellipse := Vector2(local.x / 1.08, local.y / 0.86).length() / (size * 0.5)
+			var ellipse := Vector2(local.x / 1.08, local.y / 0.86).length() / half
 			var outer := smoothstep(layout.coast_start, layout.coast_end, ellipse)
 			var bay_center := Vector2(size * 0.34, 0.0)
 			var bay_distance := local.distance_to(bay_center) / (size * 0.31)
 			var inlet := 1.0 - smoothstep(0.62, 1.0, bay_distance)
 			return maxf(maxf(outer, inlet), edge_falloff)
 		BattlefieldLayoutDefinition.TerrainShape.VALLEY:
-			return 0.0
+			var valley_perimeter := Vector2(local.x / 0.82, local.y / 1.08).length() / half
+			return maxf(smoothstep(0.82, 0.98, valley_perimeter / radius_scale), edge_falloff)
 		BattlefieldLayoutDefinition.TerrainShape.COASTAL_PLAIN:
 			var coast_line := 0.56 + coast_noise.get_noise_2d(local.y, 0.0) * 0.1
-			return smoothstep(coast_line, coast_line + 0.12, local.x / (size * 0.5))
+			return maxf(smoothstep(coast_line, coast_line + 0.12, local.x / half), edge_falloff)
 	return maxf(smoothstep(layout.coast_start, layout.coast_end, shaped_radial_distance), edge_falloff)
 
 func _grid_world(index: int) -> float:

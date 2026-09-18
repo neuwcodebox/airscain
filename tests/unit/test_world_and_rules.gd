@@ -465,7 +465,8 @@ func test_current_city_is_an_explicit_central_district() -> void:
 	assert_eq(districts.size(), 1)
 	var district := districts[0]
 	assert_eq(district.id, WorldGenerator.CENTRAL_DISTRICT_ID)
-	assert_eq(district.center, Vector2.ZERO)
+	assert_lt(district.center.length(), SCENARIO.city_size * 0.65)
+	assert_ne(district.center, SCENARIO.battlefield_layout().city_districts[0].center)
 	assert_eq(district.blocks, generator.city_block_layout())
 	assert_eq(district.buildings, generator.building_transforms())
 	assert_true(district.has_buildings())
@@ -805,19 +806,19 @@ func test_scenario_exposes_distinct_island_bay_valley_and_coastal_plain_worlds()
 		var generator := WorldGenerator.new()
 		generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size, selected)
 		assert_eq(generator.city_districts().size(), expected_district_counts[index], String(expected_ids[index]))
-		assert_eq(generator.primary_city_center(), selected.city_districts[0].center)
+		assert_eq(generator.primary_city_center(), generator.city_districts()[0].center)
 		if generator.city_districts().size() > 1:
 			var centers: Array[Vector2] = []
 			for district: CityDistrict in generator.city_districts():
 				centers.append(district.center)
 			assert_gt(centers[0].distance_to(centers.back()), 300.0, String(expected_ids[index]))
 
-func test_non_island_terrain_shapes_have_authored_macro_topology() -> void:
+func test_non_island_terrain_shapes_keep_their_macro_topology_inside_organic_coasts() -> void:
 	var bay_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
 	bay_scenario.world_seed = 0
 	var bay := WorldGenerator.new()
 	bay.generate(0, bay_scenario.battlefield_size, bay_scenario.terrain_resolution, bay_scenario.city_size, bay_scenario.battlefield_layout())
-	var bay_rotation := Basis(Vector3.UP, deg_to_rad(bay.layout.terrain_rotation_degrees))
+	var bay_rotation := Basis(Vector3.UP, deg_to_rad(bay.terrain_rotation_degrees))
 	var inlet := bay_rotation * Vector3(bay.size * 0.34, 0.0, 0.0)
 	var inland := bay_rotation * Vector3(-bay.size * 0.25, 0.0, 0.0)
 	assert_lt(bay.height_at(inlet.x, inlet.z), bay.sea_level)
@@ -826,17 +827,68 @@ func test_non_island_terrain_shapes_have_authored_macro_topology() -> void:
 	valley_scenario.world_seed = 2
 	var valley := WorldGenerator.new()
 	valley.generate(2, valley_scenario.battlefield_size, valley_scenario.terrain_resolution, valley_scenario.city_size, valley_scenario.battlefield_layout())
-	assert_gt(valley.height_at(-1000.0, 0.0), valley.height_at(0.0, 0.0) + 25.0)
-	assert_gt(valley.height_at(1000.0, 0.0), valley.height_at(0.0, 0.0) + 25.0)
+	var valley_rotation := Basis(Vector3.UP, deg_to_rad(valley.terrain_rotation_degrees))
+	var west_wall := valley_rotation * Vector3(-700.0, 0.0, 0.0)
+	var east_wall := valley_rotation * Vector3(700.0, 0.0, 0.0)
+	assert_gt(valley.height_at(west_wall.x, west_wall.z), valley.height_at(0.0, 0.0) + 25.0)
+	assert_gt(valley.height_at(east_wall.x, east_wall.z), valley.height_at(0.0, 0.0) + 25.0)
 	var coast_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
 	coast_scenario.world_seed = 3
 	var coast := WorldGenerator.new()
 	coast.generate(3, coast_scenario.battlefield_size, coast_scenario.terrain_resolution, coast_scenario.city_size, coast_scenario.battlefield_layout())
-	var coast_rotation := Basis(Vector3.UP, deg_to_rad(coast.layout.terrain_rotation_degrees))
+	var coast_rotation := Basis(Vector3.UP, deg_to_rad(coast.terrain_rotation_degrees))
 	var sea_side := coast_rotation * Vector3(1050.0, 0.0, 0.0)
 	var land_side := coast_rotation * Vector3(-1050.0, 0.0, 0.0)
 	assert_lt(coast.height_at(sea_side.x, sea_side.z), coast.sea_level)
 	assert_gt(coast.height_at(land_side.x, land_side.z), coast.sea_level)
+
+func test_seed_procedurally_varies_district_sites_sizes_and_macro_rotation() -> void:
+	var first_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	first_scenario.world_seed = 3
+	var second_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	second_scenario.world_seed = 7
+	assert_eq(first_scenario.battlefield_layout().id, second_scenario.battlefield_layout().id)
+	var first := WorldGenerator.new()
+	var second := WorldGenerator.new()
+	first.generate(first_scenario.world_seed, first_scenario.battlefield_size, first_scenario.terrain_resolution, first_scenario.city_size, first_scenario.battlefield_layout())
+	second.generate(second_scenario.world_seed, second_scenario.battlefield_size, second_scenario.terrain_resolution, second_scenario.city_size, second_scenario.battlefield_layout())
+	assert_ne(first.terrain_rotation_degrees, second.terrain_rotation_degrees)
+	for district_index: int in first.city_districts().size():
+		var first_definition := first.city_districts()[district_index].definition
+		var second_definition := second.city_districts()[district_index].definition
+		assert_ne(first_definition.center, second_definition.center, String(first_definition.id))
+		assert_ne(first_definition.rotation_degrees, second_definition.rotation_degrees, String(first_definition.id))
+		assert_ne(first_definition.size, second_definition.size, String(first_definition.id))
+
+func test_every_terrain_shape_submerges_the_full_mesh_perimeter() -> void:
+	for layout_index: int in SCENARIO.battlefield_layouts.size():
+		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+		scenario.world_seed = layout_index
+		var generator := WorldGenerator.new()
+		generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size, scenario.battlefield_layout())
+		var edge := scenario.battlefield_size * 0.5
+		for position: Vector2 in [Vector2(edge, 0.0), Vector2(-edge, 0.0), Vector2(0.0, edge), Vector2(0.0, -edge)]:
+			assert_lt(generator.height_at(position.x, position.y), generator.sea_level, "%s %s" % [scenario.battlefield_layout().id, position])
+
+func test_procedural_district_sites_remain_playable_across_seed_variants() -> void:
+	for seed_value: int in 12:
+		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+		scenario.world_seed = seed_value
+		var generator := WorldGenerator.new()
+		generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size, scenario.battlefield_layout())
+		var districts := generator.city_districts()
+		for district: CityDistrict in districts:
+			assert_false(district.blocks.is_empty(), "%d %s blocks" % [seed_value, district.id])
+			assert_false(district.buildings.is_empty(), "%d %s buildings" % [seed_value, district.id])
+			assert_gt(generator.height_at(district.center.x, district.center.y), generator.sea_level, "%d %s center" % [seed_value, district.id])
+			if districts.size() > 1:
+				assert_gt(district.definition.size, 310.0, "%d %s size" % [seed_value, district.id])
+		for first_index: int in districts.size():
+			for second_index: int in range(first_index + 1, districts.size()):
+				var first := districts[first_index]
+				var second := districts[second_index]
+				var minimum_separation := (first.definition.size + second.definition.size) * 0.38
+				assert_gt(first.center.distance_to(second.center), minimum_separation, "%d %s/%s separation" % [seed_value, first.id, second.id])
 
 func test_every_battlefield_layout_keeps_rooftop_placement_sites() -> void:
 	for layout_index: int in SCENARIO.battlefield_layouts.size():

@@ -23,7 +23,10 @@ static func ready(profile: ThreatMissionDefinition, body_transform: Transform3D,
 		return fall_time > 0.0 and horizontal.length() <= BOMB_RELEASE_TOLERANCE
 	# Leave margin inside the smallest asset's impact radius for the hardpoint
 	# offset and the difference between target elevation and sloping terrain.
-	return fall_time > 0.0 and (horizontal - forward * fall_time).length() <= maxf(BOMB_RELEASE_TOLERANCE, forward.length() * delta)
+	# Turning and terrain-clearance corrections can move the discrete ballistic
+	# solution by more than one straight-line frame at coarse/high-speed ticks.
+	var swept_tolerance := forward.length() * delta * 1.5
+	return fall_time > 0.0 and (horizontal - forward * fall_time).length() <= maxf(BOMB_RELEASE_TOLERANCE, swept_tolerance)
 
 static func release(parent: Node, body_transform: Transform3D, mission: ThreatMissionRuntime, target: Vector3, velocity: Vector3, battlefield: Battlefield, objective: ProtectedObjective) -> Node3D:
 	if parent == null:
