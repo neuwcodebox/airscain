@@ -759,9 +759,9 @@ func _reveal_game_over() -> void:
 
 func _style_game_over_actions() -> void:
 	var actions := game_over_panel.get_node("VBox/Actions")
-	MenuStyle.apply_action_button(actions.get_node("SameSeedButton") as Button, true, MenuStyle.DANGER)
-	MenuStyle.apply_action_button(actions.get_node("NewSeedButton") as Button, false, MenuStyle.DANGER)
-	MenuStyle.apply_action_button(game_over_main_menu_button, false, MenuStyle.DANGER)
+	MenuStyle.apply_action_button(actions.get_node("SameSeedButton") as Button, true)
+	MenuStyle.apply_action_button(actions.get_node("NewSeedButton") as Button)
+	MenuStyle.apply_action_button(game_over_main_menu_button)
 
 func _set_gameplay_controls_disabled(disabled: bool) -> void:
 	defense_menu_button.disabled = disabled
