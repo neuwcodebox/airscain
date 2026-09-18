@@ -73,7 +73,8 @@ static func _repair_cross_references(payload: Dictionary, scenario: ScenarioDefi
 		var definition_id := StringName(String(state.get("definition_id", "")))
 		var definition: DefenseDefinition = defense_definitions.get(definition_id)
 		var runtime_id := int(state.get("runtime_id", 0))
-		if definition == null or runtime_id <= 0 or defense_ids.has(runtime_id) or not SaveDocument.is_valid_vector3_data(state.get("position")) or not state.get("content_state", {}) is Dictionary:
+		var rotation_y: Variant = state.get("rotation_y", 0.0)
+		if definition == null or runtime_id <= 0 or defense_ids.has(runtime_id) or not SaveDocument.is_valid_vector3_data(state.get("position")) or not (rotation_y is int or rotation_y is float) or not is_finite(float(rotation_y)) or not state.get("content_state", {}) is Dictionary:
 			repairs.append("복원할 수 없는 방공 자산 %d을 제거했습니다" % runtime_id)
 			continue
 		var integrity := float(state.get("integrity", -1.0))

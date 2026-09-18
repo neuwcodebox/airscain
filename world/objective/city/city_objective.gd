@@ -2,7 +2,12 @@ class_name CityObjective
 extends ProtectedObjective
 
 func initial_defense_mounts() -> Array[Dictionary]:
-	return [{"definition_id": &"command_post", "position": ($CommandMount as Marker3D).global_position}]
+	var mount := $CommandMount as Marker3D
+	return [{
+		"definition_id": &"command_post",
+		"position": mount.global_position,
+		"rotation_y": mount.global_rotation.y,
+	}]
 
 func excludes_placement(world_position: Vector3, radius: float) -> bool:
 	var hall := $CivicHall as MeshInstance3D

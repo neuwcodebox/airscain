@@ -691,6 +691,7 @@ func test_city_objective_uses_a_civic_landmark() -> void:
 	var mount := city.get_node("CommandMount") as Marker3D
 	assert_almost_eq(mount.position.y, roof.position.y + (roof.mesh as BoxMesh).size.y * 0.5, 0.001)
 	city.rotation.y = deg_to_rad(37.0)
+	assert_almost_eq(float(city.initial_defense_mounts()[0].rotation_y), city.global_rotation.y, 0.0001, "옥상 설치점은 시민청 방향을 제공합니다")
 	var hall := city.get_node("CivicHall") as MeshInstance3D
 	var rotated_inside := hall.global_transform * Vector3(16.0, 0.0, 11.0)
 	var world_axis_corner := hall.global_position + Vector3(16.0, 0.0, 11.0)

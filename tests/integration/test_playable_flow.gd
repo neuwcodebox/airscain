@@ -264,6 +264,7 @@ func test_city_rooftop_command_is_free_registered_and_connects_the_first_defense
 	var command := main.defenses[0]
 	assert_eq(command.definition.id, &"command_post")
 	assert_eq(command.global_position, main.objective.initial_defense_mounts()[0].position)
+	assert_almost_eq(command.global_basis.x.normalized().dot(main.objective.global_basis.x.normalized()), 1.0, 0.0001, "옥상 지휘통제소는 시민청 방향을 따릅니다")
 	assert_gt(command.global_position.y, main.objective.global_position.y + 20.0)
 	assert_eq(main.session.defense_spending, 0)
 	assert_eq(main.session.budget, main.session.starting_budget)

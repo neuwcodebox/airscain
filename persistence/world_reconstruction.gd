@@ -32,7 +32,9 @@ func restore_objects(state: Dictionary, scenario: ScenarioDefinition) -> void:
 	var defense_definitions := SessionSnapshot.defense_definition_map(scenario)
 	for saved: Dictionary in state.defenses:
 		var definition: DefenseDefinition = defense_definitions[StringName(String(saved.definition_id))]
-		var unit := DefenseDeployment.restore(definition, saved, SaveDocument.vector3_from_data(saved.position), battlefield, defense_parent, registry, projectile_parent)
+		var position := SaveDocument.vector3_from_data(saved.position)
+		var rotation_y := float(saved.get("rotation_y", _initial_mount_rotation(saved, position)))
+		var unit := DefenseDeployment.restore(definition, saved, position, rotation_y, battlefield, defense_parent, registry, projectile_parent)
 		defenses_by_id[unit.runtime_id] = unit
 		defense_restored.emit(unit)
 	var contact_definitions := SessionSnapshot.contact_definition_map(scenario)
@@ -45,6 +47,14 @@ func restore_objects(state: Dictionary, scenario: ScenarioDefinition) -> void:
 		contact.restore_state(saved, objective, battlefield, defenses_by_id)
 		registry.add(contact)
 		contact_restored.emit(contact)
+
+func _initial_mount_rotation(saved: Dictionary, position: Vector3) -> float:
+	for mount: Dictionary in objective.initial_defense_mounts():
+		if StringName(String(mount.get("definition_id", ""))) != StringName(String(saved.definition_id)):
+			continue
+		if (mount.position as Vector3).distance_squared_to(position) <= 0.01:
+			return float(mount.get("rotation_y", 0.0))
+	return 0.0
 
 # Tracks and engagement reservations must exist before weapons are reattached.
 func restore_projectiles(states: Array, knowledge: PlayerKnowledge) -> void:

@@ -272,6 +272,7 @@ func capture_state() -> Dictionary:
 		"definition_id": String(definition.id),
 		"runtime_id": runtime_id,
 		"position": SaveDocument.vector3_to_data(global_position),
+		"rotation_y": global_rotation.y,
 		"active": active,
 		"integrity": integrity,
 		"neutralized_count": neutralized_count,
@@ -282,6 +283,8 @@ func capture_content_state() -> Dictionary:
 	return {}
 
 func restore_state(state: Dictionary) -> void:
+	if state.has("rotation_y"):
+		global_rotation.y = float(state.rotation_y)
 	integrity = float(state.integrity)
 	active = bool(state.active) and operational_ratio() >= 0.35
 	neutralized_count = int(state.get("neutralized_count", 0))

@@ -92,12 +92,12 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 		return {"success": false, "reason": validation.reason}
 	return _deploy_defense(definition, battlefield.snap_placement_position(position, definition.placement_profile), battlefield, defense_parent, registry, projectile_parent, true)
 
-func deploy_initial_defense(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D) -> Dictionary:
+func deploy_initial_defense(definition: DefenseDefinition, position: Vector3, rotation_y: float, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D) -> Dictionary:
 	# Authored objective mounts are not player-placement surfaces or purchases.
-	return _deploy_defense(definition, position, battlefield, defense_parent, registry, projectile_parent, false)
+	return _deploy_defense(definition, position, battlefield, defense_parent, registry, projectile_parent, false, rotation_y)
 
-func _deploy_defense(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D, purchased: bool) -> Dictionary:
-	var unit := DefenseDeployment.deploy(definition, next_defense_id, position, battlefield, defense_parent, registry, projectile_parent)
+func _deploy_defense(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D, purchased: bool, rotation_y: float = 0.0) -> Dictionary:
+	var unit := DefenseDeployment.deploy(definition, next_defense_id, position, rotation_y, battlefield, defense_parent, registry, projectile_parent)
 	if unit == null:
 		return {"success": false, "reason": "방어 수단을 생성할 수 없습니다"}
 	next_defense_id += 1

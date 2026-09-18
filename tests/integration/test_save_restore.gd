@@ -57,6 +57,22 @@ func test_projectile_reconstruction_delegates_new_weapon_types_to_the_owner() ->
 	assert_eq(owner.restored_states, [state])
 	assert_null(owner.restored_target, "Lost tracks remain null instead of being replaced with hidden world targets")
 
+func test_initial_command_rotation_survives_current_and_legacy_save_restore() -> void:
+	var command := main.defenses[0]
+	var command_id := command.runtime_id
+	var expected_rotation := command.global_rotation.y
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var saved_command := _saved_defense(document, command_id)
+	assert_almost_eq(float(saved_command.rotation_y), expected_rotation, 0.0001)
+	command.global_rotation.y = 0.0
+	assert_eq(main.restore_from_document(document), "")
+	assert_almost_eq(_find_defense(command_id).global_rotation.y, expected_rotation, 0.0001, "현재 저장은 자산 회전을 보존합니다")
+	var legacy := document.duplicate(true)
+	_saved_defense(legacy, command_id).erase("rotation_y")
+	assert_eq(main.restore_from_document(legacy), "")
+	var restored_command := _find_defense(command_id)
+	assert_almost_eq(restored_command.global_basis.x.normalized().dot(main.objective.global_basis.x.normalized()), 1.0, 0.0001, "기존 저장의 옥상 자산은 설치점 방향을 복구합니다")
+
 func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void:
 	main.director.elapsed = 240.0
 	main.director.pressure_level = 12

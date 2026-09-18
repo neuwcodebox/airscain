@@ -202,7 +202,7 @@ func _deploy_initial_defenses() -> void:
 	for mount: Dictionary in objective.initial_defense_mounts():
 		for definition: DefenseDefinition in scenario.available_defenses:
 			if definition.id == mount.definition_id:
-				var result := session.deploy_initial_defense(definition, mount.position, battlefield, defense_parent, registry, projectile_parent)
+				var result := session.deploy_initial_defense(definition, mount.position, float(mount.get("rotation_y", 0.0)), battlefield, defense_parent, registry, projectile_parent)
 				if not result.success:
 					push_error("초기 방공 자산 생성 실패: %s" % result.reason)
 				break

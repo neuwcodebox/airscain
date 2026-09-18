@@ -5,12 +5,13 @@ static func deploy(
 	definition: DefenseDefinition,
 	runtime_id: int,
 	position: Vector3,
+	rotation_y: float,
 	battlefield: Battlefield,
 	defense_parent: Node3D,
 	registry: ThreatRegistry,
 	projectile_parent: Node3D
 ) -> DefenseUnit:
-	var unit := _create(definition, runtime_id, position, defense_parent, registry, projectile_parent)
+	var unit := _create(definition, runtime_id, position, rotation_y, defense_parent, registry, projectile_parent)
 	if unit != null:
 		_register_occupancy(unit, definition, battlefield)
 	return unit
@@ -19,12 +20,13 @@ static func restore(
 	definition: DefenseDefinition,
 	state: Dictionary,
 	position: Vector3,
+	rotation_y: float,
 	battlefield: Battlefield,
 	defense_parent: Node3D,
 	registry: ThreatRegistry,
 	projectile_parent: Node3D
 ) -> DefenseUnit:
-	var unit := _create(definition, int(state.runtime_id), position, defense_parent, registry, projectile_parent)
+	var unit := _create(definition, int(state.runtime_id), position, rotation_y, defense_parent, registry, projectile_parent)
 	if unit == null:
 		return null
 	unit.restore_state(state)
@@ -35,6 +37,7 @@ static func _create(
 	definition: DefenseDefinition,
 	runtime_id: int,
 	position: Vector3,
+	rotation_y: float,
 	defense_parent: Node3D,
 	registry: ThreatRegistry,
 	projectile_parent: Node3D
@@ -45,7 +48,7 @@ static func _create(
 	if unit == null:
 		return null
 	defense_parent.add_child(unit)
-	unit.global_position = position
+	unit.global_transform = Transform3D(Basis(Vector3.UP, rotation_y), position)
 	unit.setup(runtime_id, definition)
 	unit.configure_combat(registry, projectile_parent)
 	return unit
