@@ -170,6 +170,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	overlay_option.select(overlay_mode_index)
 	overlay_option.get_popup().about_to_popup.connect(_close_context_menus)
 	_apply_menu_row_style(city_restoration_button)
+	_style_game_over_actions()
 	_build_defense_catalog()
 	_catalog_state.clear()
 	_restoration_state.clear()
@@ -722,6 +723,12 @@ func _on_phase_changed(new_phase: GameSession.Phase) -> void:
 		set_threat_menu_expanded(false)
 		final_stats.text = "생존 시간  %02d:%02d\n무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.neutralized_count, session.defense_count, session.highest_pressure]
 	_on_state_changed()
+
+func _style_game_over_actions() -> void:
+	var actions := game_over_panel.get_node("VBox/Actions")
+	MenuStyle.apply_action_button(actions.get_node("SameSeedButton") as Button, true, MenuStyle.DANGER)
+	MenuStyle.apply_action_button(actions.get_node("NewSeedButton") as Button, false, MenuStyle.DANGER)
+	MenuStyle.apply_action_button(game_over_main_menu_button, false, MenuStyle.DANGER)
 
 func _set_gameplay_controls_disabled(disabled: bool) -> void:
 	defense_menu_button.disabled = disabled

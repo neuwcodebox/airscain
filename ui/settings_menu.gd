@@ -15,28 +15,24 @@ var previous_focus: Control
 func _ready() -> void:
 	layer = 110
 	var dim := ColorRect.new()
-	dim.color = Color(0.01, 0.02, 0.03, 0.88)
+	dim.color = Color(0.005, 0.012, 0.018, 0.82)
 	add_child(dim)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var panel := PanelContainer.new()
 	dim.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	panel.anchor_left = 0.24
-	panel.anchor_right = 0.76
+	panel.anchor_left = 0.25
+	panel.anchor_right = 0.75
 	panel.anchor_top = 0.1
 	panel.anchor_bottom = 0.9
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("101f25")
-	style.border_color = Color("527d79")
-	style.set_border_width_all(1)
-	style.set_content_margin_all(24)
-	panel.add_theme_stylebox_override("panel", style)
+	panel.add_theme_stylebox_override("panel", MenuStyle.panel(MenuStyle.ACCENT, 36.0))
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
 	panel.add_child(column)
 	var title := Label.new()
 	title.text = "설정"
-	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", MenuStyle.TEXT)
 	column.add_child(title)
 	tabs = TabContainer.new()
 	tabs.tab_changed.connect(func(_index: int) -> void: _trap_focus.call_deferred())
@@ -45,16 +41,7 @@ func _ready() -> void:
 	body_style.content_margin_left = 8
 	body_style.content_margin_right = 8
 	tabs.add_theme_stylebox_override("panel", body_style)
-	for state: String in ["tab_selected", "tab_unselected", "tab_hovered"]:
-		var tab_style := StyleBoxFlat.new()
-		tab_style.bg_color = Color("294a4c") if state == "tab_selected" else Color("152b32")
-		tab_style.content_margin_left = 22
-		tab_style.content_margin_right = 22
-		tab_style.content_margin_top = 10
-		tab_style.content_margin_bottom = 10
-		tab_style.border_width_bottom = 2 if state == "tab_selected" else 0
-		tab_style.border_color = Color("83b7a9")
-		tabs.add_theme_stylebox_override(state, tab_style)
+	MenuStyle.apply_tabs(tabs)
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(tabs)
 	var audio := _tab(tabs, "사운드")
@@ -68,7 +55,7 @@ func _ready() -> void:
 	var camera_help := Label.new()
 	camera_help.text = "WASD  이동\n가운데 버튼 드래그  수평·수직 회전\nQ / E  수평 회전\n휠  확대·축소\nBackspace  위치·줌·각도 초기화\n우클릭  배치 취소·선택 해제"
 	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	camera_help.add_theme_color_override("font_color", Color("a7bec4"))
+	camera_help.add_theme_color_override("font_color", MenuStyle.TEXT_MUTED)
 	controls.add_child(camera_help)
 	var display := _tab(tabs, "화면")
 	fullscreen = CheckButton.new()
@@ -90,14 +77,14 @@ func _ready() -> void:
 		render_options.append("%d × %d" % [size.x, size.y])
 	_option(display, "render_resolution", "렌더링 해상도", render_options)
 	render_readout = Label.new()
-	render_readout.add_theme_color_override("font_color", Color("83b7a9"))
+	render_readout.add_theme_color_override("font_color", MenuStyle.ACCENT)
 	display.add_child(render_readout)
 	get_tree().root.size_changed.connect(_refresh_render_readout)
 	PlayerSettings.instance().changed.connect(_refresh_render_readout)
 	_option(display, "antialiasing", "안티앨리어싱", ["끄기", "MSAA 2×", "MSAA 4×", "MSAA 8×"])
 	_option(display, "frame_limit", "최대 프레임", ["제한 없음", "30 FPS", "60 FPS", "120 FPS", "144 FPS"])
 	feedback = Label.new()
-	feedback.add_theme_color_override("font_color", Color("ffbd80"))
+	feedback.add_theme_color_override("font_color", MenuStyle.WARNING)
 	column.add_child(feedback)
 	var actions := HBoxContainer.new()
 	column.add_child(actions)
@@ -114,14 +101,8 @@ func _ready() -> void:
 	close_button.custom_minimum_size = Vector2(120, 44)
 	close_button.pressed.connect(close)
 	actions.add_child(close_button)
-	for button: Button in [reset, close_button]:
-		for state: String in ["normal", "hover", "pressed", "focus"]:
-			var button_style := StyleBoxFlat.new()
-			button_style.bg_color = Color("294a4c") if state != "normal" else Color("1c333b")
-			button_style.set_content_margin_all(12)
-			button_style.border_color = Color("86bcb0")
-			button_style.border_width_bottom = 1
-			button.add_theme_stylebox_override(state, button_style)
+	MenuStyle.apply_action_button(reset)
+	MenuStyle.apply_action_button(close_button, true)
 	visible = false
 
 func _refresh_render_readout() -> void:
@@ -140,6 +121,7 @@ func _option(parent: VBoxContainer, key: String, caption: String, items: Array[S
 	row.add_child(label)
 	var option := OptionButton.new()
 	option.custom_minimum_size = Vector2(230, 44)
+	MenuStyle.apply_option(option)
 	for item: String in items:
 		option.add_item(item)
 	option.item_selected.connect(func(index: int) -> void: PlayerSettings.instance().set_value(key, index))
@@ -176,6 +158,7 @@ func _slider(parent: VBoxContainer, key: String, caption: String, audio: bool) -
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_child(label)
 	var readout := Label.new()
+	readout.add_theme_color_override("font_color", MenuStyle.ACCENT)
 	heading.add_child(readout)
 	readouts[key] = readout
 	var slider := HSlider.new()
@@ -183,15 +166,7 @@ func _slider(parent: VBoxContainer, key: String, caption: String, audio: bool) -
 	slider.max_value = 100 if audio else 200
 	slider.step = 1 if audio else 5
 	slider.custom_minimum_size.y = 26
-	var track := StyleBoxFlat.new()
-	track.bg_color = Color("29434b")
-	track.content_margin_top = 3
-	track.content_margin_bottom = 3
-	slider.add_theme_stylebox_override("slider", track)
-	var fill := track.duplicate() as StyleBoxFlat
-	fill.bg_color = Color("83b7a9")
-	slider.add_theme_stylebox_override("grabber_area", fill)
-	slider.add_theme_stylebox_override("grabber_area_highlight", fill)
+	MenuStyle.apply_slider(slider)
 	slider.value_changed.connect(func(value: float) -> void:
 		PlayerSettings.instance().set_value(key, value / 100.0)
 		readout.text = "%d%%" % roundi(value))

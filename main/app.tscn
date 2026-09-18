@@ -1,30 +1,54 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource path="res://main/app.gd" type="Script" id="1"]
 [ext_resource path="res://ui/audio/ui_audio.gd" type="Script" id="2"]
 [ext_resource path="res://main/menu_backdrop.gd" type="Script" id="3"]
 [ext_resource path="res://main/menu_shade.gdshader" type="Shader" id="4"]
+[ext_resource path="res://ui/menu_list_button.gd" type="Script" id="5"]
+[ext_resource path="res://ui/radar_emblem.gd" type="Script" id="6"]
+[ext_resource path="res://ui/fonts/NanumSquareB.ttf" type="FontFile" id="7"]
 
 [sub_resource type="ShaderMaterial" id="MenuShade"]
 shader = ExtResource("4")
 
 [sub_resource type="StyleBoxEmpty" id="ClearPanel"]
 
-[sub_resource type="StyleBoxFlat" id="MenuPanel"]
-bg_color = Color(0.025, 0.045, 0.065, 0.97)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.18, 0.62, 0.78, 0.9)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
-content_margin_left = 34.0
-content_margin_top = 30.0
-content_margin_right = 34.0
-content_margin_bottom = 30.0
+[sub_resource type="FontVariation" id="TitleFont"]
+base_font = ExtResource("7")
+spacing_glyph = 8
+
+[sub_resource type="FontVariation" id="TrackedFont"]
+base_font = ExtResource("7")
+spacing_glyph = 3
+
+[sub_resource type="Gradient" id="RuleGradient"]
+colors = PackedColorArray(0.435, 0.84, 0.784, 0.6, 0.435, 0.84, 0.784, 0)
+
+[sub_resource type="GradientTexture2D" id="RuleTexture"]
+gradient = SubResource("RuleGradient")
+width = 256
+height = 1
+
+[sub_resource type="StyleBoxFlat" id="PausePanel"]
+bg_color = Color(0.016, 0.03, 0.04, 0.95)
+border_width_right = 1
+border_color = Color(0.435, 0.84, 0.784, 0.35)
+content_margin_left = 64.0
+content_margin_top = 48.0
+content_margin_right = 48.0
+content_margin_bottom = 48.0
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 32
+
+[sub_resource type="StyleBoxFlat" id="LoadingTrack"]
+bg_color = Color(0.435, 0.84, 0.784, 0.14)
+content_margin_top = 1.5
+content_margin_bottom = 1.5
+
+[sub_resource type="StyleBoxFlat" id="LoadingFill"]
+bg_color = Color(0.435, 0.84, 0.784, 0.9)
+content_margin_top = 1.5
+content_margin_bottom = 1.5
 
 [node name="App" type="Node"]
 script = ExtResource("1")
@@ -69,87 +93,181 @@ anchor_top = 0.5
 anchor_right = 0.055
 anchor_bottom = 0.5
 offset_left = 0.0
-offset_top = -340.0
+offset_top = -350.0
 offset_right = 500.0
-offset_bottom = 340.0
+offset_bottom = 350.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("ClearPanel")
 
 [node name="VBox" type="VBoxContainer" parent="MainMenu/Panel"]
 layout_mode = 2
-theme_override_constants/separation = 16
+alignment = 1
+theme_override_constants/separation = 4
 
-[node name="Title" type="Label" parent="MainMenu/Panel/VBox"]
+[node name="Header" type="HBoxContainer" parent="MainMenu/Panel/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.91, 0.94, 0.87, 1)
-theme_override_font_sizes/font_size = 64
+theme_override_constants/separation = 20
+
+[node name="Emblem" type="Control" parent="MainMenu/Panel/VBox/Header"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("6")
+
+[node name="TitleBlock" type="VBoxContainer" parent="MainMenu/Panel/VBox/Header"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 2
+
+[node name="Title" type="Label" parent="MainMenu/Panel/VBox/Header/TitleBlock"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.96, 0.94, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.55)
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = SubResource("TitleFont")
+theme_override_font_sizes/font_size = 56
 text = "AIR SCAIN"
-horizontal_alignment = 0
 
-[node name="Subtitle" type="Label" parent="MainMenu/Panel/VBox"]
+[node name="Subtitle" type="Label" parent="MainMenu/Panel/VBox/Header/TitleBlock"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.72, 0.82, 0.86, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 0.85)
+theme_override_fonts/font = SubResource("TrackedFont")
+theme_override_font_sizes/font_size = 16
 text = "실시간 방공 전략 게임"
-horizontal_alignment = 0
+
+[node name="HeaderRule" type="TextureRect" parent="MainMenu/Panel/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("RuleTexture")
+expand_mode = 1
+stretch_mode = 0
 
 [node name="Spacer" type="Control" parent="MainMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 24)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
 [node name="SustainedButton" type="Button" parent="MainMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "새 게임"
-tooltip_text = "방공 자산을 배치하고 도시를 방어합니다. 시간이 지날수록 공격 규모가 커집니다."
+script = ExtResource("5")
+description = "방공 자산을 배치하고 도시를 방어합니다.\n시간이 지날수록 공격 규모가 커집니다."
 
 [node name="MainLoadButton" type="Button" parent="MainMenu/Panel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "이어하기"
-tooltip_text = "저장한 게임을 불러옵니다."
+script = ExtResource("5")
+description = "저장한 게임을 불러옵니다."
 
 [node name="TrainingButton" type="Button" parent="MainMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "훈련"
-tooltip_text = "자산 배치, 탐지, 교전, 보급 등 기본 조작을 익힙니다."
+script = ExtResource("5")
+description = "자산 배치, 탐지, 교전, 보급 등 기본 조작을 익힙니다."
 
 [node name="SandboxButton" type="Button" parent="MainMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 28
 text = "자유 모드"
-tooltip_text = "방공 자산을 자유롭게 배치하고 위협을 직접 투입합니다."
+script = ExtResource("5")
+description = "방공 자산을 자유롭게 배치하고 위협을 직접 투입합니다."
 
-[node name="MenuFeedbackLabel" type="Label" parent="MainMenu/Panel/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 28)
+[node name="FooterGap" type="Control" parent="MainMenu/Panel/VBox"]
+custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.76, 0.4, 1)
-text = ""
-horizontal_alignment = 1
 
 [node name="Footer" type="VBoxContainer" parent="MainMenu/Panel/VBox"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 0
 
 [node name="SettingsButton" type="Button" parent="MainMenu/Panel/VBox/Footer"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 19
 text = "설정"
+script = ExtResource("5")
+description = "사운드, 조작 감도와 화면 옵션을 조정합니다."
 
 [node name="QuitButton" type="Button" parent="MainMenu/Panel/VBox/Footer"]
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 19
 text = "종료"
+script = ExtResource("5")
+description = "게임을 종료합니다."
+
+[node name="DescriptionGap" type="Control" parent="MainMenu/Panel/VBox"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+
+[node name="DescriptionRule" type="TextureRect" parent="MainMenu/Panel/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("RuleTexture")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="MenuDescriptionLabel" type="Label" parent="MainMenu/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 58)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.8, 0.8, 1)
+theme_override_constants/line_spacing = 4
+theme_override_font_sizes/font_size = 16
+text = ""
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="MenuFeedbackLabel" type="Label" parent="MainMenu/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.74, 0.5, 1)
+theme_override_font_sizes/font_size = 15
+text = ""
+autowrap_mode = 3
+
+[node name="LoadingStatus" type="VBoxContainer" parent="MainMenu"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_left = 0.055
+anchor_top = 1.0
+anchor_right = 0.055
+anchor_bottom = 1.0
+offset_top = -78.0
+offset_right = 320.0
+offset_bottom = -44.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="LoadingLabel" type="Label" parent="MainMenu/LoadingStatus"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.7, 0.9)
+theme_override_fonts/font = SubResource("TrackedFont")
+theme_override_font_sizes/font_size = 13
+text = "로딩 중"
+
+[node name="LoadingBar" type="ProgressBar" parent="MainMenu/LoadingStatus"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 3)
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/background = SubResource("LoadingTrack")
+theme_override_styles/fill = SubResource("LoadingFill")
+max_value = 1.0
+show_percentage = false
 
 [node name="BuildVersionLabel" type="Label" parent="MainMenu"]
 unique_name_in_owner = true
@@ -159,15 +277,16 @@ anchor_left = 1.0
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -260.0
-offset_top = -38.0
-offset_right = -18.0
-offset_bottom = -14.0
+offset_left = -300.0
+offset_top = -40.0
+offset_right = -28.0
+offset_bottom = -18.0
 grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 0.72)
-theme_override_font_sizes/font_size = 13
+theme_override_colors/font_color = Color(0.58, 0.68, 0.72, 0.6)
+theme_override_fonts/font = SubResource("TrackedFont")
+theme_override_font_sizes/font_size = 12
 text = "dev"
 horizontal_alignment = 2
 
@@ -191,72 +310,93 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.68)
+color = Color(0.005, 0.015, 0.02, 0.5)
 
 [node name="Panel" type="PanelContainer" parent="PauseLayer/PauseMenu"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -290.0
-offset_right = 220.0
-offset_bottom = 290.0
-grow_horizontal = 2
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 440.0
 grow_vertical = 2
-theme_override_styles/panel = SubResource("MenuPanel")
+theme_override_styles/panel = SubResource("PausePanel")
 
 [node name="VBox" type="VBoxContainer" parent="PauseLayer/PauseMenu/Panel"]
 layout_mode = 2
-theme_override_constants/separation = 14
+alignment = 1
+theme_override_constants/separation = 4
 
 [node name="Title" type="Label" parent="PauseLayer/PauseMenu/Panel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 34
+theme_override_colors/font_color = Color(0.93, 0.96, 0.94, 1)
+theme_override_fonts/font = SubResource("TrackedFont")
+theme_override_font_sizes/font_size = 38
 text = "일시정지"
-horizontal_alignment = 1
+
+[node name="TitleRule" type="TextureRect" parent="PauseLayer/PauseMenu/Panel/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("RuleTexture")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="TitleGap" type="Control" parent="PauseLayer/PauseMenu/Panel/VBox"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
 
 [node name="ResumeButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "계속하기"
+script = ExtResource("5")
 
 [node name="PauseSaveButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "저장"
+script = ExtResource("5")
 
 [node name="PauseLoadButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "불러오기"
+script = ExtResource("5")
+
+[node name="SettingsButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "설정"
+script = ExtResource("5")
 
 [node name="PauseFeedbackLabel" type="Label" parent="PauseLayer/PauseMenu/Panel/VBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 26)
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.76, 0.4, 1)
+theme_override_colors/font_color = Color(1, 0.74, 0.5, 1)
+theme_override_font_sizes/font_size = 15
 text = ""
-horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
 
 [node name="MainMenuButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
+theme_override_font_sizes/font_size = 19
 text = "메인 메뉴"
+script = ExtResource("5")
 
 [node name="PauseQuitButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
+theme_override_font_sizes/font_size = 19
 text = "종료"
-
-[node name="SettingsButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox" index="4"]
-custom_minimum_size = Vector2(0, 52)
-layout_mode = 2
-text = "설정"
+script = ExtResource("5")
 
 [connection signal="pressed" from="MainMenu/Panel/VBox/Footer/SettingsButton" to="." method="_on_settings_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/SettingsButton" to="." method="_on_settings_pressed"]

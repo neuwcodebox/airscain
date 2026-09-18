@@ -14,10 +14,14 @@ var settings_menu: SettingsMenu
 
 @onready var main_menu: Control = %MainMenu
 @onready var pause_menu: Control = %PauseMenu
-@onready var main_load_button: Button = %MainLoadButton
-@onready var pause_save_button: Button = %PauseSaveButton
-@onready var pause_load_button: Button = %PauseLoadButton
+@onready var main_load_button: MenuListButton = %MainLoadButton
+@onready var pause_save_button: MenuListButton = %PauseSaveButton
+@onready var pause_load_button: MenuListButton = %PauseLoadButton
 @onready var menu_feedback_label: Label = %MenuFeedbackLabel
+@onready var menu_description_label: Label = %MenuDescriptionLabel
+@onready var loading_status: Control = %LoadingStatus
+@onready var loading_label: Label = %LoadingLabel
+@onready var loading_bar: ProgressBar = %LoadingBar
 @onready var pause_feedback_label: Label = %PauseFeedbackLabel
 @onready var build_version_label: Label = %BuildVersionLabel
 @onready var ui_audio: UiAudio = $UiAudio
@@ -43,58 +47,64 @@ func _ready() -> void:
 	pause_menu.visible = false
 	ui_audio.connect_buttons(main_menu)
 	ui_audio.connect_buttons(pause_menu)
-	_style_menu_buttons()
+	for node: Node in main_menu.find_children("*", "MenuListButton", true, false):
+		(node as MenuListButton).focus_entered.connect(_show_menu_description.bind(node))
 	_refresh_main_load_button()
 	_set_preparation_ui(false)
+	_reveal_main_menu()
 	get_tree().process_frame.connect(_start_combat_vfx_warmup, CONNECT_ONE_SHOT)
 
-func _style_menu_buttons() -> void:
-	for menu: Control in [main_menu, pause_menu]:
-		for node: Node in menu.find_children("*", "Button"):
-			var button := node as Button
-			for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
-				var style := StyleBoxFlat.new()
-				style.bg_color = Color(0.08, 0.14, 0.16, 0.9)
-				style.border_color = Color("3b6668")
-				style.border_width_bottom = 1
-				style.content_margin_left = 22
-				style.content_margin_right = 22
-				if state in ["hover", "focus"]:
-					style.bg_color = Color("254b50")
-					style.border_color = Color("a8d7c3")
-					style.border_width_left = 3
-				elif state == "pressed":
-					style.bg_color = Color("34625f")
-				elif state == "disabled":
-					style.bg_color = Color(0.05, 0.09, 0.10, 0.7)
-				if button.name == "SustainedButton" and state == "normal":
-					style.bg_color = Color("32645e")
-					style.border_color = Color("8fb6a0")
-				button.add_theme_stylebox_override(state, style)
-			button.add_theme_color_override("font_color", Color("e0e8dd"))
-			if menu == main_menu:
-				button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+func _show_menu_description(button: MenuListButton) -> void:
+	menu_description_label.text = button.description
+
+## Staggers the title and entries in, then selects the first available entry for keyboard play.
+func _reveal_main_menu() -> void:
+	var items: Array[Control] = []
+	for node: Node in main_menu.get_node("Panel/VBox").get_children():
+		var item := node as Control
+		if item != null and item.visible:
+			items.append(item)
+	for index: int in items.size():
+		var item := items[index]
+		item.modulate.a = 0.0
+		var tween := item.create_tween()
+		tween.tween_interval(0.035 * index)
+		tween.tween_property(item, "modulate:a", 1.0, 0.28)
+	if combat_vfx_warmup_completed:
+		_focus_first_available(main_menu.get_node("Panel/VBox"))
+
+func _focus_first_available(container: Node) -> void:
+	for node: Node in container.find_children("*", "MenuListButton", true, false):
+		var button := node as MenuListButton
+		if not button.disabled and button.is_visible_in_tree():
+			button.grab_focus()
+			return
 
 func _start_combat_vfx_warmup() -> void:
 	if combat_vfx_warmup_started:
 		return
 	combat_vfx_warmup_started = true
 	var warmup := CombatVfxWarmup.new()
-	warmup.progress_changed.connect(func(fraction: float) -> void: menu_feedback_label.text = "로딩 중 · %d%%" % roundi(fraction * 100.0))
+	warmup.progress_changed.connect(func(fraction: float) -> void:
+		loading_bar.value = fraction
+		loading_label.text = "로딩 중  %d%%" % roundi(fraction * 100.0))
 	warmup.completed.connect(_on_combat_vfx_warmup_completed)
 	add_child(warmup)
 
 func _on_combat_vfx_warmup_completed() -> void:
 	combat_vfx_warmup_completed = true
 	_set_preparation_ui(true)
-	menu_feedback_label.text = ""
+	loading_bar.value = 1.0
+	var tween := loading_status.create_tween()
+	tween.tween_property(loading_status, "modulate:a", 0.0, 0.4)
+	tween.tween_callback(loading_status.hide)
+	if main_menu.visible:
+		_focus_first_available(main_menu.get_node("Panel/VBox"))
 
 func _set_preparation_ui(ready: bool) -> void:
 	for path: String in ["Panel/VBox/SustainedButton", "Panel/VBox/TrainingButton", "Panel/VBox/SandboxButton"]:
-		(main_menu.get_node(path) as Button).disabled = not ready
-	main_load_button.disabled = not ready or not _has_save_candidate()
-	if not ready:
-		menu_feedback_label.text = "로딩 중…"
+		(main_menu.get_node(path) as MenuListButton).set_available(ready)
+	main_load_button.set_available(ready and _has_save_candidate())
 
 func _input(event: InputEvent) -> void:
 	if settings_menu != null and settings_menu.visible and event.is_action_pressed("ui_cancel"):
@@ -145,9 +155,10 @@ func set_pause_menu(open: bool) -> void:
 	if open:
 		previous_simulation_speed = gameplay.session.simulation_speed
 		gameplay.session.set_simulation_speed(0.0)
-		pause_save_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED
-		pause_load_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED or not _has_save_candidate()
+		pause_save_button.set_available(gameplay.game_mode == AirscainMain.GameMode.SUSTAINED)
+		pause_load_button.set_available(gameplay.game_mode == AirscainMain.GameMode.SUSTAINED and _has_save_candidate())
 		pause_feedback_label.text = ""
+		_focus_first_available(pause_menu)
 	else:
 		gameplay.session.set_simulation_speed(previous_simulation_speed)
 
@@ -159,6 +170,7 @@ func return_to_main_menu() -> void:
 	pause_menu.visible = false
 	main_menu.visible = true
 	_refresh_main_load_button()
+	_reveal_main_menu()
 
 func _on_sustained_pressed() -> void:
 	start_game(AirscainMain.GameMode.SUSTAINED)
@@ -178,7 +190,7 @@ func _on_pause_save_pressed() -> void:
 		var error := gameplay.save_operation()
 		gameplay.session.set_simulation_speed(0.0)
 		_show_pause_persistence_result(PersistenceFeedback.Action.SAVE, error)
-		pause_load_button.disabled = gameplay.game_mode != AirscainMain.GameMode.SUSTAINED or not _has_save_candidate()
+		pause_load_button.set_available(gameplay.game_mode == AirscainMain.GameMode.SUSTAINED and _has_save_candidate())
 
 func _on_pause_load_pressed() -> void:
 	if gameplay == null:
@@ -237,7 +249,7 @@ func _report_persistence_failure(action: PersistenceFeedback.Action, diagnostic:
 	push_warning("%s 실패: %s" % [PersistenceFeedback.action_name(action), diagnostic])
 
 func _refresh_main_load_button() -> void:
-	main_load_button.disabled = not _has_save_candidate()
+	main_load_button.set_available(_has_save_candidate())
 
 func _has_save_candidate() -> bool:
 	return FileAccess.file_exists(save_path) or FileAccess.file_exists(save_path + ".bak")

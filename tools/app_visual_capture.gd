@@ -11,6 +11,9 @@ func run() -> void:
 	root.add_child(app)
 	var backdrop := (app as AirscainApp).main_menu.get_node("Background")
 	var demo := backdrop.get("demo") as AirscainMain
+	for index: int in 30:
+		await process_frame
+	_save_capture("/tmp/airscain_main_menu_loading.png")
 	while not (app as AirscainApp).combat_vfx_warmup_completed or not demo.combat_effect_pool.prepared:
 		await process_frame
 	if OS.get_cmdline_user_args().has("--demo-only"):
@@ -45,7 +48,12 @@ func run() -> void:
 	for index: int in 5:
 		await process_frame
 	_save_capture("/tmp/airscain_pause_menu.png")
-	print("APP_VISUAL_CAPTURE_OK main_menu gameplay pause_menu")
+	app.call("set_pause_menu", false)
+	operation.session.end_game()
+	for index: int in 5:
+		await process_frame
+	_save_capture("/tmp/airscain_game_over.png")
+	print("APP_VISUAL_CAPTURE_OK main_menu gameplay pause_menu game_over")
 	quit(0)
 
 func _save_capture(path: String) -> void:
