@@ -104,8 +104,8 @@ func build(scenario: ScenarioDefinition) -> void:
 	city_districts = generator.city_districts()
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
-	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
-	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks, scenario.city_size, layout.city_blocks)
+	_build_city_ground(city_blocks)
+	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks)
 	_city_boxes.build(city_visuals)
 	_configure_city_shadow_receivers()
 	var landscape := LandscapeDetails.new()
@@ -143,7 +143,7 @@ func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 	for index: int in buildings.size():
 		var building := buildings[index]
 		var size := building.basis.get_scale()
-		var bounds := AABB(building.origin - size * 0.5, size)
+		var bounds := building * AABB(-Vector3.ONE * 0.5, Vector3.ONE)
 		_building_bounds.append(bounds)
 		_city_bounds = bounds if index == 0 else _city_bounds.merge(bounds)
 		var first := _building_cell(bounds.position)
@@ -177,12 +177,10 @@ func random_city_building_target_in_district(district: CityDistrict, rng: Random
 	if district == null or not district.has_buildings():
 		return Vector3.ZERO
 	var building := district.random_building(rng)
-	var size := building.basis.get_scale()
-	var ground_y := building.origin.y - size.y * 0.5
-	return Vector3(
-		building.origin.x + size.x * rng.randf_range(CITY_TARGET_HORIZONTAL_FRACTION.x, CITY_TARGET_HORIZONTAL_FRACTION.y),
-		ground_y + size.y * rng.randf_range(CITY_TARGET_HEIGHT_FRACTION.x, CITY_TARGET_HEIGHT_FRACTION.y),
-		building.origin.z + size.z * rng.randf_range(CITY_TARGET_HORIZONTAL_FRACTION.x, CITY_TARGET_HORIZONTAL_FRACTION.y)
+	return building * Vector3(
+		rng.randf_range(CITY_TARGET_HORIZONTAL_FRACTION.x, CITY_TARGET_HORIZONTAL_FRACTION.y),
+		lerpf(-0.5, 0.5, rng.randf_range(CITY_TARGET_HEIGHT_FRACTION.x, CITY_TARGET_HEIGHT_FRACTION.y)),
+		rng.randf_range(CITY_TARGET_HORIZONTAL_FRACTION.x, CITY_TARGET_HORIZONTAL_FRACTION.y)
 	)
 
 func building_blocks_segment(from_position: Vector3, to_position: Vector3) -> bool:
@@ -398,7 +396,7 @@ func set_rooftop_pads_visible(visible_value: bool) -> void:
 		if is_instance_valid(pad):
 			pad.visible = visible_value
 
-func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, city_blocks: Array[Dictionary], city_size: float, block_count: int) -> void:
+func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, city_blocks: Array[Dictionary]) -> void:
 	street_lights.clear()
 	rooftop_pads.clear()
 	rooftop_pad_visuals.clear()
@@ -417,11 +415,11 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 		if index % rooftop_spacing == 0:
 			_build_rooftop_pad(index, transforms[index])
 	_build_facade_multimesh(facade_bands)
-	_build_city_amenities(transforms, city_blocks, city_size, block_count)
-	_build_street_lights(city_blocks, city_size / float(block_count))
+	_build_city_amenities(transforms, city_blocks)
+	_build_street_lights(city_blocks)
 	_sync_city_power()
 
-func _build_street_lights(blocks: Array[Dictionary], spacing: float) -> void:
+func _build_street_lights(blocks: Array[Dictionary]) -> void:
 	lamp_material = StandardMaterial3D.new()
 	lamp_material.albedo_color = Color("efe0bd")
 	lamp_material.emission_enabled = true
@@ -453,7 +451,9 @@ func _build_street_lights(blocks: Array[Dictionary], spacing: float) -> void:
 	city_visuals.add_child(glares)
 	for index: int in blocks.size():
 		var center: Vector3 = blocks[index].position
-		var p := center + Vector3(spacing * 0.43, 0, spacing * 0.32)
+		var spacing: float = blocks[index].block_step
+		var yaw: float = blocks[index].rotation
+		var p := center + Basis(Vector3.UP, yaw) * Vector3(spacing * 0.43, 0, spacing * 0.32)
 		p.y = terrain_height(p.x, p.z)
 		_add_city_box("LampPole%d" % index, Vector3(0.25, 6.0, 0.25), p + Vector3.UP * 3.0, pole_material)
 		_add_city_box("Lamp%d" % index, Vector3(1.5, 0.25, 0.8), p + Vector3.UP * 6.0, lamp_material)
@@ -472,29 +472,33 @@ func _build_street_lights(blocks: Array[Dictionary], spacing: float) -> void:
 
 func _add_building_architecture(index: int, building_transform: Transform3D, facade_material: StandardMaterial3D, reserves_rooftop: bool) -> void:
 	var building_size := building_transform.basis.get_scale()
+	var yaw := _building_yaw(building_transform)
 	var ground_y := building_transform.origin.y - building_size.y * 0.5
 	var podium_height := minf(7.0, building_size.y * 0.22)
 	if index % 3 == 0:
-		_add_city_box("Podium%d" % index, Vector3(building_size.x + 2.4, podium_height, building_size.z + 2.4), Vector3(building_transform.origin.x, ground_y + podium_height * 0.5, building_transform.origin.z), facade_material)
+		_add_city_box("Podium%d" % index, Vector3(building_size.x + 2.4, podium_height, building_size.z + 2.4), Vector3(building_transform.origin.x, ground_y + podium_height * 0.5, building_transform.origin.z), facade_material, yaw)
 	var roof_material := StandardMaterial3D.new()
 	roof_material.albedo_color = facade_material.albedo_color.darkened(0.24)
 	roof_material.roughness = 0.88
 	var roof_y := ground_y + building_size.y
-	_add_city_box("RoofCap%d" % index, Vector3(building_size.x + 0.7, 0.6, building_size.z + 0.7), Vector3(building_transform.origin.x, roof_y + 0.3, building_transform.origin.z), roof_material)
+	_add_city_box("RoofCap%d" % index, Vector3(building_size.x + 0.7, 0.6, building_size.z + 0.7), Vector3(building_transform.origin.x, roof_y + 0.3, building_transform.origin.z), roof_material, yaw)
 	if reserves_rooftop:
 		return
 	if building_size.y >= 28.0 and index % 2 == 0:
 		var crown_height := clampf(building_size.y * 0.12, 3.0, 7.0)
-		_add_city_box("Penthouse%d" % index, Vector3(building_size.x * 0.5, crown_height, building_size.z * 0.48), Vector3(building_transform.origin.x, roof_y + crown_height * 0.5 + 0.6, building_transform.origin.z), roof_material)
+		_add_city_box("Penthouse%d" % index, Vector3(building_size.x * 0.5, crown_height, building_size.z * 0.48), Vector3(building_transform.origin.x, roof_y + crown_height * 0.5 + 0.6, building_transform.origin.z), roof_material, yaw)
 		city_rooftop_detail_count += 1
 	else:
 		for unit_index: int in 2:
 			var offset_x := (-0.22 if unit_index == 0 else 0.22) * building_size.x
-			_add_city_box("Hvac%d_%d" % [index, unit_index], Vector3(3.0, 1.8, 2.4), Vector3(building_transform.origin.x + offset_x, roof_y + 1.2, building_transform.origin.z), roof_material)
+			var offset := Basis(Vector3.UP, yaw) * Vector3(offset_x, 0.0, 0.0)
+			_add_city_box("Hvac%d_%d" % [index, unit_index], Vector3(3.0, 1.8, 2.4), Vector3(building_transform.origin.x + offset.x, roof_y + 1.2, building_transform.origin.z + offset.z), roof_material, yaw)
 			city_rooftop_detail_count += 1
 
 func _append_facade_bands(building_transform: Transform3D, bands: Array[Transform3D]) -> void:
 	var building_size := building_transform.basis.get_scale()
+	var yaw := _building_yaw(building_transform)
+	var rotation := Basis(Vector3.UP, yaw)
 	var ground_y := building_transform.origin.y - building_size.y * 0.5
 	var floor_count := maxi(1, floori(building_size.y / 4.5))
 	for floor_index: int in floor_count:
@@ -503,11 +507,13 @@ func _append_facade_bands(building_transform: Transform3D, bands: Array[Transfor
 			var columns_x := maxi(2, floori(building_size.x / 4.0))
 			var columns_z := maxi(2, floori(building_size.z / 4.0))
 			for column: int in columns_x:
-				var x := building_transform.origin.x + (float(column) + 0.5 - float(columns_x) * 0.5) * building_size.x / float(columns_x)
-				bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(building_size.x / float(columns_x) * 0.52, 1.65, 0.12)), Vector3(x, y, building_transform.origin.z + side * (building_size.z * 0.5 + 0.07))))
+				var local := Vector3((float(column) + 0.5 - float(columns_x) * 0.5) * building_size.x / float(columns_x), 0.0, side * (building_size.z * 0.5 + 0.07))
+				var offset := rotation * local
+				bands.append(Transform3D(rotation.scaled(Vector3(building_size.x / float(columns_x) * 0.52, 1.65, 0.12)), Vector3(building_transform.origin.x + offset.x, y, building_transform.origin.z + offset.z)))
 			for column: int in columns_z:
-				var z := building_transform.origin.z + (float(column) + 0.5 - float(columns_z) * 0.5) * building_size.z / float(columns_z)
-				bands.append(Transform3D(Basis.IDENTITY.scaled(Vector3(0.12, 1.65, building_size.z / float(columns_z) * 0.52)), Vector3(building_transform.origin.x + side * (building_size.x * 0.5 + 0.07), y, z)))
+				var local := Vector3(side * (building_size.x * 0.5 + 0.07), 0.0, (float(column) + 0.5 - float(columns_z) * 0.5) * building_size.z / float(columns_z))
+				var offset := rotation * local
+				bands.append(Transform3D(rotation.scaled(Vector3(0.12, 1.65, building_size.z / float(columns_z) * 0.52)), Vector3(building_transform.origin.x + offset.x, y, building_transform.origin.z + offset.z)))
 
 func _build_facade_multimesh(bands: Array[Transform3D]) -> void:
 	if bands.is_empty():
@@ -529,18 +535,19 @@ func _build_facade_multimesh(bands: Array[Transform3D]) -> void:
 	city_visuals.add_child(windows)
 	city_window_band_count = bands.size()
 
-func _build_city_amenities(buildings: Array[Transform3D], city_blocks: Array[Dictionary], city_size: float, block_count: int) -> void:
-	var block_step := city_size / float(block_count)
+func _build_city_amenities(buildings: Array[Transform3D], city_blocks: Array[Dictionary]) -> void:
 	for block: Dictionary in city_blocks:
 		var grid: Vector2i = block.grid
+		var block_step: float = block.block_step
+		var yaw: float = block.rotation
 		var block_center: Vector3 = block.position
 		if _block_has_building(block_center, buildings, block_step * 0.42):
 			continue
 		block_center.y = generator.height_at(block_center.x, block_center.z) + 0.58
 		if grid == Vector2i.ZERO or (grid.x + grid.y) % 2 == 0:
-			_build_park("Park%d_%d" % [grid.x, grid.y], block_center, block_step - city_road_width - 4.0)
+			_build_park("Park%s_%d_%d" % [String(block.district_id), grid.x, grid.y], block_center, block_step - city_road_width - 4.0, yaw)
 		else:
-			_build_parking_lot("Parking%d_%d" % [grid.x, grid.y], block_center, block_step - city_road_width - 4.0)
+			_build_parking_lot("Parking%s_%d_%d" % [String(block.district_id), grid.x, grid.y], block_center, block_step - city_road_width - 4.0, yaw)
 		city_amenity_count += 1
 
 func _block_has_building(block_center: Vector3, buildings: Array[Transform3D], radius: float) -> bool:
@@ -549,7 +556,7 @@ func _block_has_building(block_center: Vector3, buildings: Array[Transform3D], r
 			return true
 	return false
 
-func _build_park(park_name: String, center: Vector3, size: float) -> void:
+func _build_park(park_name: String, center: Vector3, size: float, yaw: float) -> void:
 	var lawn_material := StandardMaterial3D.new()
 	lawn_material.albedo_color = Color("446b43")
 	lawn_material.roughness = 1.0
@@ -561,7 +568,7 @@ func _build_park(park_name: String, center: Vector3, size: float) -> void:
 	crown_material.roughness = 0.95
 	var offsets: Array[Vector2] = [Vector2(-0.27, -0.24), Vector2(0.25, -0.18), Vector2(-0.2, 0.26), Vector2(0.24, 0.25)]
 	for tree_index: int in offsets.size():
-		var tree_position := center + Vector3(offsets[tree_index].x * size, 0.0, offsets[tree_index].y * size)
+		var tree_position := center + Basis(Vector3.UP, yaw) * Vector3(offsets[tree_index].x * size, 0.0, offsets[tree_index].y * size)
 		var trunk := MeshInstance3D.new()
 		trunk.name = "%sTreeTrunk%d" % [park_name, tree_index]
 		var trunk_mesh := CylinderMesh.new()
@@ -584,58 +591,66 @@ func _build_park(park_name: String, center: Vector3, size: float) -> void:
 		crown.material_override = crown_material
 		city_visuals.add_child(crown)
 
-func _build_parking_lot(lot_name: String, center: Vector3, size: float) -> void:
+func _build_parking_lot(lot_name: String, center: Vector3, size: float, yaw: float) -> void:
 	var lot_material := StandardMaterial3D.new()
 	lot_material.albedo_color = Color("45494b")
 	lot_material.roughness = 0.95
-	_add_city_box(lot_name, Vector3(size, 0.18, size), center, lot_material)
+	_add_city_box(lot_name, Vector3(size, 0.18, size), center, lot_material, yaw)
 	var stripe_material := StandardMaterial3D.new()
 	stripe_material.albedo_color = Color("d8d5c6")
 	for stripe_index: int in 7:
-		var x := center.x - size * 0.38 + float(stripe_index) * size * 0.125
-		_add_city_box("%sStripe%d" % [lot_name, stripe_index], Vector3(0.22, 0.05, size * 0.38), Vector3(x, center.y + 0.13, center.z), stripe_material)
+		var local_x := -size * 0.38 + float(stripe_index) * size * 0.125
+		var offset := Basis(Vector3.UP, yaw) * Vector3(local_x, 0.0, 0.0)
+		_add_city_box("%sStripe%d" % [lot_name, stripe_index], Vector3(0.22, 0.05, size * 0.38), Vector3(center.x + offset.x, center.y + 0.13, center.z + offset.z), stripe_material, yaw)
 
-func _build_city_ground(city_blocks: Array[Dictionary], city_size: float, block_count: int) -> void:
+func _build_city_ground(city_blocks: Array[Dictionary]) -> void:
 	for child: Node in city_visuals.get_children():
 		child.free()
 	city_block_surface_count = 0
 	var asphalt := StandardMaterial3D.new()
 	asphalt.albedo_color = Color("343a40")
 	asphalt.roughness = 0.96
-	var block_step := city_size / float(block_count)
-	var block_size := block_step - city_road_width
 	var pavement_palette: Array[Color] = [Color("777a78"), Color("85847f"), Color("6f7472")]
 	for block: Dictionary in city_blocks:
 		var grid: Vector2i = block.grid
 		var position: Vector3 = block.position
-		_add_city_box("RoadTile%d_%d" % [grid.x, grid.y], Vector3(block_step + 0.5, 0.35, block_step + 0.5), Vector3(position.x, position.y + 0.08, position.z), asphalt)
+		var block_step: float = block.block_step
+		var block_size := block_step - city_road_width
+		var yaw: float = block.rotation
+		_add_city_box("RoadTile%s_%d_%d" % [String(block.district_id), grid.x, grid.y], Vector3(block_step + 0.5, 0.35, block_step + 0.5), Vector3(position.x, position.y + 0.08, position.z), asphalt, yaw)
 		var material := StandardMaterial3D.new()
-		material.albedo_color = pavement_palette[posmod(grid.x + grid.y * block_count, pavement_palette.size())]
+		material.albedo_color = pavement_palette[posmod(grid.x + grid.y * 13 + int(block.district_index), pavement_palette.size())]
 		material.roughness = 0.9
-		_add_city_box("CityBlock%d_%d" % [grid.x, grid.y], Vector3(block_size, 0.55, block_size), Vector3(position.x, position.y + 0.24, position.z), material)
+		_add_city_box("CityBlock%s_%d_%d" % [String(block.district_id), grid.x, grid.y], Vector3(block_size, 0.55, block_size), Vector3(position.x, position.y + 0.24, position.z), material, yaw)
 		city_block_surface_count += 1
-	_build_road_markings(city_blocks, block_step)
+	_build_road_markings(city_blocks)
 
-func _build_road_markings(city_blocks: Array[Dictionary], block_step: float) -> void:
+func _build_road_markings(city_blocks: Array[Dictionary]) -> void:
 	var marking_material := StandardMaterial3D.new()
 	marking_material.albedo_color = Color("d7c46a")
 	marking_material.roughness = 0.82
 	var occupied: Dictionary = {}
 	for block: Dictionary in city_blocks:
-		occupied[block.grid] = true
+		occupied[_block_key(block.district_id, block.grid)] = true
 	for block: Dictionary in city_blocks:
 		var grid: Vector2i = block.grid
 		var position: Vector3 = block.position
-		if occupied.has(grid + Vector2i.RIGHT):
-			var x := position.x + block_step * 0.5
-			_add_city_box("LaneZ%d_%d" % [grid.x, grid.y], Vector3(0.38, 0.06, block_step), Vector3(x, generator.height_at(x, position.z) + 0.31, position.z), marking_material)
-		if occupied.has(grid + Vector2i.DOWN):
-			var z := position.z + block_step * 0.5
-			_add_city_box("LaneX%d_%d" % [grid.x, grid.y], Vector3(block_step, 0.06, 0.38), Vector3(position.x, generator.height_at(position.x, z) + 0.31, z), marking_material)
+		var block_step: float = block.block_step
+		var yaw: float = block.rotation
+		var basis := Basis(Vector3.UP, yaw)
+		if occupied.has(_block_key(block.district_id, grid + Vector2i.RIGHT)):
+			var lane := position + basis * Vector3(block_step * 0.5, 0.0, 0.0)
+			lane.y = generator.height_at(lane.x, lane.z) + 0.31
+			_add_city_box("LaneZ%s_%d_%d" % [String(block.district_id), grid.x, grid.y], Vector3(0.38, 0.06, block_step), lane, marking_material, yaw)
+		if occupied.has(_block_key(block.district_id, grid + Vector2i.DOWN)):
+			var lane := position + basis * Vector3(0.0, 0.0, block_step * 0.5)
+			lane.y = generator.height_at(lane.x, lane.z) + 0.31
+			_add_city_box("LaneX%s_%d_%d" % [String(block.district_id), grid.x, grid.y], Vector3(block_step, 0.06, 0.38), lane, marking_material, yaw)
 
-func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, material: StandardMaterial3D) -> void:
+func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, material: StandardMaterial3D, yaw: float = 0.0) -> void:
+	var box_transform := Transform3D(Basis(Vector3.UP, yaw).scaled(box_size), position)
 	if not material.emission_enabled:
-		_city_boxes.add_box(Transform3D(Basis.from_scale(box_size), position), material)
+		_city_boxes.add_box(box_transform, material)
 		return
 	# Street-lamp emission changes with night_amount on the original material.
 	var visual := MeshInstance3D.new()
@@ -643,9 +658,15 @@ func _add_city_box(node_name: String, box_size: Vector3, position: Vector3, mate
 	var mesh := BoxMesh.new()
 	mesh.size = box_size
 	visual.mesh = mesh
-	visual.position = position
+	visual.transform = Transform3D(Basis(Vector3.UP, yaw), position)
 	visual.material_override = material
 	city_visuals.add_child(visual)
+
+func _building_yaw(building_transform: Transform3D) -> float:
+	return building_transform.basis.orthonormalized().get_euler().y
+
+func _block_key(district_id: StringName, grid: Vector2i) -> String:
+	return "%s:%d:%d" % [String(district_id), grid.x, grid.y]
 
 func _build_rooftop_pad(index: int, building_transform: Transform3D) -> void:
 	var building_size := building_transform.basis.get_scale()

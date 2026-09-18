@@ -470,6 +470,45 @@ func test_current_city_is_an_explicit_central_district() -> void:
 	assert_eq(district.buildings, generator.building_transforms())
 	assert_true(district.has_buildings())
 
+func test_multiple_authored_districts_own_rotated_blocks_and_buildings() -> void:
+	var core := CityDistrictDefinition.new()
+	core.id = &"west_core"
+	core.center = Vector2(-210.0, -40.0)
+	core.rotation_degrees = -18.0
+	core.size = 250.0
+	core.block_count = 7
+	core.minimum_building_height = 12.0
+	core.maximum_building_height = 72.0
+	var satellite := CityDistrictDefinition.new()
+	satellite.id = &"east_satellite"
+	satellite.role = CityDistrictDefinition.Role.RESIDENTIAL
+	satellite.center = Vector2(225.0, 85.0)
+	satellite.rotation_degrees = 27.0
+	satellite.size = 220.0
+	satellite.block_count = 7
+	satellite.minimum_building_height = 7.0
+	satellite.maximum_building_height = 32.0
+	var layout := BattlefieldLayoutDefinition.new()
+	layout.id = &"district_fixture"
+	layout.display_name = "복수 지구 fixture"
+	layout.city_districts = [core, satellite]
+	assert_eq(layout.validation_error(), "")
+	var generator := WorldGenerator.new()
+	generator.generate(44021, 1400.0, 57, 480.0, layout)
+	var districts := generator.city_districts()
+	assert_eq(districts.size(), 2)
+	assert_eq(districts[0].id, core.id)
+	assert_eq(districts[1].id, satellite.id)
+	for district: CityDistrict in districts:
+		assert_false(district.blocks.is_empty(), String(district.id))
+		assert_false(district.buildings.is_empty(), String(district.id))
+		for block: Dictionary in district.blocks:
+			assert_eq(StringName(block.district_id), district.id)
+			assert_almost_eq(generator.height_at(block.position.x, block.position.z), WorldGenerator.CITY_GROUND_HEIGHT, 0.25)
+	var rotated_axis := districts[1].buildings[0].basis.orthonormalized() * Vector3.RIGHT
+	assert_gt(absf(rotated_axis.z), 0.1)
+	assert_gt(districts[0].center.distance_to(districts[1].center), 400.0)
+
 func test_city_keeps_a_dense_core_and_uses_an_irregular_terrain_suitable_edge() -> void:
 	var generator := WorldGenerator.new()
 	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())

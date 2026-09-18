@@ -40,13 +40,13 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 	coast_noise.fractal_octaves = 3
 	var coast_phase_a := float(posmod(seed_value * 3, 997)) / 997.0 * TAU
 	var coast_phase_b := float(posmod(seed_value * 11, 991)) / 991.0 * TAU
+	var district_definitions := _district_definitions()
 	for z_index: int in resolution:
 		for x_index: int in resolution:
 			var x := _grid_world(x_index)
 			var z := _grid_world(z_index)
 			var raw := noise.get_noise_2d(x, z) * layout.terrain_height_scale
-			var distance_from_city := Vector2(x, z).length()
-			var flatten := smoothstep(city_size * 0.27, city_size * 0.62, distance_from_city)
+			var flatten := _broad_terrain_weight(Vector2(x, z), district_definitions)
 			var land_height := maxf(raw * flatten + CITY_GROUND_HEIGHT, sea_level + 6.0)
 			var radial_distance := Vector2(x, z).length() / (size * 0.5)
 			var coast_angle := atan2(z, x)
@@ -57,11 +57,19 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 			var edge_falloff := smoothstep(0.9, 0.985, radial_distance)
 			var coast_falloff := maxf(shaped_falloff, edge_falloff)
 			heights[z_index * resolution + x_index] = lerpf(land_height, sea_level - 35.0, coast_falloff)
-	_city_blocks = _create_city_block_layout()
+	for district_index: int in district_definitions.size():
+		var blocks := _create_city_block_layout(district_definitions[district_index], district_index)
+		_city_blocks.append_array(blocks)
 	_flatten_city_footprint()
 	_refresh_city_block_heights()
-	_city_buildings = _create_building_transforms()
-	_city_districts.append(CityDistrict.new(CENTRAL_DISTRICT_ID, Vector2.ZERO, _city_blocks, _city_buildings))
+	for district_index: int in district_definitions.size():
+		var blocks: Array[Dictionary] = []
+		for block: Dictionary in _city_blocks:
+			if int(block.district_index) == district_index:
+				blocks.append(block)
+		var buildings := _create_building_transforms(district_definitions[district_index], blocks, district_index)
+		_city_buildings.append_array(buildings)
+		_city_districts.append(CityDistrict.new(district_definitions[district_index], blocks, buildings))
 
 func height_at(x: float, z: float) -> float:
 	var half := size * 0.5
@@ -109,12 +117,14 @@ func city_districts() -> Array[CityDistrict]:
 	result.assign(_city_districts)
 	return result
 
-func _create_building_transforms() -> Array[Transform3D]:
+func _create_building_transforms(district: CityDistrictDefinition, blocks: Array[Dictionary], district_index: int) -> Array[Transform3D]:
 	var result: Array[Transform3D] = []
 	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value ^ 0x51A7
-	var block_step := city_size / float(layout.city_blocks)
-	for block: Dictionary in _city_blocks:
+	rng.seed = (seed_value ^ 0x51A7) if district_index == 0 else (seed_value ^ 0x51A7 ^ district_index * 0x1F123BB5)
+	var block_step := district.size / float(district.block_count)
+	var rotation := deg_to_rad(district.rotation_degrees)
+	var district_basis := Basis(Vector3.UP, rotation)
+	for block: Dictionary in blocks:
 		var grid: Vector2i = block.grid
 		var block_center: Vector3 = block.position
 		var distance: float = block.normalized_distance
@@ -125,30 +135,34 @@ func _create_building_transforms() -> Array[Transform3D]:
 		for building_index: int in building_count:
 			var split_along_x := (grid.x + grid.y) % 2 == 0
 			var offset := 0.0 if building_count == 1 else (-1.0 if building_index == 0 else 1.0) * block_step * 0.19
-			var x := block_center.x + (offset if split_along_x else rng.randf_range(-2.2, 2.2))
-			var z := block_center.z + (rng.randf_range(-2.2, 2.2) if split_along_x else offset)
+			var local_offset := Vector3(offset if split_along_x else rng.randf_range(-2.2, 2.2), 0.0, rng.randf_range(-2.2, 2.2) if split_along_x else offset)
+			var world_offset := district_basis * local_offset
+			var x := block_center.x + world_offset.x
+			var z := block_center.z + world_offset.z
 			var width_limit := block_step * (0.30 if building_count == 2 and split_along_x else 0.60)
 			var depth_limit := block_step * (0.30 if building_count == 2 and not split_along_x else 0.60)
 			var width := rng.randf_range(width_limit * 0.78, width_limit)
 			var depth := rng.randf_range(depth_limit * 0.78, depth_limit)
 			var zone_height_scale := lerpf(0.32, 1.18, center_weight)
-			var height := clampf(rng.randf_range(layout.minimum_building_height, layout.maximum_building_height) * zone_height_scale, layout.minimum_building_height, layout.maximum_building_height * 1.08) * CITY_PRESENTATION_SCALE
-			var basis := Basis.IDENTITY.scaled(Vector3(width, height, depth))
+			var height := clampf(rng.randf_range(district.minimum_building_height, district.maximum_building_height) * zone_height_scale, district.minimum_building_height, district.maximum_building_height * 1.08) * CITY_PRESENTATION_SCALE
+			var basis := district_basis.scaled(Vector3(width, height, depth))
 			result.append(Transform3D(basis, Vector3(x, height * 0.5 + height_at(x, z), z)))
 	return result
 
 func city_block_layout() -> Array[Dictionary]:
 	return _city_blocks.duplicate(true)
 
-func _create_city_block_layout() -> Array[Dictionary]:
+func _create_city_block_layout(district: CityDistrictDefinition, district_index: int) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	var block_count := layout.city_blocks
-	var block_step := city_size / float(block_count)
+	var block_count := district.block_count
+	var block_step := district.size / float(block_count)
 	var center := float(block_count - 1) * 0.5
 	var phase_a := float(posmod(seed_value, 997)) / 997.0 * TAU
 	var phase_b := float(posmod(seed_value * 7, 991)) / 991.0 * TAU
 	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value ^ 0x2D71
+	rng.seed = (seed_value ^ 0x2D71) if district_index == 0 else (seed_value ^ 0x2D71 ^ district_index * 0x45D9F3B)
+	var rotation := deg_to_rad(district.rotation_degrees)
+	var district_basis := Basis(Vector3.UP, rotation)
 	for bz: int in block_count:
 		for bx: int in block_count:
 			var grid := Vector2i(bx - int(center), bz - int(center))
@@ -156,23 +170,26 @@ func _create_city_block_layout() -> Array[Dictionary]:
 			var normalized_distance := grid_position.length() / maxf(center, 1.0)
 			var angle := atan2(grid_position.y, grid_position.x)
 			var boundary := 0.83 + sin(angle * 3.0 + phase_a) * 0.12 + sin(angle * 5.0 + phase_b) * 0.07 + rng.randf_range(-0.06, 0.06)
-			var x := float(grid.x) * block_step
-			var z := float(grid.y) * block_step
+			var local_position := Vector3(float(grid.x) * block_step, 0.0, float(grid.y) * block_step)
+			var rotated_position := district_basis * local_position
+			var x := district.center.x + rotated_position.x
+			var z := district.center.y + rotated_position.z
 			var central_core := normalized_distance <= 0.34
 			var terrain_suitable := height_at(x, z) > sea_level + 3.0 and slope_degrees_at(x, z, block_step * 0.32) <= 11.0
 			if normalized_distance <= boundary and (central_core or terrain_suitable):
 				result.append({
 					"grid": grid,
+					"district_id": district.id,
+					"district_index": district_index,
 					"position": Vector3(x, height_at(x, z), z),
 					"normalized_distance": normalized_distance,
+					"block_step": block_step,
+					"rotation": rotation,
 				})
 	return result
 
 func _flatten_city_footprint() -> void:
-	var block_step := city_size / float(layout.city_blocks)
 	var terrain_step := size / float(resolution - 1)
-	var block_half_extent := block_step * 0.54 + terrain_step * 0.75
-	var feather_distance := block_step * 0.72
 	for z_index: int in resolution:
 		for x_index: int in resolution:
 			var x := _grid_world(x_index)
@@ -180,8 +197,12 @@ func _flatten_city_footprint() -> void:
 			var flatten_weight := 0.0
 			for block: Dictionary in _city_blocks:
 				var position: Vector3 = block.position
-				var outside_x := maxf(absf(x - position.x) - block_half_extent, 0.0)
-				var outside_z := maxf(absf(z - position.z) - block_half_extent, 0.0)
+				var block_step: float = block.block_step
+				var block_half_extent := block_step * 0.54 + terrain_step * 0.75
+				var feather_distance := block_step * 0.72
+				var local := Vector2(x - position.x, z - position.z).rotated(-float(block.rotation))
+				var outside_x := maxf(absf(local.x) - block_half_extent, 0.0)
+				var outside_z := maxf(absf(local.y) - block_half_extent, 0.0)
 				var distance := Vector2(outside_x, outside_z).length()
 				flatten_weight = maxf(flatten_weight, 1.0 - smoothstep(0.0, feather_distance, distance))
 				if is_equal_approx(flatten_weight, 1.0):
@@ -196,6 +217,25 @@ func _refresh_city_block_heights() -> void:
 		position.y = height_at(position.x, position.z)
 		block.position = position
 		_city_blocks[index] = block
+
+func _district_definitions() -> Array[CityDistrictDefinition]:
+	if not layout.city_districts.is_empty():
+		return layout.city_districts
+	var central := CityDistrictDefinition.new()
+	central.id = CENTRAL_DISTRICT_ID
+	central.size = city_size
+	central.block_count = layout.city_blocks
+	central.minimum_building_height = layout.minimum_building_height
+	central.maximum_building_height = layout.maximum_building_height
+	var result: Array[CityDistrictDefinition] = [central]
+	return result
+
+func _broad_terrain_weight(position: Vector2, districts: Array[CityDistrictDefinition]) -> float:
+	var weight := 1.0
+	for district: CityDistrictDefinition in districts:
+		var distance := position.distance_to(district.center)
+		weight = minf(weight, smoothstep(district.size * 0.27, district.size * 0.62, distance))
+	return weight
 
 func _grid_world(index: int) -> float:
 	return -size * 0.5 + size * float(index) / float(resolution - 1)

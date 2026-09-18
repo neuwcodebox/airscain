@@ -12,8 +12,17 @@ extends Resource
 @export var maximum_building_height: float = 70.0
 @export var rooftop_spacing: int = 6
 @export var starting_budget_bonus: int = 0
+@export var city_districts: Array[CityDistrictDefinition] = []
 
 func validation_error() -> String:
 	if id.is_empty() or display_name.is_empty() or terrain_height_scale <= 0.0 or noise_frequency <= 0.0 or coast_start <= 0.0 or coast_end <= coast_start or coast_end > 1.0 or city_blocks < 3 or minimum_building_height <= 0.0 or maximum_building_height < minimum_building_height or rooftop_spacing < 1 or starting_budget_bonus < 0:
 		return "전장 레이아웃 설정값이 올바르지 않습니다"
+	var district_ids: Dictionary[StringName, bool] = {}
+	for district: CityDistrictDefinition in city_districts:
+		if district == null or district_ids.has(district.id):
+			return "도시 지구가 없거나 ID가 중복됩니다"
+		var district_error := district.validation_error()
+		if not district_error.is_empty():
+			return district_error
+		district_ids[district.id] = true
 	return ""

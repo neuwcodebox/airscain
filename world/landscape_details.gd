@@ -12,13 +12,12 @@ var _colors: Dictionary[String, Color] = {
 func build(generator: WorldGenerator, blocks: Array[Dictionary], buildings: Array[Transform3D], road_width: float) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = generator.seed_value ^ 0x45B7
-	var block_step := generator.city_size / float(generator.layout.city_blocks)
 	for index: int in 1700:
 		var x := rng.randf_range(-0.46, 0.46) * generator.size
 		var z := rng.randf_range(-0.46, 0.46) * generator.size
 		var height := generator.height_at(x, z)
 		var slope := generator.slope_degrees_at(x, z, 8.0)
-		if height < 16.0 or slope < 7.0 or slope > 32.0 or _near_blocks(Vector2(x, z), blocks, block_step):
+		if height < 16.0 or slope < 7.0 or slope > 32.0 or _near_blocks(Vector2(x, z), blocks):
 			continue
 		var cluster := sin(x * 0.019) * cos(z * 0.015)
 		if cluster < -0.1:
@@ -32,15 +31,17 @@ func build(generator: WorldGenerator, blocks: Array[Dictionary], buildings: Arra
 			_append("pine" if index % 3 == 0 else "leaf", position + Vector3.UP * 4.6 * scale_value, Vector3(4.2, 5.6, 4.2) * scale_value, rng.randf() * TAU)
 	var occupied: Dictionary = {}
 	for block: Dictionary in blocks:
-		occupied[block.grid] = true
+		occupied[_block_key(block.district_id, block.grid)] = true
 	for block: Dictionary in blocks:
 		var grid: Vector2i = block.grid
 		var center: Vector3 = block.position
+		var block_step: float = block.block_step
+		var rotation := Basis(Vector3.UP, float(block.rotation))
 		for direction: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN]:
-			if not occupied.has(grid + direction):
+			if not occupied.has(_block_key(block.district_id, grid + direction)):
 				continue
-			var along := Vector3(direction.x, 0, direction.y)
-			var across := Vector3(-direction.y, 0, direction.x)
+			var along := rotation * Vector3(direction.x, 0, direction.y)
+			var across := rotation * Vector3(-direction.y, 0, direction.x)
 			var road_center := center + along * block_step * 0.5
 			for stripe: int in 6:
 				var position := road_center + along * (float(stripe) - 2.5) * 1.15 + across * block_step * 0.33
@@ -55,19 +56,25 @@ func build(generator: WorldGenerator, blocks: Array[Dictionary], buildings: Arra
 	# Street-level entrances give each facade a ground floor, within its footprint.
 	for building: Transform3D in buildings:
 		var size := building.basis.get_scale()
-		var entrance := building.origin + Vector3(0, -size.y * 0.5 + 1.7, size.z * 0.5 + 0.14)
-		_append("glass", entrance, Vector3(2.4, 3.4, 0.16))
-		_append("metal", entrance + Vector3(0, 2, -0.3), Vector3(4.4, 0.25, 0.9))
+		var yaw := building.basis.orthonormalized().get_euler().y
+		var rotation := Basis(Vector3.UP, yaw)
+		var entrance := building.origin + rotation * Vector3(0, -size.y * 0.5 + 1.7, size.z * 0.5 + 0.14)
+		_append("glass", entrance, Vector3(2.4, 3.4, 0.16), yaw)
+		_append("metal", entrance + Vector3.UP * 2.0 + rotation * Vector3(0, 0, -0.3), Vector3(4.4, 0.25, 0.9), yaw)
 	for key: String in _batches:
 		_flush(key)
 	_batches.clear()
 
-func _near_blocks(position: Vector2, blocks: Array[Dictionary], spacing: float) -> bool:
+func _near_blocks(position: Vector2, blocks: Array[Dictionary]) -> bool:
 	for block: Dictionary in blocks:
 		var center: Vector3 = block.position
+		var spacing: float = block.block_step
 		if position.distance_squared_to(Vector2(center.x, center.z)) < spacing * spacing:
 			return true
 	return false
+
+func _block_key(district_id: StringName, grid: Vector2i) -> String:
+	return "%s:%d:%d" % [String(district_id), grid.x, grid.y]
 
 func _append(key: String, position: Vector3, size: Vector3, yaw: float = 0.0) -> void:
 	if not _batches.has(key):

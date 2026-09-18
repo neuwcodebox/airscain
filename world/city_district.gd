@@ -1,14 +1,18 @@
 class_name CityDistrict
 extends RefCounted
 
-var id: StringName
-var center: Vector2
+var definition: CityDistrictDefinition
 var blocks: Array[Dictionary]
 var buildings: Array[Transform3D]
 
-func _init(id_value: StringName, center_value: Vector2, blocks_value: Array[Dictionary], buildings_value: Array[Transform3D]) -> void:
-	id = id_value
-	center = center_value
+var id: StringName:
+	get: return definition.id
+
+var center: Vector2:
+	get: return definition.center
+
+func _init(definition_value: CityDistrictDefinition, blocks_value: Array[Dictionary], buildings_value: Array[Transform3D]) -> void:
+	definition = definition_value
 	blocks = blocks_value.duplicate(true)
 	buildings = buildings_value.duplicate()
 

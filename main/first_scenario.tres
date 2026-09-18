@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=64 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=67 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -37,6 +37,23 @@
 [ext_resource path="res://enemy/swarm_uav/small_defense_strike_uav.tres" type="Resource" id="35"]
 [ext_resource path="res://enemy/swarm_uav/weapon_saturation_uav.tres" type="Resource" id="36"]
 [ext_resource path="res://enemy/swarm_uav/radar_saturation_uav.tres" type="Resource" id="37"]
+[ext_resource path="res://world/city_district_definition.gd" type="Script" id="38"]
+
+[sub_resource type="Resource" id="RuggedCentralDistrict"]
+script = ExtResource("38")
+id = &"harbor_core"
+size = 480.0
+block_count = 11
+minimum_building_height = 15.0
+maximum_building_height = 95.0
+
+[sub_resource type="Resource" id="IslandCentralDistrict"]
+script = ExtResource("38")
+id = &"central"
+size = 480.0
+block_count = 13
+minimum_building_height = 8.0
+maximum_building_height = 70.0
 
 [sub_resource type="Resource" id="RuggedHarborLayout"]
 script = ExtResource("29")
@@ -51,6 +68,7 @@ minimum_building_height = 15.0
 maximum_building_height = 95.0
 rooftop_spacing = 4
 starting_budget_bonus = 200
+city_districts = Array[ExtResource("38")]([SubResource("RuggedCentralDistrict")])
 
 [sub_resource type="Resource" id="IslandCityLayout"]
 script = ExtResource("29")
@@ -64,6 +82,7 @@ city_blocks = 13
 minimum_building_height = 8.0
 maximum_building_height = 70.0
 rooftop_spacing = 6
+city_districts = Array[ExtResource("38")]([SubResource("IslandCentralDistrict")])
 
 [sub_resource type="Resource" id="AttackUavEntry"]
 script = ExtResource("5")
