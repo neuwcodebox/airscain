@@ -101,11 +101,16 @@ func _draw() -> void:
 		var world_position: Vector3 = marker.position
 		var point := Vector2(_horizontal_plot_x(world_position, plot_left, plot_right), altitude_to_plot_y(world_position.y))
 		_draw_diamond(point, 4.5, Color(0.25, 0.92, 1.0, 0.98))
+	# Right-aligned legend: [shape][label] pairs packed from the plot's right edge.
 	var legend_y := size.y - 12.0
-	draw_circle(Vector2(12.0, legend_y - 3.5), 3.5, MenuStyle.TEXT)
-	draw_string(font, Vector2(20.0, legend_y), "항적", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
-	_draw_diamond(Vector2(58.0, legend_y - 3.5), 4.0, MenuStyle.TEXT)
-	draw_string(font, Vector2(66.0, legend_y), "요격체", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
+	var interceptor_width := font.get_string_size("요격체", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10).x
+	var track_width := font.get_string_size("항적", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10).x
+	var interceptor_text_x := plot_right - interceptor_width
+	_draw_diamond(Vector2(interceptor_text_x - 7.0, legend_y - 3.5), 4.0, MenuStyle.TEXT)
+	draw_string(font, Vector2(interceptor_text_x, legend_y), "요격체", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
+	var track_text_x := interceptor_text_x - 7.0 - 4.0 - 10.0 - track_width
+	draw_circle(Vector2(track_text_x - 7.0, legend_y - 3.5), 3.5, MenuStyle.TEXT)
+	draw_string(font, Vector2(track_text_x, legend_y), "항적", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
 
 func _draw_diamond(point: Vector2, radius: float, color: Color) -> void:
 	var diamond := PackedVector2Array([point + Vector2(0.0, -radius), point + Vector2(radius * 0.8, 0.0), point + Vector2(0.0, radius), point + Vector2(-radius * 0.8, 0.0)])
