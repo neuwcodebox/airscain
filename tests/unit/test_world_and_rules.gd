@@ -453,6 +453,22 @@ func test_world_seed_reproduces_height_and_city_layout() -> void:
 	assert_eq(first.heights, second.heights)
 	assert_eq(first.city_block_layout(), second.city_block_layout())
 	assert_eq(first.building_transforms(), second.building_transforms())
+	assert_eq(first.city_districts().size(), second.city_districts().size())
+	assert_eq(first.city_districts()[0].id, second.city_districts()[0].id)
+	assert_eq(first.city_districts()[0].blocks, second.city_districts()[0].blocks)
+	assert_eq(first.city_districts()[0].buildings, second.city_districts()[0].buildings)
+
+func test_current_city_is_an_explicit_central_district() -> void:
+	var generator := WorldGenerator.new()
+	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
+	var districts := generator.city_districts()
+	assert_eq(districts.size(), 1)
+	var district := districts[0]
+	assert_eq(district.id, WorldGenerator.CENTRAL_DISTRICT_ID)
+	assert_eq(district.center, Vector2.ZERO)
+	assert_eq(district.blocks, generator.city_block_layout())
+	assert_eq(district.buildings, generator.building_transforms())
+	assert_true(district.has_buildings())
 
 func test_city_keeps_a_dense_core_and_uses_an_irregular_terrain_suitable_edge() -> void:
 	var generator := WorldGenerator.new()
@@ -559,6 +575,8 @@ func test_city_building_targets_use_seeded_ranges_and_segments_hit_the_first_sur
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	battlefield.build(SCENARIO)
 	assert_eq(battlefield.city_buildings.size(), battlefield.generator.building_transforms().size())
+	assert_eq(battlefield.city_districts.size(), 1)
+	assert_eq(battlefield.city_districts[0].buildings, battlefield.city_buildings)
 	var first_rng := RandomNumberGenerator.new()
 	var second_rng := RandomNumberGenerator.new()
 	first_rng.seed = 90817
@@ -588,6 +606,21 @@ func test_city_building_targets_use_seeded_ranges_and_segments_hit_the_first_sur
 	assert_eq(float(impact.building_height), bounds.size.y)
 	var miss := battlefield.building_segment_impact(Vector3(bounds.position.x - 20.0, bounds.end.y + 10.0, center.z), Vector3(bounds.end.x + 20.0, bounds.end.y + 10.0, center.z))
 	assert_true(miss.is_empty())
+
+func test_city_building_target_is_selected_through_its_district() -> void:
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(SCENARIO)
+	var district_rng := RandomNumberGenerator.new()
+	var target_rng := RandomNumberGenerator.new()
+	district_rng.seed = 11473
+	target_rng.seed = 11473
+	var district := battlefield.random_city_district(district_rng)
+	assert_not_null(district)
+	assert_eq(district.id, WorldGenerator.CENTRAL_DISTRICT_ID)
+	assert_eq(
+		battlefield.random_city_building_target_in_district(district, district_rng),
+		battlefield.random_city_building_target(target_rng)
+	)
 
 func test_city_objective_uses_a_civic_landmark() -> void:
 	var city := add_child_autofree(preload("res://world/objective/city/city_objective.tscn").instantiate()) as CityObjective

@@ -61,6 +61,7 @@ var city_rooftop_detail_count: int = 0
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_building_footprints: Array[Rect2] = []
 var city_buildings: Array[Transform3D] = []
+var city_districts: Array[CityDistrict] = []
 const BUILDING_CELL_SIZE := 64.0
 var _building_bounds: Array[AABB] = []
 var _building_cells: Dictionary[Vector2i, Array] = {}
@@ -100,6 +101,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	water_material.set_shader_parameter("battlefield_size", battlefield_size)
 	var city_blocks := generator.city_block_layout()
 	var building_transforms := generator.building_transforms()
+	city_districts = generator.city_districts()
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks, scenario.city_size, layout.city_blocks)
@@ -157,9 +159,24 @@ func _cache_city_building_footprints(buildings: Array[Transform3D]) -> void:
 		city_building_footprints.append(Rect2(Vector2(building.origin.x, building.origin.z) - half_extents, half_extents * 2.0))
 
 func random_city_building_target(rng: RandomNumberGenerator) -> Vector3:
-	if city_buildings.is_empty():
+	var district := random_city_district(rng)
+	return random_city_building_target_in_district(district, rng)
+
+func random_city_district(rng: RandomNumberGenerator) -> CityDistrict:
+	var populated: Array[CityDistrict] = []
+	for district: CityDistrict in city_districts:
+		if district.has_buildings():
+			populated.append(district)
+	if populated.is_empty():
+		return null
+	if populated.size() == 1:
+		return populated[0]
+	return populated[rng.randi_range(0, populated.size() - 1)]
+
+func random_city_building_target_in_district(district: CityDistrict, rng: RandomNumberGenerator) -> Vector3:
+	if district == null or not district.has_buildings():
 		return Vector3.ZERO
-	var building := city_buildings[rng.randi_range(0, city_buildings.size() - 1)]
+	var building := district.random_building(rng)
 	var size := building.basis.get_scale()
 	var ground_y := building.origin.y - size.y * 0.5
 	return Vector3(

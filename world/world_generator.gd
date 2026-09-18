@@ -3,6 +3,7 @@ extends RefCounted
 
 const CITY_GROUND_HEIGHT := 10.0
 const CITY_PRESENTATION_SCALE := 0.9
+const CENTRAL_DISTRICT_ID := &"central"
 
 var size: float
 var resolution: int
@@ -12,6 +13,8 @@ var heights: PackedFloat32Array
 var sea_level: float = 0.0
 var layout: BattlefieldLayoutDefinition
 var _city_blocks: Array[Dictionary] = []
+var _city_buildings: Array[Transform3D] = []
+var _city_districts: Array[CityDistrict] = []
 
 func generate(seed_input: int, size_input: float, resolution_input: int, city_size_input: float, layout_value: BattlefieldLayoutDefinition = null) -> void:
 	seed_value = seed_input
@@ -20,6 +23,8 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 	city_size = city_size_input
 	layout = layout_value if layout_value != null else BattlefieldLayoutDefinition.new()
 	_city_blocks.clear()
+	_city_buildings.clear()
+	_city_districts.clear()
 	heights = PackedFloat32Array()
 	heights.resize(resolution * resolution)
 	var noise := FastNoiseLite.new()
@@ -55,6 +60,8 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 	_city_blocks = _create_city_block_layout()
 	_flatten_city_footprint()
 	_refresh_city_block_heights()
+	_city_buildings = _create_building_transforms()
+	_city_districts.append(CityDistrict.new(CENTRAL_DISTRICT_ID, Vector2.ZERO, _city_blocks, _city_buildings))
 
 func height_at(x: float, z: float) -> float:
 	var half := size * 0.5
@@ -95,11 +102,19 @@ func create_terrain_mesh() -> ArrayMesh:
 	return surface.commit()
 
 func building_transforms() -> Array[Transform3D]:
+	return _city_buildings.duplicate()
+
+func city_districts() -> Array[CityDistrict]:
+	var result: Array[CityDistrict] = []
+	result.assign(_city_districts)
+	return result
+
+func _create_building_transforms() -> Array[Transform3D]:
 	var result: Array[Transform3D] = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value ^ 0x51A7
 	var block_step := city_size / float(layout.city_blocks)
-	for block: Dictionary in city_block_layout():
+	for block: Dictionary in _city_blocks:
 		var grid: Vector2i = block.grid
 		var block_center: Vector3 = block.position
 		var distance: float = block.normalized_distance
