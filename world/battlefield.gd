@@ -58,8 +58,10 @@ var city_road_width: float = 9.0
 var city_window_band_count: int = 0
 var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
-var city_landmark_count: int = 0
-var city_arterial_segment_count: int = 0
+var city_landmark_count: int:
+	get: return _district_presentation.landmark_count
+var city_arterial_segment_count: int:
+	get: return _district_presentation.arterial_segment_count
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_building_footprints: Array[Rect2] = []
 var city_buildings: Array[Transform3D] = []
@@ -69,6 +71,7 @@ var _building_bounds: Array[AABB] = []
 var _building_cells: Dictionary[Vector2i, Array] = {}
 var _city_bounds := AABB()
 var _city_boxes := CityBoxBatch.new()
+var _district_presentation := CityDistrictPresentation.new()
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -107,7 +110,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks)
-	_build_district_identity()
+	_district_presentation.build(city_districts, primary_city_district(), generator, _city_boxes)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks)
 	_city_boxes.build(city_visuals)
 	_configure_city_shadow_receivers()
@@ -443,80 +446,6 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 	_build_city_amenities(transforms, city_blocks)
 	_build_street_lights(city_blocks)
 	_sync_city_power()
-
-func _build_district_identity() -> void:
-	city_landmark_count = 0
-	city_arterial_segment_count = 0
-	var primary := primary_city_district()
-	if primary == null:
-		return
-	for district: CityDistrict in city_districts:
-		_build_district_landmark(district)
-		if district != primary:
-			_build_arterial_connection(primary, district)
-
-func _build_arterial_connection(from_district: CityDistrict, to_district: CityDistrict) -> void:
-	var direction := to_district.center - from_district.center
-	var distance := direction.length()
-	if distance <= 0.0:
-		return
-	direction /= distance
-	var start := from_district.center + direction * from_district.definition.size * 0.36
-	var end := to_district.center - direction * to_district.definition.size * 0.36
-	var connection := end - start
-	var connection_length := connection.length()
-	if connection_length <= 1.0:
-		return
-	var road_material := StandardMaterial3D.new()
-	road_material.albedo_color = Color("3e4141")
-	road_material.roughness = 0.96
-	var segment_count := maxi(1, ceili(connection_length / 6.0))
-	var yaw := atan2(direction.x, direction.y)
-	for segment_index: int in segment_count:
-		var from_2d := start.lerp(end, float(segment_index) / float(segment_count))
-		var to_2d := start.lerp(end, float(segment_index + 1) / float(segment_count))
-		var midpoint := from_2d.lerp(to_2d, 0.5)
-		var height := terrain_height(midpoint.x, midpoint.y)
-		if height <= generator.sea_level + 0.5:
-			continue
-		var road_basis := Basis(Vector3.UP, yaw).scaled(Vector3(13.0, 0.35, from_2d.distance_to(to_2d) + 0.8))
-		_city_boxes.add_box(Transform3D(road_basis, Vector3(midpoint.x, height + 0.55, midpoint.y)), road_material)
-		city_arterial_segment_count += 1
-
-func _build_district_landmark(district: CityDistrict) -> void:
-	var center := Vector3(district.center.x, terrain_height(district.center.x, district.center.y), district.center.y)
-	var yaw := deg_to_rad(district.definition.rotation_degrees)
-	var base_material := StandardMaterial3D.new()
-	base_material.roughness = 0.9
-	match district.definition.role:
-		CityDistrictDefinition.Role.CORE:
-			base_material.albedo_color = Color("aaa28e")
-			_add_city_box("CorePlaza", Vector3(38.0, 0.4, 38.0), center + Vector3.UP * 0.2, base_material, yaw)
-		CityDistrictDefinition.Role.RESIDENTIAL:
-			base_material.albedo_color = Color("68805f")
-			_add_city_box("ResidentialPark", Vector3(38.0, 0.35, 32.0), center + Vector3.UP * 0.18, base_material, yaw)
-			var pavilion_material := StandardMaterial3D.new()
-			pavilion_material.albedo_color = Color("d6c7a5")
-			pavilion_material.roughness = 0.85
-			_add_city_box("ResidentialPavilion", Vector3(14.0, 5.0, 10.0), center + Vector3.UP * 2.7, pavilion_material, yaw)
-		CityDistrictDefinition.Role.INDUSTRIAL:
-			base_material.albedo_color = Color("575c5d")
-			_add_city_box("IndustrialYard", Vector3(48.0, 0.4, 38.0), center + Vector3.UP * 0.2, base_material, yaw)
-			var industrial_material := StandardMaterial3D.new()
-			industrial_material.albedo_color = Color("765f4e")
-			industrial_material.roughness = 0.82
-			_add_city_box("IndustrialHall", Vector3(30.0, 8.0, 17.0), center + Vector3.UP * 4.2, industrial_material, yaw)
-			var chimney_offset := Basis(Vector3.UP, yaw) * Vector3(18.0, 0.0, -9.0)
-			_add_city_box("IndustrialStack", Vector3(3.5, 24.0, 3.5), center + chimney_offset + Vector3.UP * 12.2, industrial_material, yaw)
-		CityDistrictDefinition.Role.TRANSPORT:
-			base_material.albedo_color = Color("454b4f")
-			_add_city_box("TransportApron", Vector3(72.0, 0.35, 20.0), center + Vector3.UP * 0.18, base_material, yaw)
-			var terminal_material := StandardMaterial3D.new()
-			terminal_material.albedo_color = Color("82939a")
-			terminal_material.roughness = 0.78
-			var terminal_offset := Basis(Vector3.UP, yaw) * Vector3(0.0, 0.0, 16.0)
-			_add_city_box("TransportTerminal", Vector3(44.0, 6.0, 12.0), center + terminal_offset + Vector3.UP * 3.2, terminal_material, yaw)
-	city_landmark_count += 1
 
 func _rooftop_building_indices(rooftop_spacing: int) -> Dictionary[int, bool]:
 	var result: Dictionary[int, bool] = {}

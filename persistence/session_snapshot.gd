@@ -603,6 +603,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	for id: Variant in director_state.opening_threat_ids:
 		if not contact_ids.has(int(id)):
 			return "첫 공습이 존재하지 않는 위협을 참조합니다"
+	var valid_district_ids := city_district_definition_ids(scenario)
 	for wave: Dictionary in director_state.pending_waves:
 		var definition_id := StringName(String(wave.get("definition_id", "")))
 		if not contact_definitions.has(definition_id) or float(wave.get("remaining", -1.0)) < 0.0 or not is_finite(float(wave.get("angle", NAN))):
@@ -610,7 +611,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var target_error := ThreatDirector.planned_target_validation_error(wave, defense_ids)
 		if not target_error.is_empty():
 			return target_error
-		var district_error := ThreatDirector.city_district_validation_error(wave, city_district_definition_ids(scenario))
+		var district_error := ThreatDirector.city_district_validation_error(wave, valid_district_ids)
 		if not district_error.is_empty():
 			return district_error
 	var enemy_state: Dictionary = world_state.enemy_knowledge
