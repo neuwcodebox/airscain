@@ -713,7 +713,7 @@ func _uav_voice_for(audio: UavLoopAudio, threat: ThreatUnit) -> UavLoopAudio.Voi
 	var source := audio.sources.get(threat.get_instance_id()) as UavLoopAudio.Source
 	if source != null:
 		for voice: UavLoopAudio.Voice in audio.voices:
-			if voice.group_id == source.group_id:
+			if voice.event == source.event:
 				return voice
 	fail_test("위협에 할당된 UAV 음성을 찾지 못했습니다: %d" % threat.runtime_id)
 	return null

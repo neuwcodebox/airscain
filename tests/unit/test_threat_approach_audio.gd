@@ -54,7 +54,7 @@ func test_crowding_drops_cues_without_replay_or_stealing() -> void:
 	var gain_sum := 0.0
 	for voice: ThreatApproachAudio.Voice in audio.voices:
 		gain_sum += voice.player.volume_linear
-	assert_lt(gain_sum, 0.75, "두 음성을 합쳐도 보수적 gain 예산 안에 있습니다")
+	assert_lte(gain_sum, ThreatApproachAudio.MIX_BUDGET + 0.0001, "두 음성을 합쳐도 gain 예산 안에 있습니다")
 	first_voice.player.stop()
 	second_voice.player.stop()
 	audio.update_audio(1.0, false, 1.0, true)

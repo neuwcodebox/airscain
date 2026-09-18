@@ -26,29 +26,29 @@ func _tick(audio: UavLoopAudio, count: int = 10) -> void:
 
 func _has_voice(audio: UavLoopAudio, threat: Uav) -> bool:
 	var member := audio.sources.get(threat.get_instance_id()) as UavLoopAudio.Source
-	if member == null or member.group_id == 0:
+	if member == null:
 		return false
 	for voice: UavLoopAudio.Voice in audio.voices:
-		if voice.group_id == member.group_id and voice.player.playing:
+		if voice.event == member.event and voice.player.playing:
 			return true
 	return false
 
 func _voice_count_for_event(audio: UavLoopAudio, event: StringName) -> int:
 	var count := 0
 	for voice: UavLoopAudio.Voice in audio.voices:
-		count += int(voice.group_id != 0 and voice.event == event and voice.player.playing)
+		count += int(voice.event == event and voice.player.playing)
 	return count
 
 func _voice_for_source(audio: UavLoopAudio, threat: Uav) -> UavLoopAudio.Voice:
 	var member := audio.sources.get(threat.get_instance_id()) as UavLoopAudio.Source
 	if member != null:
 		for voice: UavLoopAudio.Voice in audio.voices:
-			if voice.group_id == member.group_id:
+			if voice.event == member.event:
 				return voice
 	fail_test("source %d has no UAV loop voice" % threat.get_instance_id())
 	return null
 
-func test_loop_ramp_groups_nearby_uavs_and_survives_one_member_resolution() -> void:
+func test_same_uav_family_shares_one_voice_and_survives_one_member_resolution() -> void:
 	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
 	var first := _source(audio, UavLoopAudio.MEDIUM, 18.0)
 	_tick(audio)
@@ -57,21 +57,24 @@ func test_loop_ramp_groups_nearby_uavs_and_survives_one_member_resolution() -> v
 	var companion := _source(audio, UavLoopAudio.MEDIUM, 8.4)
 	_tick(audio)
 	assert_true(_has_voice(audio, first))
-	assert_eq(audio.groups.size(), 1)
-	var group := audio.groups[audio.sources[first.get_instance_id()].group_id]
-	assert_eq(group.member_count, 2)
-	assert_almost_eq(group.envelope, 0.5, 0.001)
+	assert_eq(_voice_count_for_event(audio, UavLoopAudio.MEDIUM), 1)
+	assert_almost_eq(_voice_for_source(audio, first).envelope, 0.5, 0.001)
+	assert_same(_voice_for_source(audio, first), _voice_for_source(audio, companion))
 	first.resolve_once(false)
 	_tick(audio)
 	assert_true(_has_voice(audio, companion), "묶음 일부가 사라져도 남은 기체는 유지")
 
-func test_light_loop_group_has_lower_priority_than_medium_group() -> void:
+func test_distinct_uav_families_share_a_bounded_mix_budget() -> void:
 	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
-	var medium := _source(audio, UavLoopAudio.MEDIUM, 8.4)
-	var light := _source(audio, UavLoopAudio.LIGHT, 5.0)
+	_source(audio, UavLoopAudio.LIGHT, 0.0)
+	_source(audio, UavLoopAudio.MEDIUM, 0.0)
+	_source(audio, UavLoopAudio.HEAVY, 0.0)
 	_tick(audio)
-	var light_group := audio.groups[audio.sources[light.get_instance_id()].group_id]
-	assert_lt(light_group.priority, audio.groups[audio.sources[medium.get_instance_id()].group_id].priority)
+	var total := 0.0
+	for voice: UavLoopAudio.Voice in audio.voices:
+		total += voice.player.volume_linear
+	assert_eq(audio.voices.size(), UavLoopAudio.MAX_VOICES)
+	assert_lte(total, UavLoopAudio.MIX_BUDGET + 0.0001)
 
 func test_all_uav_loop_samples_are_looped_and_prepared() -> void:
 	var prepared_streams := UavLoopAudio.all_streams()
@@ -81,7 +84,7 @@ func test_all_uav_loop_samples_are_looped_and_prepared() -> void:
 		assert_has(prepared_streams, stream, "event %s UavLoopAudio preparation" % event)
 		assert_has(CombatAudio.all_streams(), stream, "event %s global preparation" % event)
 
-func test_louder_candidate_preempts_and_suppressed_source_returns_at_current_volume() -> void:
+func test_same_family_uses_loudest_current_envelope_without_adding_gain() -> void:
 	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
 	var quiet := _source(audio, UavLoopAudio.MEDIUM, 12.0)
 	var closer := _source(audio, UavLoopAudio.MEDIUM, 8.0)
@@ -89,19 +92,18 @@ func test_louder_candidate_preempts_and_suppressed_source_returns_at_current_vol
 	assert_true(_has_voice(audio, quiet))
 	var loud := _source(audio, UavLoopAudio.MEDIUM, 0.4)
 	_tick(audio, 20)
-	assert_false(_has_voice(audio, quiet))
+	assert_true(_has_voice(audio, quiet))
 	assert_true(_has_voice(audio, loud))
 	assert_true(_has_voice(audio, closer))
+	assert_eq(_voice_count_for_event(audio, UavLoopAudio.MEDIUM), 1)
+	assert_lte(_voice_for_source(audio, loud).player.volume_linear, db_to_linear(float(UavLoopAudio.GAINS_DB[UavLoopAudio.MEDIUM])) + 0.0001)
 	quiet.seconds = 0.2
 	loud.resolve_once(true)
 	_tick(audio, 20)
-	assert_true(_has_voice(audio, quiet), "미재생 후보도 현재 볼륨으로 재점유")
-	var group_id := audio.sources[quiet.get_instance_id()].group_id
-	for voice: UavLoopAudio.Voice in audio.voices:
-		if voice.group_id == group_id:
-			assert_gt(voice.envelope, 0.95)
+	assert_true(_has_voice(audio, quiet))
+	assert_gt(_voice_for_source(audio, quiet).envelope, 0.95)
 
-func test_total_cap_and_small_priority_changes_keep_owner() -> void:
+func test_many_sources_keep_one_voice_per_family() -> void:
 	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
 	var first := _source(audio, UavLoopAudio.HEAVY, 8.0)
 	var second := _source(audio, UavLoopAudio.HEAVY, 2.0)
@@ -112,8 +114,8 @@ func test_total_cap_and_small_priority_changes_keep_owner() -> void:
 	_tick(audio)
 	newcomer.seconds = 7.8
 	_tick(audio)
-	assert_true(_has_voice(audio, first), "미세한 목표 볼륨 차이에는 기존 슬롯 유지")
-	assert_false(_has_voice(audio, newcomer))
+	assert_true(_has_voice(audio, first))
+	assert_true(_has_voice(audio, newcomer))
 	newcomer.seconds = 0.0
 	_tick(audio, 20)
 	assert_true(_has_voice(audio, newcomer))
@@ -123,7 +125,7 @@ func test_total_cap_and_small_priority_changes_keep_owner() -> void:
 		if voice.player.playing:
 			count += 1
 	assert_lte(count, UavLoopAudio.MAX_VOICES)
-	assert_lte(_voice_count_for_event(audio, UavLoopAudio.HEAVY), UavLoopAudio.MAX_PER_EVENT)
+	assert_eq(_voice_count_for_event(audio, UavLoopAudio.HEAVY), 1)
 
 func test_pause_keeps_departure_state_and_rate_scales_only_simulation_time() -> void:
 	var audio := add_child_autofree(UavLoopAudio.new()) as UavLoopAudio
@@ -159,7 +161,6 @@ func test_reset_clears_operation_state_and_disconnects_old_resolution_signal() -
 	audio.reset()
 	_tick(audio)
 	assert_true(audio.sources.is_empty())
-	assert_true(audio.groups.is_empty())
 	fresh.resolved.emit(fresh, true, 0)
 	assert_false(voice.player.playing)
 

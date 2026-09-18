@@ -18,6 +18,8 @@ const MAX_AUDIBLE_MISSILE_GROUPS := 4
 const MISSILE_GROUP_WINDOW := 0.1
 const MISSILE_MIX_BUDGET := 1.0
 const MISSILE_VOICE_GAIN := 0.75
+const ALERT_MIX_BUDGET := 1.0
+const EXPLOSION_MIX_BUDGET := 1.0
 
 class MissileGroup:
 	var event_id: StringName
@@ -69,6 +71,7 @@ const STREAM_GROUPS: Dictionary = {
 var cooldowns: Dictionary[StringName, float] = {}
 var event_counts: Dictionary[StringName, int] = {}
 var last_stream_paths: Dictionary[StringName, String] = {}
+var event_requested_gains: Dictionary[int, float] = {}
 var players: Array[AudioStreamPlayer] = []
 var missile_players: Array[AudioStreamPlayer] = []
 var missile_gains: Dictionary[int, float] = {}
@@ -89,7 +92,7 @@ var cruise_approaches: ThreatApproachAudio
 var approaches: ThreatApproachAudio
 var gun_airbursts: GunAirburstAudio
 var gun_voices: Dictionary[int, GunAudio] = {}
-const GUN_MIX_BUDGET := 1.8
+const GUN_MIX_BUDGET := 1.0
 const GUN_VOICE_GAIN := 0.75
 const MAX_AUDIBLE_GUNS := 4
 
@@ -185,6 +188,7 @@ func _process(delta: float) -> void:
 	missile_clock += delta
 	for event_id: StringName in cooldowns.keys():
 		cooldowns[event_id] = maxf(0.0, cooldowns[event_id] - delta)
+	_refresh_event_mix()
 	_refresh_missile_mix(delta)
 
 func _refresh_missile_mix(delta: float = 0.0) -> void:
@@ -218,6 +222,7 @@ func stop_all() -> void:
 	for voice: GunAudio in active_guns:
 		voice.reset()
 	cooldowns.clear()
+	event_requested_gains.clear()
 	missile_clock = 0.0
 	if is_instance_valid(uav_loops):
 		uav_loops.reset()
@@ -310,12 +315,28 @@ func _play_stream(event_id: StringName, intensity: float) -> AudioStreamPlayer:
 	_cancel_player_fade(player)
 	player.stream = stream
 	player.bus = &"Alerts" if event_id in [CONTACT, PRESSURE, LOW_AMMO] else &"Explosions"
-	player.volume_db = linear_to_db(clampf(intensity, 0.15, 1.0))
+	event_requested_gains[player.get_instance_id()] = clampf(intensity, 0.15, 1.0)
 	AudioPlayback.sync(player, simulation_paused)
 	AudioPlayback.play(player)
+	_refresh_event_mix()
 	event_counts[event_id] = event_counts.get(event_id, 0) + 1
 	last_stream_paths[event_id] = stream.resource_path
 	return player
+
+func _refresh_event_mix() -> void:
+	var bus_totals: Dictionary[StringName, float] = {&"Alerts": 0.0, &"Explosions": 0.0}
+	for player: AudioStreamPlayer in players:
+		var player_id := player.get_instance_id()
+		if not player.playing:
+			event_requested_gains.erase(player_id)
+			continue
+		bus_totals[player.bus] = float(bus_totals.get(player.bus, 0.0)) + float(event_requested_gains.get(player_id, 0.0))
+	for player: AudioStreamPlayer in players:
+		if not player.playing:
+			continue
+		var budget := ALERT_MIX_BUDGET if player.bus == &"Alerts" else EXPLOSION_MIX_BUDGET
+		var scale := minf(1.0, budget / maxf(float(bus_totals.get(player.bus, 0.0)), 0.0001))
+		player.volume_linear = float(event_requested_gains.get(player.get_instance_id(), 0.0)) * scale
 
 func played_count(event_id: StringName) -> int:
 	return event_counts.get(event_id, 0)

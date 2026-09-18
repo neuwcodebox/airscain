@@ -74,6 +74,27 @@ func test_combat_pause_pauses_active_voices_and_new_retirement_fades() -> void:
 	assert_false(missile.playing)
 	assert_true(context.fade_tweens.is_empty())
 
+func test_general_combat_events_obey_independent_bus_mix_budgets() -> void:
+	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
+	context.set_process(false)
+	for event: StringName in [CombatAudio.DAMAGE, CombatAudio.BIG_EXPLOSION, CombatAudio.EXPLOSION, CombatAudio.DAMAGE]:
+		context.cooldowns[event] = 0.0
+		assert_true(context.play_event(event))
+	for event: StringName in [CombatAudio.CONTACT, CombatAudio.PRESSURE, CombatAudio.LOW_AMMO]:
+		context.cooldowns[event] = 0.0
+		assert_true(context.play_event(event))
+	var alert_total := 0.0
+	var explosion_total := 0.0
+	for player: AudioStreamPlayer in context.players:
+		if not player.playing:
+			continue
+		if player.bus == &"Alerts":
+			alert_total += player.volume_linear
+		elif player.bus == &"Explosions":
+			explosion_total += player.volume_linear
+	assert_lte(alert_total, CombatAudio.ALERT_MIX_BUDGET + 0.0001)
+	assert_lte(explosion_total, CombatAudio.EXPLOSION_MIX_BUDGET + 0.0001)
+
 func test_signal_less_source_tree_exit_retires_missile_voice() -> void:
 	var context := add_child_autofree(CombatAudio.new()) as CombatAudio
 	context.set_process(false)

@@ -5,6 +5,7 @@ extends Node
 const EVENT := &"jet_flyover"
 const PEAK_SECONDS := 6.5
 const MAX_VOICES := 2
+const MIX_BUDGET := 0.4
 const START_INTERVAL := 0.75
 const RETIRE_SECONDS := 0.25
 # Static offsets preserve the recordings' approach/departure envelopes.
@@ -97,7 +98,6 @@ func update_audio(delta: float, paused: bool, rate: float, enabled: bool) -> voi
 	for voice: Voice in voices:
 		if voice.retiring:
 			voice.fade_remaining = maxf(0.0, voice.fade_remaining - delta * rate)
-			voice.player.volume_linear = voice.gain * voice.fade_remaining / retire_seconds
 			if voice.fade_remaining <= 0.0:
 				voice.player.stop()
 				voice.retiring = false
@@ -132,7 +132,6 @@ func update_audio(delta: float, paused: bool, rate: float, enabled: bool) -> voi
 			voice.members.assign([id])
 			voice.opened_at = clock
 			voice.gain = db_to_linear(gains_db[next_variant])
-			voice.player.volume_linear = voice.gain
 			voice.player.stream = streams[next_variant]
 			# Late spawns/restores enter at the corresponding approach position.
 			AudioPlayback.play(voice.player, lead_seconds - seconds)
@@ -140,6 +139,20 @@ func update_audio(delta: float, paused: bool, rate: float, enabled: bool) -> voi
 			cooldown = start_interval
 			played_count += 1
 			break
+	_apply_mix_budget()
+
+func _apply_mix_budget() -> void:
+	var requested: Dictionary[int, float] = {}
+	var requested_total := 0.0
+	for voice: Voice in voices:
+		var gain := 0.0
+		if voice.player.playing:
+			gain = voice.gain * (voice.fade_remaining / retire_seconds if voice.retiring else 1.0)
+		requested[voice.player.get_instance_id()] = gain
+		requested_total += gain
+	var scale := minf(1.0, MIX_BUDGET / maxf(requested_total, 0.0001))
+	for voice: Voice in voices:
+		voice.player.volume_linear = float(requested[voice.player.get_instance_id()]) * scale
 
 func retire(id: int) -> void:
 	for voice: Voice in voices:
