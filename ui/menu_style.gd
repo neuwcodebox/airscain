@@ -9,6 +9,40 @@ const TEXT := Color("e6eeec")
 const TEXT_MUTED := Color("93a8ab")
 const TEXT_DISABLED := Color(0.62, 0.7, 0.72, 0.32)
 const SURFACE := Color(0.02, 0.035, 0.045, 0.94)
+const FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
+
+static var _tracked_fonts: Dictionary[int, FontVariation] = {}
+
+## Letter-spaced variant of the UI font for small captions and headings.
+static func tracked_font(spacing: int = 2) -> FontVariation:
+	if not _tracked_fonts.has(spacing):
+		var font := FontVariation.new()
+		font.base_font = load(FONT_PATH) as Font
+		font.spacing_glyph = spacing
+		_tracked_fonts[spacing] = font
+	return _tracked_fonts[spacing]
+
+## Outlined status pill; the caller recolors it as the state changes.
+static func badge(color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	recolor_badge(style, color)
+	style.set_border_width_all(1)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
+	return style
+
+static func recolor_badge(style: StyleBoxFlat, color: Color) -> void:
+	style.bg_color = Color(color, 0.14)
+	style.border_color = Color(color, 0.6)
+
+## One-pixel accent rule for HSeparator.
+static func rule(accent: Color = ACCENT, alpha: float = 0.25) -> StyleBoxLine:
+	var line := StyleBoxLine.new()
+	line.color = Color(accent, alpha)
+	line.thickness = 1
+	return line
 
 ## Flat rectangular panel with a strong accent edge on top, as used by modal screens.
 static func panel(accent: Color = ACCENT, margin: float = 32.0) -> StyleBoxFlat:
@@ -23,12 +57,12 @@ static func panel(accent: Color = ACCENT, margin: float = 32.0) -> StyleBoxFlat:
 	return style
 
 ## Compact rectangular command button; primary buttons are filled with the accent color.
-static func apply_action_button(button: Button, primary: bool = false, accent: Color = ACCENT) -> void:
+static func apply_action_button(button: Button, primary: bool = false, accent: Color = ACCENT, compact: bool = false) -> void:
 	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var style := StyleBoxFlat.new()
-		style.set_content_margin_all(12)
-		style.content_margin_left = 22
-		style.content_margin_right = 22
+		style.set_content_margin_all(6 if compact else 12)
+		style.content_margin_left = 12 if compact else 22
+		style.content_margin_right = 12 if compact else 22
 		style.set_border_width_all(1)
 		style.bg_color = Color(accent, 0.2) if primary else Color(0.06, 0.1, 0.12, 0.9)
 		style.border_color = Color(accent, 0.75) if primary else Color(accent, 0.22)

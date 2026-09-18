@@ -46,6 +46,7 @@ var menu_row_normal: StyleBoxFlat
 var menu_row_hover: StyleBoxFlat
 var menu_row_pressed: StyleBoxFlat
 var menu_row_disabled: StyleBoxFlat
+var selection_state_badge: StyleBoxFlat
 const TARGET_ICONS: Array[Texture2D] = [
 	preload("res://ui/icons/doctrine_small_uav.svg"), preload("res://ui/icons/doctrine_uav.svg"),
 	preload("res://ui/icons/doctrine_aircraft.svg"), preload("res://ui/icons/doctrine_cruise_missile.svg"),
@@ -108,6 +109,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var game_over_blocker: ColorRect = %GameOverBlocker
 @onready var game_over_panel: PanelContainer = %GameOverPanel
 @onready var game_over_main_menu_button: Button = %GameOverMainMenuButton
+@onready var survival_time_label: Label = %SurvivalTimeLabel
 @onready var final_stats: Label = %FinalStats
 @onready var final_combat_stats: Label = %FinalCombatStats
 @onready var final_network_stats: Label = %FinalNetworkStats
@@ -171,6 +173,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	overlay_option.get_popup().about_to_popup.connect(_close_context_menus)
 	_apply_menu_row_style(city_restoration_button)
 	_style_game_over_actions()
+	_style_selection_panel()
 	_build_defense_catalog()
 	_catalog_state.clear()
 	_restoration_state.clear()
@@ -594,6 +597,7 @@ func _style_metric_grid(grid: GridContainer, value_width: float) -> void:
 			continue
 		label.add_theme_font_size_override("font_size", METRIC_FONT_SIZE)
 		if index % 2 == 0:
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			label.add_theme_color_override("font_color", METRIC_KEY_COLOR)
 		else:
 			label.custom_minimum_size.x = value_width
@@ -608,7 +612,10 @@ func _asset_state_text(unit: DefenseUnit) -> String:
 	return "정상"
 
 func _set_state_color(positive: bool) -> void:
-	selection_state_label.add_theme_color_override("font_color", Color(0.45, 0.92, 0.66) if positive else Color(1.0, 0.62, 0.3))
+	var color := Color(0.45, 0.92, 0.66) if positive else Color(1.0, 0.62, 0.3)
+	selection_state_label.add_theme_color_override("font_color", color)
+	if selection_state_badge != null:
+		MenuStyle.recolor_badge(selection_state_badge, color)
 
 func _fit_selection_panel() -> void:
 	if not selected_asset_panel.visible:
@@ -721,8 +728,34 @@ func _on_phase_changed(new_phase: GameSession.Phase) -> void:
 		set_catalog_expanded(false)
 		set_city_menu_expanded(false)
 		set_threat_menu_expanded(false)
-		final_stats.text = "생존 시간  %02d:%02d\n무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.neutralized_count, session.defense_count, session.highest_pressure]
+		final_stats.text = "무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d" % [session.neutralized_count, session.defense_count, session.highest_pressure]
+		survival_time_label.text = "%02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
+		_reveal_game_over()
 	_on_state_changed()
+
+func _style_selection_panel() -> void:
+	selection_kind_label.add_theme_font_override("font", MenuStyle.tracked_font(1))
+	for caption: String in ["SectionLabel", "SourceCaption", "TargetCaption"]:
+		for node: Node in selected_asset_panel.find_children(caption, "Label", true, false):
+			(node as Label).add_theme_font_override("font", MenuStyle.tracked_font(1))
+	selection_state_badge = MenuStyle.badge(Color(0.45, 0.92, 0.66))
+	selection_state_label.add_theme_stylebox_override("normal", selection_state_badge)
+	selection_state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	selection_state_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for separator: Node in find_children("*", "HSeparator", true, false):
+		(separator as HSeparator).add_theme_stylebox_override("separator", MenuStyle.rule())
+	for button: Button in [resupply_button, repair_button, relocation_button, focus_button]:
+		MenuStyle.apply_action_button(button, false, MenuStyle.ACCENT, true)
+		button.add_theme_font_size_override("font_size", 14)
+	MenuStyle.apply_option(munition_mode_button)
+	for toggle: CheckButton in [hold_fire_button, engage_unknown_button, automatic_resupply_button]:
+		toggle.add_theme_color_override("font_color", METRIC_VALUE_COLOR)
+		toggle.add_theme_font_size_override("font_size", 14)
+
+func _reveal_game_over() -> void:
+	for item: CanvasItem in [game_over_blocker, game_over_panel]:
+		item.modulate.a = 0.0
+		item.create_tween().tween_property(item, "modulate:a", 1.0, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 func _style_game_over_actions() -> void:
 	var actions := game_over_panel.get_node("VBox/Actions")
@@ -761,7 +794,8 @@ func _build_defense_catalog() -> void:
 		var heading := Label.new()
 		heading.name = "CatalogGroup%s" % String(group_id).to_pascal_case()
 		heading.text = String(CATALOG_GROUP_LABELS[group_id])
-		heading.add_theme_color_override("font_color", Color(0.48, 0.82, 0.94))
+		heading.add_theme_color_override("font_color", MenuStyle.ACCENT)
+		heading.add_theme_font_override("font", MenuStyle.tracked_font(1))
 		heading.custom_minimum_size = Vector2(0.0, 24.0)
 		heading.add_theme_font_size_override("font_size", 13)
 		heading.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -817,17 +851,16 @@ func _create_menu_row(name: String, icon: Texture2D = null) -> Dictionary:
 func _ensure_menu_row_styles() -> void:
 	if menu_row_normal != null:
 		return
-	menu_row_normal = _menu_row_style(Color(0.055, 0.08, 0.105, 0.96), Color(0.12, 0.24, 0.31, 0.85))
-	menu_row_hover = _menu_row_style(Color(0.075, 0.14, 0.18, 0.98), Color(0.22, 0.58, 0.72, 0.95))
-	menu_row_pressed = _menu_row_style(Color(0.06, 0.22, 0.28, 0.98), Color(0.35, 0.78, 0.88, 1.0))
-	menu_row_disabled = _menu_row_style(Color(0.04, 0.055, 0.07, 0.82), Color(0.1, 0.14, 0.17, 0.72))
+	menu_row_normal = _menu_row_style(Color(0.045, 0.075, 0.09, 0.96), Color(MenuStyle.ACCENT, 0.16))
+	menu_row_hover = _menu_row_style(Color(0.07, 0.14, 0.15, 0.98), Color(MenuStyle.ACCENT, 0.75))
+	menu_row_pressed = _menu_row_style(Color(0.08, 0.2, 0.2, 0.98), MenuStyle.ACCENT)
+	menu_row_disabled = _menu_row_style(Color(0.035, 0.05, 0.06, 0.82), Color(MenuStyle.ACCENT, 0.06))
 
 func _menu_row_style(background: Color, border: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background
 	style.border_color = border
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(4)
 	return style
 
 func _apply_menu_row_style(button: Button) -> void:
@@ -896,7 +929,7 @@ func _style_top_bar() -> void:
 	popup.add_theme_constant_override("v_separation", 12)
 	popup.add_theme_font_size_override("font_size", 16)
 	var divider := StyleBoxLine.new()
-	divider.color = Color(0.22, 0.36, 0.4, 0.8)
+	divider.color = Color(MenuStyle.ACCENT, 0.2)
 	divider.vertical = true
 	divider.thickness = 1
 	for node: Node in $TopBar.find_children("Divider", "VSeparator", true, false):
@@ -987,7 +1020,6 @@ func _build_target_kind_buttons() -> void:
 			if state == "focus":
 				style.draw_center = false
 			style.set_border_width_all(2 if state == "focus" else 1)
-			style.set_corner_radius_all(5)
 			style.set_content_margin_all(5)
 			button.add_theme_stylebox_override(state, style)
 		button.add_theme_color_override("icon_normal_color", Color("647981"))

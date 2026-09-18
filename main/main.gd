@@ -386,7 +386,7 @@ func _final_statistics() -> Dictionary:
 		asset_damage += roundi(defense.definition.maximum_integrity - defense.integrity)
 	var neutralized_text := " · ".join(neutralized_parts.slice(0, mini(3, neutralized_parts.size()))) if not neutralized_parts.is_empty() else "없음"
 	return {
-		"summary": "생존  %02d:%02d\n방어 구간  %d\n최고 강도  %d\n도시 피해  %d" % [int(session.survival_time) / 60, int(session.survival_time) % 60, session.completed_attack_windows, session.highest_pressure, objective.definition.maximum_integrity - objective.current_integrity],
+		"summary": "방어 구간  %d\n최고 강도  %d\n도시 피해  %d" % [session.completed_attack_windows, session.highest_pressure, objective.definition.maximum_integrity - objective.current_integrity],
 		"combat": "무력화  %d\n무기 운용  %d회\n\n주요 격추\n%s" % [session.neutralized_count, session.weapon_fire_count, neutralized_text],
 		"network": "가동 자산  %d / %d\n자산 피해  %d\n\n방공망  $%d\n지원  $%d\n회수 보상  $%d" % [operational_count, session.defense_count, asset_damage, session.defense_spending, session.support_spending, session.neutralized_reward_total],
 	}

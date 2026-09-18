@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource path="res://ui/hud.gd" type="Script" id="1"]
 [ext_resource type="Shader" path="res://ui/city_damage_vignette.gdshader" id="2_city_damage"]
@@ -11,41 +11,37 @@ resource_local_to_scene = true
 shader = ExtResource("2_city_damage")
 
 [sub_resource type="StyleBoxFlat" id="TopPanel"]
-bg_color = Color(0.035, 0.055, 0.075, 0.9)
-border_width_bottom = 2
-border_color = Color(0.16, 0.5, 0.65, 0.8)
+bg_color = Color(0.02, 0.035, 0.045, 0.92)
+border_width_bottom = 1
+border_color = Color(0.435, 0.84, 0.784, 0.45)
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 10
 content_margin_left = 18.0
 content_margin_top = 11.0
 content_margin_right = 18.0
 content_margin_bottom = 11.0
 
 [sub_resource type="StyleBoxFlat" id="TimeButtonSelected"]
-bg_color = Color(0.08, 0.55, 0.72, 0.96)
+bg_color = Color(0.17, 0.52, 0.66, 0.96)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.45, 0.9, 1, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
+border_width_bottom = 2
+border_color = Color(0.435, 0.84, 0.784, 1)
 
 [sub_resource type="StyleBoxFlat" id="CatalogPanel"]
-bg_color = Color(0.035, 0.055, 0.075, 0.92)
-border_width_left = 2
+bg_color = Color(0.02, 0.035, 0.045, 0.94)
+border_width_left = 1
 border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.16, 0.5, 0.65, 0.7)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
-content_margin_left = 14.0
-content_margin_top = 12.0
-content_margin_right = 14.0
-content_margin_bottom = 12.0
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.435, 0.84, 0.784, 0.4)
+content_margin_left = 16.0
+content_margin_top = 14.0
+content_margin_right = 16.0
+content_margin_bottom = 14.0
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 14
 
 [sub_resource type="StyleBoxFlat" id="GameOverPanel"]
 bg_color = Color(0.018, 0.028, 0.036, 0.97)
@@ -60,6 +56,33 @@ content_margin_right = 40.0
 content_margin_bottom = 34.0
 shadow_color = Color(0, 0, 0, 0.5)
 shadow_size = 32
+
+[sub_resource type="StyleBoxFlat" id="ResultCardOutcome"]
+bg_color = Color(1, 1, 1, 0.03)
+border_width_top = 2
+border_color = Color(0.42, 0.9, 1, 0.7)
+content_margin_left = 16.0
+content_margin_top = 14.0
+content_margin_right = 16.0
+content_margin_bottom = 16.0
+
+[sub_resource type="StyleBoxFlat" id="ResultCardCombat"]
+bg_color = Color(1, 1, 1, 0.03)
+border_width_top = 2
+border_color = Color(1, 0.72, 0.3, 0.7)
+content_margin_left = 16.0
+content_margin_top = 14.0
+content_margin_right = 16.0
+content_margin_bottom = 16.0
+
+[sub_resource type="StyleBoxFlat" id="ResultCardNetwork"]
+bg_color = Color(1, 1, 1, 0.03)
+border_width_top = 2
+border_color = Color(0.52, 0.92, 0.64, 0.7)
+content_margin_left = 16.0
+content_margin_top = 14.0
+content_margin_right = 16.0
+content_margin_bottom = 16.0
 
 [node name="HUD" type="Control"]
 layout_mode = 3
@@ -591,7 +614,7 @@ theme_override_constants/separation = 9
 [node name="SelectionKindLabel" type="Label" parent="SelectedAssetPanel/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.42, 0.72, 0.82, 1)
+theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 0.85)
 theme_override_font_sizes/font_size = 12
 text = "방공 자산"
 
@@ -604,8 +627,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(280, 30)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.55, 0.83, 0.95, 1)
-theme_override_font_sizes/font_size = 19
+theme_override_colors/font_color = Color(0.93, 0.96, 0.94, 1)
+theme_override_font_sizes/font_size = 20
 text = "선택 자산"
 vertical_alignment = 1
 autowrap_mode = 2
@@ -630,7 +653,7 @@ theme_override_constants/separation = 7
 
 [node name="SectionLabel" type="Label" parent="SelectedAssetPanel/VBox/AssetSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 1)
 theme_override_font_sizes/font_size = 13
 text = "운용 상태"
 
@@ -650,7 +673,7 @@ theme_override_constants/separation = 7
 [node name="SelectedTrackLabel" type="Label" parent="SelectedAssetPanel/VBox/TrackSection"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 1)
 theme_override_font_sizes/font_size = 13
 text = "항적 정보"
 autowrap_mode = 2
@@ -820,7 +843,7 @@ theme_override_constants/separation = 4
 
 [node name="SourceCaption" type="Label" parent="SelectedAssetPanel/VBox/EngagementSection/SourceSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 1)
 theme_override_font_sizes/font_size = 13
 text = "선택 자산"
 
@@ -868,7 +891,7 @@ theme_override_constants/separation = 4
 
 [node name="SectionLabel" type="Label" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 1)
 theme_override_font_sizes/font_size = 13
 text = "교전 설정"
 
@@ -905,7 +928,7 @@ theme_override_constants/separation = 5
 
 [node name="SectionLabel" type="Label" parent="SelectedAssetPanel/VBox/ActionSection"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.48, 0.82, 0.94, 1)
+theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 1)
 theme_override_font_sizes/font_size = 13
 text = "명령"
 
@@ -979,10 +1002,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -410.0
-offset_top = -210.0
-offset_right = 410.0
-offset_bottom = 210.0
+offset_left = -420.0
+offset_top = -290.0
+offset_right = 420.0
+offset_bottom = 290.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
@@ -990,7 +1013,14 @@ theme_override_styles/panel = SubResource("GameOverPanel")
 
 [node name="VBox" type="VBoxContainer" parent="GameOverPanel"]
 layout_mode = 2
-theme_override_constants/separation = 22
+theme_override_constants/separation = 18
+
+[node name="Caption" type="Label" parent="GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.416, 0.302, 0.8)
+theme_override_font_sizes/font_size = 14
+text = "작전 종료"
+horizontal_alignment = 1
 
 [node name="Title" type="Label" parent="GameOverPanel/VBox"]
 layout_mode = 2
@@ -999,6 +1029,25 @@ theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 40
 text = "도시 기능 상실"
+horizontal_alignment = 1
+
+[node name="Hero" type="VBoxContainer" parent="GameOverPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="SurvivalCaption" type="Label" parent="GameOverPanel/VBox/Hero"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.576, 0.659, 0.671, 1)
+theme_override_font_sizes/font_size = 14
+text = "생존 시간"
+horizontal_alignment = 1
+
+[node name="SurvivalTimeLabel" type="Label" parent="GameOverPanel/VBox/Hero"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.96, 0.94, 1)
+theme_override_font_sizes/font_size = 52
+text = "00:00"
 horizontal_alignment = 1
 
 [node name="TitleRule" type="ColorRect" parent="GameOverPanel/VBox"]
@@ -1010,68 +1059,83 @@ color = Color(1, 0.416, 0.302, 0.25)
 [node name="StatColumns" type="HBoxContainer" parent="GameOverPanel/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 28
+theme_override_constants/separation = 14
 
-[node name="Outcome" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns"]
+[node name="Outcome" type="PanelContainer" parent="GameOverPanel/VBox/StatColumns"]
 custom_minimum_size = Vector2(210, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 14
+theme_override_styles/panel = SubResource("ResultCardOutcome")
 
-[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Outcome"]
+[node name="Body" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns/Outcome"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Outcome/Body"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.42, 0.9, 1, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "작전 결과"
 
-[node name="FinalStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Outcome"]
+[node name="FinalStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Outcome/Body"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.86, 0.9, 0.88, 1)
 theme_override_constants/line_spacing = 6
-theme_override_font_sizes/font_size = 17
-text = "최종 통계"
+theme_override_font_sizes/font_size = 16
+text = "FinalStats"
 
-[node name="Combat" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns"]
+[node name="Combat" type="PanelContainer" parent="GameOverPanel/VBox/StatColumns"]
 custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 14
+theme_override_styles/panel = SubResource("ResultCardCombat")
 
-[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Combat"]
+[node name="Body" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns/Combat"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Combat/Body"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.72, 0.3, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "교전 성과"
 
-[node name="FinalCombatStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Combat"]
+[node name="FinalCombatStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Combat/Body"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.86, 0.9, 0.88, 1)
 theme_override_constants/line_spacing = 6
-theme_override_font_sizes/font_size = 17
-text = "교전 통계"
+theme_override_font_sizes/font_size = 16
+text = "FinalCombatStats"
 autowrap_mode = 2
 
-[node name="Network" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns"]
+[node name="Network" type="PanelContainer" parent="GameOverPanel/VBox/StatColumns"]
 custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 14
+theme_override_styles/panel = SubResource("ResultCardNetwork")
 
-[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Network"]
+[node name="Body" type="VBoxContainer" parent="GameOverPanel/VBox/StatColumns/Network"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Heading" type="Label" parent="GameOverPanel/VBox/StatColumns/Network/Body"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.52, 0.92, 0.64, 1)
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 16
 text = "방공망"
 
-[node name="FinalNetworkStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Network"]
+[node name="FinalNetworkStats" type="Label" parent="GameOverPanel/VBox/StatColumns/Network/Body"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_colors/font_color = Color(0.86, 0.9, 0.88, 1)
 theme_override_constants/line_spacing = 6
-theme_override_font_sizes/font_size = 17
-text = "방공망 통계"
+theme_override_font_sizes/font_size = 16
+text = "FinalNetworkStats"
 
 [node name="Actions" type="HBoxContainer" parent="GameOverPanel/VBox"]
 layout_mode = 2
