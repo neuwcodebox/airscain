@@ -114,7 +114,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks)
-	_district_presentation.build(city_districts, generator, _city_boxes)
+	_district_presentation.build(city_districts, generator, _city_boxes, city_road_width)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks)
 	_city_boxes.build(city_visuals)
 	_configure_city_shadow_receivers()
@@ -521,7 +521,9 @@ func _build_street_lights(blocks: Array[Dictionary]) -> void:
 		var center: Vector3 = blocks[index].position
 		var spacing: float = blocks[index].block_step
 		var yaw: float = blocks[index].rotation
-		var p := center + Basis(Vector3.UP, yaw) * Vector3(spacing * 0.43, 0, spacing * 0.32)
+		var block_half_extent := maxf((spacing - city_road_width) * 0.5, 0.0)
+		var sidewalk_offset := maxf(block_half_extent - 1.5, 0.0)
+		var p := center + Basis(Vector3.UP, yaw) * Vector3(sidewalk_offset, 0.0, sidewalk_offset)
 		p.y = terrain_height(p.x, p.z)
 		_add_city_box("LampPole%d" % index, Vector3(0.25, 6.0, 0.25), p + Vector3.UP * 3.0, pole_material, yaw)
 		_add_city_box("Lamp%d" % index, Vector3(1.5, 0.25, 0.8), p + Vector3.UP * 6.0, lamp_material, yaw)

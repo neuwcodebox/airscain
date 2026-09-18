@@ -930,6 +930,28 @@ func test_distributed_city_districts_have_role_landmarks() -> void:
 		battlefield.build(scenario)
 		assert_eq(battlefield.city_landmark_count, battlefield.city_districts.size(), String(scenario.battlefield_layout().id))
 
+func test_role_landmarks_stay_inside_their_central_city_blocks() -> void:
+	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	scenario.world_seed = 3
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(scenario)
+	var landmark_boxes := RecordingCityBoxBatch.new()
+	var presentation := CityDistrictPresentation.new()
+	presentation.build(battlefield.city_districts, battlefield.generator, landmark_boxes, battlefield.city_road_width)
+	for pose: Transform3D in landmark_boxes.recorded_transforms:
+		var district := battlefield.city_districts[0]
+		for candidate: CityDistrict in battlefield.city_districts:
+			if candidate.center.distance_squared_to(Vector2(pose.origin.x, pose.origin.z)) < district.center.distance_squared_to(Vector2(pose.origin.x, pose.origin.z)):
+				district = candidate
+		var central_block: Dictionary = district.blocks.filter(func(block: Dictionary) -> bool: return block.grid == Vector2i.ZERO)[0]
+		var block_half_extent := (float(central_block.block_step) - battlefield.city_road_width) * 0.5
+		var inverse_basis := Basis(Vector3.UP, deg_to_rad(district.definition.rotation_degrees)).inverse()
+		for local_corner: Vector3 in [Vector3(-0.5, 0.0, -0.5), Vector3(0.5, 0.0, -0.5), Vector3(0.5, 0.0, 0.5), Vector3(-0.5, 0.0, 0.5)]:
+			var world_corner := pose * local_corner
+			var district_corner := inverse_basis * Vector3(world_corner.x - district.center.x, 0.0, world_corner.z - district.center.y)
+			assert_lte(absf(district_corner.x), block_half_extent, "%s 랜드마크 x 경계" % district.id)
+			assert_lte(absf(district_corner.z), block_half_extent, "%s 랜드마크 z 경계" % district.id)
+
 func test_rotated_city_amenities_lamps_and_landmarks_share_their_district_axes() -> void:
 	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
 	scenario.world_seed = 3
@@ -962,6 +984,11 @@ func test_rotated_city_amenities_lamps_and_landmarks_share_their_district_axes()
 	var lamp := battlefield.city_visuals.get_node("Lamp0") as MeshInstance3D
 	var lamp_right := Basis(Vector3.UP, float(first_block.rotation)) * Vector3.RIGHT
 	assert_almost_eq(lamp.transform.basis.x.normalized().dot(lamp_right), 1.0, 0.0001, "가로등 등기구는 지구 축을 따릅니다")
+	var lamp_delta := lamp.position - (first_block.position as Vector3)
+	var lamp_local := Basis(Vector3.UP, float(first_block.rotation)).inverse() * Vector3(lamp_delta.x, 0.0, lamp_delta.z)
+	var lamp_block_half_extent := (float(first_block.block_step) - battlefield.city_road_width) * 0.5
+	assert_lte(absf(lamp_local.x), lamp_block_half_extent, "가로등은 x축 도로가 아니라 보도 안에 있습니다")
+	assert_lte(absf(lamp_local.z), lamp_block_half_extent, "가로등은 z축 도로가 아니라 보도 안에 있습니다")
 	for district: CityDistrict in battlefield.city_districts:
 		var landmark_position := Vector3(
 			district.center.x,
