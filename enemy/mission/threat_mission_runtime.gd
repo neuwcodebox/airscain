@@ -36,7 +36,15 @@ func navigation_target() -> Vector3:
 		return target_asset.global_position
 	return fixed_target
 
-func observe_target(unit_position: Vector3) -> bool:
+func needs_local_target(unit_position: Vector3) -> bool:
+	if profile.acquisition_range <= 0.0 or phase == Phase.EGRESS or target_defense_id == 0:
+		return false
+	if is_instance_valid(target_asset) and target_asset.active and target_asset.global_position.distance_to(unit_position) <= profile.acquisition_range:
+		return false
+	var confirmation_distance := maxf(profile.acquisition_range * 0.75, (profile.acquisition_range + profile.action_distance) * 0.5)
+	return unit_position.distance_to(fixed_target) <= confirmation_distance
+
+func observe_target(unit_position: Vector3, local_target: DefenseUnit = null) -> bool:
 	if profile.acquisition_range <= 0.0 or phase == Phase.EGRESS:
 		return false
 	if target_defense_id == 0 and profile.type != ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
@@ -48,6 +56,13 @@ func observe_target(unit_position: Vector3) -> bool:
 		return false
 	if not is_instance_valid(target_asset) or not target_asset.active or target_asset.global_position.distance_to(unit_position) > profile.acquisition_range:
 		if report_distance > confirmation_distance:
+			return false
+		if is_instance_valid(local_target) and local_target.active and local_target.definition.enemy_knowledge_role() == profile.knowledge_role() and local_target.global_position.distance_to(unit_position) <= profile.acquisition_range:
+			target_asset = local_target
+			target_defense_id = local_target.runtime_id
+			fixed_target = local_target.global_position
+			if profile.type == ThreatMissionDefinition.Type.STRIKE_AND_EXIT:
+				phase = Phase.ACTING
 			return false
 		if profile.type == ThreatMissionDefinition.Type.IMPACT:
 			target_asset = null

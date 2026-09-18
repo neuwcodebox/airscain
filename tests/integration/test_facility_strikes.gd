@@ -510,6 +510,30 @@ func test_lost_cruise_target_keeps_last_site_and_cannot_remote_damage_or_egress(
 	assert_eq(main.objective.current_integrity, city_before)
 	assert_true(main.enemy_knowledge.estimates.is_empty())
 
+func test_small_asset_strike_reacquires_nearby_weapon_instead_of_hitting_ground() -> void:
+	var original := target_for_definition(&"missile_battery")
+	var nearby := target_for_definition(&"close_in_gun")
+	nearby.global_position = original.global_position + Vector3(18.0, 0.0, 0.0)
+	main.enemy_knowledge.record_recon(original)
+	var threat := _spawn_entry_for(&"small_defense_strike_uav", 0.5) as AttackUav
+	var original_site := threat.mission_runtime.fixed_target
+	original.receive_damage(original.definition.maximum_integrity)
+	threat.global_position = nearby.global_position + Vector3.UP * 48.0
+	assert_true(nearby.active)
+	assert_eq(nearby.definition.enemy_knowledge_role(), &"weapon")
+	assert_same(main.enemy_knowledge.acquire_local_asset(threat.global_position, &"weapon", threat.mission_runtime.profile.acquisition_range), nearby)
+	threat.gameplay_tick(0.01)
+	assert_same(threat.mission_runtime.target_asset, nearby)
+	assert_eq(threat.mission_runtime.target_defense_id, nearby.runtime_id)
+	assert_eq(threat.mission_runtime.fixed_target, nearby.global_position)
+	for tick: int in 1800:
+		threat.gameplay_tick(1.0 / 30.0)
+		if threat.resolved_state:
+			break
+	assert_true(threat.resolved_state)
+	assert_eq(nearby.integrity, nearby.definition.maximum_integrity - threat.mission_runtime.profile.damage)
+	assert_gt(threat.mission_runtime.effect_damage, 0.0)
+
 func test_missile_can_reach_rooftop_and_skips_a_disabled_asset() -> void:
 	var entry := entry_for(&"battery_strike_cruise")
 	var target := target_for(&"weapon")

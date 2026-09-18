@@ -44,6 +44,23 @@ func visible_from(observer: Vector3, point: Vector3, radius: float) -> bool:
 		return false
 	return battlefield == null or (not battlefield.building_blocks_segment(observer, point) and battlefield.terrain_segment_impact(observer, point).is_empty())
 
+func acquire_local_asset(observer: Vector3, role: StringName, radius: float) -> DefenseUnit:
+	if not is_instance_valid(defense_parent) or role.is_empty() or radius <= 0.0:
+		return null
+	var nearest: DefenseUnit
+	var nearest_distance_squared := INF
+	for child: Node in defense_parent.get_children():
+		var asset := child as DefenseUnit
+		if asset == null or not asset.active or asset.definition.enemy_knowledge_role() != role:
+			continue
+		var distance_squared := observer.distance_squared_to(asset.global_position)
+		if distance_squared > radius * radius:
+			continue
+		if distance_squared < nearest_distance_squared or is_equal_approx(distance_squared, nearest_distance_squared) and (nearest == null or asset.runtime_id < nearest.runtime_id):
+			nearest = asset
+			nearest_distance_squared = distance_squared
+	return nearest
+
 func record_recon_area(position: Vector3, radius: float, duration: float = 0.5) -> void:
 	if not is_instance_valid(defense_parent):
 		return

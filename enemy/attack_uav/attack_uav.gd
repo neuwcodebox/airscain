@@ -44,9 +44,18 @@ func gameplay_tick(delta: float) -> void:
 		reconnaissance.advance(self, delta)
 		return
 	var observed_id := mission_runtime.target_defense_id
-	if mission_runtime.observe_target(global_position):
+	var observed_position := mission_runtime.fixed_target
+	var local_target: DefenseUnit
+	if enemy_knowledge != null and mission_runtime.needs_local_target(global_position):
+		local_target = enemy_knowledge.acquire_local_asset(global_position, _definition.mission.knowledge_role(), _definition.mission.acquisition_range)
+	var target_lost := mission_runtime.observe_target(global_position, local_target)
+	if observed_id != mission_runtime.target_defense_id and enemy_knowledge != null:
+		enemy_knowledge.discard_estimate_at(observed_id, observed_position, _definition.mission.acquisition_range)
+		if is_instance_valid(mission_runtime.target_asset):
+			enemy_knowledge.record_recon(mission_runtime.target_asset)
+	if target_lost:
 		if enemy_knowledge != null:
-			enemy_knowledge.discard_estimate_at(observed_id, mission_runtime.fixed_target, _definition.mission.acquisition_range)
+			enemy_knowledge.discard_estimate_at(observed_id, observed_position, _definition.mission.acquisition_range)
 		if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
 			_ground_missed_target()
 	var mission_target := mission_runtime.navigation_target()
