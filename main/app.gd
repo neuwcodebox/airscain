@@ -15,8 +15,10 @@ var settings_menu: SettingsMenu
 @onready var main_menu: Control = %MainMenu
 @onready var pause_menu: Control = %PauseMenu
 @onready var main_load_button: MenuListButton = %MainLoadButton
+@onready var main_quit_button: MenuListButton = %QuitButton
 @onready var pause_save_button: MenuListButton = %PauseSaveButton
 @onready var pause_load_button: MenuListButton = %PauseLoadButton
+@onready var pause_quit_button: MenuListButton = %PauseQuitButton
 @onready var menu_feedback_label: Label = %MenuFeedbackLabel
 @onready var menu_description_label: Label = %MenuDescriptionLabel
 @onready var loading_status: Control = %LoadingStatus
@@ -40,6 +42,9 @@ static func apply_global_font() -> FontFile:
 
 func _ready() -> void:
 	build_version_label.text = BuildVersion.display_text()
+	var show_quit_controls := quit_controls_available(OS.has_feature("web"))
+	main_quit_button.visible = show_quit_controls
+	pause_quit_button.visible = show_quit_controls
 	settings_menu = SettingsMenu.new()
 	add_child(settings_menu)
 	prepared_combat_stream_count = CombatAudio.prepare_samples()
@@ -53,6 +58,9 @@ func _ready() -> void:
 	_set_preparation_ui(false)
 	_reveal_main_menu()
 	get_tree().process_frame.connect(_start_combat_vfx_warmup, CONNECT_ONE_SHOT)
+
+static func quit_controls_available(is_web: bool) -> bool:
+	return not is_web
 
 func _show_menu_description(button: MenuListButton) -> void:
 	menu_description_label.text = button.description

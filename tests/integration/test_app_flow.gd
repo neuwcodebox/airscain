@@ -25,6 +25,14 @@ func test_main_menu_displays_the_packaged_build_version() -> void:
 	assert_eq(BuildVersion.from_build("2026-09-13", "dbf0e0a"), "2026.09.13 · dbf0e0a")
 	assert_eq(BuildVersion.from_build("2026-09-13", "dbf0e0a", true), "2026.09.13 · dbf0e0a-dirty")
 
+func test_platform_quit_policy_hides_controls_on_web_and_keeps_them_native() -> void:
+	assert_false(AirscainApp.quit_controls_available(true))
+	assert_true(AirscainApp.quit_controls_available(false))
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	var expected_visibility := AirscainApp.quit_controls_available(OS.has_feature("web"))
+	assert_eq(app.main_quit_button.visible, expected_visibility)
+	assert_eq(app.pause_quit_button.visible, expected_visibility)
+
 func test_settings_from_pause_keep_simulation_paused_and_block_camera() -> void:
 	var preferences := PlayerSettings.instance()
 	preferences.settings_path = _temporary_path("app_settings", "cfg")

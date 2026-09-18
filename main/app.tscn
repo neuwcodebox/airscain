@@ -198,6 +198,7 @@ script = ExtResource("5")
 description = "사운드, 조작 감도와 화면 옵션을 조정합니다."
 
 [node name="QuitButton" type="Button" parent="MainMenu/Panel/VBox/Footer"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 theme_override_font_sizes/font_size = 19
@@ -392,6 +393,7 @@ text = "메인 메뉴"
 script = ExtResource("5")
 
 [node name="PauseQuitButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 46)
 layout_mode = 2
 theme_override_font_sizes/font_size = 19
