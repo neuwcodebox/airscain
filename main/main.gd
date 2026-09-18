@@ -193,8 +193,7 @@ func _gameplay_step(delta: float) -> void:
 func _spawn_objective() -> void:
 	objective = scenario.objective_definition.scene.instantiate() as ProtectedObjective
 	objectives.add_child(objective)
-	var city_center := battlefield.generator.primary_city_center()
-	objective.global_position = Vector3(city_center.x, battlefield.terrain_height(city_center.x, city_center.y), city_center.y)
+	objective.global_transform = battlefield.primary_city_transform()
 	objective.exclusion_radius = scenario.city_size * 0.5
 	objective.setup(1, scenario.objective_definition)
 	battlefield.set_objective(objective)

@@ -3,6 +3,13 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
+class RecordingCityBoxBatch extends CityBoxBatch:
+	var recorded_transforms: Array[Transform3D] = []
+
+	func add_box(pose: Transform3D, material: StandardMaterial3D) -> void:
+		recorded_transforms.append(pose)
+		super.add_box(pose, material)
+
 var _original_default_font: Font
 var _original_fallback_font: Font
 
@@ -458,6 +465,16 @@ func test_world_seed_reproduces_height_and_city_layout() -> void:
 	assert_eq(first.city_districts()[0].blocks, second.city_districts()[0].blocks)
 	assert_eq(first.city_districts()[0].buildings, second.city_districts()[0].buildings)
 
+func test_ocean_uses_a_smoothed_copy_of_the_gameplay_heightfield() -> void:
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(SCENARIO)
+	var material := battlefield.ocean.mesh.surface_get_material(0) as ShaderMaterial
+	var ocean_heights := material.get_shader_parameter("terrain_heights") as Texture2D
+	var expected_size := battlefield.generator.resolution * Battlefield.OCEAN_HEIGHT_TEXTURE_SCALE
+	assert_eq(ocean_heights.get_width(), expected_size)
+	assert_eq(ocean_heights.get_height(), expected_size)
+	assert_eq(battlefield.generator.heights.size(), battlefield.generator.resolution ** 2, "게임 판정 높이장은 원래 해상도를 유지합니다")
+
 func test_current_city_is_an_explicit_central_district() -> void:
 	var generator := WorldGenerator.new()
 	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size, SCENARIO.battlefield_layout())
@@ -673,6 +690,12 @@ func test_city_objective_uses_a_civic_landmark() -> void:
 	var roof := city.get_node("CivicRoof") as MeshInstance3D
 	var mount := city.get_node("CommandMount") as Marker3D
 	assert_almost_eq(mount.position.y, roof.position.y + (roof.mesh as BoxMesh).size.y * 0.5, 0.001)
+	city.rotation.y = deg_to_rad(37.0)
+	var hall := city.get_node("CivicHall") as MeshInstance3D
+	var rotated_inside := hall.global_transform * Vector3(16.0, 0.0, 11.0)
+	var world_axis_corner := hall.global_position + Vector3(16.0, 0.0, 11.0)
+	assert_true(city.excludes_placement(rotated_inside, 0.0), "회전한 시민청 내부를 배치 금지합니다")
+	assert_false(city.excludes_placement(world_axis_corner, 0.0), "월드 축 사각형을 시민청 점유 영역으로 오인하지 않습니다")
 
 func test_tactical_units_use_a_smaller_presentation_scale_without_changing_profiles() -> void:
 	var defense := add_child_autofree(_defense(&"missile_battery").scene.instantiate()) as DefenseUnit
@@ -906,6 +929,49 @@ func test_distributed_city_districts_have_role_landmarks() -> void:
 		battlefield.build(scenario)
 		assert_eq(battlefield.city_landmark_count, battlefield.city_districts.size(), String(scenario.battlefield_layout().id))
 
+func test_rotated_city_amenities_lamps_and_landmarks_share_their_district_axes() -> void:
+	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	scenario.world_seed = 3
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	var city_boxes := RecordingCityBoxBatch.new()
+	battlefield._city_boxes = city_boxes
+	battlefield.build(scenario)
+	var box_transforms := city_boxes.recorded_transforms
+	var checked_park := false
+	for block: Dictionary in battlefield.generator.city_block_layout():
+		var grid: Vector2i = block.grid
+		if grid != Vector2i.ZERO and (grid.x + grid.y) % 2 != 0:
+			continue
+		var block_center: Vector3 = block.position
+		var block_step: float = block.block_step
+		var has_building := battlefield.city_buildings.any(func(building: Transform3D) -> bool:
+			return Vector2(building.origin.x - block_center.x, building.origin.z - block_center.z).length() <= block_step * 0.42
+		)
+		if has_building:
+			continue
+		var park_position := Vector3(block_center.x, battlefield.terrain_height(block_center.x, block_center.z) + 0.58, block_center.z)
+		var park_transform := _city_box_at(box_transforms, park_position)
+		assert_lt(float(park_transform.distance), 0.01, "회전 검사용 공원 바닥을 찾습니다")
+		var expected_right := Basis(Vector3.UP, float(block.rotation)) * Vector3.RIGHT
+		assert_almost_eq((park_transform.pose as Transform3D).basis.x.normalized().dot(expected_right), 1.0, 0.0001, "공원 바닥은 지구 축을 따릅니다")
+		checked_park = true
+		break
+	assert_true(checked_park, "회전 검사용 공원이 생성됩니다")
+	var first_block: Dictionary = battlefield.generator.city_block_layout()[0]
+	var lamp := battlefield.city_visuals.get_node("Lamp0") as MeshInstance3D
+	var lamp_right := Basis(Vector3.UP, float(first_block.rotation)) * Vector3.RIGHT
+	assert_almost_eq(lamp.transform.basis.x.normalized().dot(lamp_right), 1.0, 0.0001, "가로등 등기구는 지구 축을 따릅니다")
+	for district: CityDistrict in battlefield.city_districts:
+		var landmark_position := Vector3(
+			district.center.x,
+			battlefield.terrain_height(district.center.x, district.center.y) + 0.2,
+			district.center.y
+		)
+		var landmark_transform := _city_box_at(box_transforms, landmark_position)
+		assert_lt(float(landmark_transform.distance), 0.03, "%s 랜드마크 기반을 찾습니다" % district.id)
+		var district_right := Basis(Vector3.UP, deg_to_rad(district.definition.rotation_degrees)) * Vector3.RIGHT
+		assert_almost_eq((landmark_transform.pose as Transform3D).basis.x.normalized().dot(district_right), 1.0, 0.0001, "%s 랜드마크는 지구 축을 따릅니다" % district.id)
+
 func test_rotated_city_building_footprints_cover_world_space_bounds() -> void:
 	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
 	scenario.world_seed = 2
@@ -916,6 +982,16 @@ func test_rotated_city_building_footprints_cover_world_space_bounds() -> void:
 		var footprint := battlefield.city_building_footprints[index]
 		assert_true(footprint.has_point(Vector2(bounds.position.x, bounds.position.z)), "building %d minimum" % index)
 		assert_true(footprint.has_point(Vector2(bounds.end.x, bounds.end.z)), "building %d maximum" % index)
+
+func _city_box_at(transforms: Array[Transform3D], position: Vector3) -> Dictionary:
+	var closest := Transform3D.IDENTITY
+	var closest_distance := INF
+	for pose: Transform3D in transforms:
+		var distance := pose.origin.distance_to(position)
+		if distance < closest_distance:
+			closest = pose
+			closest_distance = distance
+	return {"pose": closest, "distance": closest_distance}
 
 func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
 	var generator := WorldGenerator.new()

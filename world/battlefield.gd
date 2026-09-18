@@ -2,6 +2,7 @@ class_name Battlefield
 extends Node3D
 
 const OCEAN_SIZE_MULTIPLIER := 8.0
+const OCEAN_HEIGHT_TEXTURE_SCALE := 4
 const CITY_TARGET_HORIZONTAL_FRACTION := Vector2(-0.34, 0.34)
 const CITY_TARGET_HEIGHT_FRACTION := Vector2(0.32, 0.86)
 
@@ -99,6 +100,11 @@ func build(scenario: ScenarioDefinition) -> void:
 	ocean_mesh.size = Vector2.ONE * scenario.battlefield_size * OCEAN_SIZE_MULTIPLIER
 	ocean.position.y = generator.sea_level
 	var height_image := Image.create_from_data(generator.resolution, generator.resolution, false, Image.FORMAT_RF, generator.heights.to_byte_array())
+	height_image.resize(
+		generator.resolution * OCEAN_HEIGHT_TEXTURE_SCALE,
+		generator.resolution * OCEAN_HEIGHT_TEXTURE_SCALE,
+		Image.INTERPOLATE_CUBIC
+	)
 	var water_material := ocean_mesh.material as ShaderMaterial
 	water_material.set_shader_parameter("terrain_heights", ImageTexture.create_from_image(height_image))
 	water_material.set_shader_parameter("battlefield_size", battlefield_size)
@@ -195,6 +201,15 @@ func primary_city_district() -> CityDistrict:
 		if district.definition.role == CityDistrictDefinition.Role.CORE:
 			return district
 	return city_districts[0] if not city_districts.is_empty() else null
+
+func primary_city_transform() -> Transform3D:
+	var district := primary_city_district()
+	if district == null:
+		return Transform3D.IDENTITY
+	var center := district.center
+	var position := Vector3(center.x, terrain_height(center.x, center.y), center.y)
+	var yaw := deg_to_rad(district.definition.rotation_degrees)
+	return Transform3D(Basis(Vector3.UP, yaw), position)
 
 func random_city_building_target_in_district(district: CityDistrict, rng: RandomNumberGenerator) -> Vector3:
 	if district == null or not district.has_buildings():
@@ -508,8 +523,8 @@ func _build_street_lights(blocks: Array[Dictionary]) -> void:
 		var yaw: float = blocks[index].rotation
 		var p := center + Basis(Vector3.UP, yaw) * Vector3(spacing * 0.43, 0, spacing * 0.32)
 		p.y = terrain_height(p.x, p.z)
-		_add_city_box("LampPole%d" % index, Vector3(0.25, 6.0, 0.25), p + Vector3.UP * 3.0, pole_material)
-		_add_city_box("Lamp%d" % index, Vector3(1.5, 0.25, 0.8), p + Vector3.UP * 6.0, lamp_material)
+		_add_city_box("LampPole%d" % index, Vector3(0.25, 6.0, 0.25), p + Vector3.UP * 3.0, pole_material, yaw)
+		_add_city_box("Lamp%d" % index, Vector3(1.5, 0.25, 0.8), p + Vector3.UP * 6.0, lamp_material, yaw)
 		glares.multimesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, p + Vector3.UP * 6.2))
 		# Bounded district lights leave the positional-light budget for combat flashes.
 		if index % maxi(1, ceili(float(blocks.size()) / 6.0)) == 0 and street_lights.size() < 6:
@@ -613,7 +628,7 @@ func _build_park(park_name: String, center: Vector3, size: float, yaw: float) ->
 	var lawn_material := StandardMaterial3D.new()
 	lawn_material.albedo_color = Color("446b43")
 	lawn_material.roughness = 1.0
-	_add_city_box(park_name, Vector3(size, 0.22, size), center, lawn_material)
+	_add_city_box(park_name, Vector3(size, 0.22, size), center, lawn_material, yaw)
 	var trunk_material := StandardMaterial3D.new()
 	trunk_material.albedo_color = Color("5b4532")
 	var crown_material := StandardMaterial3D.new()

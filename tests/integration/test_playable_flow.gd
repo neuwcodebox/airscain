@@ -258,6 +258,9 @@ func test_scenario_exposes_required_defense_and_threat_content() -> void:
 
 func test_city_rooftop_command_is_free_registered_and_connects_the_first_defenses() -> void:
 	assert_eq(main.defenses.size(), 1)
+	var primary_district := main.battlefield.primary_city_district()
+	var district_right := Basis(Vector3.UP, deg_to_rad(primary_district.definition.rotation_degrees)) * Vector3.RIGHT
+	assert_almost_eq(main.objective.global_basis.x.normalized().dot(district_right), 1.0, 0.0001, "시민청은 중심 지구 축을 따릅니다")
 	var command := main.defenses[0]
 	assert_eq(command.definition.id, &"command_post")
 	assert_eq(command.global_position, main.objective.initial_defense_mounts()[0].position)

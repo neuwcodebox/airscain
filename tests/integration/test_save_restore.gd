@@ -507,6 +507,7 @@ func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes()
 	main.session.budget = 317
 	var expected_height := main.battlefield.terrain_height(417.0, -263.0)
 	var expected_building_count := main.battlefield.city_visuals.get_child_count()
+	var expected_objective_transform := main.battlefield.primary_city_transform()
 	assert_eq(main.save_operation(), "")
 	assert_true(FileAccess.file_exists(save_path))
 	main.scenario.world_seed = 99241
@@ -516,6 +517,7 @@ func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes()
 	assert_eq(main.scenario.world_seed, saved_seed)
 	assert_eq(main.session.budget, 317)
 	assert_almost_eq(main.battlefield.terrain_height(417.0, -263.0), expected_height, 0.0001)
+	assert_eq(main.objective.global_transform, expected_objective_transform, "seed 복원 뒤 시민청 위치와 회전을 함께 복원합니다")
 	assert_eq(main.battlefield.terrain.get_child_count(), 1)
 	assert_eq(main.battlefield.city_visuals.get_child_count(), expected_building_count)
 
