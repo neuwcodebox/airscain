@@ -58,6 +58,8 @@ var city_road_width: float = 9.0
 var city_window_band_count: int = 0
 var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
+var city_landmark_count: int = 0
+var city_arterial_segment_count: int = 0
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_building_footprints: Array[Rect2] = []
 var city_buildings: Array[Transform3D] = []
@@ -105,6 +107,7 @@ func build(scenario: ScenarioDefinition) -> void:
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks)
+	_build_district_identity()
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks)
 	_city_boxes.build(city_visuals)
 	_configure_city_shadow_receivers()
@@ -171,7 +174,27 @@ func random_city_district(rng: RandomNumberGenerator) -> CityDistrict:
 		return null
 	if populated.size() == 1:
 		return populated[0]
-	return populated[rng.randi_range(0, populated.size() - 1)]
+	var total_weight := 0.0
+	for district: CityDistrict in populated:
+		total_weight += district.definition.target_weight
+	var roll := rng.randf() * total_weight
+	for district: CityDistrict in populated:
+		roll -= district.definition.target_weight
+		if roll < 0.0:
+			return district
+	return populated.back()
+
+func city_district_by_id(district_id: StringName) -> CityDistrict:
+	for district: CityDistrict in city_districts:
+		if district.id == district_id:
+			return district
+	return null
+
+func primary_city_district() -> CityDistrict:
+	for district: CityDistrict in city_districts:
+		if district.definition.role == CityDistrictDefinition.Role.CORE:
+			return district
+	return city_districts[0] if not city_districts.is_empty() else null
 
 func random_city_building_target_in_district(district: CityDistrict, rng: RandomNumberGenerator) -> Vector3:
 	if district == null or not district.has_buildings():
@@ -403,6 +426,7 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 	city_window_band_count = 0
 	city_amenity_count = 0
 	city_rooftop_detail_count = 0
+	var rooftop_buildings := _rooftop_building_indices(rooftop_spacing)
 	var palette: Array[Color] = [Color("8f7868"), Color("b8ad99"), Color("78838b"), Color("aa9274"), Color("c4c0b5"), Color("6f7a80")]
 	var facade_bands: Array[Transform3D] = []
 	for index: int in transforms.size():
@@ -410,14 +434,112 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 		material.albedo_color = palette[index % palette.size()]
 		material.roughness = 0.85
 		_city_boxes.add_box(transforms[index], material)
-		_add_building_architecture(index, transforms[index], material, index % rooftop_spacing == 0)
+		var reserves_rooftop := rooftop_buildings.has(index)
+		_add_building_architecture(index, transforms[index], material, reserves_rooftop)
 		_append_facade_bands(transforms[index], facade_bands)
-		if index % rooftop_spacing == 0:
+		if reserves_rooftop:
 			_build_rooftop_pad(index, transforms[index])
 	_build_facade_multimesh(facade_bands)
 	_build_city_amenities(transforms, city_blocks)
 	_build_street_lights(city_blocks)
 	_sync_city_power()
+
+func _build_district_identity() -> void:
+	city_landmark_count = 0
+	city_arterial_segment_count = 0
+	var primary := primary_city_district()
+	if primary == null:
+		return
+	for district: CityDistrict in city_districts:
+		_build_district_landmark(district)
+		if district != primary:
+			_build_arterial_connection(primary, district)
+
+func _build_arterial_connection(from_district: CityDistrict, to_district: CityDistrict) -> void:
+	var direction := to_district.center - from_district.center
+	var distance := direction.length()
+	if distance <= 0.0:
+		return
+	direction /= distance
+	var start := from_district.center + direction * from_district.definition.size * 0.36
+	var end := to_district.center - direction * to_district.definition.size * 0.36
+	var connection := end - start
+	var connection_length := connection.length()
+	if connection_length <= 1.0:
+		return
+	var road_material := StandardMaterial3D.new()
+	road_material.albedo_color = Color("3e4141")
+	road_material.roughness = 0.96
+	var segment_count := maxi(1, ceili(connection_length / 6.0))
+	var yaw := atan2(direction.x, direction.y)
+	for segment_index: int in segment_count:
+		var from_2d := start.lerp(end, float(segment_index) / float(segment_count))
+		var to_2d := start.lerp(end, float(segment_index + 1) / float(segment_count))
+		var midpoint := from_2d.lerp(to_2d, 0.5)
+		var height := terrain_height(midpoint.x, midpoint.y)
+		if height <= generator.sea_level + 0.5:
+			continue
+		var road_basis := Basis(Vector3.UP, yaw).scaled(Vector3(13.0, 0.35, from_2d.distance_to(to_2d) + 0.8))
+		_city_boxes.add_box(Transform3D(road_basis, Vector3(midpoint.x, height + 0.55, midpoint.y)), road_material)
+		city_arterial_segment_count += 1
+
+func _build_district_landmark(district: CityDistrict) -> void:
+	var center := Vector3(district.center.x, terrain_height(district.center.x, district.center.y), district.center.y)
+	var yaw := deg_to_rad(district.definition.rotation_degrees)
+	var base_material := StandardMaterial3D.new()
+	base_material.roughness = 0.9
+	match district.definition.role:
+		CityDistrictDefinition.Role.CORE:
+			base_material.albedo_color = Color("aaa28e")
+			_add_city_box("CorePlaza", Vector3(38.0, 0.4, 38.0), center + Vector3.UP * 0.2, base_material, yaw)
+		CityDistrictDefinition.Role.RESIDENTIAL:
+			base_material.albedo_color = Color("68805f")
+			_add_city_box("ResidentialPark", Vector3(38.0, 0.35, 32.0), center + Vector3.UP * 0.18, base_material, yaw)
+			var pavilion_material := StandardMaterial3D.new()
+			pavilion_material.albedo_color = Color("d6c7a5")
+			pavilion_material.roughness = 0.85
+			_add_city_box("ResidentialPavilion", Vector3(14.0, 5.0, 10.0), center + Vector3.UP * 2.7, pavilion_material, yaw)
+		CityDistrictDefinition.Role.INDUSTRIAL:
+			base_material.albedo_color = Color("575c5d")
+			_add_city_box("IndustrialYard", Vector3(48.0, 0.4, 38.0), center + Vector3.UP * 0.2, base_material, yaw)
+			var industrial_material := StandardMaterial3D.new()
+			industrial_material.albedo_color = Color("765f4e")
+			industrial_material.roughness = 0.82
+			_add_city_box("IndustrialHall", Vector3(30.0, 8.0, 17.0), center + Vector3.UP * 4.2, industrial_material, yaw)
+			var chimney_offset := Basis(Vector3.UP, yaw) * Vector3(18.0, 0.0, -9.0)
+			_add_city_box("IndustrialStack", Vector3(3.5, 24.0, 3.5), center + chimney_offset + Vector3.UP * 12.2, industrial_material, yaw)
+		CityDistrictDefinition.Role.TRANSPORT:
+			base_material.albedo_color = Color("454b4f")
+			_add_city_box("TransportApron", Vector3(72.0, 0.35, 20.0), center + Vector3.UP * 0.18, base_material, yaw)
+			var terminal_material := StandardMaterial3D.new()
+			terminal_material.albedo_color = Color("82939a")
+			terminal_material.roughness = 0.78
+			var terminal_offset := Basis(Vector3.UP, yaw) * Vector3(0.0, 0.0, 16.0)
+			_add_city_box("TransportTerminal", Vector3(44.0, 6.0, 12.0), center + terminal_offset + Vector3.UP * 3.2, terminal_material, yaw)
+	city_landmark_count += 1
+
+func _rooftop_building_indices(rooftop_spacing: int) -> Dictionary[int, bool]:
+	var result: Dictionary[int, bool] = {}
+	var global_index := 0
+	for district: CityDistrict in city_districts:
+		var selected_in_district := false
+		var widest_index := -1
+		var widest_radius := 0.0
+		for local_index: int in district.buildings.size():
+			var building := district.buildings[local_index]
+			var building_size := building.basis.get_scale()
+			var radius := minf(building_size.x, building_size.z) * 0.5 - 2.5
+			if radius >= 8.0:
+				if radius > widest_radius:
+					widest_radius = radius
+					widest_index = global_index
+				if local_index % rooftop_spacing == 0:
+					result[global_index] = true
+					selected_in_district = true
+			global_index += 1
+		if not selected_in_district and widest_index >= 0:
+			result[widest_index] = true
+	return result
 
 func _build_street_lights(blocks: Array[Dictionary]) -> void:
 	lamp_material = StandardMaterial3D.new()

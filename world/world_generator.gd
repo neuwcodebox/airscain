@@ -46,16 +46,16 @@ func generate(seed_input: int, size_input: float, resolution_input: int, city_si
 			var x := _grid_world(x_index)
 			var z := _grid_world(z_index)
 			var raw := noise.get_noise_2d(x, z) * layout.terrain_height_scale
+			var terrain_local := Vector2(x, z).rotated(-deg_to_rad(layout.terrain_rotation_degrees))
 			var flatten := _broad_terrain_weight(Vector2(x, z), district_definitions)
-			var land_height := maxf(raw * flatten + CITY_GROUND_HEIGHT, sea_level + 6.0)
+			var macro_height := _macro_terrain_height(terrain_local)
+			var land_height := maxf((raw + macro_height) * flatten + CITY_GROUND_HEIGHT, sea_level + 6.0)
 			var radial_distance := Vector2(x, z).length() / (size * 0.5)
 			var coast_angle := atan2(z, x)
 			var coast_radius_scale := 1.0 + sin(coast_angle * 3.0 + coast_phase_a) * 0.11 + sin(coast_angle * 5.0 + coast_phase_b) * 0.065 + coast_noise.get_noise_2d(x, z) * 0.075
 			coast_radius_scale = clampf(coast_radius_scale, 0.78, 1.18)
 			var shaped_radial_distance := radial_distance / coast_radius_scale
-			var shaped_falloff := smoothstep(layout.coast_start, layout.coast_end, shaped_radial_distance)
-			var edge_falloff := smoothstep(0.9, 0.985, radial_distance)
-			var coast_falloff := maxf(shaped_falloff, edge_falloff)
+			var coast_falloff := _coast_falloff(terrain_local, shaped_radial_distance, radial_distance, coast_noise)
 			heights[z_index * resolution + x_index] = lerpf(land_height, sea_level - 35.0, coast_falloff)
 	for district_index: int in district_definitions.size():
 		var blocks := _create_city_block_layout(district_definitions[district_index], district_index)
@@ -116,6 +116,12 @@ func city_districts() -> Array[CityDistrict]:
 	var result: Array[CityDistrict] = []
 	result.assign(_city_districts)
 	return result
+
+func primary_city_center() -> Vector2:
+	for district: CityDistrict in _city_districts:
+		if district.definition.role == CityDistrictDefinition.Role.CORE:
+			return district.center
+	return _city_districts[0].center if not _city_districts.is_empty() else Vector2.ZERO
 
 func _create_building_transforms(district: CityDistrictDefinition, blocks: Array[Dictionary], district_index: int) -> Array[Transform3D]:
 	var result: Array[Transform3D] = []
@@ -236,6 +242,35 @@ func _broad_terrain_weight(position: Vector2, districts: Array[CityDistrictDefin
 		var distance := position.distance_to(district.center)
 		weight = minf(weight, smoothstep(district.size * 0.27, district.size * 0.62, distance))
 	return weight
+
+func _macro_terrain_height(local: Vector2) -> float:
+	var half := size * 0.5
+	match layout.terrain_shape:
+		BattlefieldLayoutDefinition.TerrainShape.VALLEY:
+			var wall := pow(clampf(absf(local.x) / half, 0.0, 1.0), 1.7)
+			return wall * layout.terrain_height_scale * 1.45
+		BattlefieldLayoutDefinition.TerrainShape.BAY:
+			return smoothstep(0.2, 0.9, absf(local.y) / half) * layout.terrain_height_scale * 0.28
+		BattlefieldLayoutDefinition.TerrainShape.COASTAL_PLAIN:
+			return smoothstep(-0.2, 0.9, -local.x / half) * layout.terrain_height_scale * 0.18
+	return 0.0
+
+func _coast_falloff(local: Vector2, shaped_radial_distance: float, radial_distance: float, coast_noise: FastNoiseLite) -> float:
+	var edge_falloff := smoothstep(0.9, 0.985, radial_distance)
+	match layout.terrain_shape:
+		BattlefieldLayoutDefinition.TerrainShape.BAY:
+			var ellipse := Vector2(local.x / 1.08, local.y / 0.86).length() / (size * 0.5)
+			var outer := smoothstep(layout.coast_start, layout.coast_end, ellipse)
+			var bay_center := Vector2(size * 0.34, 0.0)
+			var bay_distance := local.distance_to(bay_center) / (size * 0.31)
+			var inlet := 1.0 - smoothstep(0.62, 1.0, bay_distance)
+			return maxf(maxf(outer, inlet), edge_falloff)
+		BattlefieldLayoutDefinition.TerrainShape.VALLEY:
+			return 0.0
+		BattlefieldLayoutDefinition.TerrainShape.COASTAL_PLAIN:
+			var coast_line := 0.56 + coast_noise.get_noise_2d(local.y, 0.0) * 0.1
+			return smoothstep(coast_line, coast_line + 0.12, local.x / (size * 0.5))
+	return maxf(smoothstep(layout.coast_start, layout.coast_end, shaped_radial_distance), edge_falloff)
 
 func _grid_world(index: int) -> float:
 	return -size * 0.5 + size * float(index) / float(resolution - 1)

@@ -24,6 +24,9 @@ func run() -> void:
 	main.ui_audio.enabled = false
 	main.combat_audio.stop_all()
 	main.ui_audio.stop_all()
+	if OS.get_cmdline_user_args().has("--capture-world-layout-only"):
+		await _capture_world_layout()
+		return
 	if OS.get_cmdline_user_args().has("--capture-radar-saturation-only"):
 		await _capture_radar_saturation()
 		return
@@ -1366,6 +1369,38 @@ func _capture_city_detail() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_western_city_rooftop_placement.png")
 	main.placement.cancel()
+
+func _capture_world_layout() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
+	main.set_process(false)
+	main.camera_rig.set_process(false)
+	main.hud.hide()
+	main.altitude_profile.hide()
+	var center := Vector2.ZERO
+	for district: CityDistrict in main.battlefield.city_districts:
+		center += district.center
+	center /= maxf(1.0, float(main.battlefield.city_districts.size()))
+	main.camera_rig.focus_on(Vector3(center.x, 0.0, center.y))
+	main.camera_rig.yaw_radians = deg_to_rad(28.0)
+	main.camera_rig.pitch_radians = deg_to_rad(63.0)
+	main.camera_rig.zoom_distance = main.camera_rig.maximum_zoom * 0.78
+	main.camera_rig._update_camera()
+	for frame: int in 8:
+		await process_frame
+		await RenderingServer.frame_post_draw
+	for district: CityDistrict in main.battlefield.city_districts:
+		var point := Vector3(district.center.x, main.battlefield.terrain_height(district.center.x, district.center.y), district.center.y)
+		if not main.camera_rig.camera.is_position_in_frustum(point):
+			push_error("District %s was outside the overview capture" % district.id)
+			quit(1)
+			return
+	var layout_id := String(main.scenario.battlefield_layout().id)
+	_save_capture("/tmp/airscain_world_%s.png" % layout_id)
+	print("WORLD_LAYOUT_CAPTURE_OK %s districts=%d" % [layout_id, main.battlefield.city_districts.size()])
+	main.queue_free()
+	await process_frame
+	quit(0)
 
 func _capture_asset_catalog_and_support_base() -> void:
 	while not main.combat_effect_pool.prepared:

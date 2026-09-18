@@ -6,6 +6,7 @@ signal threat_spawned(threat: ThreatUnit)
 signal recovery_started(completed_window: int)
 
 const PLANNED_TARGET_KEYS: Array[String] = ["target_asset_id", "target_role", "target_position", "target_confidence", "target_observed_at"]
+const CITY_DISTRICT_KEY := "target_district_id"
 const PARTIAL_SUPPRESSION_FOLLOWUP_CHANCE := 0.9
 const FIRST_FAILED_SUPPRESSION_FOLLOWUP_CHANCE := 0.8
 const SUPPRESSION_EXPLOIT_CHANCE := 0.0
@@ -107,8 +108,32 @@ func _should_recover() -> bool:
 	return fmod(elapsed - pressure_started_at, cycle_duration) >= scenario.attack_window_duration
 
 func schedule_archetype(archetype: RaidArchetypeDefinition, approach_angle: float) -> void:
+	var district := _district_for_city_entries(archetype.phase_entries)
 	for index: int in archetype.phase_entries.size():
-		pending_waves.append({"definition_id": String(archetype.phase_entries[index].threat_definition.id), "remaining": archetype.phase_delays[index], "angle": approach_angle})
+		var wave := {"definition_id": String(archetype.phase_entries[index].threat_definition.id), "remaining": archetype.phase_delays[index], "angle": approach_angle}
+		if district != null and archetype.phase_entries[index].threat_definition.shares_city_impact_target():
+			wave[CITY_DISTRICT_KEY] = String(district.id)
+		pending_waves.append(wave)
+
+func _district_for_city_entries(entries: Array[ThreatSpawnEntry]) -> CityDistrict:
+	for entry: ThreatSpawnEntry in entries:
+		if entry.threat_definition.shares_city_impact_target():
+			return battlefield.random_city_district(rng)
+	return null
+
+func _assign_city_district(waves: Array[Dictionary]) -> void:
+	var city_waves: Array[Dictionary] = []
+	for wave: Dictionary in waves:
+		var entry := _entry_for_definition(StringName(String(wave.get("definition_id", ""))))
+		if entry != null and entry.threat_definition.shares_city_impact_target():
+			city_waves.append(wave)
+	if city_waves.is_empty():
+		return
+	var district := battlefield.random_city_district(rng)
+	if district == null:
+		return
+	for wave: Dictionary in city_waves:
+		wave[CITY_DISTRICT_KEY] = String(district.id)
 
 func _tick_pending_waves(delta: float) -> void:
 	for index: int in range(pending_waves.size() - 1, -1, -1):
@@ -121,20 +146,23 @@ func _tick_pending_waves(delta: float) -> void:
 		if entry != null:
 			var target_position: Variant = null
 			var target_asset: DefenseUnit
+			var target_district := battlefield.city_district_by_id(StringName(String(wave.get(CITY_DISTRICT_KEY, ""))))
 			if SaveDocument.is_valid_vector3_data(wave.get("target_position")):
 				target_position = SaveDocument.vector3_from_data(wave.target_position)
 				target_asset = _defense_for_runtime_id(int(wave.get("target_asset_id", 0)))
-			_spawn_group(entry, float(wave.angle), bool(wave.get("opening_raid", false)), target_position, target_asset)
+			_spawn_group(entry, float(wave.angle), bool(wave.get("opening_raid", false)), target_position, target_asset, target_district)
 		pending_waves.remove_at(index)
 
-func _spawn_group(entry: ThreatSpawnEntry, group_angle: float, opening_raid: bool = false, scheduled_target: Variant = null, target_asset: DefenseUnit = null) -> void:
+func _spawn_group(entry: ThreatSpawnEntry, group_angle: float, opening_raid: bool = false, scheduled_target: Variant = null, target_asset: DefenseUnit = null, target_district: CityDistrict = null) -> void:
 	var group_target: Variant = scheduled_target
 	if group_target == null and entry.threat_definition.shares_city_impact_target():
-		group_target = battlefield.random_city_building_target(rng)
+		target_district = target_district if target_district != null else battlefield.random_city_district(rng)
+		group_target = battlefield.random_city_building_target_in_district(target_district, rng)
+	var spawn_center := target_district.center if target_district != null and entry.threat_definition.shares_city_impact_target() else Vector2.ZERO
 	for group_index: int in entry.group_size:
 		if registry.hostile_count() >= scenario.active_threat_cap:
 			return
-		var threat := _spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target, target_asset)
+		var threat := _spawn_entry(entry, group_angle + rng.randf_range(-0.035, 0.035), float(group_index) * 3.0, group_target, target_asset, spawn_center)
 		if opening_raid and threat != null:
 			opening_threat_ids.append(threat.runtime_id)
 
@@ -201,6 +229,7 @@ func launch_budgeted_raid(for_next_attack_window: bool = false) -> void:
 	request.allow_suppression = not _should_switch_from_suppression()
 	request.suppression_priority_chance = _suppression_priority_chance(request.suppression_targets)
 	var waves := raid_planner.generate(request)
+	_assign_city_district(waves)
 	_commit_suppression_assessment()
 	if not opening_raid_started and not waves.is_empty():
 		opening_raid_started = true
@@ -350,13 +379,13 @@ func spawn_one() -> ThreatUnit:
 		return null
 	return _spawn_entry(entry, rng.randf_range(0.0, TAU), 0.0)
 
-func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, target_override: Variant = null, target_asset_override: DefenseUnit = null) -> ThreatUnit:
+func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, target_override: Variant = null, target_asset_override: DefenseUnit = null, spawn_center: Vector2 = Vector2.ZERO) -> ThreatUnit:
 	var threat := entry.threat_definition.scene.instantiate() as ThreatUnit
 	if threat == null:
 		return null
 	threat_parent.add_child(threat)
 	var edge := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - edge_offset
-	var spawn_position := Vector3(cos(angle) * edge, 0.0, sin(angle) * edge)
+	var spawn_position := Vector3(spawn_center.x + cos(angle) * edge, 0.0, spawn_center.y + sin(angle) * edge)
 	spawn_position.y = battlefield.flight_surface_height(spawn_position.x, spawn_position.z) + entry.threat_definition.spawn_altitude()
 	threat.global_position = spawn_position
 	threat.setup(next_runtime_id, entry.threat_definition)
@@ -607,6 +636,14 @@ static func planned_target_validation_error(wave: Dictionary, defense_ids: Dicti
 static func clear_planned_target(wave: Dictionary) -> void:
 	for key: String in PLANNED_TARGET_KEYS:
 		wave.erase(key)
+
+static func city_district_validation_error(wave: Dictionary, valid_district_ids: Dictionary[StringName, bool]) -> String:
+	if not wave.has(CITY_DISTRICT_KEY):
+		return ""
+	var value: Variant = wave.get(CITY_DISTRICT_KEY)
+	if not value is String or not valid_district_ids.has(StringName(String(value))):
+		return "예약 공격 도시 지구가 올바르지 않습니다"
+	return ""
 
 static func _has_planned_target_data(wave: Dictionary) -> bool:
 	for key: String in PLANNED_TARGET_KEYS:

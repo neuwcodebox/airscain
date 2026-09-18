@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=67 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=76 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -42,10 +42,24 @@
 [sub_resource type="Resource" id="RuggedCentralDistrict"]
 script = ExtResource("38")
 id = &"harbor_core"
-size = 480.0
-block_count = 11
+center = Vector2(-240, -90)
+rotation_degrees = 12.0
+size = 380.0
+block_count = 7
 minimum_building_height = 15.0
 maximum_building_height = 95.0
+
+[sub_resource type="Resource" id="RuggedIndustrialDistrict"]
+script = ExtResource("38")
+id = &"upper_harbor"
+role = 2
+center = Vector2(190, 300)
+rotation_degrees = -9.0
+size = 250.0
+block_count = 7
+minimum_building_height = 8.0
+maximum_building_height = 34.0
+target_weight = 0.75
 
 [sub_resource type="Resource" id="IslandCentralDistrict"]
 script = ExtResource("38")
@@ -55,10 +69,79 @@ block_count = 13
 minimum_building_height = 8.0
 maximum_building_height = 70.0
 
+[sub_resource type="Resource" id="ValleyCoreDistrict"]
+script = ExtResource("38")
+id = &"valley_core"
+rotation_degrees = 4.0
+size = 400.0
+block_count = 7
+minimum_building_height = 12.0
+maximum_building_height = 78.0
+
+[sub_resource type="Resource" id="ValleyNorthDistrict"]
+script = ExtResource("38")
+id = &"north_town"
+role = 1
+center = Vector2(35, -390)
+rotation_degrees = -7.0
+size = 230.0
+block_count = 7
+minimum_building_height = 7.0
+maximum_building_height = 32.0
+target_weight = 0.7
+
+[sub_resource type="Resource" id="ValleySouthDistrict"]
+script = ExtResource("38")
+id = &"south_industry"
+role = 2
+center = Vector2(-45, 405)
+rotation_degrees = 9.0
+size = 240.0
+block_count = 7
+minimum_building_height = 8.0
+maximum_building_height = 38.0
+target_weight = 0.8
+
+[sub_resource type="Resource" id="CoastalCoreDistrict"]
+script = ExtResource("38")
+id = &"metro_core"
+center = Vector2(-250, -120)
+rotation_degrees = -11.0
+size = 420.0
+block_count = 7
+minimum_building_height = 12.0
+maximum_building_height = 82.0
+
+[sub_resource type="Resource" id="CoastalResidentialDistrict"]
+script = ExtResource("38")
+id = &"north_suburb"
+role = 1
+center = Vector2(-360, 330)
+rotation_degrees = 18.0
+size = 250.0
+block_count = 7
+minimum_building_height = 7.0
+maximum_building_height = 30.0
+target_weight = 0.65
+
+[sub_resource type="Resource" id="CoastalPortDistrict"]
+script = ExtResource("38")
+id = &"coastal_port"
+role = 3
+center = Vector2(270, 230)
+rotation_degrees = -4.0
+size = 280.0
+block_count = 7
+minimum_building_height = 8.0
+maximum_building_height = 42.0
+target_weight = 0.85
+
 [sub_resource type="Resource" id="RuggedHarborLayout"]
 script = ExtResource("29")
 id = &"rugged_harbor"
 display_name = "산악 항만도시"
+terrain_shape = 1
+terrain_rotation_degrees = 12.0
 terrain_height_scale = 55.0
 noise_frequency = 0.0027
 coast_start = 0.68
@@ -68,7 +151,7 @@ minimum_building_height = 15.0
 maximum_building_height = 95.0
 rooftop_spacing = 4
 starting_budget_bonus = 200
-city_districts = Array[ExtResource("38")]([SubResource("RuggedCentralDistrict")])
+city_districts = Array[ExtResource("38")]([SubResource("RuggedCentralDistrict"), SubResource("RuggedIndustrialDistrict")])
 
 [sub_resource type="Resource" id="IslandCityLayout"]
 script = ExtResource("29")
@@ -83,6 +166,40 @@ minimum_building_height = 8.0
 maximum_building_height = 70.0
 rooftop_spacing = 6
 city_districts = Array[ExtResource("38")]([SubResource("IslandCentralDistrict")])
+
+[sub_resource type="Resource" id="ValleyCorridorLayout"]
+script = ExtResource("29")
+id = &"valley_corridor"
+display_name = "계곡 도시 회랑"
+terrain_shape = 2
+terrain_rotation_degrees = -4.0
+terrain_height_scale = 62.0
+noise_frequency = 0.0025
+coast_start = 0.76
+coast_end = 0.99
+city_blocks = 9
+minimum_building_height = 7.0
+maximum_building_height = 78.0
+rooftop_spacing = 5
+starting_budget_bonus = 250
+city_districts = Array[ExtResource("38")]([SubResource("ValleyCoreDistrict"), SubResource("ValleyNorthDistrict"), SubResource("ValleySouthDistrict")])
+
+[sub_resource type="Resource" id="CoastalPlainLayout"]
+script = ExtResource("29")
+id = &"coastal_plain"
+display_name = "광역 해안 평야"
+terrain_shape = 3
+terrain_rotation_degrees = 8.0
+terrain_height_scale = 34.0
+noise_frequency = 0.0021
+coast_start = 0.7
+coast_end = 0.98
+city_blocks = 9
+minimum_building_height = 7.0
+maximum_building_height = 82.0
+rooftop_spacing = 5
+starting_budget_bonus = 300
+city_districts = Array[ExtResource("38")]([SubResource("CoastalCoreDistrict"), SubResource("CoastalResidentialDistrict"), SubResource("CoastalPortDistrict")])
 
 [sub_resource type="Resource" id="AttackUavEntry"]
 script = ExtResource("5")
@@ -294,7 +411,7 @@ world_seed = 73129
 battlefield_size = 2400.0
 terrain_resolution = 97
 city_size = 480.0
-battlefield_layouts = Array[ExtResource("29")]([SubResource("RuggedHarborLayout"), SubResource("IslandCityLayout")])
+battlefield_layouts = Array[ExtResource("29")]([SubResource("RuggedHarborLayout"), SubResource("IslandCityLayout"), SubResource("ValleyCorridorLayout"), SubResource("CoastalPlainLayout")])
 starting_budget = 1900
 objective_definition = ExtResource("2")
 available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23"), ExtResource("24"), ExtResource("25")])

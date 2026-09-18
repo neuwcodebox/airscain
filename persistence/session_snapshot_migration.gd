@@ -19,6 +19,8 @@ static func migrate_content(
 	for task: Dictionary in result.get("world", {}).get("support", {}).get("tasks", []):
 		if String(task.get("kind", "")) == SupportManager.REPAIR and not task.has("repair_amount"):
 			task.repair_amount = legacy_repairs.get(int(task.get("target_defense_id", 0)), 0.0)
+	# Version 29 assigns one target district to every newly planned city raid.
+	# Older pending waves intentionally choose a valid district when they spawn.
 	# Version 28 gives combat outcomes stable identities and preserves the
 	# suppression follow-up assessment across saves.
 	if version < 28:

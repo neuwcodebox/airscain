@@ -664,9 +664,21 @@ func test_pending_raid_waves_restore_with_remaining_delays() -> void:
 	main.director._tick_pending_waves(1.0)
 	assert_eq(main.director.pending_waves.size(), 2)
 	var saved_waves: Array = main.director.capture_state().pending_waves
+	var city_wave_index := -1
+	for index: int in saved_waves.size():
+		if saved_waves[index].has(ThreatDirector.CITY_DISTRICT_KEY):
+			city_wave_index = index
+			assert_eq(saved_waves[index][ThreatDirector.CITY_DISTRICT_KEY], "central")
+	assert_gte(city_wave_index, 0)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	assert_eq(main.restore_from_document(document), "")
 	assert_eq(main.director.pending_waves, saved_waves)
+	var invalid := document.duplicate(true)
+	invalid.payload.director.pending_waves[city_wave_index][ThreatDirector.CITY_DISTRICT_KEY] = "missing_district"
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_false(main.director.pending_waves[city_wave_index].has(ThreatDirector.CITY_DISTRICT_KEY))
+	assert_false(main.last_persistence_repairs.is_empty())
+	assert_eq(main.restore_from_document(document), "")
 	main.director._tick_pending_waves(3.0)
 	assert_eq(main.director.pending_waves.size(), 1)
 
@@ -688,7 +700,7 @@ func test_pending_suppression_target_snapshot_restores_and_guides_the_spawned_gr
 	main.director.pending_waves.clear()
 	main.director.pending_waves.append(wave)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
-	assert_eq(int(document.version), 28)
+	assert_eq(int(document.version), SaveDocument.CURRENT_VERSION)
 	assert_eq(main.restore_from_document(document), "")
 	assert_eq(main.director.pending_waves.size(), 1)
 	assert_eq(int(main.director.pending_waves[0].target_asset_id), radar_id)

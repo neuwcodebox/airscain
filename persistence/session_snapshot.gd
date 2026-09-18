@@ -56,6 +56,7 @@ static func _repair_cross_references(payload: Dictionary, scenario: ScenarioDefi
 	var raid_definition_ids: Dictionary[StringName, bool] = {}
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
 		raid_definition_ids[entry.threat_definition.id] = true
+	var district_ids := city_district_definition_ids(scenario)
 	var defense_ids: Dictionary[int, bool] = {}
 	var sensor_ids: Dictionary[int, bool] = {}
 	var armed_ids: Dictionary[int, bool] = {}
@@ -176,7 +177,7 @@ static func _repair_cross_references(payload: Dictionary, scenario: ScenarioDefi
 	_repair_support(world.support, defense_ids, armed_ids, defense_definitions_by_runtime_id, repairs)
 	_repair_relocations(world.relocations, defense_ids, mobile_ids, world.support, repairs)
 	_repair_projectiles(world, track_ids, defense_ids, projectile_owner_definitions, repairs)
-	_repair_director(payload.director, hostile_contact_ids, contact_definitions, raid_definition_ids, defense_ids, repairs)
+	_repair_director(payload.director, hostile_contact_ids, contact_definitions, raid_definition_ids, defense_ids, district_ids, repairs)
 	_repair_enemy_knowledge(world.enemy_knowledge, defense_ids, world.contacts, contact_definitions, repairs)
 
 static func _repair_engagements(state: Dictionary, track_ids: Dictionary[int, bool], defense_ids: Dictionary[int, bool], reservation_kinds: Dictionary[int, StringName], repairs: Array[String]) -> void:
@@ -318,7 +319,7 @@ static func _repair_projectiles(world: Dictionary, track_ids: Dictionary[int, bo
 			repairs.append("참조나 상태가 유효하지 않은 발사체를 제거했습니다")
 	world.projectiles = projectiles
 
-static func _repair_director(state: Dictionary, contact_ids: Dictionary[int, bool], contact_definitions: Dictionary[StringName, ThreatDefinition], raid_definition_ids: Dictionary[StringName, bool], defense_ids: Dictionary[int, bool], repairs: Array[String]) -> void:
+static func _repair_director(state: Dictionary, contact_ids: Dictionary[int, bool], contact_definitions: Dictionary[StringName, ThreatDefinition], raid_definition_ids: Dictionary[StringName, bool], defense_ids: Dictionary[int, bool], district_ids: Dictionary[StringName, bool], repairs: Array[String]) -> void:
 	var repaired_history := ThreatDirector.repair_history_state(state, raid_definition_ids)
 	if repaired_history != state:
 		state.merge(repaired_history, true)
@@ -340,6 +341,9 @@ static func _repair_director(state: Dictionary, contact_ids: Dictionary[int, boo
 				if not ThreatDirector.planned_target_validation_error(wave, defense_ids).is_empty():
 					ThreatDirector.clear_planned_target(wave)
 					repairs.append("예약 공격의 유효하지 않은 관측 표적을 제거했습니다")
+				if not ThreatDirector.city_district_validation_error(wave, district_ids).is_empty():
+					wave.erase(ThreatDirector.CITY_DISTRICT_KEY)
+					repairs.append("예약 공격의 유효하지 않은 도시 지구를 제거했습니다")
 				waves.append(value)
 			else:
 				repairs.append("유효하지 않은 예약 공격 파동을 제거했습니다")
@@ -606,6 +610,9 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		var target_error := ThreatDirector.planned_target_validation_error(wave, defense_ids)
 		if not target_error.is_empty():
 			return target_error
+		var district_error := ThreatDirector.city_district_validation_error(wave, city_district_definition_ids(scenario))
+		if not district_error.is_empty():
+			return district_error
 	var enemy_state: Dictionary = world_state.enemy_knowledge
 	if float(enemy_state.get("simulation_time", -1.0)) < 0.0 or int(enemy_state.get("next_outcome_id", 0)) < 1 or not enemy_state.get("estimates", null) is Array or not enemy_state.get("reports", null) is Array or not enemy_state.get("recent_outcomes", null) is Array:
 		return "적 지식 상태가 올바르지 않습니다"
@@ -644,6 +651,16 @@ static func defense_definition_map(scenario: ScenarioDefinition) -> Dictionary[S
 	var result: Dictionary[StringName, DefenseDefinition] = {}
 	for definition: DefenseDefinition in scenario.available_defenses:
 		result[definition.id] = definition
+	return result
+
+static func city_district_definition_ids(scenario: ScenarioDefinition) -> Dictionary[StringName, bool]:
+	var result: Dictionary[StringName, bool] = {}
+	if scenario == null:
+		return result
+	for district: CityDistrictDefinition in scenario.battlefield_layout().city_districts:
+		result[district.id] = true
+	if result.is_empty():
+		result[WorldGenerator.CENTRAL_DISTRICT_ID] = true
 	return result
 
 static func contact_definition_map(scenario: ScenarioDefinition) -> Dictionary[StringName, ThreatDefinition]:

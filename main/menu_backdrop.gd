@@ -2,6 +2,7 @@ extends TextureRect
 ## An isolated attract-mode world; never writes a player's operation or save.
 
 const DEMO_SCENE := preload("res://main/main.tscn")
+const DEMO_WORLD_SEED := 1845 # Reproducible island layout for the fixed showcase formation.
 var _viewport: SubViewport
 var _camera: Camera3D
 var _elapsed: float = 0.0
@@ -23,7 +24,7 @@ func _ready() -> void:
 	_apply_display_settings()
 	var previous_seed := AirscainMain.requested_seed
 	var previous_mode := AirscainMain.requested_mode
-	AirscainMain.requested_seed = 1847
+	AirscainMain.requested_seed = DEMO_WORLD_SEED
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
 	demo = DEMO_SCENE.instantiate() as AirscainMain
 	(demo.get_node("CombatAudio") as CombatAudio).enabled = false

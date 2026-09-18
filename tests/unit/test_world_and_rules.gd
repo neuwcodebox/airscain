@@ -790,6 +790,67 @@ func test_scenario_seed_selects_reproducible_distinct_battlefield_layouts() -> v
 	assert_ne(island.building_transforms().size(), rugged.building_transforms().size())
 	assert_ne(island.heights, rugged.heights)
 
+func test_scenario_exposes_distinct_island_bay_valley_and_coastal_plain_worlds() -> void:
+	var expected_ids: Array[StringName] = [&"rugged_harbor", &"island_city", &"valley_corridor", &"coastal_plain"]
+	var expected_district_counts: Array[int] = [2, 1, 3, 3]
+	for index: int in expected_ids.size():
+		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+		scenario.world_seed = index
+		var selected := scenario.battlefield_layout()
+		assert_eq(selected.id, expected_ids[index])
+		var generator := WorldGenerator.new()
+		generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size, selected)
+		assert_eq(generator.city_districts().size(), expected_district_counts[index], String(expected_ids[index]))
+		assert_eq(generator.primary_city_center(), selected.city_districts[0].center)
+		if generator.city_districts().size() > 1:
+			var centers: Array[Vector2] = []
+			for district: CityDistrict in generator.city_districts():
+				centers.append(district.center)
+			assert_gt(centers[0].distance_to(centers.back()), 300.0, String(expected_ids[index]))
+
+func test_non_island_terrain_shapes_have_authored_macro_topology() -> void:
+	var bay_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	bay_scenario.world_seed = 0
+	var bay := WorldGenerator.new()
+	bay.generate(0, bay_scenario.battlefield_size, bay_scenario.terrain_resolution, bay_scenario.city_size, bay_scenario.battlefield_layout())
+	var bay_rotation := Basis(Vector3.UP, deg_to_rad(bay.layout.terrain_rotation_degrees))
+	var inlet := bay_rotation * Vector3(bay.size * 0.34, 0.0, 0.0)
+	var inland := bay_rotation * Vector3(-bay.size * 0.25, 0.0, 0.0)
+	assert_lt(bay.height_at(inlet.x, inlet.z), bay.sea_level)
+	assert_gt(bay.height_at(inland.x, inland.z), bay.sea_level)
+	var valley_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	valley_scenario.world_seed = 2
+	var valley := WorldGenerator.new()
+	valley.generate(2, valley_scenario.battlefield_size, valley_scenario.terrain_resolution, valley_scenario.city_size, valley_scenario.battlefield_layout())
+	assert_gt(valley.height_at(-1000.0, 0.0), valley.height_at(0.0, 0.0) + 25.0)
+	assert_gt(valley.height_at(1000.0, 0.0), valley.height_at(0.0, 0.0) + 25.0)
+	var coast_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	coast_scenario.world_seed = 3
+	var coast := WorldGenerator.new()
+	coast.generate(3, coast_scenario.battlefield_size, coast_scenario.terrain_resolution, coast_scenario.city_size, coast_scenario.battlefield_layout())
+	var coast_rotation := Basis(Vector3.UP, deg_to_rad(coast.layout.terrain_rotation_degrees))
+	var sea_side := coast_rotation * Vector3(1050.0, 0.0, 0.0)
+	var land_side := coast_rotation * Vector3(-1050.0, 0.0, 0.0)
+	assert_lt(coast.height_at(sea_side.x, sea_side.z), coast.sea_level)
+	assert_gt(coast.height_at(land_side.x, land_side.z), coast.sea_level)
+
+func test_every_battlefield_layout_keeps_rooftop_placement_sites() -> void:
+	for layout_index: int in SCENARIO.battlefield_layouts.size():
+		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+		scenario.world_seed = layout_index
+		var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+		battlefield.build(scenario)
+		assert_false(battlefield.rooftop_pads.is_empty(), String(scenario.battlefield_layout().id))
+
+func test_distributed_city_districts_have_landmarks_and_overland_connections() -> void:
+	for layout_index: int in [0, 2, 3]:
+		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+		scenario.world_seed = layout_index
+		var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+		battlefield.build(scenario)
+		assert_eq(battlefield.city_landmark_count, battlefield.city_districts.size(), String(scenario.battlefield_layout().id))
+		assert_gt(battlefield.city_arterial_segment_count, 0, String(scenario.battlefield_layout().id))
+
 func test_island_center_is_land_and_outer_edge_is_below_sea() -> void:
 	var generator := WorldGenerator.new()
 	generator.generate(SCENARIO.world_seed, SCENARIO.battlefield_size, SCENARIO.terrain_resolution, SCENARIO.city_size)
@@ -1360,6 +1421,56 @@ func test_scenario_raid_archetypes_define_recon_sead_and_ballistic_strikes() -> 
 	assert_eq(recon.total_cost(), 9.0)
 	assert_eq(_raid_archetype(&"deception_sead_strike").total_cost(), 9.0)
 	assert_not_null(_raid_archetype(&"mixed_ballistic_air_strike"))
+
+func test_city_raid_shares_one_district_target_and_spawns_from_that_district() -> void:
+	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	scenario.world_seed = 2
+	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	battlefield.build(scenario)
+	var objective := add_child_autofree(scenario.objective_definition.scene.instantiate()) as ProtectedObjective
+	var primary_center := battlefield.generator.primary_city_center()
+	objective.global_position = Vector3(primary_center.x, battlefield.terrain_height(primary_center.x, primary_center.y), primary_center.y)
+	objective.setup(1, scenario.objective_definition)
+	battlefield.set_objective(objective)
+	var threat_parent := add_child_autofree(Node3D.new()) as Node3D
+	var defense_parent := add_child_autofree(Node3D.new()) as Node3D
+	var enemy_knowledge := add_child_autofree(EnemyKnowledge.new()) as EnemyKnowledge
+	var director := add_child_autofree(ThreatDirector.new()) as ThreatDirector
+	var registry := ThreatRegistry.new()
+	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
+	var archetype: RaidArchetypeDefinition
+	for candidate: RaidArchetypeDefinition in scenario.raid_archetypes:
+		if candidate.id == &"recon_saturation_strike":
+			archetype = candidate
+			break
+	assert_not_null(archetype)
+	director.schedule_archetype(archetype, 0.75)
+	var district_ids: Dictionary[StringName, bool] = {}
+	for wave: Dictionary in director.pending_waves:
+		var entry: ThreatSpawnEntry
+		for candidate: ThreatSpawnEntry in scenario.threat_entries:
+			if candidate.threat_definition.id == StringName(String(wave.definition_id)):
+				entry = candidate
+				break
+		if entry != null and entry.threat_definition.shares_city_impact_target():
+			district_ids[StringName(String(wave.target_district_id))] = true
+	assert_eq(district_ids.size(), 1)
+	var district := battlefield.city_district_by_id(district_ids.keys()[0])
+	assert_not_null(district)
+	director._tick_pending_waves(4.0)
+	var city_threats: Array[AttackUav] = []
+	for threat: ThreatUnit in registry.get_hostile_active():
+		if threat.definition.id == &"swarm_uav":
+			city_threats.append(threat as AttackUav)
+	assert_eq(city_threats.size(), 4)
+	var shared_target := city_threats[0].target_point
+	for threat: AttackUav in city_threats:
+		assert_eq(threat.target_point, shared_target)
+		var spawn_distance := Vector2(threat.global_position.x, threat.global_position.z).distance_to(district.center)
+		var expected_radius := scenario.battlefield_size * threat.definition.spawn_radius_multiplier()
+		assert_gt(spawn_distance, expected_radius - 12.0)
+		assert_lt(spawn_distance, expected_radius + 1.0)
+	assert_lt(Vector2(shared_target.x, shared_target.z).distance_to(district.center), district.definition.size)
 
 func test_running_session_receives_timed_and_attack_window_support() -> void:
 	var session := autofree(GameSession.new()) as GameSession
