@@ -1684,7 +1684,7 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 		if child is AirStrikeMunition:
 			(child as AirStrikeMunition).gameplay_tick(10.0)
 	threat.gameplay_tick(0.1)
-	assert_eq(support.integrity, 65.0, "투발 피해는 한 번만 적용됩니다")
+	assert_eq(support.integrity, 55.0, "투발 피해는 한 번만 적용됩니다")
 	assert_eq(main.objective.current_integrity, city_before, "시설 타격은 도시 피해를 중복 발생시키지 않습니다")
 
 func _battery_strike_entry() -> ThreatSpawnEntry:

@@ -33,7 +33,7 @@ released_missile = ExtResource("5")
 [resource]
 script = ExtResource("1")
 id = &"strike_aircraft"
-display_name = "고속 타격기"
+display_name = "도시 타격기"
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 32

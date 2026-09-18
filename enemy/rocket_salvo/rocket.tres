@@ -28,7 +28,7 @@ action_distance = 12.0
 [resource]
 script = ExtResource("1")
 id = &"rocket"
-display_name = "로켓탄"
+display_name = "도시 타격 로켓"
 scene = ExtResource("2")
 neutralization_reward = 3
 signature_class = &"rocket"

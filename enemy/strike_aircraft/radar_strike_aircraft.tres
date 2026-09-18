@@ -27,7 +27,7 @@ terrain_lookahead = 120.0
 script = ExtResource("4")
 type = 2
 target_role = 1
-damage = 45.0
+damage = 55.0
 action_distance = 470.0
 released_missile = ExtResource("5")
 acquisition_range = 950.0
@@ -35,7 +35,7 @@ acquisition_range = 950.0
 [resource]
 script = ExtResource("1")
 id = &"radar_strike_aircraft"
-display_name = "레이더 제압기"
+display_name = "레이더 타격기"
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 32

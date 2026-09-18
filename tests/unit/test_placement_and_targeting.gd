@@ -1597,6 +1597,14 @@ func test_damage_reduces_gun_c2_link_range() -> void:
 		assert_true((gun.damage_smoke.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_almost_eq(gun.c2_link_range(), (_defense(&"close_in_gun") as CloseInGunDefinition).c2_range * 0.5, 0.0001)
 
+func test_exactly_one_quarter_damage_shows_asset_damage_state() -> void:
+	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
+	gun.setup(3, _defense(&"close_in_gun"))
+	assert_true(gun.receive_damage(gun.definition.maximum_integrity * DefenseUnit.DAMAGE_INDICATION_RATIO))
+	assert_eq(gun.critical_status_text(), "손상")
+	assert_eq(gun.operational_status_text(), "상태 성능저하 · 내구도 75%")
+	assert_not_null(gun.damage_smoke)
+
 func test_damaged_facility_shows_smoke_fire_and_condition_frame() -> void:
 	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
 	facility.setup(1, _defense(&"support_facility"))

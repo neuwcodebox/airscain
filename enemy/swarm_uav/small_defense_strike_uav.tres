@@ -20,7 +20,7 @@ maximum_climb_rate = 42.0
 script = ExtResource("4")
 type = 0
 target_role = 4
-damage = 10.0
+damage = 25.0
 action_distance = 5.0
 acquisition_range = 300.0
 
@@ -28,7 +28,7 @@ acquisition_range = 300.0
 script = ExtResource("1")
 loop_audio_event = &"uav_light"
 id = &"small_defense_strike_uav"
-display_name = "소형 방공자산 자폭 UAV"
+display_name = "방공무장 자폭 소형 UAV"
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 4

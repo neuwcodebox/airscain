@@ -183,9 +183,9 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 	assert_lte(maximum_observed_speed, missile_definition.flight_speed + 0.001)
 	assert_true(missile.resolved_state, "투발 후 수 초 안에 탄착합니다")
 	assert_true(missile_flight_time > 3.5 or is_equal_approx(missile_flight_time, 3.5), "레이더 항적 확정과 근접방어 교전에 쓸 비행시간을 제공합니다")
-	assert_eq(target.integrity, 50.0, "impact=%s target=%s flight=%s" % [missile.global_position, target.global_position, missile.capture_content_state()])
+	assert_eq(target.integrity, 45.0, "impact=%s target=%s flight=%s" % [missile.global_position, target.global_position, missile.capture_content_state()])
 	missile.gameplay_tick(10.0)
-	assert_eq(target.integrity, 50.0)
+	assert_eq(target.integrity, 45.0)
 
 func test_low_altitude_missile_flies_level_before_terminal_descent() -> void:
 	var flight := StrikeFlight.new()
@@ -303,7 +303,7 @@ func test_bomb_is_unpowered_ballistic_unregistered_and_restores_mid_fall() -> vo
 	assert_eq(bomb.capture_state(), before)
 	assert_false(bomb.get_node("Flame").visible)
 	bomb.gameplay_tick(10.0)
-	assert_eq(target.integrity, 60.0)
+	assert_eq(target.integrity, 55.0)
 
 func test_uav_bombs_hit_small_assets_from_multiple_approach_directions() -> void:
 	for definition_id: StringName in [&"missile_battery", &"close_in_gun", &"high_energy_laser"]:
@@ -521,7 +521,7 @@ func test_missile_can_reach_rooftop_and_skips_a_disabled_asset() -> void:
 		if threat.resolved_state:
 			break
 	assert_true(threat.resolved_state)
-	assert_eq(target.integrity, target.definition.maximum_integrity - 55.0)
+	assert_eq(target.integrity, target.definition.maximum_integrity - 60.0)
 	target.receive_damage(30.0)
 	var before := target.integrity
 	main.enemy_knowledge.record_recon(target)

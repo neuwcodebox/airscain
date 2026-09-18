@@ -29,7 +29,7 @@ action_distance = 14.0
 [resource]
 script = ExtResource("1")
 id = &"ballistic_missile"
-display_name = "탄도미사일"
+display_name = "도시 타격 탄도미사일"
 scene = ExtResource("2")
 neutralization_reward = 45
 signature_class = &"ballistic_missile"

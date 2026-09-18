@@ -6,6 +6,7 @@ signal weapon_fired(unit: DefenseUnit, low_resources: bool)
 signal projectile_launched(unit: DefenseUnit, projectile: Node)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
+const DAMAGE_INDICATION_RATIO: float = 0.25
 const STATUS_MARKER_SCENE := preload("res://effects/unit_status_marker/unit_status_marker.tscn")
 const IDENTITY_MARKER_SCENE := preload("res://effects/unit_identity_marker/unit_identity_marker.tscn")
 const PRESENTATION_SCALE := 0.9
@@ -207,7 +208,7 @@ func combat_resource_low() -> bool:
 func critical_status_text() -> String:
 	if not active:
 		return "×"
-	if operational_ratio() < 0.75:
+	if operational_ratio() <= 1.0 - DAMAGE_INDICATION_RATIO:
 		return "손상"
 	return ""
 
@@ -240,7 +241,7 @@ func operational_efficiency() -> float:
 
 func operational_status_text() -> String:
 	var ratio := operational_ratio()
-	if ratio >= 0.75:
+	if ratio > 1.0 - DAMAGE_INDICATION_RATIO:
 		return "상태 정상 · 내구도 %d%%" % roundi(ratio * 100.0)
 	if active:
 		return "상태 성능저하 · 내구도 %d%%" % roundi(ratio * 100.0)
@@ -297,7 +298,7 @@ func _refresh_damage_visual() -> void:
 	if definition == null:
 		return
 	var damage_ratio := 1.0 - operational_ratio()
-	if damage_ratio < 0.25:
+	if damage_ratio < DAMAGE_INDICATION_RATIO:
 		if damage_smoke != null and is_instance_valid(damage_smoke):
 			damage_smoke.deactivate()
 		damage_smoke = null

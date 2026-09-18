@@ -1498,6 +1498,41 @@ func test_specialized_threats_define_recon_jamming_and_suppression_roles() -> vo
 	assert_true(support_strike.requires_role_knowledge)
 	assert_eq(support_strike.adaptive_knowledge_role, &"support")
 
+func test_enemy_names_identify_target_then_attack_form() -> void:
+	var expected: Dictionary = {
+		&"attack_uav": "도시 자폭 UAV",
+		&"swarm_uav": "도시 자폭 소형 UAV",
+		&"defense_strike_uav": "방공무장 자폭 UAV",
+		&"small_defense_strike_uav": "방공무장 자폭 소형 UAV",
+		&"weapon_saturation_uav": "방공무장 포화 소형 UAV",
+		&"radar_saturation_uav": "레이더 포화 소형 UAV",
+		&"battery_strike_uav": "방공무장 폭격 UAV",
+		&"support_strike_uav": "지원시설 폭격 UAV",
+		&"cruise_missile": "도시 타격 순항미사일",
+		&"battery_strike_cruise": "방공무장 타격 순항미사일",
+		&"support_strike_cruise": "지원시설 타격 순항미사일",
+		&"anti_radiation_missile": "레이더 타격 미사일",
+		&"strike_aircraft": "도시 타격기",
+		&"battery_strike_aircraft": "방공무장 타격기",
+		&"radar_strike_aircraft": "레이더 타격기",
+		&"ballistic_missile": "도시 타격 탄도미사일",
+		&"rocket": "도시 타격 로켓",
+	}
+	for id: StringName in expected:
+		assert_eq(_threat(id).display_name, expected[id], String(id))
+
+func test_asset_strikes_meet_visible_damage_floor() -> void:
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		var definition := entry.threat_definition as AttackUavDefinition
+		if definition == null or definition.mission == null or definition.mission.type == ThreatMissionDefinition.Type.RECONNAISSANCE or definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
+			continue
+		assert_gte(definition.mission.damage, ThreatMissionDefinition.MINIMUM_ASSET_STRIKE_DAMAGE, String(definition.id))
+		assert_eq(definition.validation_error(), "", String(definition.id))
+	var underpowered := ThreatMissionDefinition.new()
+	underpowered.target_role = ThreatMissionDefinition.TargetRole.WEAPON
+	underpowered.damage = ThreatMissionDefinition.MINIMUM_ASSET_STRIKE_DAMAGE - 1.0
+	assert_string_contains(underpowered.validation_error(), "손상 표시 기준")
+
 func test_anti_radiation_direct_hit_disables_but_does_not_destroy_radar() -> void:
 	var anti_radiation := _threat(&"anti_radiation_missile") as AttackUavDefinition
 	var radar_definition := _defense(&"search_radar") as SearchRadarDefinition

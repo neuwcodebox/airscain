@@ -1,6 +1,8 @@
 class_name ThreatMissionDefinition
 extends Resource
 
+const MINIMUM_ASSET_STRIKE_DAMAGE: float = 25.0
+
 enum Type { IMPACT, RECONNAISSANCE, STRIKE_AND_EXIT }
 enum TargetRole { CITY, SENSOR, COMMAND, SUPPORT, WEAPON }
 
@@ -44,4 +46,6 @@ func validation_error() -> String:
 		return "위협 임무 프로필이 올바르지 않습니다"
 	if type == Type.IMPACT and damage <= 0.0:
 		return "충돌 임무 피해량이 올바르지 않습니다"
+	if type != Type.RECONNAISSANCE and target_role != TargetRole.CITY and damage < MINIMUM_ASSET_STRIKE_DAMAGE:
+		return "시설 타격 피해량이 손상 표시 기준보다 낮습니다"
 	return ""
