@@ -922,37 +922,7 @@ func test_every_battlefield_layout_keeps_rooftop_placement_sites() -> void:
 		battlefield.build(scenario)
 		assert_false(battlefield.rooftop_pads.is_empty(), String(scenario.battlefield_layout().id))
 
-func test_distributed_city_districts_have_role_landmarks() -> void:
-	for layout_index: int in [0, 2, 3]:
-		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
-		scenario.world_seed = layout_index
-		var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
-		battlefield.build(scenario)
-		assert_eq(battlefield.city_landmark_count, battlefield.city_districts.size(), String(scenario.battlefield_layout().id))
-
-func test_role_landmarks_stay_inside_their_central_city_blocks() -> void:
-	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
-	scenario.world_seed = 3
-	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
-	battlefield.build(scenario)
-	var landmark_boxes := RecordingCityBoxBatch.new()
-	var presentation := CityDistrictPresentation.new()
-	presentation.build(battlefield.city_districts, battlefield.generator, landmark_boxes, battlefield.city_road_width)
-	for pose: Transform3D in landmark_boxes.recorded_transforms:
-		var district := battlefield.city_districts[0]
-		for candidate: CityDistrict in battlefield.city_districts:
-			if candidate.center.distance_squared_to(Vector2(pose.origin.x, pose.origin.z)) < district.center.distance_squared_to(Vector2(pose.origin.x, pose.origin.z)):
-				district = candidate
-		var central_block: Dictionary = district.blocks.filter(func(block: Dictionary) -> bool: return block.grid == Vector2i.ZERO)[0]
-		var block_half_extent := (float(central_block.block_step) - battlefield.city_road_width) * 0.5
-		var inverse_basis := Basis(Vector3.UP, deg_to_rad(district.definition.rotation_degrees)).inverse()
-		for local_corner: Vector3 in [Vector3(-0.5, 0.0, -0.5), Vector3(0.5, 0.0, -0.5), Vector3(0.5, 0.0, 0.5), Vector3(-0.5, 0.0, 0.5)]:
-			var world_corner := pose * local_corner
-			var district_corner := inverse_basis * Vector3(world_corner.x - district.center.x, 0.0, world_corner.z - district.center.y)
-			assert_lte(absf(district_corner.x), block_half_extent, "%s 랜드마크 x 경계" % district.id)
-			assert_lte(absf(district_corner.z), block_half_extent, "%s 랜드마크 z 경계" % district.id)
-
-func test_rotated_city_amenities_lamps_and_landmarks_share_their_district_axes() -> void:
+func test_rotated_city_amenities_and_lamps_stay_on_their_district_blocks() -> void:
 	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
 	scenario.world_seed = 3
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
@@ -989,16 +959,6 @@ func test_rotated_city_amenities_lamps_and_landmarks_share_their_district_axes()
 	var lamp_block_half_extent := (float(first_block.block_step) - battlefield.city_road_width) * 0.5
 	assert_lte(absf(lamp_local.x), lamp_block_half_extent, "가로등은 x축 도로가 아니라 보도 안에 있습니다")
 	assert_lte(absf(lamp_local.z), lamp_block_half_extent, "가로등은 z축 도로가 아니라 보도 안에 있습니다")
-	for district: CityDistrict in battlefield.city_districts:
-		var landmark_position := Vector3(
-			district.center.x,
-			battlefield.terrain_height(district.center.x, district.center.y) + 0.2,
-			district.center.y
-		)
-		var landmark_transform := _city_box_at(box_transforms, landmark_position)
-		assert_lt(float(landmark_transform.distance), 0.03, "%s 랜드마크 기반을 찾습니다" % district.id)
-		var district_right := Basis(Vector3.UP, deg_to_rad(district.definition.rotation_degrees)) * Vector3.RIGHT
-		assert_almost_eq((landmark_transform.pose as Transform3D).basis.x.normalized().dot(district_right), 1.0, 0.0001, "%s 랜드마크는 지구 축을 따릅니다" % district.id)
 
 func test_rotated_city_building_footprints_cover_world_space_bounds() -> void:
 	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition

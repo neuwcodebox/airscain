@@ -59,8 +59,6 @@ var city_road_width: float = 9.0
 var city_window_band_count: int = 0
 var city_amenity_count: int = 0
 var city_rooftop_detail_count: int = 0
-var city_landmark_count: int:
-	get: return _district_presentation.landmark_count
 var rooftop_pad_visuals: Array[MeshInstance3D] = []
 var city_building_footprints: Array[Rect2] = []
 var city_buildings: Array[Transform3D] = []
@@ -70,7 +68,6 @@ var _building_bounds: Array[AABB] = []
 var _building_cells: Dictionary[Vector2i, Array] = {}
 var _city_bounds := AABB()
 var _city_boxes := CityBoxBatch.new()
-var _district_presentation := CityDistrictPresentation.new()
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -114,7 +111,6 @@ func build(scenario: ScenarioDefinition) -> void:
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks)
-	_district_presentation.build(city_districts, generator, _city_boxes, city_road_width)
 	_build_city_visuals(building_transforms, layout.rooftop_spacing, city_blocks)
 	_city_boxes.build(city_visuals)
 	_configure_city_shadow_receivers()
