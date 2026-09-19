@@ -887,7 +887,7 @@ columns = 2
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="SectionLabel" type="Label" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 layout_mode = 2
@@ -895,29 +895,60 @@ theme_override_colors/font_color = Color(0.435, 0.84, 0.784, 1)
 theme_override_font_sizes/font_size = 13
 text = "교전 설정"
 
-[node name="TargetKindRow" type="HBoxContainer" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+[node name="TargetKindField" type="HBoxContainer" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="SelectedAssetPanel/VBox/DoctrineSection/TargetKindField"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.86, 0.9, 0.88, 1)
+theme_override_font_sizes/font_size = 14
+text = "교전 대상"
+
+[node name="TargetKindRow" type="HBoxContainer" parent="SelectedAssetPanel/VBox/DoctrineSection/TargetKindField"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 3
 
 [node name="HoldFireButton" type="CheckButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 text = "사격중지"
 
 [node name="EngageUnknownButton" type="CheckButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 text = "미확인 항적 교전 허용"
 
-[node name="MunitionModeButton" type="OptionButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
+[node name="MunitionField" type="HBoxContainer" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
 visible = false
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
-text = "탄종  자동"
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="SelectedAssetPanel/VBox/DoctrineSection/MunitionField"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.86, 0.9, 0.88, 1)
+theme_override_font_sizes/font_size = 14
+text = "탄종"
+
+[node name="MunitionModeButton" type="OptionButton" parent="SelectedAssetPanel/VBox/DoctrineSection/MunitionField"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+size_flags_vertical = 4
+text = "자동"
 
 [node name="AutomaticResupplyButton" type="CheckButton" parent="SelectedAssetPanel/VBox/DoctrineSection"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 text = "자동 재보급"
 
@@ -1175,7 +1206,7 @@ text = "메인 메뉴"
 [connection signal="minimum_size_changed" from="SelectedAssetPanel" to="." method="_fit_selection_panel" flags=3]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/HoldFireButton" to="." method="_on_hold_fire_toggled"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/EngageUnknownButton" to="." method="_on_engage_unknown_toggled"]
-[connection signal="item_selected" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionModeButton" to="." method="_on_munition_mode_selected"]
+[connection signal="item_selected" from="SelectedAssetPanel/VBox/DoctrineSection/MunitionField/MunitionModeButton" to="." method="_on_munition_mode_selected"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/ResupplyButton" to="." method="_on_resupply_pressed"]
 [connection signal="toggled" from="SelectedAssetPanel/VBox/DoctrineSection/AutomaticResupplyButton" to="." method="_on_automatic_resupply_toggled"]
 [connection signal="pressed" from="SelectedAssetPanel/VBox/ActionSection/ActionGrid/RepairButton" to="." method="_on_repair_pressed"]

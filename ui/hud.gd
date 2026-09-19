@@ -140,6 +140,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var action_section: VBoxContainer = %ActionSection
 @onready var hold_fire_button: CheckButton = %HoldFireButton
 @onready var engage_unknown_button: CheckButton = %EngageUnknownButton
+@onready var munition_field: HBoxContainer = %MunitionField
 @onready var munition_mode_button: OptionButton = %MunitionModeButton
 @onready var resupply_button: Button = %ResupplyButton
 @onready var automatic_resupply_button: CheckButton = %AutomaticResupplyButton
@@ -435,7 +436,7 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost() if can_resupply else "재보급 요청"
 		automatic_resupply_button.set_pressed_no_signal(selected_asset.automatic_resupply_enabled())
 	if selected_asset.supports_munition_selection():
-		munition_mode_button.text = "탄종  %s" % selected_asset.munition_mode_text()
+		munition_mode_button.text = selected_asset.munition_mode_text()
 	resupply_button.disabled = not can_resupply
 	var can_repair := selected_asset.can_request_repair()
 	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost() if can_repair else "수리 요청"
@@ -466,6 +467,7 @@ func _refresh_selection_view(fit_panel: bool = true) -> void:
 	hold_fire_button.visible = doctrine_section.visible
 	engage_unknown_button.visible = doctrine_section.visible
 	munition_mode_button.visible = doctrine_section.visible and selected_asset.supports_munition_selection()
+	munition_field.visible = munition_mode_button.visible
 	resupply_button.visible = has_asset and not has_track and selected_asset.uses_ammunition()
 	automatic_resupply_button.visible = doctrine_section.visible and selected_asset.uses_ammunition()
 	repair_button.visible = has_asset and not has_track
@@ -747,9 +749,11 @@ func _style_selection_panel() -> void:
 	for button: Button in [resupply_button, repair_button, relocation_button, focus_button]:
 		MenuStyle.apply_action_button(button, false, MenuStyle.ACCENT, true)
 		button.add_theme_font_size_override("font_size", 14)
-	MenuStyle.apply_option(munition_mode_button)
+	MenuStyle.apply_option(munition_mode_button, true)
+	munition_mode_button.add_theme_font_size_override("font_size", 14)
+	munition_mode_button.add_theme_constant_override("icon_max_width", 18)
 	for toggle: CheckButton in [hold_fire_button, engage_unknown_button, automatic_resupply_button]:
-		toggle.add_theme_color_override("font_color", METRIC_VALUE_COLOR)
+		MenuStyle.apply_switch(toggle, MenuStyle.DANGER if toggle == hold_fire_button else MenuStyle.ACCENT)
 		toggle.add_theme_font_size_override("font_size", 14)
 
 func _reveal_game_over() -> void:
@@ -1004,12 +1008,12 @@ func _build_target_kind_buttons() -> void:
 	for index: int in EngagementDoctrine.TARGET_KINDS.size():
 		var button := Button.new()
 		button.name = String(EngagementDoctrine.TARGET_KINDS[index])
-		button.custom_minimum_size = Vector2(34, 34)
+		button.custom_minimum_size = Vector2(30, 30)
 		button.toggle_mode = true
 		button.icon = TARGET_ICONS[index]
 		button.expand_icon = true
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.add_theme_constant_override("icon_max_width", 24)
+		button.add_theme_constant_override("icon_max_width", 20)
 		for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 			var style := StyleBoxFlat.new()
 			var enabled := state in ["pressed", "hover_pressed"]
@@ -1020,7 +1024,7 @@ func _build_target_kind_buttons() -> void:
 			if state == "focus":
 				style.draw_center = false
 			style.set_border_width_all(2 if state == "focus" else 1)
-			style.set_content_margin_all(5)
+			style.set_content_margin_all(4)
 			button.add_theme_stylebox_override(state, style)
 		button.add_theme_color_override("icon_normal_color", Color("647981"))
 		button.add_theme_color_override("icon_hover_color", Color("b8cdd2"))

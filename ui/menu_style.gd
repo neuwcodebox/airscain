@@ -84,14 +84,14 @@ static func apply_action_button(button: Button, primary: bool = false, accent: C
 	button.add_theme_color_override("font_disabled_color", TEXT_DISABLED)
 
 ## Dropdown field matching the action button frame.
-static func apply_option(option: OptionButton) -> void:
+static func apply_option(option: OptionButton, compact: bool = false) -> void:
 	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var style := StyleBoxFlat.new()
 		style.bg_color = Color(0.06, 0.1, 0.12, 0.9)
 		style.border_color = Color(ACCENT, 0.22)
 		style.set_border_width_all(1)
-		style.set_content_margin_all(10)
-		style.content_margin_left = 14
+		style.set_content_margin_all(4 if compact else 10)
+		style.content_margin_left = 10 if compact else 14
 		match state:
 			"hover", "focus":
 				style.border_color = ACCENT
@@ -104,6 +104,41 @@ static func apply_option(option: OptionButton) -> void:
 		option.add_theme_stylebox_override(state, style)
 	option.add_theme_color_override("font_color", TEXT)
 	option.add_theme_color_override("font_disabled_color", TEXT_DISABLED)
+
+## Flat label-and-switch row: the whole row is the hit area and the switch takes the accent color when on.
+static func apply_switch(toggle: CheckButton, accent: Color = ACCENT) -> void:
+	var empty := StyleBoxEmpty.new()
+	for state: String in ["normal", "pressed", "disabled", "hover_pressed"]:
+		toggle.add_theme_stylebox_override(state, empty)
+	var hover := StyleBoxFlat.new()
+	hover.bg_color = Color(accent, 0.07)
+	toggle.add_theme_stylebox_override("hover", hover)
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.border_color = Color(accent, 0.5)
+	focus.set_border_width_all(1)
+	toggle.add_theme_stylebox_override("focus", focus)
+	var on := _switch_texture(true, accent)
+	var off := _switch_texture(false, accent)
+	for icon: String in ["checked", "checked_mirrored"]:
+		toggle.add_theme_icon_override(icon, on)
+	for icon: String in ["unchecked", "unchecked_mirrored"]:
+		toggle.add_theme_icon_override(icon, off)
+	toggle.add_theme_icon_override("checked_disabled", on)
+	toggle.add_theme_icon_override("unchecked_disabled", off)
+	for color: String in ["font_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		toggle.add_theme_color_override(color, TEXT)
+	toggle.add_theme_color_override("font_hover_color", Color.WHITE)
+
+static func _switch_texture(on: bool, accent: Color) -> ImageTexture:
+	var track := Color(accent, 0.3) if on else Color(0.1, 0.15, 0.17)
+	var edge := accent if on else Color(TEXT_MUTED, 0.45)
+	var knob := accent if on else TEXT_MUTED
+	var svg := "<svg xmlns='http://www.w3.org/2000/svg' width='34' height='18'><rect x='0.5' y='0.5' width='33' height='17' rx='8.5' fill='#%s' fill-opacity='%.2f' stroke='#%s'/><circle cx='%d' cy='9' r='5.5' fill='#%s'/></svg>" % [
+		track.to_html(false), track.a, edge.to_html(false), 25 if on else 9, knob.to_html(false)]
+	var image := Image.new()
+	image.load_svg_from_string(svg)
+	return ImageTexture.create_from_image(image)
 
 ## Game-style tab strip: text tabs with an accent underline on the active tab.
 static func apply_tabs(tabs: TabContainer) -> void:
