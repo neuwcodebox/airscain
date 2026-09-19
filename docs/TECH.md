@@ -872,7 +872,7 @@ raid_budget =
 
 메뉴 문구는 기능 중심의 짧은 이름을 사용한다. 메인 메뉴의 `새 게임`은 지속 작전을 시작하고 `이어하기`는 저장한 게임을 복원한다. 각 항목의 설명은 `합니다`체로 `MenuListButton.description`에 두고, 선택된 항목의 설명만 목록 아래 설명 영역에 표시하며 버튼 이름에 홍보 문구를 붙이지 않는다. 소개는 게임 장르만 표시하고 장식적인 작전실 표제는 사용하지 않는다. 공통 동작은 `설정`·`종료`·`메인 메뉴`로 통일하되, 브라우저 탭을 닫을 수 없는 Web 빌드에서는 메인·일시정지 메뉴의 `종료` 항목을 표시하지 않는다.
 
-`새 게임`과 `자유 모드`는 공통 전장 선택 panel을 열고 `랜덤`과 `ScenarioDefinition.battlefield_layouts`의 각 표시 이름을 목록으로 만든다. 특정 선택은 layout ID를 gameplay 생성 요청에 전달하고, 빈 ID인 랜덤은 기존 seed 기반 선택을 사용한다. 훈련과 이어하기에는 이 panel을 열지 않는다. `ScenarioDefinition`은 명시적 layout ID가 있으면 해당 Definition을, 없으면 `world_seed % layout_count`로 종류를 결정한다. snapshot의 scenario 구역은 seed와 실제 layout ID를 함께 보존하며, ID가 없는 이전 저장은 seed 기반 레이아웃으로 호환한다.
+`새 게임`과 `자유 모드`는 메인 메뉴 panel을 숨기고 전체 화면 전장 선택 화면을 열어, `랜덤`과 `ScenarioDefinition.battlefield_layouts`의 각 항목을 `BattlefieldChoiceCard` 가로 행으로 만든다. 카드는 `BattlefieldLayoutDefinition`의 `display_name`·`summary`·`preview` SVG를 사용하고 지구 수·최고층 높이·추가 예산은 Definition 값에서 파생하므로, 레이아웃 추가 시 콘텐츠 리소스만 채우면 된다. `world/layout_previews/`의 SVG는 실제 거시 지형 규칙을 따른 대표 평면도이며 seed별 실제 생성 결과를 그리지는 않는다. 앱은 마지막 선택 layout ID를 기억해 다시 열 때 해당 카드에 포커스를 둔다. 특정 선택은 layout ID를 gameplay 생성 요청에 전달하고, 빈 ID인 랜덤은 기존 seed 기반 선택을 사용한다. 훈련과 이어하기에는 이 panel을 열지 않는다. `ScenarioDefinition`은 명시적 layout ID가 있으면 해당 Definition을, 없으면 `world_seed % layout_count`로 종류를 결정한다. snapshot의 scenario 구역은 seed와 실제 layout ID를 함께 보존하며, ID가 없는 이전 저장은 seed 기반 레이아웃으로 호환한다.
 
 `project.godot`의 `gui/theme/custom_font`는 `res://ui/fonts/NanumSquareB.ttf`를 가리킨다. Control의 기본 theme font와 `ThemeDB.fallback_font`를 사용하는 CanvasItem 직접 그리기 및 기본 Label3D가 이 저장소 자산을 공유한다. NanumSquareB에 없는 펼치기 삼각형 등 기호는 깨진 글리프 대신 표시되도록 FontFile의 시스템 fallback을 허용한다.
 

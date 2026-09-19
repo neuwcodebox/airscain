@@ -189,7 +189,12 @@ func test_new_and_sandbox_games_choose_random_or_named_battlefield_before_starti
 	assert_true(app.battlefield_selection.visible)
 	assert_null(app.gameplay)
 	assert_eq(app.battlefield_choice_list.get_child_count(), 5)
-	assert_eq((app.battlefield_choice_list.get_child(0) as Button).text, "랜덤")
+	var focused_card := app.get_viewport().gui_get_focus_owner() as BattlefieldChoiceCard
+	assert_not_null(focused_card, "선택 화면은 전장 카드에 키보드 포커스를 둡니다")
+	assert_true(focused_card.layout_id.is_empty(), "처음 여는 선택 화면은 랜덤 전장을 가리킵니다")
+	for layout: BattlefieldLayoutDefinition in AirscainApp.BASE_SCENARIO.battlefield_layouts:
+		var card := app.battlefield_choice_list.get_node("Layout_%s" % String(layout.id)) as BattlefieldChoiceCard
+		assert_not_null(card.preview, "%s 카드는 지형 미리보기를 보여줍니다" % layout.id)
 	var escape := InputEventAction.new()
 	escape.action = &"ui_cancel"
 	escape.pressed = true
@@ -204,6 +209,20 @@ func test_new_and_sandbox_games_choose_random_or_named_battlefield_before_starti
 	assert_not_null(app.gameplay)
 	assert_eq(app.gameplay.game_mode, AirscainMain.GameMode.SANDBOX)
 	assert_eq(app.gameplay.scenario.battlefield_layout().id, &"valley_corridor")
+
+func test_battlefield_selection_reopens_on_last_chosen_battlefield() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	await get_tree().process_frame
+	await _await_app_ready(app)
+	(app.main_menu.get_node("Panel/VBox/SandboxButton") as Button).pressed.emit()
+	(app.battlefield_choice_list.get_node("Layout_coastal_plain") as Button).pressed.emit()
+	await get_tree().process_frame
+	app.return_to_main_menu()
+	await get_tree().process_frame
+	(app.main_menu.get_node("Panel/VBox/SustainedButton") as Button).pressed.emit()
+	var focused_card := app.get_viewport().gui_get_focus_owner() as BattlefieldChoiceCard
+	assert_not_null(focused_card)
+	assert_eq(focused_card.layout_id, &"coastal_plain")
 
 func test_main_menu_runs_training_pause_home_and_sandbox_user_flow() -> void:
 	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp

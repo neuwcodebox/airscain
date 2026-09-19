@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=76 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=80 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -38,6 +38,10 @@
 [ext_resource path="res://enemy/swarm_uav/weapon_saturation_uav.tres" type="Resource" id="36"]
 [ext_resource path="res://enemy/swarm_uav/radar_saturation_uav.tres" type="Resource" id="37"]
 [ext_resource path="res://world/city_district_definition.gd" type="Script" id="38"]
+[ext_resource path="res://world/layout_previews/rugged_harbor.svg" type="Texture2D" id="39"]
+[ext_resource path="res://world/layout_previews/island_city.svg" type="Texture2D" id="40"]
+[ext_resource path="res://world/layout_previews/valley_corridor.svg" type="Texture2D" id="41"]
+[ext_resource path="res://world/layout_previews/coastal_plain.svg" type="Texture2D" id="42"]
 
 [sub_resource type="Resource" id="RuggedCentralDistrict"]
 script = ExtResource("38")
@@ -140,6 +144,8 @@ target_weight = 0.85
 script = ExtResource("29")
 id = &"rugged_harbor"
 display_name = "산악 항만도시"
+summary = "깊은 만을 산지가 감싸고, 만 안쪽에 도심과 항만 공업 지구가 자리합니다. 능선과 고층 빌딩이 시야를 가립니다."
+preview = ExtResource("39")
 terrain_shape = 1
 terrain_rotation_degrees = 12.0
 terrain_height_scale = 55.0
@@ -157,6 +163,8 @@ city_districts = Array[ExtResource("38")]([SubResource("RuggedCentralDistrict"),
 script = ExtResource("29")
 id = &"island_city"
 display_name = "평탄한 섬 도시"
+summary = "바다에 둘러싸인 평탄한 섬 중앙에 하나의 도심이 밀집해 있습니다. 사방이 트여 있어 기본에 충실한 전장입니다."
+preview = ExtResource("40")
 terrain_height_scale = 42.0
 noise_frequency = 0.0035
 coast_start = 0.72
@@ -171,6 +179,8 @@ city_districts = Array[ExtResource("38")]([SubResource("IslandCentralDistrict")]
 script = ExtResource("29")
 id = &"valley_corridor"
 display_name = "계곡 도시 회랑"
+summary = "양쪽 능선 사이의 좁은 회랑을 따라 세 지구가 남북으로 이어집니다. 높은 산이 저고도 접근을 가립니다."
+preview = ExtResource("41")
 terrain_shape = 2
 terrain_rotation_degrees = -4.0
 terrain_height_scale = 62.0
@@ -188,6 +198,8 @@ city_districts = Array[ExtResource("38")]([SubResource("ValleyCoreDistrict"), Su
 script = ExtResource("29")
 id = &"coastal_plain"
 display_name = "광역 해안 평야"
+summary = "완만한 평야가 한쪽 해안까지 넓게 열려 있고 세 지구가 흩어져 있습니다. 지켜야 할 범위가 넓습니다."
+preview = ExtResource("42")
 terrain_shape = 3
 terrain_rotation_degrees = 8.0
 terrain_height_scale = 34.0

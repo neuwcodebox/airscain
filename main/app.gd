@@ -3,6 +3,7 @@ extends Node
 
 const GAMEPLAY_SCENE := preload("res://main/main.tscn")
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
+const RANDOM_LAYOUT_PREVIEW := preload("res://world/layout_previews/random.svg")
 const GLOBAL_FONT_PATH := "res://ui/fonts/NanumSquareB.ttf"
 
 var gameplay: AirscainMain
@@ -13,6 +14,8 @@ var combat_vfx_warmup_started: bool = false
 var combat_vfx_warmup_completed: bool = false
 var settings_menu: SettingsMenu
 var pending_game_mode: AirscainMain.GameMode = AirscainMain.GameMode.SUSTAINED
+## Last battlefield chosen this session; the selection screen reopens on it.
+var last_battlefield_layout_id: StringName = &""
 
 @onready var main_menu: Control = %MainMenu
 @onready var pause_menu: Control = %PauseMenu
@@ -24,8 +27,8 @@ var pending_game_mode: AirscainMain.GameMode = AirscainMain.GameMode.SUSTAINED
 @onready var menu_feedback_label: Label = %MenuFeedbackLabel
 @onready var menu_description_label: Label = %MenuDescriptionLabel
 @onready var battlefield_selection: Control = %BattlefieldSelection
-@onready var battlefield_choice_list: VBoxContainer = %BattlefieldChoiceList
-@onready var battlefield_description_label: Label = %BattlefieldDescriptionLabel
+@onready var battlefield_choice_list: HBoxContainer = %BattlefieldChoiceList
+@onready var battlefield_mode_label: Label = %BattlefieldModeLabel
 @onready var loading_status: Control = %LoadingStatus
 @onready var loading_label: Label = %LoadingLabel
 @onready var loading_bar: ProgressBar = %LoadingBar
@@ -202,42 +205,45 @@ func _on_sandbox_pressed() -> void:
 	_open_battlefield_selection(AirscainMain.GameMode.SANDBOX)
 
 func _populate_battlefield_choices() -> void:
-	var random_button := _create_battlefield_choice("랜덤", &"", "매번 다른 전장 종류와 지형 변형을 선택합니다.")
-	battlefield_choice_list.add_child(random_button)
-	for layout: BattlefieldLayoutDefinition in BASE_SCENARIO.battlefield_layouts:
-		var description := "이 전장 종류를 유지하며 seed에 따라 방향과 지형을 변형합니다."
-		battlefield_choice_list.add_child(_create_battlefield_choice(layout.display_name, layout.id, description))
+	var layouts := BASE_SCENARIO.battlefield_layouts
+	var cards: Array[BattlefieldChoiceCard] = [BattlefieldChoiceCard.random_choice(RANDOM_LAYOUT_PREVIEW, layouts.size())]
+	for layout: BattlefieldLayoutDefinition in layouts:
+		cards.append(BattlefieldChoiceCard.for_layout(layout))
+	for card: BattlefieldChoiceCard in cards:
+		card.pressed.connect(_on_battlefield_choice_pressed.bind(card.layout_id))
+		battlefield_choice_list.add_child(card)
 
-func _create_battlefield_choice(label: String, layout_id: StringName, description: String) -> MenuListButton:
-	var button := MenuListButton.new()
-	button.name = "RandomLayoutButton" if layout_id.is_empty() else "Layout_%s" % String(layout_id)
-	button.text = label
-	button.description = description
-	button.custom_minimum_size = Vector2(0.0, 52.0)
-	button.add_theme_font_size_override("font_size", 22)
-	button.focus_entered.connect(_show_battlefield_description.bind(button))
-	button.pressed.connect(_on_battlefield_choice_pressed.bind(layout_id))
-	return button
+func _battlefield_card(layout_id: StringName) -> BattlefieldChoiceCard:
+	for node: Node in battlefield_choice_list.get_children():
+		var card := node as BattlefieldChoiceCard
+		if card.layout_id == layout_id:
+			return card
+	return battlefield_choice_list.get_child(0) as BattlefieldChoiceCard
 
 func _open_battlefield_selection(mode: AirscainMain.GameMode) -> void:
 	pending_game_mode = mode
+	battlefield_mode_label.text = "자유 모드" if mode == AirscainMain.GameMode.SANDBOX else "새 게임"
+	main_menu.get_node("Panel").visible = false
 	battlefield_selection.visible = true
-	var title := battlefield_selection.get_node("Panel/VBox/Title") as Label
-	title.text = "자유 모드 전장 선택" if mode == AirscainMain.GameMode.SANDBOX else "새 게임 전장 선택"
-	var first_button := battlefield_choice_list.get_child(0) as MenuListButton
-	first_button.grab_focus()
-	_show_battlefield_description(first_button)
+	var cards := battlefield_choice_list.get_children()
+	for index: int in cards.size():
+		var card := cards[index] as Control
+		card.modulate.a = 0.0
+		var tween := card.create_tween()
+		tween.tween_interval(0.04 * index)
+		tween.tween_property(card, "modulate:a", 1.0, 0.24)
+	_battlefield_card(last_battlefield_layout_id).grab_focus()
 
 func _close_battlefield_selection() -> void:
 	battlefield_selection.visible = false
+	main_menu.get_node("Panel").visible = true
 	var return_path := "Panel/VBox/SandboxButton" if pending_game_mode == AirscainMain.GameMode.SANDBOX else "Panel/VBox/SustainedButton"
 	(main_menu.get_node(return_path) as MenuListButton).grab_focus()
 
-func _show_battlefield_description(button: MenuListButton) -> void:
-	battlefield_description_label.text = button.description
-
 func _on_battlefield_choice_pressed(layout_id: StringName) -> void:
+	last_battlefield_layout_id = layout_id
 	battlefield_selection.visible = false
+	main_menu.get_node("Panel").visible = true
 	start_game(pending_game_mode, layout_id)
 
 func _on_battlefield_back_pressed() -> void:

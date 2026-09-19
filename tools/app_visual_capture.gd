@@ -34,7 +34,8 @@ func run() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_main_menu.png")
 	((app as AirscainApp).main_menu.get_node("Panel/VBox/SustainedButton") as Button).pressed.emit()
-	await process_frame
+	((app as AirscainApp).battlefield_choice_list.get_node("Layout_valley_corridor") as Control).grab_focus()
+	await create_timer(0.6).timeout
 	await RenderingServer.frame_post_draw
 	_save_capture("/tmp/airscain_battlefield_selection.png")
 	((app as AirscainApp).battlefield_choice_list.get_node("Layout_rugged_harbor") as Button).pressed.emit()

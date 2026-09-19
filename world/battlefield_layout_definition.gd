@@ -5,6 +5,10 @@ enum TerrainShape { ISLAND, BAY, VALLEY, COASTAL_PLAIN }
 
 @export var id: StringName
 @export var display_name: String
+## One or two sentences shown on the battlefield selection card.
+@export_multiline var summary: String = ""
+## Representative top-down drawing of the terrain shape and city districts.
+@export var preview: Texture2D
 @export var terrain_shape := TerrainShape.ISLAND
 @export_range(-180.0, 180.0) var terrain_rotation_degrees: float = 0.0
 @export var terrain_height_scale: float = 42.0
