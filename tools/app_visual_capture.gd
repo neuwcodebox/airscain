@@ -33,7 +33,11 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_main_menu.png")
-	app.call("start_game", AirscainMain.GameMode.SUSTAINED)
+	((app as AirscainApp).main_menu.get_node("Panel/VBox/SustainedButton") as Button).pressed.emit()
+	await process_frame
+	await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_battlefield_selection.png")
+	((app as AirscainApp).battlefield_choice_list.get_node("Layout_rugged_harbor") as Button).pressed.emit()
 	while not (app as AirscainApp).gameplay.combat_effect_pool.prepared:
 		await process_frame
 	for index: int in 20:
@@ -41,6 +45,7 @@ func run() -> void:
 	var operation := (app as AirscainApp).gameplay
 	assert(operation.session.phase == GameSession.Phase.RUNNING)
 	assert(operation.registry.hostile_count() > 0)
+	assert(operation.scenario.battlefield_layout().id == &"rugged_harbor")
 	assert(not operation.hud.start_button.visible)
 	_save_capture("/tmp/airscain_operation_started.png")
 	print("OPERATION_STARTED time=%.2f hostiles=%d" % [operation.session.survival_time, operation.registry.hostile_count()])
@@ -53,7 +58,7 @@ func run() -> void:
 	for index: int in 5:
 		await process_frame
 	_save_capture("/tmp/airscain_game_over.png")
-	print("APP_VISUAL_CAPTURE_OK main_menu gameplay pause_menu game_over")
+	print("APP_VISUAL_CAPTURE_OK main_menu battlefield_selection gameplay pause_menu game_over")
 	quit(0)
 
 func _save_capture(path: String) -> void:

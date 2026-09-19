@@ -3,7 +3,7 @@ extends Node3D
 
 enum GameMode { SUSTAINED, TRAINING, SANDBOX }
 
-signal restart_game_requested(mode: GameMode, world_seed: int)
+signal restart_game_requested(mode: GameMode, world_seed: int, battlefield_layout_id: StringName)
 signal main_menu_requested
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
@@ -11,6 +11,7 @@ const MAXIMUM_GAMEPLAY_STEP := 1.0 / 30.0
 
 static var requested_seed: int = -1
 static var requested_mode: GameMode = GameMode.SUSTAINED
+static var requested_layout_id: StringName = &""
 static var last_generated_seed: int = -1
 
 static func generate_world_seed() -> int:
@@ -71,6 +72,7 @@ func _ready() -> void:
 	game_mode = requested_mode
 	if requested_seed >= 0:
 		scenario.world_seed = requested_seed
+	scenario.selected_battlefield_layout_id = requested_layout_id
 	requested_seed = scenario.world_seed
 	var scenario_error := scenario.validation_error()
 	if not scenario_error.is_empty():
@@ -397,7 +399,7 @@ func _on_restart_requested(same_seed: bool) -> void:
 	if restart_game_requested.get_connections().is_empty():
 		get_tree().reload_current_scene()
 		return
-	restart_game_requested.emit(game_mode, next_seed)
+	restart_game_requested.emit(game_mode, next_seed, scenario.selected_battlefield_layout_id)
 
 func _on_main_menu_requested() -> void:
 	main_menu_requested.emit()
@@ -679,9 +681,12 @@ func _report_persistence_repairs(action: PersistenceFeedback.Action) -> void:
 func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	_clear_runtime_objects()
 	var restored_seed := int(payload.scenario.world_seed)
-	if scenario.world_seed != restored_seed:
+	var restored_layout_id := StringName(String(payload.scenario.get("battlefield_layout_id", "")))
+	if scenario.world_seed != restored_seed or scenario.selected_battlefield_layout_id != restored_layout_id:
 		scenario.world_seed = restored_seed
+		scenario.selected_battlefield_layout_id = restored_layout_id
 		requested_seed = restored_seed
+		requested_layout_id = restored_layout_id
 		battlefield.build(scenario)
 	var world_state: Dictionary = payload.world
 	var reconstruction := WorldReconstruction.new(battlefield, objective, registry, defense_parent, threat_parent, projectile_parent)

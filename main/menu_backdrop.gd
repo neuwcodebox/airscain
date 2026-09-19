@@ -24,14 +24,17 @@ func _ready() -> void:
 	_apply_display_settings()
 	var previous_seed := AirscainMain.requested_seed
 	var previous_mode := AirscainMain.requested_mode
+	var previous_layout_id := AirscainMain.requested_layout_id
 	AirscainMain.requested_seed = DEMO_WORLD_SEED
 	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
+	AirscainMain.requested_layout_id = &""
 	demo = DEMO_SCENE.instantiate() as AirscainMain
 	(demo.get_node("CombatAudio") as CombatAudio).enabled = false
 	(demo.get_node("UiAudio") as UiAudio).enabled = false
 	_viewport.add_child(demo)
 	AirscainMain.requested_seed = previous_seed
 	AirscainMain.requested_mode = previous_mode
+	AirscainMain.requested_layout_id = previous_layout_id
 	controller = MenuDefenseDemo.new()
 	add_child(controller)
 	controller.configure(demo)

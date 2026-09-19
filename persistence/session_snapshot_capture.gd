@@ -21,6 +21,7 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 	return {
 		"scenario": {
 			"world_seed": main.scenario.world_seed,
+			"battlefield_layout_id": String(main.scenario.selected_battlefield_layout_id),
 		},
 		"session": main.session.capture_state(),
 		"world": {

@@ -233,8 +233,9 @@ func test_generated_battlefield_matches_scenario_and_camera_bounds() -> void:
 	assert_not_null(terrain_material)
 	var water_material := (main.battlefield.ocean.mesh as PlaneMesh).material as ShaderMaterial
 	var height_texture := water_material.get_shader_parameter("terrain_heights") as Texture2D
-	assert_eq(height_texture.get_width(), main.scenario.terrain_resolution)
-	assert_eq(height_texture.get_height(), main.scenario.terrain_resolution)
+	var expected_height_texture_size := main.scenario.terrain_resolution * Battlefield.OCEAN_HEIGHT_TEXTURE_SCALE
+	assert_eq(height_texture.get_width(), expected_height_texture_size)
+	assert_eq(height_texture.get_height(), expected_height_texture_size)
 	assert_eq(water_material.get_shader_parameter("battlefield_size"), main.scenario.battlefield_size)
 	assert_eq(main.battlefield.battlefield_size, 2400.0)
 	assert_eq((main.battlefield.ocean.mesh as PlaneMesh).size.x, 19200.0)

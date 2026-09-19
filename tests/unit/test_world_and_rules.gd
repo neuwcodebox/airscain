@@ -834,6 +834,16 @@ func test_scenario_seed_selects_reproducible_distinct_battlefield_layouts() -> v
 	assert_ne(island.building_transforms().size(), rugged.building_transforms().size())
 	assert_ne(island.heights, rugged.heights)
 
+func test_explicit_battlefield_layout_overrides_seed_selection_and_validates_id() -> void:
+	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	scenario.selected_battlefield_layout_id = &"coastal_plain"
+	assert_eq(scenario.battlefield_layout().id, &"coastal_plain")
+	scenario.world_seed += 1
+	assert_eq(scenario.battlefield_layout().id, &"coastal_plain")
+	assert_eq(scenario.battlefield_layout_by_id(&"valley_corridor").display_name, "계곡 도시 회랑")
+	scenario.selected_battlefield_layout_id = &"missing"
+	assert_eq(scenario.validation_error(), "선택한 전장 레이아웃을 찾을 수 없습니다")
+
 func test_scenario_exposes_distinct_island_bay_valley_and_coastal_plain_worlds() -> void:
 	var expected_ids: Array[StringName] = [&"rugged_harbor", &"island_city", &"valley_corridor", &"coastal_plain"]
 	var expected_district_counts: Array[int] = [2, 1, 3, 3]

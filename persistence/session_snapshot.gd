@@ -382,6 +382,9 @@ static func _repair_enemy_knowledge(state: Dictionary, defense_ids: Dictionary[i
 static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) -> String:
 	if int(payload.scenario.get("world_seed", -1)) < 0:
 		return "전장 seed가 올바르지 않습니다"
+	var layout_id := StringName(String(payload.scenario.get("battlefield_layout_id", "")))
+	if not layout_id.is_empty() and scenario.battlefield_layout_by_id(layout_id) == null:
+		return "저장된 전장 레이아웃을 찾을 수 없습니다"
 	var session_state: Dictionary = payload.session
 	var phase: int = int(session_state.get("phase", -1))
 	if phase < GameSession.Phase.PREPARATION or phase > GameSession.Phase.GAME_OVER:

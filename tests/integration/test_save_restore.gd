@@ -28,12 +28,15 @@ var main: AirscainMain
 var save_path: String
 var original_requested_seed: int
 var original_requested_mode: AirscainMain.GameMode
+var original_requested_layout_id: StringName
 
 func before_each() -> void:
 	original_requested_seed = AirscainMain.requested_seed
 	original_requested_mode = AirscainMain.requested_mode
+	original_requested_layout_id = AirscainMain.requested_layout_id
 	AirscainMain.requested_seed = 73129
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	AirscainMain.requested_layout_id = &""
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	main.auto_start_sustained = false
 	add_child_autofree(main)
@@ -46,6 +49,7 @@ func after_each() -> void:
 	_cleanup_save_files()
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
+	AirscainMain.requested_layout_id = original_requested_layout_id
 
 func test_projectile_reconstruction_delegates_new_weapon_types_to_the_owner() -> void:
 	var owner := RestoringDefense.new()
@@ -519,6 +523,7 @@ func test_active_engagement_restores_tracks_sensor_c2_and_interceptor_flight() -
 func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes() -> void:
 	var saved_seed := 48127
 	main.scenario.world_seed = saved_seed
+	main.scenario.selected_battlefield_layout_id = &"coastal_plain"
 	main.battlefield.build(main.scenario)
 	main.session.budget = 317
 	var expected_height := main.battlefield.terrain_height(417.0, -263.0)
@@ -528,10 +533,12 @@ func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes()
 	assert_eq(main.save_operation(), "")
 	assert_true(FileAccess.file_exists(save_path))
 	main.scenario.world_seed = 99241
+	main.scenario.selected_battlefield_layout_id = &"valley_corridor"
 	main.battlefield.build(main.scenario)
 	main.session.budget = 9999
 	assert_eq(main.load_operation(), "")
 	assert_eq(main.scenario.world_seed, saved_seed)
+	assert_eq(main.scenario.battlefield_layout().id, &"coastal_plain")
 	assert_eq(main.session.budget, 317)
 	assert_almost_eq(main.battlefield.terrain_height(417.0, -263.0), expected_height, 0.0001)
 	assert_eq(main.objective.global_position, expected_objective_transform.origin, "seed 복원 뒤 시민청 위치를 복원합니다")
@@ -539,6 +546,14 @@ func test_file_save_and_load_rebuilds_saved_seed_without_duplicate_world_nodes()
 	assert_almost_eq(main.objective.scale.x, expected_objective_scale, 0.0001, "seed 복원 뒤 시민청 블록 비율을 복원합니다")
 	assert_eq(main.battlefield.terrain.get_child_count(), 1)
 	assert_eq(main.battlefield.city_visuals.get_child_count(), expected_building_count)
+
+func test_snapshot_accepts_legacy_seed_selection_and_rejects_unknown_layout() -> void:
+	var payload := SessionSnapshot.capture_payload(main)
+	assert_eq(payload.scenario.battlefield_layout_id, "", "랜덤 선택은 새 전장에서도 다시 랜덤화할 수 있게 보존합니다")
+	payload.scenario.erase("battlefield_layout_id")
+	assert_eq(SessionSnapshot.validation_error(payload, main.scenario), "")
+	payload.scenario.battlefield_layout_id = "missing"
+	assert_eq(SessionSnapshot.validation_error(payload, main.scenario), "저장된 전장 레이아웃을 찾을 수 없습니다")
 
 func test_load_falls_back_to_last_valid_backup_after_semantic_corruption() -> void:
 	main.session.budget = 317

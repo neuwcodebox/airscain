@@ -5,6 +5,7 @@ const APP_SCENE := preload("res://main/app.tscn")
 var original_settings_path: String
 var original_requested_seed: int
 var original_requested_mode: AirscainMain.GameMode
+var original_requested_layout_id: StringName
 var original_last_generated_seed: int
 var original_default_font: Font
 var original_fallback_font: Font
@@ -14,6 +15,7 @@ func before_each() -> void:
 	original_settings_path = PlayerSettings.instance().settings_path
 	original_requested_seed = AirscainMain.requested_seed
 	original_requested_mode = AirscainMain.requested_mode
+	original_requested_layout_id = AirscainMain.requested_layout_id
 	original_last_generated_seed = AirscainMain.last_generated_seed
 	original_default_font = ThemeDB.get_default_theme().default_font
 	original_fallback_font = ThemeDB.fallback_font
@@ -65,6 +67,7 @@ func after_each() -> void:
 	temporary_paths.clear()
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
+	AirscainMain.requested_layout_id = original_requested_layout_id
 	AirscainMain.last_generated_seed = original_last_generated_seed
 	ThemeDB.get_default_theme().default_font = original_default_font
 	ThemeDB.fallback_font = original_fallback_font
@@ -177,6 +180,31 @@ func test_main_menu_prepares_isolated_preview_and_combat_effects() -> void:
 	assert_true(app.combat_vfx_warmup_completed)
 	assert_null(app.get_node_or_null("CombatVfxWarmup"))
 
+func test_new_and_sandbox_games_choose_random_or_named_battlefield_before_starting() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	await get_tree().process_frame
+	await _await_app_ready(app)
+	var sustained_button := app.main_menu.get_node("Panel/VBox/SustainedButton") as Button
+	sustained_button.pressed.emit()
+	assert_true(app.battlefield_selection.visible)
+	assert_null(app.gameplay)
+	assert_eq(app.battlefield_choice_list.get_child_count(), 5)
+	assert_eq((app.battlefield_choice_list.get_child(0) as Button).text, "랜덤")
+	var escape := InputEventAction.new()
+	escape.action = &"ui_cancel"
+	escape.pressed = true
+	app._input(escape)
+	assert_false(app.battlefield_selection.visible)
+	var sandbox_button := app.main_menu.get_node("Panel/VBox/SandboxButton") as Button
+	sandbox_button.pressed.emit()
+	assert_true(app.battlefield_selection.visible)
+	var valley_button := app.battlefield_choice_list.get_node("Layout_valley_corridor") as Button
+	valley_button.pressed.emit()
+	await get_tree().process_frame
+	assert_not_null(app.gameplay)
+	assert_eq(app.gameplay.game_mode, AirscainMain.GameMode.SANDBOX)
+	assert_eq(app.gameplay.scenario.battlefield_layout().id, &"valley_corridor")
+
 func test_main_menu_runs_training_pause_home_and_sandbox_user_flow() -> void:
 	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
 	await get_tree().process_frame
@@ -213,6 +241,8 @@ func test_main_menu_runs_training_pause_home_and_sandbox_user_flow() -> void:
 	assert_null(app.gameplay, "4. 메인 메뉴로 돌아오면 훈련 작전을 정리합니다")
 	await get_tree().process_frame
 	(main_menu.get_node("Panel/VBox/SandboxButton") as Button).pressed.emit()
+	assert_true(app.battlefield_selection.visible, "5. 자유 모드는 전장 선택을 먼저 엽니다")
+	(app.battlefield_choice_list.get_child(0) as Button).pressed.emit()
 	await get_tree().process_frame
 	var next_gameplay := app.gameplay
 	assert_not_null(next_gameplay, "5. 메인 메뉴에서 샌드박스 작전을 시작합니다")

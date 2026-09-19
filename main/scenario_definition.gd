@@ -6,6 +6,7 @@ extends Resource
 @export var terrain_resolution: int = 97
 @export var city_size: float = 330.0
 @export var battlefield_layouts: Array[BattlefieldLayoutDefinition] = []
+var selected_battlefield_layout_id: StringName = &""
 @export var starting_budget: int = 1900
 @export var objective_definition: ObjectiveDefinition
 @export var available_defenses: Array[DefenseDefinition] = []
@@ -48,6 +49,8 @@ func validation_error() -> String:
 		if not layout_error.is_empty():
 			return layout_error
 		layout_ids[layout.id] = true
+	if not selected_battlefield_layout_id.is_empty() and not layout_ids.has(selected_battlefield_layout_id):
+		return "선택한 전장 레이아웃을 찾을 수 없습니다"
 	if starting_budget < 0 or initial_spawn_interval <= 0.0 or opening_raid_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
@@ -89,4 +92,14 @@ func validation_error() -> String:
 	return ""
 
 func battlefield_layout() -> BattlefieldLayoutDefinition:
+	if not selected_battlefield_layout_id.is_empty():
+		for layout: BattlefieldLayoutDefinition in battlefield_layouts:
+			if layout.id == selected_battlefield_layout_id:
+				return layout
 	return battlefield_layouts[posmod(world_seed, battlefield_layouts.size())]
+
+func battlefield_layout_by_id(layout_id: StringName) -> BattlefieldLayoutDefinition:
+	for layout: BattlefieldLayoutDefinition in battlefield_layouts:
+		if layout.id == layout_id:
+			return layout
+	return null

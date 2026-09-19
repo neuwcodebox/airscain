@@ -237,6 +237,99 @@ theme_override_font_sizes/font_size = 15
 text = ""
 autowrap_mode = 3
 
+[node name="BattlefieldSelection" type="Control" parent="MainMenu"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="MainMenu/BattlefieldSelection"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.005, 0.015, 0.02, 0.78)
+
+[node name="Panel" type="PanelContainer" parent="MainMenu/BattlefieldSelection"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -360.0
+offset_right = 300.0
+offset_bottom = 360.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("PausePanel")
+
+[node name="VBox" type="VBoxContainer" parent="MainMenu/BattlefieldSelection/Panel"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 4
+
+[node name="Title" type="Label" parent="MainMenu/BattlefieldSelection/Panel/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.96, 0.94, 1)
+theme_override_fonts/font = SubResource("TrackedFont")
+theme_override_font_sizes/font_size = 34
+text = "새 게임 전장 선택"
+
+[node name="TitleRule" type="TextureRect" parent="MainMenu/BattlefieldSelection/Panel/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("RuleTexture")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="Intro" type="Label" parent="MainMenu/BattlefieldSelection/Panel/VBox"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.58, 0.68, 0.7, 1)
+theme_override_font_sizes/font_size = 16
+text = "작전을 펼칠 전장의 큰 지형을 선택하세요."
+vertical_alignment = 1
+
+[node name="BattlefieldChoiceList" type="VBoxContainer" parent="MainMenu/BattlefieldSelection/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="DescriptionRule" type="TextureRect" parent="MainMenu/BattlefieldSelection/Panel/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+mouse_filter = 2
+texture = SubResource("RuleTexture")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="BattlefieldDescriptionLabel" type="Label" parent="MainMenu/BattlefieldSelection/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.72, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 15
+text = ""
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="BackButton" type="Button" parent="MainMenu/BattlefieldSelection/Panel/VBox"]
+custom_minimum_size = Vector2(0, 46)
+layout_mode = 2
+theme_override_font_sizes/font_size = 19
+text = "뒤로"
+script = ExtResource("5")
+description = "메인 메뉴로 돌아갑니다."
+
 [node name="LoadingStatus" type="VBoxContainer" parent="MainMenu"]
 unique_name_in_owner = true
 layout_mode = 1
@@ -408,6 +501,7 @@ script = ExtResource("5")
 [connection signal="pressed" from="MainMenu/Panel/VBox/TrainingButton" to="." method="_on_training_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/SandboxButton" to="." method="_on_sandbox_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/Footer/QuitButton" to="." method="_on_quit_pressed"]
+[connection signal="pressed" from="MainMenu/BattlefieldSelection/Panel/VBox/BackButton" to="." method="_on_battlefield_back_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/ResumeButton" to="." method="_on_resume_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseSaveButton" to="." method="_on_pause_save_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseLoadButton" to="." method="_on_pause_load_pressed"]
