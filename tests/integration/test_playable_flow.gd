@@ -47,6 +47,20 @@ func test_result_visual_preparation_preserves_gameplay_and_hidden_panel() -> voi
 	assert_false(main.hud.game_over_panel.visible)
 	assert_false(main.hud.game_over_blocker.visible)
 
+func test_result_lists_the_three_most_neutralized_threat_types_and_omitted_count() -> void:
+	main.session.neutralized_by_type = {
+		"attack_uav": 2,
+		"swarm_uav": 7,
+		"recon_uav": 3,
+		"ballistic_missile": 3,
+	}
+	var combat := String(main._final_statistics().combat)
+	assert_string_contains(combat, "주요 격추 · 상위 3종")
+	assert_lt(combat.find("도시 자폭 소형 UAV 7"), combat.find("도시 타격 탄도미사일 3"), "격추 수가 많은 종류를 먼저 표시합니다")
+	assert_lt(combat.find("도시 타격 탄도미사일 3"), combat.find("정찰 UAV 3"), "동률이면 격추 보상이 높은 종류를 먼저 표시합니다")
+	assert_false(combat.contains("도시 자폭 UAV 2"), "상위 세 종류만 본문에 표시합니다")
+	assert_string_contains(combat, "그 외 1종")
+
 func test_city_damage_vignette_appears_immediately_and_fades_once() -> void:
 	var vignette := main.hud.city_damage_vignette
 	var material := vignette.material as ShaderMaterial

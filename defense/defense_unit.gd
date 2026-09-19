@@ -6,7 +6,6 @@ signal weapon_fired(unit: DefenseUnit, low_resources: bool)
 signal projectile_launched(unit: DefenseUnit, projectile: Node)
 
 const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
-const DAMAGE_INDICATION_RATIO: float = 0.25
 const STATUS_MARKER_SCENE := preload("res://effects/unit_status_marker/unit_status_marker.tscn")
 const IDENTITY_MARKER_SCENE := preload("res://effects/unit_identity_marker/unit_identity_marker.tscn")
 const PRESENTATION_SCALE := 0.9
@@ -208,7 +207,7 @@ func combat_resource_low() -> bool:
 func critical_status_text() -> String:
 	if not active:
 		return "×"
-	if operational_ratio() <= 1.0 - DAMAGE_INDICATION_RATIO:
+	if is_damaged():
 		return "손상"
 	return ""
 
@@ -236,16 +235,20 @@ func record_neutralization(threat: ThreatUnit) -> bool:
 func operational_ratio() -> float:
 	return clampf(integrity / definition.maximum_integrity, 0.0, 1.0)
 
+func is_damaged() -> bool:
+	return definition != null and integrity < definition.maximum_integrity
+
 func operational_efficiency() -> float:
 	return operational_ratio() if active else 0.0
 
 func operational_status_text() -> String:
 	var ratio := operational_ratio()
-	if ratio > 1.0 - DAMAGE_INDICATION_RATIO:
+	var percent := floori(ratio * 100.0) if is_damaged() else 100
+	if not is_damaged():
 		return "상태 정상 · 내구도 %d%%" % roundi(ratio * 100.0)
 	if active:
-		return "상태 성능저하 · 내구도 %d%%" % roundi(ratio * 100.0)
-	return "상태 기능정지 · 내구도 %d%%" % roundi(ratio * 100.0)
+		return "상태 성능저하 · 내구도 %d%%" % percent
+	return "상태 기능정지 · 내구도 %d%%" % percent
 
 func repair_cost() -> int:
 	return definition.repair_cost + ceili(definition.price * definition.repair_price_ratio * (1.0 - operational_ratio()))
@@ -301,7 +304,7 @@ func _refresh_damage_visual() -> void:
 	if definition == null:
 		return
 	var damage_ratio := 1.0 - operational_ratio()
-	if damage_ratio < DAMAGE_INDICATION_RATIO:
+	if not is_damaged():
 		if damage_smoke != null and is_instance_valid(damage_smoke):
 			damage_smoke.deactivate()
 		damage_smoke = null
@@ -332,7 +335,7 @@ func _refresh_status_marker() -> void:
 		return
 	if is_instance_valid(identity_marker):
 		identity_marker.set_reload(reload_display_magazine() if active else null)
-		identity_marker.set_condition(active, operational_ratio() < 0.75)
+		identity_marker.set_condition(active, is_damaged())
 	_ensure_status_marker()
 	if is_instance_valid(identity_marker):
 		status_marker.set_clearance(identity_marker.status_half_width())

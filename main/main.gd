@@ -373,11 +373,25 @@ func _on_objective_damage_audio(_amount: int) -> void:
 	combat_audio.play_event(CombatAudio.BIG_EXPLOSION)
 
 func _final_statistics() -> Dictionary:
-	var neutralized_parts: Array[String] = []
+	var neutralized_entries: Array[Dictionary] = []
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
 		var count := int(session.neutralized_by_type.get(String(entry.threat_definition.id), 0))
 		if count > 0:
-			neutralized_parts.append("%s %d" % [entry.threat_definition.display_name, count])
+			neutralized_entries.append({
+				"name": entry.threat_definition.display_name,
+				"count": count,
+				"reward": entry.threat_definition.neutralization_reward,
+			})
+	neutralized_entries.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
+		if first.count != second.count:
+			return first.count > second.count
+		if first.reward != second.reward:
+			return first.reward > second.reward
+		return String(first.name) < String(second.name)
+	)
+	var neutralized_parts: Array[String] = []
+	for entry: Dictionary in neutralized_entries.slice(0, mini(3, neutralized_entries.size())):
+		neutralized_parts.append("%s %d" % [entry.name, entry.count])
 	var operational_count := 0
 	var asset_damage := 0
 	for defense: DefenseUnit in defenses:
@@ -386,10 +400,12 @@ func _final_statistics() -> Dictionary:
 		if defense.active:
 			operational_count += 1
 		asset_damage += roundi(defense.definition.maximum_integrity - defense.integrity)
-	var neutralized_text := " · ".join(neutralized_parts.slice(0, mini(3, neutralized_parts.size()))) if not neutralized_parts.is_empty() else "없음"
+	var neutralized_text := "\n".join(neutralized_parts) if not neutralized_parts.is_empty() else "없음"
+	if neutralized_entries.size() > neutralized_parts.size():
+		neutralized_text += "\n그 외 %d종" % (neutralized_entries.size() - neutralized_parts.size())
 	return {
 		"summary": "방어 구간  %d\n최고 강도  %d\n도시 피해  %d" % [session.completed_attack_windows, session.highest_pressure, objective.definition.maximum_integrity - objective.current_integrity],
-		"combat": "무력화  %d\n무기 운용  %d회\n\n주요 격추\n%s" % [session.neutralized_count, session.weapon_fire_count, neutralized_text],
+		"combat": "무력화  %d\n무기 운용  %d회\n\n주요 격추 · 상위 3종\n%s" % [session.neutralized_count, session.weapon_fire_count, neutralized_text],
 		"network": "가동 자산  %d / %d\n자산 피해  %d\n\n방공망  $%d\n지원  $%d\n회수 보상  $%d" % [operational_count, session.defense_count, asset_damage, session.defense_spending, session.support_spending, session.neutralized_reward_total],
 	}
 

@@ -1597,13 +1597,23 @@ func test_damage_reduces_gun_c2_link_range() -> void:
 		assert_true((gun.damage_smoke.get_node("Smoke") as GPUParticles3D).emitting)
 	assert_almost_eq(gun.c2_link_range(), (_defense(&"close_in_gun") as CloseInGunDefinition).c2_range * 0.5, 0.0001)
 
-func test_exactly_one_quarter_damage_shows_asset_damage_state() -> void:
+func test_any_integrity_loss_shows_asset_damage_state() -> void:
 	var gun := add_child_autofree(_defense(&"close_in_gun").scene.instantiate()) as CloseInGun
 	gun.setup(3, _defense(&"close_in_gun"))
-	assert_true(gun.receive_damage(gun.definition.maximum_integrity * DefenseUnit.DAMAGE_INDICATION_RATIO))
+	assert_true(gun.receive_damage(0.01))
+	_refresh_defense_presentation(gun)
+	assert_true(gun.is_damaged())
 	assert_eq(gun.critical_status_text(), "손상")
-	assert_eq(gun.operational_status_text(), "상태 성능저하 · 내구도 75%")
+	assert_eq(gun.operational_status_text(), "상태 성능저하 · 내구도 99%")
 	assert_not_null(gun.damage_smoke)
+	assert_true((gun.identity_marker.get_node("ConditionFrame") as Sprite3D).visible)
+	gun.complete_repair()
+	_refresh_defense_presentation(gun)
+	assert_false(gun.is_damaged())
+	assert_eq(gun.critical_status_text(), "")
+	assert_eq(gun.operational_status_text(), "상태 정상 · 내구도 100%")
+	assert_null(gun.damage_smoke)
+	assert_false((gun.identity_marker.get_node("ConditionFrame") as Sprite3D).visible)
 
 func test_damaged_facility_shows_smoke_fire_and_condition_frame() -> void:
 	var facility := add_child_autofree(SupportFacility.new()) as SupportFacility
