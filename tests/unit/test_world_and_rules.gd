@@ -140,7 +140,24 @@ func test_radar_terrain_coverage_splits_work_and_leaves_ridge_shadow_unpainted()
 	assert_eq(coverage.coverage_color_at(Vector2(30.0, 0.0)).a, 0.0)
 	var origin := Vector3(-30.0, RadarTerrainCoverage.ANTENNA_HEIGHT, 0.0)
 	var shadowed_surface := Vector3(30.0, RadarTerrainCoverage.SURFACE_CLEARANCE, 0.0)
-	assert_false(TerrainLineOfSight.is_clear(field, origin, shadowed_surface))
+	assert_false(RadarLineOfSight.is_clear(field, origin, shadowed_surface))
+
+func test_radar_line_of_sight_and_coverage_leave_a_building_shadow() -> void:
+	var field := _flat_battlefield(80.0, 9)
+	var building := Transform3D(Basis.IDENTITY.scaled(Vector3(10.0, 30.0, 10.0)), Vector3(0.0, 15.0, 0.0))
+	field.city_buildings = [building]
+	field._cache_city_building_footprints(field.city_buildings)
+	var origin := Vector3(-30.0, RadarTerrainCoverage.ANTENNA_HEIGHT, 0.0)
+	assert_false(RadarLineOfSight.is_clear(field, origin, Vector3(30.0, 20.0, 0.0)), "건물을 지나는 저고도 시선은 차단됩니다")
+	assert_true(RadarLineOfSight.is_clear(field, origin, Vector3(30.0, 80.0, 0.0)), "건물 위로 지나가는 시선은 유지됩니다")
+	var coverage := add_child_autofree(RadarTerrainCoverage.new()) as RadarTerrainCoverage
+	coverage.configure(field)
+	coverage.maximum_cells_per_frame = 10000
+	coverage.work_budget_usec = 1000000
+	coverage.set_sources([RadarCoverageSource.new("radar", Vector3(-30.0, 0.0, 0.0), 80.0, Color(0.18, 0.82, 1.0, 0.18))])
+	coverage._process(0.0)
+	assert_gt(coverage.coverage_color_at(Vector2(-20.0, 0.0)).a, 0.0)
+	assert_eq(coverage.coverage_color_at(Vector2(20.0, 0.0)).a, 0.0, "건물 뒤 지표는 가시권에 칠하지 않습니다")
 
 func test_radar_terrain_coverage_invalidates_cache_after_terrain_rebuild() -> void:
 	var field := _flat_battlefield(80.0, 9)

@@ -394,6 +394,37 @@ func test_coordinator_spreads_initial_radar_scans_across_the_interval() -> void:
 		assert_lte(scans_by_frame_bucket.values().max(), case.maximum_per_frame, "%.2f초 주기의 센서 %d대가 frame당 허용 수 이내로 분산됩니다" % [scan_interval, SENSOR_COUNT])
 		assert_eq(coordinator.reserve_initial_scan_delay(100, scan_interval), 0.0, "첫 센서는 즉시 스캔하고 같은 센서 재등록은 기존 위상을 유지합니다")
 
+func test_radar_detects_above_a_building_but_not_through_it() -> void:
+	var radar := SearchRadar.new()
+	var antenna := Node3D.new()
+	antenna.name = "Antenna"
+	radar.add_child(antenna)
+	add_child_autofree(radar)
+	var definition := preload("res://sensing/search_radar/search_radar.tres").duplicate(true) as SearchRadarDefinition
+	radar.setup(7, definition)
+	radar.position = Vector3(-30.0, 0.0, 0.0)
+	var registry := ThreatRegistry.new()
+	var knowledge := add_child_autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var battlefield := Battlefield.new()
+	battlefield.generator.size = 80.0
+	battlefield.generator.resolution = 9
+	battlefield.generator.heights.resize(81)
+	battlefield.generator.heights.fill(0.0)
+	battlefield.city_buildings = [Transform3D(Basis.IDENTITY.scaled(Vector3(10.0, 30.0, 10.0)), Vector3(0.0, 15.0, 0.0))]
+	battlefield._cache_city_building_footprints(battlefield.city_buildings)
+	radar.configure_combat(registry, null)
+	radar.configure_player_knowledge(battlefield, knowledge)
+	var blocked := add_child_autofree(_timed_threat(201, preload("res://enemy/rocket_salvo/rocket.tres"), 20.0)) as TimedThreat
+	blocked.position = Vector3(30.0, 20.0, 0.0)
+	registry.add(blocked)
+	var visible := add_child_autofree(_timed_threat(202, preload("res://enemy/rocket_salvo/rocket.tres"), 20.0)) as TimedThreat
+	visible.position = Vector3(30.0, 80.0, 0.0)
+	registry.add(visible)
+	radar._scan()
+	assert_eq(knowledge.tracks.size(), 1)
+	assert_almost_eq(knowledge.tracks[0].estimated_position, visible.position, Vector3.ONE * 0.001)
+	battlefield.free()
+
 func test_saturated_radar_limits_tracks_and_cycles_unstable_contacts() -> void:
 	var radar := CapacityRadar.new()
 	var antenna := Node3D.new()

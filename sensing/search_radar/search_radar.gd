@@ -175,7 +175,7 @@ func _submit_observations(selected: Array[RadarTrackCandidate], timestamp: float
 	return observed_contacts
 
 func _has_line_of_sight(from: Vector3, to: Vector3) -> bool:
-	return TerrainLineOfSight.is_clear(battlefield, from, to)
+	return RadarLineOfSight.is_clear(battlefield, from, to)
 
 func capture_content_state() -> Dictionary:
 	var assignments: Array[Dictionary] = []

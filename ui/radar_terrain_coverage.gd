@@ -20,7 +20,7 @@ class CoverageJob extends RefCounted:
 	var complete: bool = false
 
 const ANTENNA_HEIGHT := 11.0
-const SURFACE_CLEARANCE := TerrainLineOfSight.TERRAIN_CLEARANCE + 0.1
+const SURFACE_CLEARANCE := RadarLineOfSight.TERRAIN_CLEARANCE + 0.1
 const DEFAULT_WORK_BUDGET_USEC := 1000
 const DEFAULT_MAXIMUM_CELLS_PER_FRAME := 512
 const WORK_BATCH_SIZE := 64
@@ -138,7 +138,7 @@ func _advance_job(job: CoverageJob, cell_limit: int) -> int:
 		var flat_offset := Vector2(world_x - origin.x, world_z - origin.z)
 		if flat_offset.length_squared() <= radius_squared:
 			var target := Vector3(world_x, battlefield.terrain_height(world_x, world_z) + SURFACE_CLEARANCE, world_z)
-			if TerrainLineOfSight.is_clear(battlefield, origin, target):
+			if RadarLineOfSight.is_clear(battlefield, origin, target):
 				job.mask[job.z * resolution + job.x] = 255
 		job.x += 1
 		if job.x > job.maximum_x:
