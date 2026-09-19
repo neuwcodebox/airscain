@@ -1070,14 +1070,14 @@ func _coast_radius(generator: WorldGenerator, angle: float) -> float:
 func test_objective_damage_is_bounded_and_depletion_emits_once() -> void:
 	var objective := _test_objective()
 	watch_signals(objective)
-	var first_impact := Vector3(12.0, 30.0, -5.0)
+	var first_impact := Vector3(-90.0, 30.0, 0.0)
 	assert_true(objective.apply_building_impact(10, first_impact, 48.0))
 	assert_eq(objective.current_integrity, 90)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 	assert_eq(objective.damage_smoke_effects[0].global_position, first_impact)
-	assert_true(objective.apply_building_impact(10, Vector3(-8.0, 22.0, 14.0), 32.0))
-	assert_true(objective.apply_building_impact(10, Vector3(18.0, 42.0, 20.0), 56.0))
-	assert_true(objective.apply_building_impact(100, Vector3(-22.0, 35.0, -18.0), 44.0))
+	assert_true(objective.apply_building_impact(10, Vector3(-30.0, 22.0, 0.0), 32.0))
+	assert_true(objective.apply_building_impact(10, Vector3(30.0, 42.0, 0.0), 56.0))
+	assert_true(objective.apply_building_impact(100, Vector3(90.0, 35.0, 0.0), 44.0))
 	assert_eq(objective.current_integrity, 0)
 	assert_eq(objective.damage_smoke_effects.size(), 4)
 	assert_signal_emit_count(objective, "depleted", 1)
@@ -1127,7 +1127,7 @@ func test_city_damage_smoke_uses_bounded_authored_particle_profile() -> void:
 func test_objective_repair_reduces_smoke_to_the_integrity_band() -> void:
 	var objective := _test_objective()
 	for index: int in 4:
-		assert_true(objective.apply_building_impact(25, Vector3(index * 10.0, 20.0, 0.0), 30.0))
+		assert_true(objective.apply_building_impact(25, Vector3(index * 50.0, 20.0, 0.0), 30.0))
 	assert_eq(objective.damage_smoke_effects.size(), 4)
 	objective.restore_integrity(75)
 	assert_eq(objective.current_integrity, 75)
@@ -1138,7 +1138,7 @@ func test_city_repair_removes_smoke_in_steps_and_preserves_the_last_site() -> vo
 	objective.setup(1, SCENARIO.objective_definition)
 	var emitters := objective.prepared_smoke_effects.duplicate()
 	for index: int in 4:
-		objective.apply_building_impact(10, Vector3(index * 20, 20, 0), 20)
+		objective.apply_building_impact(10, Vector3(index * 50, 20, 0), 20)
 	var last_effect := objective.damage_smoke_effects.back() as DamageSmokeEffect
 	var last_position := last_effect.position
 	for integrity: int in range(61, 101):
@@ -1157,10 +1157,10 @@ func test_city_repair_after_new_damage_never_clears_all_smoke_early() -> void:
 	var objective := add_child_autofree(SCENARIO.objective_definition.scene.instantiate()) as ProtectedObjective
 	objective.setup(1, SCENARIO.objective_definition)
 	for index: int in 4:
-		objective.apply_building_impact(10, Vector3(index * 10, 20, 0), 20)
+		objective.apply_building_impact(10, Vector3(index * 50, 20, 0), 20)
 	objective.restore_integrity(80)
 	assert_eq(objective.damage_smoke_effects.size(), 2)
-	objective.apply_building_impact(10, Vector3(60, 30, 0), 30)
+	objective.apply_building_impact(10, Vector3(240, 30, 0), 30)
 	assert_eq(objective.damage_smoke_effects.size(), 3)
 	objective.restore_integrity(99)
 	assert_eq(objective.damage_smoke_effects.size(), 1)
@@ -1168,6 +1168,38 @@ func test_city_repair_after_new_damage_never_clears_all_smoke_early() -> void:
 	assert_eq(objective.damage_smoke_effects.size(), 1)
 	objective.restore_integrity(100)
 	assert_true(objective.damage_smoke_effects.is_empty())
+
+func test_city_damage_smoke_merges_nearby_impacts_and_caps_each_district_independently() -> void:
+	var objective := _test_objective()
+	objective.configure_damage_districts(_test_damage_districts())
+	objective.apply_building_impact(1, Vector3(-120, 20, 0), 20)
+	objective.apply_building_impact(1, Vector3(-115, 24, 4), 24)
+	assert_eq(objective.damage_smoke_sites.size(), 1, "같은 지구의 근접 피격은 한 연기 지점으로 합칩니다")
+	for x: float in [-60.0, 0.0, 60.0, 120.0]:
+		objective.apply_building_impact(1, Vector3(x, 20, 0), 20)
+	assert_eq(_smoke_count_for_district(objective, &"core"), ProtectedObjective.MAX_DAMAGE_SMOKE_SITES_PER_DISTRICT)
+	for x: float in [880.0, 940.0, 1000.0, 1060.0, 1120.0]:
+		objective.apply_building_impact(1, Vector3(x, 20, 0), 20)
+	assert_eq(_smoke_count_for_district(objective, &"core"), ProtectedObjective.MAX_DAMAGE_SMOKE_SITES_PER_DISTRICT)
+	assert_eq(_smoke_count_for_district(objective, &"harbor"), ProtectedObjective.MAX_DAMAGE_SMOKE_SITES_PER_DISTRICT)
+	assert_eq(objective.damage_smoke_sites.size(), ProtectedObjective.MAX_DAMAGE_SMOKE_SITES)
+	objective.apply_building_impact(1, Vector3(2000, 20, 0), 20)
+	assert_eq(_smoke_count_for_district(objective, &"core"), 3, "전역 상한에서는 연기가 가장 많은 기존 지구에서 교체합니다")
+	assert_eq(_smoke_count_for_district(objective, &"harbor"), 4)
+	assert_eq(_smoke_count_for_district(objective, &"airport"), 1)
+	assert_eq(objective.damage_smoke_sites.size(), ProtectedObjective.MAX_DAMAGE_SMOKE_SITES)
+
+func test_city_repair_removes_smoke_from_the_district_with_the_most_sites_first() -> void:
+	var objective := _test_objective()
+	objective.configure_damage_districts(_test_damage_districts())
+	for x: float in [-120.0, -60.0, 0.0, 60.0]:
+		objective.apply_building_impact(10, Vector3(x, 20, 0), 20)
+	objective.apply_building_impact(10, Vector3(1000, 20, 0), 20)
+	assert_eq(_smoke_count_for_district(objective, &"core"), 4)
+	assert_eq(_smoke_count_for_district(objective, &"harbor"), 1)
+	objective.restore_integrity(60)
+	assert_eq(_smoke_count_for_district(objective, &"core"), 3, "연기가 가장 많은 지구부터 복구합니다")
+	assert_eq(_smoke_count_for_district(objective, &"harbor"), 1)
 
 func test_city_damage_smoke_uses_exact_building_impact_positions() -> void:
 	var battlefield := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
@@ -1932,7 +1964,7 @@ func test_city_impact_reuses_prepared_emitters_through_repair_and_restore() -> v
 	assert_eq(prepared.size(), ProtectedObjective.MAX_DAMAGE_SMOKE_SITES)
 	var node_count := objective.get_child_count()
 	for index: int in 7:
-		objective.apply_building_impact(1, Vector3(index * 10, 20, 0), 40)
+		objective.apply_building_impact(1, Vector3(index * 50, 20, 0), 40)
 		assert_true(prepared.has(objective.damage_smoke_effects.back()))
 		assert_eq(objective.get_child_count(), node_count, "피격 때 새 연기 노드를 만들지 않습니다")
 	var saved := objective.capture_damage_smoke_state()
@@ -2268,6 +2300,26 @@ func _test_objective() -> ProtectedObjective:
 	definition.maximum_integrity = 100
 	objective.setup(1, definition)
 	return objective
+
+func _test_damage_districts() -> Array[CityDistrict]:
+	var result: Array[CityDistrict] = []
+	for data: Dictionary in [
+		{"id": &"core", "center": Vector2.ZERO},
+		{"id": &"harbor", "center": Vector2(1000, 0)},
+		{"id": &"airport", "center": Vector2(2000, 0)},
+	]:
+		var definition := CityDistrictDefinition.new()
+		definition.id = data.id
+		definition.center = data.center
+		result.append(CityDistrict.new(definition, [], []))
+	return result
+
+func _smoke_count_for_district(objective: ProtectedObjective, district_id: StringName) -> int:
+	var count := 0
+	for site: Dictionary in objective.damage_smoke_sites:
+		if StringName(String(site.get("district_id", ""))) == district_id:
+			count += 1
+	return count
 
 func _has_property(instance: Object, property_name: StringName) -> bool:
 	for property: Dictionary in instance.get_property_list():

@@ -1915,6 +1915,9 @@ func _capture_curved_missile_launch() -> void:
 	_save_capture("/tmp/airscain_curved_missile_launch.png")
 
 func _capture_building_impact_smoke() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
+	main.set_process(false)
 	main.hud.visible = false
 	main.altitude_profile.visible = false
 	var closest_index := 0

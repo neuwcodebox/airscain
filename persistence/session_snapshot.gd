@@ -404,13 +404,24 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 	var damage_smoke_states: Variant = world_state.get("objective_damage_smoke", [])
 	if not damage_smoke_states is Array or damage_smoke_states.size() > ProtectedObjective.MAX_DAMAGE_SMOKE_SITES:
 		return "도시 손상 연기 상태가 올바르지 않습니다"
+	var smoke_counts_by_district: Dictionary[StringName, int] = {}
+	var smoke_district_ids := city_district_definition_ids(scenario)
 	for smoke_state: Variant in damage_smoke_states:
 		if not smoke_state is Dictionary or not SaveDocument.is_valid_vector3_data(smoke_state.get("offset")) or float(smoke_state.get("building_height", 0.0)) <= 0.0:
 			return "도시 손상 연기 위치가 올바르지 않습니다"
+		var district_id := StringName(String(smoke_state.get("district_id", "")))
+		if not district_id.is_empty() and not smoke_district_ids.has(district_id):
+			return "도시 손상 연기 지구가 올바르지 않습니다"
+		smoke_counts_by_district[district_id] = smoke_counts_by_district.get(district_id, 0) + 1
+		if smoke_counts_by_district[district_id] > ProtectedObjective.MAX_DAMAGE_SMOKE_SITES_PER_DISTRICT:
+			return "도시 지구별 손상 연기 수가 올바르지 않습니다"
 		var repair_at: Variant = smoke_state.get("repair_at")
 		if not (repair_at is int or repair_at is float) or not is_finite(float(repair_at)) or float(repair_at) != floorf(float(repair_at)) or float(repair_at) <= float(world_state.objective_integrity) or float(repair_at) > scenario.objective_definition.maximum_integrity:
 			return "도시 연기 수리 단계가 올바르지 않습니다"
-	if not damage_smoke_states.is_empty() and int(damage_smoke_states.back().repair_at) != scenario.objective_definition.maximum_integrity:
+	var has_final_smoke := false
+	for smoke_state: Dictionary in damage_smoke_states:
+		has_final_smoke = has_final_smoke or int(smoke_state.repair_at) == scenario.objective_definition.maximum_integrity
+	if not damage_smoke_states.is_empty() and not has_final_smoke:
 		return "완전 복구까지 남을 도시 연기가 없습니다"
 	if not world_state.get("defenses", null) is Array or not world_state.get("contacts", null) is Array or not world_state.get("projectiles", null) is Array or not world_state.get("engagements", null) is Dictionary or not world_state.get("support", null) is Dictionary or not world_state.get("relocations", null) is Dictionary or not world_state.get("enemy_knowledge", null) is Dictionary:
 		return "월드 객체 목록이 올바르지 않습니다"

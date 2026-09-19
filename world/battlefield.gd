@@ -108,6 +108,8 @@ func build(scenario: ScenarioDefinition) -> void:
 	var city_blocks := generator.city_block_layout()
 	var building_transforms := generator.building_transforms()
 	city_districts = generator.city_districts()
+	if is_instance_valid(objective):
+		objective.configure_damage_districts(city_districts)
 	city_buildings = building_transforms.duplicate()
 	_cache_city_building_footprints(building_transforms)
 	_build_city_ground(city_blocks)
@@ -330,6 +332,7 @@ func set_objective(objective_value: ProtectedObjective) -> void:
 	if is_instance_valid(objective) and objective.integrity_changed.is_connected(_sync_city_power):
 		objective.integrity_changed.disconnect(_sync_city_power)
 	objective = objective_value
+	objective.configure_damage_districts(city_districts)
 	objective.integrity_changed.connect(_sync_city_power)
 	_sync_city_power()
 

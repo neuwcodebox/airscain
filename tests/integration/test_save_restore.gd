@@ -220,7 +220,7 @@ func test_restore_clears_old_airburst_audio_and_reconnects_restored_guns() -> vo
 
 func test_partial_city_repair_progress_round_trips_and_migrates_version_19() -> void:
 	for index: int in 4:
-		main.objective.apply_building_impact(10, Vector3(index * 10, 20, 0), 20)
+		main.objective.apply_building_impact(10, Vector3(index * 50, 20, 0), 20)
 	main.objective.restore_integrity(75)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	assert_eq(main.restore_from_document(document), "")
@@ -231,6 +231,13 @@ func test_partial_city_repair_progress_round_trips_and_migrates_version_19() -> 
 	invalid.payload.world.objective_damage_smoke.back().repair_at = 99
 	assert_ne(main.restore_from_document(invalid), "")
 	assert_eq(main.objective.current_integrity, 80)
+	var version_29 := document.duplicate(true)
+	version_29.version = 29
+	for site: Dictionary in version_29.payload.world.objective_damage_smoke:
+		site.erase("district_id")
+	assert_eq(main.restore_from_document(version_29), "")
+	for site: Dictionary in main.objective.damage_smoke_sites:
+		assert_false(String(site.get("district_id", "")).is_empty(), "구버전 연기를 충돌 위치의 지구로 복구합니다")
 	var legacy := document.duplicate(true)
 	legacy.version = 19
 	for site: Dictionary in legacy.payload.world.objective_damage_smoke:

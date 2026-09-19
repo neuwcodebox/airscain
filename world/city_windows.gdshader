@@ -1,6 +1,6 @@
 shader_type spatial;
 uniform float night_amount = 0.0;
-uniform vec4 damaged_buildings[4]; // center XZ, half extents XZ
+uniform vec4 damaged_buildings[8]; // center XZ, half extents XZ
 uniform int damaged_building_count = 0;
 varying float occupancy;
 varying float powered;

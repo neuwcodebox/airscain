@@ -11,6 +11,12 @@ static func migrate_content(
 	if version >= SaveDocument.CURRENT_VERSION:
 		return payload
 	var result := payload.duplicate(true)
+	# Version 30 assigns saved city smoke sites to districts. The runtime resolves
+	# legacy sites from their impact positions after rebuilding the battlefield.
+	if version < 30:
+		for site: Variant in result.get("world", {}).get("objective_damage_smoke", []):
+			if site is Dictionary:
+				site.district_id = ""
 	var legacy_repairs: Dictionary[int, float] = {}
 	for state: Dictionary in result.get("world", {}).get("defenses", []):
 		var definition: DefenseDefinition = defense_definitions.get(StringName(state.get("definition_id", "")))
