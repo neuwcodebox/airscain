@@ -509,6 +509,8 @@ func test_multiple_authored_districts_own_rotated_blocks_and_buildings() -> void
 	var layout := BattlefieldLayoutDefinition.new()
 	layout.id = &"district_fixture"
 	layout.display_name = "복수 지구 fixture"
+	layout.summary = "복수 지구 생성 검증용 레이아웃입니다."
+	layout.preview = SCENARIO.battlefield_layouts[0].preview
 	layout.city_districts = [core, satellite]
 	assert_eq(layout.validation_error(), "")
 	var generator := WorldGenerator.new()
@@ -843,6 +845,14 @@ func test_explicit_battlefield_layout_overrides_seed_selection_and_validates_id(
 	assert_eq(scenario.battlefield_layout_by_id(&"valley_corridor").display_name, "계곡 도시 회랑")
 	scenario.selected_battlefield_layout_id = &"missing"
 	assert_eq(scenario.validation_error(), "선택한 전장 레이아웃을 찾을 수 없습니다")
+
+func test_battlefield_layout_requires_selection_summary_and_preview() -> void:
+	var layout := SCENARIO.battlefield_layouts[0].duplicate(true) as BattlefieldLayoutDefinition
+	layout.summary = ""
+	assert_eq(layout.validation_error(), "전장 선택 화면용 설명 또는 미리보기가 없습니다")
+	layout.summary = "전장 설명"
+	layout.preview = null
+	assert_eq(layout.validation_error(), "전장 선택 화면용 설명 또는 미리보기가 없습니다")
 
 func test_scenario_exposes_distinct_island_bay_valley_and_coastal_plain_worlds() -> void:
 	var expected_ids: Array[StringName] = [&"rugged_harbor", &"island_city", &"valley_corridor", &"coastal_plain"]

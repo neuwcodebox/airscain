@@ -14,11 +14,12 @@ var combat_vfx_warmup_started: bool = false
 var combat_vfx_warmup_completed: bool = false
 var settings_menu: SettingsMenu
 var pending_game_mode: AirscainMain.GameMode = AirscainMain.GameMode.SUSTAINED
-## Last battlefield chosen this session; the selection screen reopens on it.
-var last_battlefield_layout_id: StringName = &""
 
 @onready var main_menu: Control = %MainMenu
+@onready var main_menu_panel: Control = $MainMenu/Panel
 @onready var pause_menu: Control = %PauseMenu
+@onready var sustained_button: MenuListButton = %SustainedButton
+@onready var sandbox_button: MenuListButton = %SandboxButton
 @onready var main_load_button: MenuListButton = %MainLoadButton
 @onready var main_quit_button: MenuListButton = %QuitButton
 @onready var pause_save_button: MenuListButton = %PauseSaveButton
@@ -26,9 +27,7 @@ var last_battlefield_layout_id: StringName = &""
 @onready var pause_quit_button: MenuListButton = %PauseQuitButton
 @onready var menu_feedback_label: Label = %MenuFeedbackLabel
 @onready var menu_description_label: Label = %MenuDescriptionLabel
-@onready var battlefield_selection: Control = %BattlefieldSelection
-@onready var battlefield_choice_list: HBoxContainer = %BattlefieldChoiceList
-@onready var battlefield_mode_label: Label = %BattlefieldModeLabel
+@onready var battlefield_selection: BattlefieldSelectionMenu = %BattlefieldSelection
 @onready var loading_status: Control = %LoadingStatus
 @onready var loading_label: Label = %LoadingLabel
 @onready var loading_bar: ProgressBar = %LoadingBar
@@ -55,7 +54,9 @@ func _ready() -> void:
 	pause_quit_button.visible = show_quit_controls
 	settings_menu = SettingsMenu.new()
 	add_child(settings_menu)
-	_populate_battlefield_choices()
+	battlefield_selection.configure(BASE_SCENARIO.battlefield_layouts, RANDOM_LAYOUT_PREVIEW)
+	battlefield_selection.layout_selected.connect(_on_battlefield_choice_pressed)
+	battlefield_selection.closed.connect(_on_battlefield_selection_closed)
 	prepared_combat_stream_count = CombatAudio.prepare_samples()
 	main_menu.visible = true
 	pause_menu.visible = false
@@ -127,9 +128,6 @@ func _input(event: InputEvent) -> void:
 	if settings_menu != null and settings_menu.visible and event.is_action_pressed("ui_cancel"):
 		settings_menu.close()
 		get_viewport().set_input_as_handled()
-	elif battlefield_selection.visible and event.is_action_pressed("ui_cancel"):
-		_close_battlefield_selection()
-		get_viewport().set_input_as_handled()
 
 func _on_settings_pressed() -> void:
 	settings_menu.open()
@@ -190,7 +188,8 @@ func return_to_main_menu() -> void:
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	AirscainMain.requested_layout_id = &""
 	pause_menu.visible = false
-	battlefield_selection.visible = false
+	battlefield_selection.hide()
+	main_menu_panel.show()
 	main_menu.visible = true
 	_refresh_main_load_button()
 	_reveal_main_menu()
@@ -204,50 +203,19 @@ func _on_training_pressed() -> void:
 func _on_sandbox_pressed() -> void:
 	_open_battlefield_selection(AirscainMain.GameMode.SANDBOX)
 
-func _populate_battlefield_choices() -> void:
-	var layouts := BASE_SCENARIO.battlefield_layouts
-	var cards: Array[BattlefieldChoiceCard] = [BattlefieldChoiceCard.random_choice(RANDOM_LAYOUT_PREVIEW, layouts.size())]
-	for layout: BattlefieldLayoutDefinition in layouts:
-		cards.append(BattlefieldChoiceCard.for_layout(layout))
-	for card: BattlefieldChoiceCard in cards:
-		card.pressed.connect(_on_battlefield_choice_pressed.bind(card.layout_id))
-		battlefield_choice_list.add_child(card)
-
-func _battlefield_card(layout_id: StringName) -> BattlefieldChoiceCard:
-	for node: Node in battlefield_choice_list.get_children():
-		var card := node as BattlefieldChoiceCard
-		if card.layout_id == layout_id:
-			return card
-	return battlefield_choice_list.get_child(0) as BattlefieldChoiceCard
-
 func _open_battlefield_selection(mode: AirscainMain.GameMode) -> void:
 	pending_game_mode = mode
-	battlefield_mode_label.text = "자유 모드" if mode == AirscainMain.GameMode.SANDBOX else "새 게임"
-	main_menu.get_node("Panel").visible = false
-	battlefield_selection.visible = true
-	var cards := battlefield_choice_list.get_children()
-	for index: int in cards.size():
-		var card := cards[index] as Control
-		card.modulate.a = 0.0
-		var tween := card.create_tween()
-		tween.tween_interval(0.04 * index)
-		tween.tween_property(card, "modulate:a", 1.0, 0.24)
-	_battlefield_card(last_battlefield_layout_id).grab_focus()
-
-func _close_battlefield_selection() -> void:
-	battlefield_selection.visible = false
-	main_menu.get_node("Panel").visible = true
-	var return_path := "Panel/VBox/SandboxButton" if pending_game_mode == AirscainMain.GameMode.SANDBOX else "Panel/VBox/SustainedButton"
-	(main_menu.get_node(return_path) as MenuListButton).grab_focus()
+	main_menu_panel.hide()
+	battlefield_selection.present("자유 모드" if mode == AirscainMain.GameMode.SANDBOX else "새 게임")
 
 func _on_battlefield_choice_pressed(layout_id: StringName) -> void:
-	last_battlefield_layout_id = layout_id
-	battlefield_selection.visible = false
-	main_menu.get_node("Panel").visible = true
+	main_menu_panel.show()
 	start_game(pending_game_mode, layout_id)
 
-func _on_battlefield_back_pressed() -> void:
-	_close_battlefield_selection()
+func _on_battlefield_selection_closed() -> void:
+	main_menu_panel.show()
+	var return_button := sandbox_button if pending_game_mode == AirscainMain.GameMode.SANDBOX else sustained_button
+	return_button.grab_focus()
 
 func _on_resume_pressed() -> void:
 	set_pause_menu(false)

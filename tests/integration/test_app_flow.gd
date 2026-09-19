@@ -188,22 +188,23 @@ func test_new_and_sandbox_games_choose_random_or_named_battlefield_before_starti
 	sustained_button.pressed.emit()
 	assert_true(app.battlefield_selection.visible)
 	assert_null(app.gameplay)
-	assert_eq(app.battlefield_choice_list.get_child_count(), 5)
+	assert_eq(app.battlefield_selection.choice_count(), 5)
 	var focused_card := app.get_viewport().gui_get_focus_owner() as BattlefieldChoiceCard
 	assert_not_null(focused_card, "선택 화면은 전장 카드에 키보드 포커스를 둡니다")
 	assert_true(focused_card.layout_id.is_empty(), "처음 여는 선택 화면은 랜덤 전장을 가리킵니다")
 	for layout: BattlefieldLayoutDefinition in AirscainApp.BASE_SCENARIO.battlefield_layouts:
-		var card := app.battlefield_choice_list.get_node("Layout_%s" % String(layout.id)) as BattlefieldChoiceCard
+		var card := app.battlefield_selection.card_for_layout(layout.id)
 		assert_not_null(card.preview, "%s 카드는 지형 미리보기를 보여줍니다" % layout.id)
 	var escape := InputEventAction.new()
 	escape.action = &"ui_cancel"
 	escape.pressed = true
-	app._input(escape)
+	app.get_viewport().push_input(escape)
+	await get_tree().process_frame
 	assert_false(app.battlefield_selection.visible)
 	var sandbox_button := app.main_menu.get_node("Panel/VBox/SandboxButton") as Button
 	sandbox_button.pressed.emit()
 	assert_true(app.battlefield_selection.visible)
-	var valley_button := app.battlefield_choice_list.get_node("Layout_valley_corridor") as Button
+	var valley_button := app.battlefield_selection.card_for_layout(&"valley_corridor")
 	valley_button.pressed.emit()
 	await get_tree().process_frame
 	assert_not_null(app.gameplay)
@@ -215,7 +216,7 @@ func test_battlefield_selection_reopens_on_last_chosen_battlefield() -> void:
 	await get_tree().process_frame
 	await _await_app_ready(app)
 	(app.main_menu.get_node("Panel/VBox/SandboxButton") as Button).pressed.emit()
-	(app.battlefield_choice_list.get_node("Layout_coastal_plain") as Button).pressed.emit()
+	app.battlefield_selection.card_for_layout(&"coastal_plain").pressed.emit()
 	await get_tree().process_frame
 	app.return_to_main_menu()
 	await get_tree().process_frame
@@ -261,7 +262,7 @@ func test_main_menu_runs_training_pause_home_and_sandbox_user_flow() -> void:
 	await get_tree().process_frame
 	(main_menu.get_node("Panel/VBox/SandboxButton") as Button).pressed.emit()
 	assert_true(app.battlefield_selection.visible, "5. 자유 모드는 전장 선택을 먼저 엽니다")
-	(app.battlefield_choice_list.get_child(0) as Button).pressed.emit()
+	app.battlefield_selection.card_for_layout(&"").pressed.emit()
 	await get_tree().process_frame
 	var next_gameplay := app.gameplay
 	assert_not_null(next_gameplay, "5. 메인 메뉴에서 샌드박스 작전을 시작합니다")

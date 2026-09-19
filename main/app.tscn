@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource path="res://main/app.gd" type="Script" id="1"]
 [ext_resource path="res://ui/audio/ui_audio.gd" type="Script" id="2"]
@@ -7,6 +7,7 @@
 [ext_resource path="res://ui/menu_list_button.gd" type="Script" id="5"]
 [ext_resource path="res://ui/radar_emblem.gd" type="Script" id="6"]
 [ext_resource path="res://ui/fonts/NanumSquareB.ttf" type="FontFile" id="7"]
+[ext_resource path="res://ui/battlefield_selection_menu.gd" type="Script" id="8"]
 
 [sub_resource type="ShaderMaterial" id="MenuShade"]
 shader = ExtResource("4")
@@ -149,6 +150,7 @@ custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
 [node name="SustainedButton" type="Button" parent="MainMenu/Panel/VBox"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
@@ -174,6 +176,7 @@ script = ExtResource("5")
 description = "자산 배치, 탐지, 교전, 보급 등 기본 조작을 익힙니다."
 
 [node name="SandboxButton" type="Button" parent="MainMenu/Panel/VBox"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
@@ -246,6 +249,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("8")
 
 [node name="Dim" type="ColorRect" parent="MainMenu/BattlefieldSelection"]
 layout_mode = 1
@@ -508,7 +512,7 @@ script = ExtResource("5")
 [connection signal="pressed" from="MainMenu/Panel/VBox/TrainingButton" to="." method="_on_training_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/SandboxButton" to="." method="_on_sandbox_pressed"]
 [connection signal="pressed" from="MainMenu/Panel/VBox/Footer/QuitButton" to="." method="_on_quit_pressed"]
-[connection signal="pressed" from="MainMenu/BattlefieldSelection/Margin/VBox/Footer/BackButton" to="." method="_on_battlefield_back_pressed"]
+[connection signal="pressed" from="MainMenu/BattlefieldSelection/Margin/VBox/Footer/BackButton" to="MainMenu/BattlefieldSelection" method="close"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/ResumeButton" to="." method="_on_resume_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseSaveButton" to="." method="_on_pause_save_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseLoadButton" to="." method="_on_pause_load_pressed"]

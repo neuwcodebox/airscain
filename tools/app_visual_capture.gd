@@ -34,11 +34,11 @@ func run() -> void:
 		await process_frame
 	_save_capture("/tmp/airscain_main_menu.png")
 	((app as AirscainApp).main_menu.get_node("Panel/VBox/SustainedButton") as Button).pressed.emit()
-	((app as AirscainApp).battlefield_choice_list.get_node("Layout_valley_corridor") as Control).grab_focus()
+	(app as AirscainApp).battlefield_selection.card_for_layout(&"valley_corridor").grab_focus()
 	await create_timer(0.6).timeout
 	await RenderingServer.frame_post_draw
 	_save_capture("/tmp/airscain_battlefield_selection.png")
-	((app as AirscainApp).battlefield_choice_list.get_node("Layout_rugged_harbor") as Button).pressed.emit()
+	(app as AirscainApp).battlefield_selection.card_for_layout(&"rugged_harbor").pressed.emit()
 	while not (app as AirscainApp).gameplay.combat_effect_pool.prepared:
 		await process_frame
 	for index: int in 20:

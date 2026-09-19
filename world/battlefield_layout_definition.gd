@@ -23,7 +23,11 @@ enum TerrainShape { ISLAND, BAY, VALLEY, COASTAL_PLAIN }
 @export var city_districts: Array[CityDistrictDefinition] = []
 
 func validation_error() -> String:
-	if id.is_empty() or display_name.is_empty() or not is_finite(terrain_rotation_degrees) or terrain_height_scale <= 0.0 or noise_frequency <= 0.0 or coast_start <= 0.0 or coast_end <= coast_start or coast_end > 1.0 or city_blocks < 3 or minimum_building_height <= 0.0 or maximum_building_height < minimum_building_height or rooftop_spacing < 1 or starting_budget_bonus < 0:
+	if id.is_empty() or display_name.is_empty():
+		return "전장 레이아웃 ID 또는 이름이 없습니다"
+	if summary.is_empty() or preview == null:
+		return "전장 선택 화면용 설명 또는 미리보기가 없습니다"
+	if not is_finite(terrain_rotation_degrees) or terrain_height_scale <= 0.0 or noise_frequency <= 0.0 or coast_start <= 0.0 or coast_end <= coast_start or coast_end > 1.0 or city_blocks < 3 or minimum_building_height <= 0.0 or maximum_building_height < minimum_building_height or rooftop_spacing < 1 or starting_budget_bonus < 0:
 		return "전장 레이아웃 설정값이 올바르지 않습니다"
 	var district_ids: Dictionary[StringName, bool] = {}
 	for district: CityDistrictDefinition in city_districts:
