@@ -11,6 +11,7 @@ class SurfaceFade:
 	var original: Material
 	var faded: StandardMaterial3D
 	var alpha: float
+	var solid: bool = false
 	var applied: bool = false
 
 class LightFade:
@@ -76,6 +77,7 @@ func _add_surface(mesh: MeshInstance3D, index: int, original: Material, active: 
 	fade.original = original
 	fade.faded = standard.duplicate() as StandardMaterial3D
 	fade.faded.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fade.solid = standard.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED
 	fade.alpha = standard.albedo_color.a
 	surfaces.append(fade)
 
@@ -104,6 +106,10 @@ func apply_opacity(next_opacity: float) -> void:
 			fade.applied = fading
 		if fading:
 			fade.faded.albedo_color.a = fade.alpha * opacity
+			if fade.solid:
+				# Haze must not reveal later-drawn parts behind the fuselage.
+				# Fully faded contacts must not occlude other transparent effects.
+				fade.faded.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_ALWAYS if fade.faded.albedo_color.a > 0.0 else BaseMaterial3D.DEPTH_DRAW_DISABLED
 	for fade: LightFade in lights:
 		if is_instance_valid(fade.light):
 			fade.light.light_energy = fade.energy * opacity
