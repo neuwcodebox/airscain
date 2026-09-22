@@ -2510,3 +2510,14 @@ Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/d
 
 - 2026-09-22: `GameLocale`에 `ko`·`en` 지원 범위, 영어 기본 fallback, 시스템 언어 선택과 설정 표시 메타데이터를 모으고 `PlayerSettings`는 저장·적용만 담당하도록 정리했다. 한국어와 영어를 각각 명시적인 PO 카탈로그로 등록해 영어 fallback에서도 한국어 선택이 원문대로 유지된다.
 - 2026-09-22: 메뉴·전장 선택·HUD·자산/위협 콘텐츠·훈련·피드백을 영어 카탈로그로 완성하고, 동적 UI가 언어 변경 알림에서 다시 렌더링되도록 했다. 보급·수리·재장전 아이콘과 색상 판정은 번역문 대신 `StringName` 상태 코드를 사용한다. 테스트 실행은 저장된 사용자 언어와 무관하게 한국어 기준을 명시한다. 전체 29개 스크립트의 647개 테스트·37,742개 단언이 통과했고 Web debug export에 `res://localization/en.po`와 `res://localization/ko.po`가 모두 포함됐다. 실제 Compatibility 창에서 영어 메인/설정/전장 선택/전술 HUD/일시정지/게임 종료/훈련 화면의 잘림과 혼용 여부를 확인했으며, 고도 패널은 `ALTITUDE` 제목과 축약하지 않은 `TRACK`·`INTERCEPTOR` 범례가 겹치지 않는다(`/tmp/airscain_settings_*.png`, `/tmp/airscain_battlefield_selection.png`, `/tmp/airscain_operation_started.png`, `/tmp/airscain_hud_*.png`, `/tmp/airscain_training.png`).
+
+
+## README 한국어·영어 제공
+
+- [x] 한국어 README의 구조와 내용을 유지한 영어 README를 제공한다.
+- [x] 각 README의 제목 바로 아래에서 다른 언어 문서로 이동할 수 있게 한다.
+- [x] 상대 링크와 Markdown 구조를 검증하고 문서 체크포인트로 커밋한다.
+
+**완료 기준:** 저장소 첫 화면에서 언어를 즉시 선택할 수 있고, 한국어와 영어 README가 같은 게임 소개·실행법·조작·개발 정보를 제공한다.
+
+- 2026-09-22: `README.en.md`를 추가하고 한국어 README에는 `[English]`, 영어 README에는 `[한국어]` 링크를 배치했다. 제목·목록·표·코드 블록·이미지 및 문서 상대 링크가 양쪽에서 대응하도록 확인했다.
