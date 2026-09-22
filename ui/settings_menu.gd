@@ -76,10 +76,10 @@ func _ready() -> void:
 	language_option = OptionButton.new()
 	language_option.custom_minimum_size = Vector2(230, 44)
 	MenuStyle.apply_option(language_option)
-	language_option.add_item("한국어")
-	language_option.add_item("English")
+	for locale: Dictionary in GameLocale.OPTIONS:
+		language_option.add_item(String(locale.native_name))
 	language_option.item_selected.connect(func(index: int) -> void:
-		PlayerSettings.instance().set_value("language", PlayerSettings.SUPPORTED_LANGUAGES[index])
+		PlayerSettings.instance().set_value("language", GameLocale.language_at(index))
 		refresh())
 	language_row.add_child(language_option)
 	fullscreen = CheckButton.new()
@@ -203,7 +203,7 @@ func refresh() -> void:
 		sliders[key].set_value_no_signal(value)
 		readouts[key].text = "%d%%" % roundi(value)
 	fullscreen.set_pressed_no_signal(DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN])
-	language_option.select(PlayerSettings.SUPPORTED_LANGUAGES.find(String(PlayerSettings.instance().values.language)))
+	language_option.select(GameLocale.option_index(String(PlayerSettings.instance().values.language)))
 	_refresh_display_options()
 	_refresh_render_readout()
 

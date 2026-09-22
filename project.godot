@@ -35,8 +35,8 @@ cancel_placement={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_key
 
 [internationalization]
 
-locale/fallback="ko"
-locale/translations=PackedStringArray("res://localization/en.po")
+locale/fallback="en"
+locale/translations=PackedStringArray("res://localization/en.po", "res://localization/ko.po")
 
 [layer_names]
 3d_physics/layer_1="Terrain"

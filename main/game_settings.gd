@@ -4,12 +4,11 @@ extends Node
 
 signal changed
 const AUDIO_BUSES := {"master": "Master", "missile": "Missiles", "gun": "Guns", "explosion": "Explosions", "alert": "Alerts", "ui": "UI"}
-const SUPPORTED_LANGUAGES: Array[String] = ["ko", "en"]
 const RESOLUTIONS: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]
 const FRAME_LIMITS: Array[int] = [0, 30, 60, 120, 144]
 const RENDER_RESOLUTIONS: Array[Vector2i] = [Vector2i.ZERO, Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
 const OPTION_LIMITS := {"resolution": 3, "antialiasing": 3, "frame_limit": 4, "render_resolution": 5}
-const DEFAULTS := {"master": 1.0, "missile": 1.0, "gun": 1.0, "explosion": 1.0, "alert": 1.0, "ui": 1.0, "pan": 1.0, "rotation": 1.0, "zoom": 1.0, "fullscreen": false, "resolution": 1, "antialiasing": 1, "frame_limit": 0, "render_resolution": 0, "language": "ko"}
+const DEFAULTS := {"master": 1.0, "missile": 1.0, "gun": 1.0, "explosion": 1.0, "alert": 1.0, "ui": 1.0, "pan": 1.0, "rotation": 1.0, "zoom": 1.0, "fullscreen": false, "resolution": 1, "antialiasing": 1, "frame_limit": 0, "render_resolution": 0, "language": GameLocale.DEFAULT_LANGUAGE}
 var values: Dictionary = DEFAULTS.duplicate()
 var settings_path: String = "user://settings.cfg"
 
@@ -35,7 +34,7 @@ func set_value(key: String, value: Variant) -> void:
 	if not DEFAULTS.has(key):
 		return
 	if key == "language":
-		if not value is String or not SUPPORTED_LANGUAGES.has(String(value)):
+		if not value is String or not GameLocale.is_supported(String(value)):
 			return
 	elif key == "fullscreen":
 		if not value is bool:
@@ -78,14 +77,7 @@ func apply_rendering() -> void:
 	Engine.max_fps = FRAME_LIMITS[int(values.frame_limit)]
 
 func apply_language() -> void:
-	var language := String(values.get("language", preferred_language(OS.get_locale_language())))
-	if not SUPPORTED_LANGUAGES.has(language):
-		language = preferred_language(OS.get_locale_language())
-		values["language"] = language
-	TranslationServer.set_locale(language)
-
-static func preferred_language(system_language: String) -> String:
-	return "ko" if system_language.to_lower().begins_with("ko") else "en"
+	values["language"] = GameLocale.apply(String(values.get("language", GameLocale.DEFAULT_LANGUAGE)))
 
 static func render_scale_for(output_size: Vector2i, selection: int) -> float:
 	if selection <= 0 or selection >= RENDER_RESOLUTIONS.size() or output_size.x <= 0 or output_size.y <= 0:
@@ -95,7 +87,7 @@ static func render_scale_for(output_size: Vector2i, selection: int) -> float:
 
 func reset_defaults() -> void:
 	values = DEFAULTS.duplicate()
-	values["language"] = preferred_language(OS.get_locale_language())
+	values["language"] = GameLocale.preferred_language(OS.get_locale_language())
 	apply_language()
 	apply_audio()
 	apply_display()
@@ -104,14 +96,14 @@ func reset_defaults() -> void:
 
 func load_preferences() -> void:
 	values = DEFAULTS.duplicate()
-	values["language"] = preferred_language(OS.get_locale_language())
+	values["language"] = GameLocale.preferred_language(OS.get_locale_language())
 	var config := ConfigFile.new()
 	if config.load(settings_path) != OK:
 		return
 	for key: String in DEFAULTS:
-		var value: Variant = config.get_value("settings", key, DEFAULTS[key])
+		var value: Variant = config.get_value("settings", key, values[key])
 		if key == "language":
-			if value is String and SUPPORTED_LANGUAGES.has(String(value)):
+			if value is String and GameLocale.is_supported(String(value)):
 				values[key] = String(value)
 		elif key == "fullscreen":
 			if value is bool:

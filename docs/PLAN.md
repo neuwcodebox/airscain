@@ -2500,7 +2500,7 @@ Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/d
 
 ## 한국어·영어 다국어 지원
 
-- [x] 시스템 언어를 반영하는 언어 환경설정과 Godot 번역 카탈로그를 추가한다.
+- [x] 영어 fallback과 시스템 언어를 반영하는 중앙 로케일 정책 및 한국어·영어 번역 카탈로그를 추가한다.
 - [x] 메뉴·HUD·툴팁·훈련·콘텐츠 이름과 게임 내 피드백을 한국어와 영어로 제공한다.
 - [x] 게임 규칙과 상태 아이콘이 표시 문자열 대신 안정적인 상태 코드를 사용하도록 분리한다.
 - [x] 두 언어의 설정·게임 흐름 회귀, 전체 테스트, Web export와 실제 게임 창을 검증한다.
@@ -2508,5 +2508,5 @@ Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/d
 
 **완료 기준:** 첫 실행은 한국어 시스템에서 한국어, 그 밖의 시스템에서 영어를 사용하고 설정에서 즉시 전환할 수 있다. 실제 플레이 화면의 모든 문구가 선택 언어로 일관되게 표시되며 언어 변경이 게임 규칙이나 저장 스냅샷에 영향을 주지 않는다.
 
-- 2026-09-22: `PlayerSettings`에 `ko`·`en` 언어 환경설정과 시스템 언어 fallback을 추가하고 영어 PO 카탈로그 및 설정 화면 선택기를 연결했다. 설정 집중 회귀 17개·100개 단언과 변경 스크립트 파싱을 통과했다.
-- 2026-09-22: 메뉴·전장 선택·HUD·자산/위협 콘텐츠·훈련·피드백을 영어 카탈로그로 완성하고, 동적 UI가 언어 변경 알림에서 다시 렌더링되도록 했다. 보급·수리·재장전 아이콘과 색상 판정은 번역문 대신 `StringName` 상태 코드를 사용한다. 전체 29개 스크립트의 645개 테스트·37,729개 단언이 통과했고 Web debug export에 `res://localization/en.po`가 포함됐다. 실제 Compatibility 창에서 영어 메인/설정/전장 선택/전술 HUD/일시정지/게임 종료/훈련 화면의 잘림과 혼용 여부를 확인했다(`/tmp/airscain_settings_*.png`, `/tmp/airscain_battlefield_selection.png`, `/tmp/airscain_operation_started.png`, `/tmp/airscain_hud_*.png`, `/tmp/airscain_training.png`).
+- 2026-09-22: `GameLocale`에 `ko`·`en` 지원 범위, 영어 기본 fallback, 시스템 언어 선택과 설정 표시 메타데이터를 모으고 `PlayerSettings`는 저장·적용만 담당하도록 정리했다. 한국어와 영어를 각각 명시적인 PO 카탈로그로 등록해 영어 fallback에서도 한국어 선택이 원문대로 유지된다.
+- 2026-09-22: 메뉴·전장 선택·HUD·자산/위협 콘텐츠·훈련·피드백을 영어 카탈로그로 완성하고, 동적 UI가 언어 변경 알림에서 다시 렌더링되도록 했다. 보급·수리·재장전 아이콘과 색상 판정은 번역문 대신 `StringName` 상태 코드를 사용한다. 테스트 실행은 저장된 사용자 언어와 무관하게 한국어 기준을 명시한다. 전체 29개 스크립트의 647개 테스트·37,742개 단언이 통과했고 Web debug export에 `res://localization/en.po`와 `res://localization/ko.po`가 모두 포함됐다. 실제 Compatibility 창에서 영어 메인/설정/전장 선택/전술 HUD/일시정지/게임 종료/훈련 화면의 잘림과 혼용 여부를 확인했으며, 고도 패널은 `ALTITUDE` 제목과 축약하지 않은 `TRACK`·`INTERCEPTOR` 범례가 겹치지 않는다(`/tmp/airscain_settings_*.png`, `/tmp/airscain_battlefield_selection.png`, `/tmp/airscain_operation_started.png`, `/tmp/airscain_hud_*.png`, `/tmp/airscain_training.png`).

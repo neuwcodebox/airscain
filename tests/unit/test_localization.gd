@@ -19,8 +19,11 @@ func test_english_catalog_translates_static_and_formatted_messages() -> void:
 	assert_eq(tr("위협 단계  %d") % 3, "THREAT  3")
 	assert_eq(tr("상태 성능저하 · 내구도 %d%%") % 52, "Status Degraded · Integrity 52%")
 	assert_eq(tr("도시 기능을 %d 복구했습니다") % 10, "Restored 10 city function")
+	assert_eq(tr("고도 프로파일"), "ALTITUDE")
+	assert_eq(tr("항적"), "TRACK")
+	assert_eq(tr("요격체"), "INTERCEPTOR")
 
-func test_korean_uses_source_messages_as_fallback() -> void:
+func test_korean_uses_korean_source_messages() -> void:
 	TranslationServer.set_locale("ko")
 	assert_eq(tr("새 게임"), "새 게임")
 	assert_eq(tr("위협 단계  %d") % 3, "위협 단계  3")

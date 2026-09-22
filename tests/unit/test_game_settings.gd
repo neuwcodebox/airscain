@@ -132,9 +132,11 @@ func test_numeric_preferences_round_trip() -> void:
 	assert_eq(PlayerSettings.instance().values.pan, 1.5)
 
 func test_language_preference_uses_supported_system_fallback_and_round_trips() -> void:
-	assert_eq(PlayerSettings.preferred_language("ko_KR"), "ko")
-	assert_eq(PlayerSettings.preferred_language("en_US"), "en")
-	assert_eq(PlayerSettings.preferred_language("ja_JP"), "en")
+	assert_eq(GameLocale.DEFAULT_LANGUAGE, "en")
+	assert_eq(GameLocale.preferred_language("ko_KR"), "ko")
+	assert_eq(GameLocale.preferred_language("en_US"), "en")
+	assert_eq(GameLocale.preferred_language("ja_JP"), "en")
+	assert_eq(ProjectSettings.get_setting("internationalization/locale/fallback"), "en")
 	PlayerSettings.instance().set_value("language", "en")
 	assert_eq(TranslationServer.get_locale(), "en")
 	assert_eq(PlayerSettings.instance().save_preferences(), OK)
@@ -143,6 +145,12 @@ func test_language_preference_uses_supported_system_fallback_and_round_trips() -
 	PlayerSettings.instance().apply_language()
 	assert_eq(PlayerSettings.instance().values.language, "en")
 	assert_eq(TranslationServer.get_locale(), "en")
+
+func test_invalid_runtime_locale_resolves_to_english_fallback() -> void:
+	assert_eq(GameLocale.apply("fr"), "en")
+	assert_eq(TranslationServer.get_locale(), "en")
+	assert_eq(GameLocale.option_index("fr"), 0)
+	assert_eq(GameLocale.language_at(99), "en")
 
 func test_invalid_language_value_is_ignored() -> void:
 	PlayerSettings.instance().set_value("language", "ko")
@@ -196,6 +204,14 @@ func test_settings_menu_slider_updates_value_and_readout() -> void:
 	menu.sliders["ui"].value = 0
 	assert_eq(PlayerSettings.instance().values.ui, 0.0)
 	assert_eq(menu.readouts["ui"].text, "0%")
+
+func test_settings_menu_builds_language_options_from_locale_policy() -> void:
+	var menu := add_child_autofree(SettingsMenu.new()) as SettingsMenu
+	assert_eq(menu.language_option.item_count, GameLocale.OPTIONS.size())
+	for index: int in GameLocale.OPTIONS.size():
+		assert_eq(menu.language_option.get_item_text(index), String(GameLocale.OPTIONS[index].native_name))
+	menu.language_option.item_selected.emit(GameLocale.option_index(GameLocale.KOREAN))
+	assert_eq(PlayerSettings.instance().values.language, GameLocale.KOREAN)
 
 func test_settings_menu_reopens_on_first_tab() -> void:
 	var menu := add_child_autofree(SettingsMenu.new()) as SettingsMenu
