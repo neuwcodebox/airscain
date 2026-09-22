@@ -1,7 +1,7 @@
 class_name CameraRig
 extends Node3D
 
-@export var pan_speed: float = 300.0
+@export var pan_speed: float = 340.0
 @export var zoom_step: float = 55.0
 @export var minimum_zoom: float = 180.0
 @export var maximum_zoom: float = 1200.0
