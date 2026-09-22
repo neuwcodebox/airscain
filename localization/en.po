@@ -276,7 +276,7 @@ msgid "생존  %02d:%02d"
 msgstr "TIME  %02d:%02d"
 
 msgid "%d단계 해금"
-msgstr "Unlocks at %d"
+msgstr "Level %d"
 
 msgid "무료"
 msgstr "Free"

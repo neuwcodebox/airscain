@@ -2510,6 +2510,7 @@ Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/d
 
 - 2026-09-22: `GameLocale`에 `ko`·`en` 지원 범위, 영어 기본 fallback, 시스템 언어 선택과 설정 표시 메타데이터를 모으고 `PlayerSettings`는 저장·적용만 담당하도록 정리했다. 한국어와 영어를 각각 명시적인 PO 카탈로그로 등록해 영어 fallback에서도 한국어 선택이 원문대로 유지된다.
 - 2026-09-22: 메뉴·전장 선택·HUD·자산/위협 콘텐츠·훈련·피드백을 영어 카탈로그로 완성하고, 동적 UI가 언어 변경 알림에서 다시 렌더링되도록 했다. 보급·수리·재장전 아이콘과 색상 판정은 번역문 대신 `StringName` 상태 코드를 사용한다. 테스트 실행은 저장된 사용자 언어와 무관하게 한국어 기준을 명시한다. 전체 29개 스크립트의 647개 테스트·37,742개 단언이 통과했고 Web debug export에 `res://localization/en.po`와 `res://localization/ko.po`가 모두 포함됐다. 실제 Compatibility 창에서 영어 메인/설정/전장 선택/전술 HUD/일시정지/게임 종료/훈련 화면의 잘림과 혼용 여부를 확인했으며, 고도 패널은 `ALTITUDE` 제목과 축약하지 않은 `TRACK`·`INTERCEPTOR` 범례가 겹치지 않는다(`/tmp/airscain_settings_*.png`, `/tmp/airscain_battlefield_selection.png`, `/tmp/airscain_operation_started.png`, `/tmp/airscain_hud_*.png`, `/tmp/airscain_training.png`).
+- 2026-09-22: 좁은 카탈로그의 영어 해금 조건을 `Unlocks at 5`에서 `Level 5`로 다듬었다. 번역 집중 회귀 5개·24개 단언이 통과했고, 실제 1600×900 Compatibility 창에서 긴 자산명과 단계 조건이 함께 잘리지 않는 것을 확인했다(`/tmp/airscain_hud_catalog_locked.png`).
 
 
 ## README 한국어·영어 제공

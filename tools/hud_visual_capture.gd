@@ -41,9 +41,18 @@ func run() -> void:
 		await _wait_seconds(0.4)
 		await _save_capture("/tmp/airscain_hud_track.png")
 	main._clear_selection()
+	main.session.unlimited_budget = false
+	main.session.budget = 400
+	main.session.current_pressure = 1
+	main.hud._catalog_state.clear()
+	main.hud._on_state_changed()
 	main.hud.set_catalog_expanded(true)
 	await _wait_seconds(0.3)
 	await _save_capture("/tmp/airscain_hud_catalog.png")
+	var catalog_scroll := main.hud.get_node("Catalog/VBox/DefenseScroll") as ScrollContainer
+	catalog_scroll.get_v_scroll_bar().value = catalog_scroll.get_v_scroll_bar().max_value
+	await _wait_seconds(0.2)
+	await _save_capture("/tmp/airscain_hud_catalog_locked.png")
 	main.hud.set_catalog_expanded(false)
 	main.session.end_game()
 	await _wait_seconds(0.4)
