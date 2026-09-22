@@ -208,11 +208,19 @@ func critical_status_text() -> String:
 	if not active:
 		return "×"
 	if is_damaged():
-		return "손상"
+		return tr("손상")
 	return ""
 
 func supply_status_text() -> String:
+	match supply_status_kind():
+		&"resupply_active": return tr("재보급 중")
+		&"resupply_waiting": return tr("재보급 대기")
+		&"ammunition_empty": return tr("탄약 고갈")
+		&"ammunition_partial": return tr("일부 탄종 고갈")
 	return ""
+
+func supply_status_kind() -> StringName:
+	return &""
 
 func obstruction_status_text() -> String:
 	return ""
@@ -245,10 +253,10 @@ func operational_status_text() -> String:
 	var ratio := operational_ratio()
 	var percent := floori(ratio * 100.0) if is_damaged() else 100
 	if not is_damaged():
-		return "상태 정상 · 내구도 %d%%" % roundi(ratio * 100.0)
+		return tr("상태 정상 · 내구도 %d%%") % roundi(ratio * 100.0)
 	if active:
-		return "상태 성능저하 · 내구도 %d%%" % percent
-	return "상태 기능정지 · 내구도 %d%%" % percent
+		return tr("상태 성능저하 · 내구도 %d%%") % percent
+	return tr("상태 기능정지 · 내구도 %d%%") % percent
 
 func repair_cost() -> int:
 	return definition.repair_cost + ceili(definition.price * definition.repair_price_ratio * (1.0 - operational_ratio()))
@@ -339,4 +347,4 @@ func _refresh_status_marker() -> void:
 	_ensure_status_marker()
 	if is_instance_valid(identity_marker):
 		status_marker.set_clearance(identity_marker.status_half_width())
-	status_marker.set_status(supply_status_text(), not obstruction_status_text().is_empty())
+	status_marker.set_status(supply_status_kind(), not obstruction_status_text().is_empty())

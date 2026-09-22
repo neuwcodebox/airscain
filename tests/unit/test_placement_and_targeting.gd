@@ -1667,7 +1667,7 @@ func test_depleted_gun_keeps_supply_badge_and_damage_frame() -> void:
 	_refresh_defense_presentation(gun)
 	assert_true(gun.status_marker.visible)
 	var depleted_badge := gun.status_marker.get_node("SupplyBadge") as Sprite3D
-	assert_eq(depleted_badge.texture, UnitStatusMarker.SUPPLY_TEXTURES["재보급 대기"])
+	assert_eq(depleted_badge.texture, UnitStatusMarker.SUPPLY_TEXTURES[&"resupply_waiting"])
 	assert_true(depleted_badge.visible)
 	assert_true(depleted_badge.fixed_size)
 	gun.receive_damage(70.0)
@@ -1683,20 +1683,20 @@ func test_status_badges_are_unique_fixed_and_use_separate_corners() -> void:
 	assert_gt(marker.supply_badge.render_priority, icon.render_priority)
 	assert_true(marker.supply_badge.fixed_size)
 	assert_true(marker.supply_badge.no_depth_test)
-	marker.set_status("재보급 대기", true)
+	marker.set_status(&"resupply_waiting", true)
 	var waiting := marker.supply_badge.texture
 	assert_not_null(waiting)
 	assert_true(marker.supply_badge.visible)
 	assert_true(marker.obstruction_badge.visible)
 	var textures: Array[Texture2D] = []
-	for status: String in UnitStatusMarker.SUPPLY_TEXTURES:
+	for status: StringName in UnitStatusMarker.SUPPLY_TEXTURES:
 		marker.set_status(status, true)
 		assert_false(textures.has(marker.supply_badge.texture))
 		textures.append(marker.supply_badge.texture)
 	assert_lt(marker.supply_badge.offset.y, 0.0, "보급은 오른쪽 아래이며 하위 분류 자리는 비워 둡니다")
 	assert_lt(marker.obstruction_badge.offset.x, 0.0)
 	assert_lt(marker.obstruction_badge.offset.y, 0.0)
-	marker.set_status("", false)
+	marker.set_status(&"", false)
 	assert_false(marker.visible)
 	assert_false(marker.supply_badge.visible)
 	assert_false(marker.obstruction_badge.visible)
@@ -1707,7 +1707,7 @@ func test_damage_frame_preserves_identity_and_clears_after_repair() -> void:
 	var marker := battery.status_marker as UnitStatusMarker
 	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
 	var frame := battery.identity_marker.get_node("ConditionFrame") as Sprite3D
-	marker.set_status("재보급 대기", true)
+	marker.set_status(&"resupply_waiting", true)
 	battery.set_selected(true)
 	var original_texture := icon.texture
 	var original_color := icon.modulate
@@ -1736,7 +1736,7 @@ func test_badge_clearance_tracks_visible_boundary_not_supply_state() -> void:
 	var icon := battery.identity_marker.get_node("Icon") as Sprite3D
 	var healthy_offset := marker.supply_badge.offset.x
 	var healthy_gap := (healthy_offset - 12.0) * marker.supply_badge.pixel_size - icon.texture.get_width() * 0.5 * icon.pixel_size
-	for status: String in UnitStatusMarker.SUPPLY_TEXTURES:
+	for status: StringName in UnitStatusMarker.SUPPLY_TEXTURES:
 		marker.set_status(status, true)
 		assert_eq(marker.supply_badge.offset.x, healthy_offset, "탄약·보급 종류로 배지 간격이 달라지지 않습니다")
 	battery.receive_damage(30.0)

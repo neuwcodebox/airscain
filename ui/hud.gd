@@ -37,6 +37,11 @@ var selected_track_engagement_count: int = 0
 var overlay_mode_index: int = 0
 var catalog_expanded: bool = false
 var training_description: String = ""
+var training_title_source: String = ""
+var training_body_source: String = ""
+var training_body_suffix_source: String = ""
+var training_step: int = 0
+var training_total: int = 0
 var city_menu_expanded: bool = false
 var threat_menu_expanded: bool = false
 var configured_game_mode: int = 0
@@ -157,6 +162,26 @@ const CATALOG_GROUP_LABELS := {
 var _catalog_state: Array = []
 var _restoration_state: Array = []
 
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_TRANSLATION_CHANGED or not is_node_ready() or session == null:
+		return
+	overlay_option.clear()
+	for label: String in OVERLAY_LABELS:
+		overlay_option.add_item(tr(label))
+	overlay_option.select(overlay_mode_index)
+	_build_mode_controls(configured_game_mode)
+	_build_defense_catalog()
+	_catalog_state.clear()
+	_restoration_state.clear()
+	set_catalog_expanded(catalog_expanded)
+	set_city_menu_expanded(city_menu_expanded)
+	set_threat_menu_expanded(threat_menu_expanded)
+	set_pressure(pressure_level)
+	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
+	_refresh_selection_view(false)
+	if not training_title_source.is_empty():
+		set_training_lesson(training_step, training_total, training_title_source, training_body_source, training_next_button.visible, training_body_suffix_source)
+
 func configure(session_value: GameSession, objective_value: ProtectedObjective, defenses: Array[DefenseDefinition], threats: Array[ThreatDefinition] = [], game_mode: int = 0) -> void:
 	session = session_value
 	objective = objective_value
@@ -169,7 +194,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	_style_top_bar()
 	overlay_option.clear()
 	for label: String in OVERLAY_LABELS:
-		overlay_option.add_item(label)
+		overlay_option.add_item(tr(label))
 	overlay_option.select(overlay_mode_index)
 	overlay_option.get_popup().about_to_popup.connect(_close_context_menus)
 	_apply_menu_row_style(city_restoration_button)
@@ -198,7 +223,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 func _build_mode_controls(game_mode: int) -> void:
 	sandbox_threat_option.clear()
 	for definition: ThreatDefinition in threat_definitions:
-		sandbox_threat_option.add_item(definition.display_name)
+		sandbox_threat_option.add_item(tr(definition.display_name))
 	threat_menu_button.visible = game_mode == 2
 	training_panel.visible = game_mode == 1
 
@@ -211,7 +236,7 @@ func set_catalog_expanded(expanded: bool) -> void:
 		set_city_menu_expanded(false)
 	if expanded and threat_menu_expanded:
 		set_threat_menu_expanded(false)
-	defense_menu_button.text = "방공 자산  %s" % (MENU_EXPANDED_SYMBOL if expanded else MENU_COLLAPSED_SYMBOL)
+	defense_menu_button.text = tr("방공 자산  %s") % (MENU_EXPANDED_SYMBOL if expanded else MENU_COLLAPSED_SYMBOL)
 	catalog.visible = expanded
 	defense_scroll.visible = expanded
 	if expanded:
@@ -248,7 +273,7 @@ func set_threat_menu_expanded(expanded: bool) -> void:
 		set_catalog_expanded(false)
 	if threat_menu_expanded and city_menu_expanded:
 		set_city_menu_expanded(false)
-	threat_menu_button.text = "위협 투입  %s" % (MENU_EXPANDED_SYMBOL if threat_menu_expanded else MENU_COLLAPSED_SYMBOL)
+	threat_menu_button.text = tr("위협 투입  %s") % (MENU_EXPANDED_SYMBOL if threat_menu_expanded else MENU_COLLAPSED_SYMBOL)
 	threat_menu.visible = threat_menu_expanded
 	if threat_menu_expanded:
 		_raise_context_menu(threat_menu)
@@ -297,14 +322,21 @@ func _input(event: InputEvent) -> void:
 	if threat_menu_expanded and not threat_menu.get_global_rect().has_point(mouse_button.position) and not threat_menu_button.get_global_rect().has_point(mouse_button.position):
 		set_threat_menu_expanded(false)
 
-func set_training_lesson(step: int, total: int, title: String, body: String, next_visible: bool = false) -> void:
+func set_training_lesson(step: int, total: int, title: String, body: String, next_visible: bool = false, body_suffix: String = "") -> void:
 	training_panel.visible = true
-	training_title.text = "훈련 %d/%d: %s" % [step, total, title]
+	training_step = step
+	training_total = total
+	training_title_source = title
+	training_body_source = body
+	training_body_suffix_source = body_suffix
+	training_title.text = tr("훈련 %d/%d: %s") % [step, total, tr(title)]
 	var progress := get_node("%TrainingProgress") as ProgressBar
 	progress.max_value = total
 	progress.value = step
-	training_description = body
-	training_body.text = body
+	training_description = tr(body)
+	if not body_suffix.is_empty():
+		training_description += "\n\n" + tr(body_suffix)
+	training_body.text = training_description
 	training_next_button.visible = next_visible
 	training_panel.reset_size()
 	_fit_training_panel()
@@ -315,11 +347,11 @@ func _fit_training_panel() -> void:
 
 func set_pressure(level: int) -> void:
 	pressure_level = level
-	pressure_label.text = "위협 단계  %d" % level
+	pressure_label.text = tr("위협 단계  %d") % level
 	_on_state_changed()
 
 func set_tactical_alert(hostile_count: int, engagement_count: int, warnings: Array[String]) -> void:
-	var parts: Array[String] = ["▲ 적성 항적 %d" % hostile_count, "교전 %d" % engagement_count]
+	var parts: Array[String] = [tr("▲ 적성 항적 %d") % hostile_count, tr("교전 %d") % engagement_count]
 	parts.append_array(warnings)
 	alert_label.text = "    ".join(parts)
 	alert_label.modulate = Color(1.0, 0.52, 0.32) if not warnings.is_empty() else Color(1.0, 0.78, 0.35)
@@ -344,7 +376,7 @@ func set_placement_power_preview(current_demand: float, added_demand: float, cap
 		return
 	var expected_demand := current_demand + added_demand
 	var expected_capacity := capacity + added_capacity
-	placement_power_label.text = "전력 수요  %d / %d\n배치 후  %d / %d" % [roundi(current_demand), roundi(capacity), roundi(expected_demand), roundi(expected_capacity)]
+	placement_power_label.text = tr("전력 수요  %d / %d\n배치 후  %d / %d") % [roundi(current_demand), roundi(capacity), roundi(expected_demand), roundi(expected_capacity)]
 	var color := Color(1.0, 0.48, 0.3) if expected_demand > expected_capacity else Color(0.45, 0.92, 0.82)
 	placement_power_label.add_theme_color_override("font_color", color)
 	_position_placement_hint(screen_position)
@@ -353,7 +385,7 @@ func set_power_status(demand: float, capacity: float) -> void:
 	var rounded_demand := roundi(demand)
 	var rounded_capacity := roundi(capacity)
 	var shortage := demand > capacity
-	power_label.text = "전력  %d / %d" % [rounded_demand, rounded_capacity]
+	power_label.text = tr("전력  %d / %d") % [rounded_demand, rounded_capacity]
 	var color := POWER_NORMAL_COLOR
 	if capacity <= 0.0:
 		color = POWER_SHORTAGE_COLOR if demand > 0.0 else POWER_INACTIVE_COLOR
@@ -433,16 +465,16 @@ func _refresh_selected_asset_label(fit_panel: bool = true) -> void:
 	_refresh_asset_metrics()
 	var can_resupply := selected_asset.uses_ammunition() and selected_asset.can_request_resupply()
 	if selected_asset.uses_ammunition():
-		resupply_button.text = "재보급 요청  $%d" % selected_asset.resupply_cost() if can_resupply else "재보급 요청"
+		resupply_button.text = tr("재보급 요청  $%d") % selected_asset.resupply_cost() if can_resupply else tr("재보급 요청")
 		automatic_resupply_button.set_pressed_no_signal(selected_asset.automatic_resupply_enabled())
 	if selected_asset.supports_munition_selection():
 		munition_mode_button.text = selected_asset.munition_mode_text()
 	resupply_button.disabled = not can_resupply
 	var can_repair := selected_asset.can_request_repair()
-	repair_button.text = "수리 요청  $%d" % selected_asset.repair_cost() if can_repair else "수리 요청"
+	repair_button.text = tr("수리 요청  $%d") % selected_asset.repair_cost() if can_repair else tr("수리 요청")
 	repair_button.disabled = not can_repair
 	var relocating := selected_asset.relocation_manager != null and not selected_asset.relocation_manager.task_status(selected_asset).is_empty()
-	relocation_button.text = "재배치 중" if relocating else "재배치  기본 %d초" % roundi(selected_asset.definition.relocation_duration)
+	relocation_button.text = tr("재배치 중") if relocating else tr("재배치  기본 %d초") % roundi(selected_asset.definition.relocation_duration)
 	relocation_button.disabled = not selected_asset.can_request_relocation()
 	_refresh_selection_view(fit_panel)
 
@@ -478,8 +510,8 @@ func _refresh_selection_view(fit_panel: bool = true) -> void:
 	elif has_track:
 		_refresh_track_details()
 	else:
-		selection_kind_label.text = "방공 자산"
-		selected_asset_label.text = selected_asset.definition.display_name
+		selection_kind_label.text = tr("방공 자산")
+		selected_asset_label.text = tr(selected_asset.definition.display_name)
 		selection_state_label.text = _asset_state_text(selected_asset)
 		_set_state_color(selected_asset.active and selected_asset.operational_ratio() >= 0.75)
 		_refresh_selected_asset_label_fields_only()
@@ -490,11 +522,11 @@ func _refresh_selected_asset_label_fields_only() -> void:
 	_refresh_asset_metrics()
 
 func _refresh_asset_metrics() -> void:
-	var network_value := "직접 연결 %d" % selected_asset_connection_count
-	var support_value := "연결됨" if selected_asset_support_connection_count > 0 else "범위 밖"
+	var network_value := tr("직접 연결 %d") % selected_asset_connection_count
+	var support_value := tr("연결됨") if selected_asset_support_connection_count > 0 else tr("범위 밖")
 	if selected_asset.service_range() > 0.0:
-		network_value = "해당 없음"
-		support_value = "지원 가능 %d" % selected_asset_support_connection_count
+		network_value = tr("해당 없음")
+		support_value = tr("지원 가능 %d") % selected_asset_support_connection_count
 	var rows: Array[Dictionary] = [
 		{"label": "내구도", "value": "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)},
 		{"label": "지휘통제", "value": network_value},
@@ -506,11 +538,11 @@ func _refresh_asset_metrics() -> void:
 	_set_metric_rows(asset_metrics, rows)
 
 func _refresh_track_details() -> void:
-	selection_kind_label.text = "항적 정보"
+	selection_kind_label.text = tr("항적 정보")
 	selected_asset_label.text = "%s %s" % [_affiliation_text(selected_track), _classification_text(selected_track.classification)]
 	selection_state_label.text = _track_state_text(selected_track.state)
 	_set_state_color(selected_track.state == PlayerTrack.State.CONFIRMED)
-	selected_track_label.text = "식별 및 추적 정보"
+	selected_track_label.text = tr("식별 및 추적 정보")
 	track_classification_confidence_value.text = "%d%%" % roundi(selected_track.classification_confidence * 100.0)
 	track_affiliation_confidence_value.text = "%d%%" % roundi(selected_track.affiliation_confidence * 100.0)
 	track_quality_value.text = "%d%%" % roundi(selected_track.track_quality * 100.0)
@@ -521,11 +553,11 @@ func _refresh_track_details() -> void:
 	track_engagement_value.text = str(selected_track_engagement_count)
 
 func _refresh_engagement_review() -> void:
-	selection_kind_label.text = "교전 검토"
-	selected_asset_label.text = "자산과 항적"
-	selection_state_label.text = "선택됨"
+	selection_kind_label.text = tr("교전 검토")
+	selected_asset_label.text = tr("자산과 항적")
+	selection_state_label.text = tr("선택됨")
 	_set_state_color(true)
-	engagement_source_label.text = selected_asset.definition.display_name
+	engagement_source_label.text = tr(selected_asset.definition.display_name)
 	var source_rows: Array[Dictionary] = [
 		{"label": "상태", "value": _asset_state_text(selected_asset), "warning": not selected_asset.active},
 		{"label": "내구도", "value": "%d%%" % roundi(selected_asset.operational_ratio() * 100.0)},
@@ -556,7 +588,7 @@ func _set_metric_rows(grid: GridContainer, rows: Array[Dictionary]) -> void:
 		var row: Dictionary = rows[index]
 		var key_label := grid.get_child(index * 2) as Label
 		var value_label := grid.get_child(index * 2 + 1) as Label
-		key_label.text = String(row.get("label", ""))
+		key_label.text = tr(String(row.get("label", "")))
 		var tooltip := String(row.get("tooltip", ""))
 		key_label.tooltip_text = tooltip
 		value_label.tooltip_text = tooltip
@@ -587,7 +619,7 @@ func _set_metric_rows(grid: GridContainer, rows: Array[Dictionary]) -> void:
 		elif icon != null:
 			icon.hide()
 			key_label.remove_theme_stylebox_override("normal")
-		value_label.text = String(row.get("value", ""))
+		value_label.text = tr(String(row.get("value", "")))
 		var color := METRIC_WARNING_COLOR if bool(row.get("warning", false)) else METRIC_VALUE_COLOR
 		if value_label.get_theme_color("font_color") != color:
 			value_label.add_theme_color_override("font_color", color)
@@ -608,10 +640,10 @@ func _style_metric_grid(grid: GridContainer, value_width: float) -> void:
 
 func _asset_state_text(unit: DefenseUnit) -> String:
 	if not unit.active:
-		return "기능 정지"
+		return tr("기능 정지")
 	if unit.operational_ratio() < 0.75:
-		return "성능 저하"
-	return "정상"
+		return tr("성능 저하")
+	return tr("정상")
 
 func _set_state_color(positive: bool) -> void:
 	var color := Color(0.45, 0.92, 0.66) if positive else Color(1.0, 0.62, 0.3)
@@ -629,43 +661,43 @@ func _fit_selection_panel() -> void:
 
 func _classification_text(classification: StringName) -> String:
 	match classification:
-		&"bird": return "조류"
-		&"uav": return "무인기"
-		&"small_uav": return "소형 무인기"
-		&"cruise_missile": return "순항미사일"
-		&"ballistic_missile": return "탄도미사일"
-		&"rocket": return "로켓"
-		&"strike_aircraft", &"aircraft": return "고속 항공기"
-		&"air_contact": return "항공 접촉"
-	return "미분류 표적" if classification.is_empty() else String(classification).replace("_", " ").capitalize()
+		&"bird": return tr("조류")
+		&"uav": return tr("무인기")
+		&"small_uav": return tr("소형 무인기")
+		&"cruise_missile": return tr("순항미사일")
+		&"ballistic_missile": return tr("탄도미사일")
+		&"rocket": return tr("로켓")
+		&"strike_aircraft", &"aircraft": return tr("고속 항공기")
+		&"air_contact": return tr("항공 접촉")
+	return tr("미분류 표적") if classification.is_empty() else String(classification).replace("_", " ").capitalize()
 
 func _track_state_text(state: PlayerTrack.State) -> String:
 	match state:
 		PlayerTrack.State.TENTATIVE:
-			return "잠정"
+			return tr("잠정")
 		PlayerTrack.State.CONFIRMED:
-			return "확인"
+			return tr("확인")
 		PlayerTrack.State.COASTING:
-			return "관측 단절"
-	return "소실"
+			return tr("관측 단절")
+	return tr("소실")
 
 func _affiliation_text(track: PlayerTrack) -> String:
 	if track.affiliation_confidence < 0.3:
-		return "미확인"
+		return tr("미확인")
 	match track.affiliation:
 		PlayerTrack.Affiliation.HOSTILE:
-			return "적성"
+			return tr("적성")
 		PlayerTrack.Affiliation.NEUTRAL:
-			return "중립"
+			return tr("중립")
 		PlayerTrack.Affiliation.FRIENDLY:
-			return "아군"
-	return "미확인"
+			return tr("아군")
+	return tr("미확인")
 
 func _on_state_changed() -> void:
-	budget_label.text = "예산  무제한" if session.unlimited_budget else "예산  $%d" % session.budget
-	catalog_budget_label.text = "예산 무제한" if session.unlimited_budget else "예산 $%d" % session.budget
+	budget_label.text = tr("예산  무제한") if session.unlimited_budget else tr("예산  $%d") % session.budget
+	catalog_budget_label.text = tr("예산 무제한") if session.unlimited_budget else tr("예산 $%d") % session.budget
 	_refresh_city_restoration_button()
-	time_label.text = "생존  %02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
+	time_label.text = tr("생존  %02d:%02d") % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 	_refresh_speed_buttons()
 	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
 	var catalog_state: Array = [session.budget, session.unlimited_budget, session.current_pressure, session.phase]
@@ -679,10 +711,10 @@ func _on_state_changed() -> void:
 		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or unaffordable or locked
 		defense_name_labels[index].add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if defense_buttons[index].disabled else Color(0.86, 0.92, 0.95))
 		if locked:
-			defense_meta_labels[index].text = "%d단계 해금" % definition.unlock_pressure_level
+			defense_meta_labels[index].text = tr("%d단계 해금") % definition.unlock_pressure_level
 			defense_meta_labels[index].add_theme_color_override("font_color", Color(0.78, 0.57, 0.32))
 		elif session.unlimited_budget:
-			defense_meta_labels[index].text = "무료"
+			defense_meta_labels[index].text = tr("무료")
 			defense_meta_labels[index].add_theme_color_override("font_color", Color(0.45, 0.92, 0.66))
 		else:
 			defense_meta_labels[index].text = "$%d" % definition.price
@@ -697,12 +729,12 @@ func _refresh_speed_buttons() -> void:
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
 	city_menu_button.text = _city_menu_text(MENU_EXPANDED_SYMBOL if city_menu_expanded else MENU_COLLAPSED_SYMBOL)
-	city_status_label.text = "도시  %d / %d" % [current, maximum]
+	city_status_label.text = tr("도시  %d / %d") % [current, maximum]
 	city_integrity_label.text = "%d / %d" % [current, maximum]
 	_refresh_city_restoration_button()
 
 func _city_menu_text(arrow: String) -> String:
-	return "도시 관리  %s" % arrow
+	return tr("도시 관리  %s") % arrow
 
 func _refresh_city_restoration_button() -> void:
 	if session == null or objective == null or objective.definition == null:
@@ -714,8 +746,8 @@ func _refresh_city_restoration_button() -> void:
 	if restoration_state == _restoration_state:
 		return
 	_restoration_state = restoration_state
-	city_action_label.text = "피해 복구"
-	city_action_meta_label.text = "+%d    무료" % amount if session.unlimited_budget else "+%d    $%d" % [amount, cost]
+	city_action_label.text = tr("피해 복구")
+	city_action_meta_label.text = tr("+%d    무료") % amount if session.unlimited_budget else "+%d    $%d" % [amount, cost]
 	city_restoration_button.disabled = disabled
 	city_action_label.add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if city_restoration_button.disabled else Color(0.86, 0.92, 0.95))
 	city_action_meta_label.add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if city_restoration_button.disabled else Color(0.45, 0.92, 0.66))
@@ -730,7 +762,7 @@ func _on_phase_changed(new_phase: GameSession.Phase) -> void:
 		set_catalog_expanded(false)
 		set_city_menu_expanded(false)
 		set_threat_menu_expanded(false)
-		final_stats.text = "무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d" % [session.neutralized_count, session.defense_count, session.highest_pressure]
+		final_stats.text = tr("무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d") % [session.neutralized_count, session.defense_count, session.highest_pressure]
 		survival_time_label.text = "%02d:%02d" % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 		_reveal_game_over()
 	_on_state_changed()
@@ -797,7 +829,7 @@ func _build_defense_catalog() -> void:
 			continue
 		var heading := Label.new()
 		heading.name = "CatalogGroup%s" % String(group_id).to_pascal_case()
-		heading.text = String(CATALOG_GROUP_LABELS[group_id])
+		heading.text = tr(String(CATALOG_GROUP_LABELS[group_id]))
 		heading.add_theme_color_override("font_color", MenuStyle.ACCENT)
 		heading.add_theme_font_override("font", MenuStyle.tracked_font(1))
 		heading.custom_minimum_size = Vector2(0.0, 24.0)
@@ -808,9 +840,9 @@ func _build_defense_catalog() -> void:
 			var button := Button.new()
 			button.custom_minimum_size = Vector2(0.0, 44.0)
 			button.text = ""
-			button.tooltip_text = definition.purchase_tooltip
+			button.tooltip_text = tr(definition.purchase_tooltip)
 			_apply_menu_row_style(button)
-			var row := _create_menu_row(definition.display_name, definition.identity_icon)
+			var row := _create_menu_row(tr(definition.display_name), definition.identity_icon)
 			button.add_child(row.container)
 			button.pressed.connect(_on_defense_pressed.bind(definition))
 			defense_list.add_child(button)
@@ -1039,4 +1071,4 @@ func _refresh_target_kind_buttons() -> void:
 		var button := target_kind_buttons[index]
 		var enabled := selected_asset.allows_target_kind(EngagementDoctrine.TARGET_KINDS[index])
 		button.set_pressed_no_signal(enabled)
-		button.tooltip_text = "%s\n%s · 클릭하여 %s" % [EngagementDoctrine.TARGET_LABELS[index], "교전 허용" if enabled else "교전 차단", "차단" if enabled else "허용"]
+		button.tooltip_text = tr("%s\n%s · 클릭하여 %s") % [tr(EngagementDoctrine.TARGET_LABELS[index]), tr("교전 허용") if enabled else tr("교전 차단"), tr("차단") if enabled else tr("허용")]

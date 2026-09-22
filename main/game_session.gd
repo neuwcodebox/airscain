@@ -80,13 +80,13 @@ func gameplay_delta(delta: float) -> float:
 
 func request_placement(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D) -> Dictionary:
 	if phase == Phase.GAME_OVER:
-		return {"success": false, "reason": "게임이 종료되었습니다"}
+		return {"success": false, "reason": tr("게임이 종료되었습니다")}
 	if definition == null or definition.placement_profile == null:
-		return {"success": false, "reason": "잘못된 방어 수단입니다"}
+		return {"success": false, "reason": tr("잘못된 방어 수단입니다")}
 	if definition.unlock_pressure_level > current_pressure:
-		return {"success": false, "reason": "위협 단계 %d에서 해금됩니다" % definition.unlock_pressure_level}
+		return {"success": false, "reason": tr("위협 단계 %d에서 해금됩니다") % definition.unlock_pressure_level}
 	if not unlimited_budget and budget < definition.price:
-		return {"success": false, "reason": "예산이 부족합니다"}
+		return {"success": false, "reason": tr("예산이 부족합니다")}
 	var validation := battlefield.placement_result(position, definition.placement_profile)
 	if not validation.valid:
 		return {"success": false, "reason": validation.reason}
@@ -99,7 +99,7 @@ func deploy_initial_defense(definition: DefenseDefinition, position: Vector3, ro
 func _deploy_defense(definition: DefenseDefinition, position: Vector3, battlefield: Battlefield, defense_parent: Node3D, registry: ThreatRegistry, projectile_parent: Node3D, purchased: bool, rotation_y: float = 0.0) -> Dictionary:
 	var unit := DefenseDeployment.deploy(definition, next_defense_id, position, rotation_y, battlefield, defense_parent, registry, projectile_parent)
 	if unit == null:
-		return {"success": false, "reason": "방어 수단을 생성할 수 없습니다"}
+		return {"success": false, "reason": tr("방어 수단을 생성할 수 없습니다")}
 	next_defense_id += 1
 	if purchased and not unlimited_budget:
 		budget -= definition.price
@@ -108,7 +108,7 @@ func _deploy_defense(definition: DefenseDefinition, position: Vector3, battlefie
 	budget_changed.emit(budget)
 	statistics_changed.emit()
 	defense_placed.emit(unit)
-	return {"success": true, "reason": "배치했습니다", "unit": unit}
+	return {"success": true, "reason": tr("배치했습니다"), "unit": unit}
 
 func register_threat_resolution(_threat: ThreatUnit, neutralized: bool, reward: int) -> void:
 	if phase == Phase.GAME_OVER:

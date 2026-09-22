@@ -83,17 +83,17 @@ func maintain_fire_support(track: PlayerTrack, can_supply: bool) -> bool:
 
 func resource_status_text() -> String:
 	if magazine.is_reloading():
-		return _with_support_status("%s\n탄약 %d + %d · 재장전 %.1f초" % [operational_status_text(), magazine.rounds, magazine.reserve, magazine.reload_remaining])
+		return _with_support_status(tr("%s\n탄약 %d + %d · 재장전 %.1f초") % [operational_status_text(), magazine.rounds, magazine.reserve, magazine.reload_remaining])
 	if magazine.is_depleted():
-		return _with_support_status("%s\n탄약 고갈" % operational_status_text())
-	return _with_support_status("%s\n탄약 %d + %d" % [operational_status_text(), magazine.rounds, magazine.reserve])
+		return _with_support_status(tr("%s\n탄약 고갈") % operational_status_text())
+	return _with_support_status(tr("%s\n탄약 %d + %d") % [operational_status_text(), magazine.rounds, magazine.reserve])
 
 func selection_status_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if uses_ammunition():
 		var ammunition := "%d + %d" % [magazine.rounds, magazine.reserve]
 		if magazine.is_depleted():
-			ammunition = "고갈"
+			ammunition = tr("고갈")
 		rows.append({"label": "탄약", "value": ammunition, "warning": magazine.is_depleted()})
 		if magazine.is_reloading():
 			rows.append({"label": "재장전", "value": "%.1f초" % magazine.reload_remaining})
@@ -137,18 +137,19 @@ func critical_status_text() -> String:
 	return supply_status_text()
 
 func supply_status_text() -> String:
+	return super.supply_status_text()
+
+func supply_status_kind() -> StringName:
 	if support_manager != null:
-		var task := support_manager.task_status(self)
-		if task == "재보급 진행":
-			return "재보급 중"
-		if task == "재보급 대기":
+		var task := support_manager.task_state(self)
+		if task in [&"resupply_active", &"resupply_waiting"]:
 			return task
-		var resupply_status := support_manager.automatic_resupply_status(self)
-		if not resupply_status.is_empty():
-			return resupply_status
+		var automatic_state := support_manager.automatic_resupply_state(self)
+		if not automatic_state.is_empty():
+			return automatic_state
 	if combat_resource_depleted():
-		return "탄약 고갈"
-	return ""
+		return &"ammunition_empty"
+	return &""
 
 func complete_resupply() -> void:
 	magazine.refill_reserve()

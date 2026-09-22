@@ -50,7 +50,7 @@ func gameplay_tick(delta: float) -> void:
 func task_status(unit: DefenseUnit) -> String:
 	for task: Dictionary in tasks:
 		if int(task.target_defense_id) == unit.runtime_id:
-			return "재배치 %.1f초" % float(task.remaining)
+			return tr("재배치 %.1f초") % float(task.remaining)
 	return ""
 
 func capture_state() -> Dictionary:

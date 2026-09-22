@@ -120,9 +120,9 @@ func _ready() -> void:
 		hud.add_child(guidance)
 		guidance.configure(training_controller, placement, camera_rig)
 	elif game_mode == GameMode.SANDBOX:
-		hud.set_feedback("방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요.", false)
+		hud.set_feedback(tr("방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요."), false)
 	else:
-		hud.set_feedback("적이 외곽에서 접근합니다. 방공 자산을 배치하세요.", false)
+		hud.set_feedback(tr("적이 외곽에서 접근합니다. 방공 자산을 배치하세요."), false)
 	combat_effect_pool = CombatEffectPool.new()
 	effects_parent.add_child(combat_effect_pool)
 	_prepare_combat_visuals()
@@ -138,7 +138,7 @@ func _prepare_combat_visuals() -> void:
 		panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		blocker.add_child(panel)
 		var label := Label.new()
-		label.text = "전장 효과 준비 중…"
+		label.text = tr("전장 효과 준비 중…")
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -152,7 +152,7 @@ func _prepare_combat_visuals() -> void:
 		director.launch_budgeted_raid()
 		director._tick_pending_waves(0.0)
 		director.until_spawn = director.automatic_raid_interval_at(0.0)
-		hud.set_feedback("적이 외곽에서 접근합니다. 방공 자산을 배치하세요.", false)
+		hud.set_feedback(tr("적이 외곽에서 접근합니다. 방공 자산을 배치하세요."), false)
 	if blocker != null:
 		blocker.queue_free()
 
@@ -273,7 +273,7 @@ func _on_start_requested() -> void:
 	if session.start_defense():
 		director.enabled = game_mode == GameMode.SUSTAINED
 		if game_mode == GameMode.SANDBOX:
-			hud.set_feedback("위협 투입 메뉴에서 공격을 추가할 수 있습니다.", false)
+			hud.set_feedback(tr("위협 투입 메뉴에서 공격을 추가할 수 있습니다."), false)
 		else:
 			hud.set_feedback("", false)
 
@@ -339,7 +339,7 @@ func _on_recovery_started(_completed_window: int) -> void:
 	session.grant_attack_window_reward(scenario.attack_window_reward)
 
 func _on_support_received(amount: int, reason: String) -> void:
-	hud.set_feedback("예산 +$%d (%s)" % [amount, reason])
+	hud.set_feedback(tr("예산 +$%d (%s)") % [amount, tr(reason)])
 
 func _on_support_task_completed(kind: StringName, unit: DefenseUnit, user_requested: bool) -> void:
 	if user_requested:
@@ -391,7 +391,7 @@ func _final_statistics() -> Dictionary:
 	)
 	var neutralized_parts: Array[String] = []
 	for entry: Dictionary in neutralized_entries.slice(0, mini(3, neutralized_entries.size())):
-		neutralized_parts.append("%s %d" % [entry.name, entry.count])
+		neutralized_parts.append("%s %d" % [tr(String(entry.name)), entry.count])
 	var operational_count := 0
 	var asset_damage := 0
 	for defense: DefenseUnit in defenses:
@@ -400,13 +400,13 @@ func _final_statistics() -> Dictionary:
 		if defense.active:
 			operational_count += 1
 		asset_damage += roundi(defense.definition.maximum_integrity - defense.integrity)
-	var neutralized_text := "\n".join(neutralized_parts) if not neutralized_parts.is_empty() else "없음"
+	var neutralized_text := "\n".join(neutralized_parts) if not neutralized_parts.is_empty() else tr("없음")
 	if neutralized_entries.size() > neutralized_parts.size():
-		neutralized_text += "\n그 외 %d종" % (neutralized_entries.size() - neutralized_parts.size())
+		neutralized_text += tr("\n그 외 %d종") % (neutralized_entries.size() - neutralized_parts.size())
 	return {
-		"summary": "방어 구간  %d\n최고 강도  %d\n도시 피해  %d" % [session.completed_attack_windows, session.highest_pressure, objective.definition.maximum_integrity - objective.current_integrity],
-		"combat": "무력화  %d\n무기 운용  %d회\n\n주요 격추 · 상위 3종\n%s" % [session.neutralized_count, session.weapon_fire_count, neutralized_text],
-		"network": "가동 자산  %d / %d\n자산 피해  %d\n\n방공망  $%d\n지원  $%d\n회수 보상  $%d" % [operational_count, session.defense_count, asset_damage, session.defense_spending, session.support_spending, session.neutralized_reward_total],
+		"summary": tr("방어 구간  %d\n최고 강도  %d\n도시 피해  %d") % [session.completed_attack_windows, session.highest_pressure, objective.definition.maximum_integrity - objective.current_integrity],
+		"combat": tr("무력화  %d\n무기 운용  %d회\n\n주요 격추 · 상위 3종\n%s") % [session.neutralized_count, session.weapon_fire_count, neutralized_text],
+		"network": tr("가동 자산  %d / %d\n자산 피해  %d\n\n방공망  $%d\n지원  $%d\n회수 보상  $%d") % [operational_count, session.defense_count, asset_damage, session.defense_spending, session.support_spending, session.neutralized_reward_total],
 	}
 
 func _on_restart_requested(same_seed: bool) -> void:
@@ -493,11 +493,11 @@ func _refresh_tactical_ui() -> void:
 		if defense.combat_resource_depleted():
 			depleted_count += 1
 	if depleted_count > 0:
-		warnings.append("탄약 고갈 %d" % depleted_count)
+		warnings.append(tr("탄약 고갈 %d") % depleted_count)
 	if disabled_count > 0:
-		warnings.append("기능 정지 %d" % disabled_count)
+		warnings.append(tr("기능 정지 %d") % disabled_count)
 	if objective != null and objective.current_integrity <= objective.definition.maximum_integrity * 0.3:
-		warnings.append("도시 기능 위험")
+		warnings.append(tr("도시 기능 위험"))
 	hud.set_tactical_alert(hostile_count, engagement_coordinator.total_reservations(), warnings)
 	if game_mode == GameMode.TRAINING:
 		training_controller.tracks_refreshed(selectable_hostile_count)
@@ -533,14 +533,14 @@ func _on_munition_mode_requested(mode: StringName) -> void:
 	if selected_asset != null and selected_asset.supports_munition_selection():
 		selected_asset.set_munition_mode(mode)
 		hud.refresh_selected_asset()
-		hud.set_feedback("탄종 운용 모드를 변경했습니다")
+		hud.set_feedback(tr("탄종 운용 모드를 변경했습니다"))
 
 func _on_resupply_requested() -> void:
 	var requested := selected_asset != null and selected_asset.request_resupply()
 	if requested:
-		hud.set_feedback("재보급 작업을 요청했습니다")
+		hud.set_feedback(tr("재보급 작업을 요청했습니다"))
 	else:
-		hud.set_feedback("현재 재보급을 요청할 수 없습니다")
+		hud.set_feedback(tr("현재 재보급을 요청할 수 없습니다"))
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
 func _on_automatic_resupply_requested(enabled: bool) -> void:
@@ -548,29 +548,29 @@ func _on_automatic_resupply_requested(enabled: bool) -> void:
 		return
 	selected_asset.set_automatic_resupply(enabled)
 	hud.refresh_selected_asset()
-	hud.set_feedback("자동 재보급 켜짐" if enabled else "자동 재보급 꺼짐")
+	hud.set_feedback(tr("자동 재보급 켜짐") if enabled else tr("자동 재보급 꺼짐"))
 
 func _on_repair_requested() -> void:
 	var requested := selected_asset != null and selected_asset.request_repair()
 	if requested:
-		hud.set_feedback("수리 작업을 요청했습니다")
+		hud.set_feedback(tr("수리 작업을 요청했습니다"))
 	else:
-		hud.set_feedback("현재 수리를 요청할 수 없습니다")
+		hud.set_feedback(tr("현재 수리를 요청할 수 없습니다"))
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
 func _on_city_restoration_requested() -> void:
 	var definition := objective.definition
 	if objective.current_integrity >= definition.maximum_integrity:
-		hud.set_feedback("도시 기능이 이미 최대입니다")
+		hud.set_feedback(tr("도시 기능이 이미 최대입니다"))
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 		return
 	if not session.try_spend(definition.restoration_cost):
-		hud.set_feedback("도시 복구 예산이 부족합니다")
+		hud.set_feedback(tr("도시 복구 예산이 부족합니다"))
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 		return
 	var restored := mini(definition.restoration_amount, definition.maximum_integrity - objective.current_integrity)
 	objective.restore_integrity(objective.current_integrity + restored)
-	hud.set_feedback("도시 기능을 %d 복구했습니다" % restored)
+	hud.set_feedback(tr("도시 기능을 %d 복구했습니다") % restored)
 	ui_audio.play_event(UiAudio.ACTION_COMPLETE)
 	if game_mode == GameMode.TRAINING:
 		training_controller.city_restored()
@@ -579,12 +579,12 @@ func _on_relocation_requested() -> void:
 	if selected_asset != null and selected_asset.can_request_relocation():
 		placement.select_relocation(selected_asset)
 	else:
-		hud.set_feedback("현재 재배치할 수 없습니다")
+		hud.set_feedback(tr("현재 재배치할 수 없습니다"))
 		ui_audio.play_event(UiAudio.ACTION_REJECTED)
 
 func save_operation() -> String:
 	if game_mode != GameMode.SUSTAINED:
-		return "저장은 지속 작전에서만 사용할 수 있습니다"
+		return tr("저장은 지속 작전에서만 사용할 수 있습니다")
 	var document := capture_save_document()
 	var prepared := SessionSnapshot.prepare(document.payload, scenario)
 	last_persistence_repairs.assign(prepared.repairs)
@@ -597,7 +597,7 @@ func save_operation() -> String:
 func load_operation() -> String:
 	last_persistence_repairs.clear()
 	if game_mode != GameMode.SUSTAINED:
-		return "불러오기는 지속 작전에서만 사용할 수 있습니다"
+		return tr("불러오기는 지속 작전에서만 사용할 수 있습니다")
 	var result := SaveStore.read(save_path)
 	var error: String = result.error
 	if error.is_empty():

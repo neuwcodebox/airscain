@@ -117,7 +117,7 @@ func _process(delta: float) -> void:
 	elif can_hover:
 		hovered_track = track_at_screen(mouse)
 		if hovered_track != null:
-			_show_pointer_hint("클릭: 항적 정보", mouse)
+			_show_pointer_hint(tr("클릭: 항적 정보"), mouse)
 	queue_redraw()
 
 func _show_pointer_hint(message: String, mouse: Vector2) -> void:
@@ -128,26 +128,26 @@ func _show_pointer_hint(message: String, mouse: Vector2) -> void:
 	_position_pointer_hint(mouse)
 
 func _show_asset_hint(unit: DefenseUnit, mouse: Vector2) -> void:
-	pointer_label.text = unit.definition.display_name
+	pointer_label.text = tr(unit.definition.display_name)
 	hint_icon.texture = unit.definition.identity_icon
 	hint_icon.show()
-	var statuses := asset_hint_statuses(unit)
-	hint_separator.visible = not statuses.is_empty()
-	hint_details.visible = not statuses.is_empty()
+	var entries := asset_hint_status_entries(unit)
+	hint_separator.visible = not entries.is_empty()
+	hint_details.visible = not entries.is_empty()
 	for index: int in hint_rows.size():
 		var row := hint_rows[index]
-		row.visible = index < statuses.size()
+		row.visible = index < entries.size()
 		if row.visible:
-			row.text = statuses[index]
-			row.add_theme_color_override("font_color", _hint_status_color(statuses[index]))
+			row.text = String(entries[index].text)
+			row.add_theme_color_override("font_color", _hint_status_color(StringName(entries[index].kind)))
 	_position_pointer_hint(mouse)
 
-static func _hint_status_color(status: String) -> Color:
-	if status == "기능 정지" or status == "탄약 고갈":
+static func _hint_status_color(kind: StringName) -> Color:
+	if kind in [&"disabled", &"ammunition_empty"]:
 		return Color("ff9685")
-	if status in ["손상", "사선 차단", "일부 탄종 고갈", "재보급 대기"]:
+	if kind in [&"damaged", &"obstructed", &"ammunition_partial", &"resupply_waiting"]:
 		return Color("e8bd78")
-	if status == "재보급 중":
+	if kind == &"resupply_active":
 		return Color("85d5c7")
 	return Color("a7bdc8")
 
@@ -159,17 +159,27 @@ func _position_pointer_hint(mouse: Vector2) -> void:
 
 static func asset_hint_statuses(unit: DefenseUnit) -> Array[String]:
 	var lines: Array[String] = []
+	for entry: Dictionary in asset_hint_status_entries(unit):
+		lines.append(String(entry.text))
+	return lines
+
+static func asset_hint_status_entries(unit: DefenseUnit) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
 	if not unit.active:
-		lines.append("재배치 중" if unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() else "기능 정지")
+		var relocating := unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty()
+		entries.append({"kind": &"relocating" if relocating else &"disabled", "text": TranslationServer.translate("재배치 중") if relocating else TranslationServer.translate("기능 정지")})
 	elif unit.operational_ratio() < 0.75:
-		lines.append("손상")
-	for status: String in [unit.supply_status_text(), unit.obstruction_status_text()]:
-		if not status.is_empty():
-			lines.append(status)
+		entries.append({"kind": &"damaged", "text": TranslationServer.translate("손상")})
+	var supply_kind := unit.supply_status_kind()
+	if not supply_kind.is_empty():
+		entries.append({"kind": supply_kind, "text": unit.supply_status_text()})
+	var obstruction := unit.obstruction_status_text()
+	if not obstruction.is_empty():
+		entries.append({"kind": &"obstructed", "text": TranslationServer.translate(obstruction)})
 	var magazine := unit.reload_display_magazine() if unit.active else null
 	if magazine != null:
-		lines.append("재장전 · %.1f초" % magazine.reload_remaining)
-	return lines
+		entries.append({"kind": &"reloading", "text": TranslationServer.translate("재장전 · %.1f초") % magazine.reload_remaining})
+	return entries
 
 func _draw() -> void:
 	if camera == null:
@@ -223,7 +233,7 @@ func _draw_training_approach() -> void:
 	_draw_centered_text(training_approach_label_text(), label_position, Color(1.0, 0.82, 0.34), 16)
 
 func training_approach_label_text() -> String:
-	return training_approach_text
+	return tr(training_approach_text)
 
 func training_marker_screen_position() -> Vector2:
 	if camera == null:

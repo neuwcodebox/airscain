@@ -92,7 +92,7 @@ func release_engagement(track_id: int) -> void:
 		engagement_coordinator.release(track_id, runtime_id)
 
 func resource_status_text() -> String:
-	return "%s\n드론 대기 %d · 출격 %d · 충전 %d" % [operational_status_text(), available_drones, active_drones.size(), recharge_queue.size()]
+	return tr("%s\n드론 대기 %d · 출격 %d · 충전 %d") % [operational_status_text(), available_drones, active_drones.size(), recharge_queue.size()]
 
 func selection_status_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = [

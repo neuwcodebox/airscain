@@ -32,26 +32,26 @@ static func for_layout(layout: BattlefieldLayoutDefinition) -> BattlefieldChoice
 	var card := BattlefieldChoiceCard.new()
 	card.name = "Layout_%s" % String(layout.id)
 	card.layout_id = layout.id
-	card.title = layout.display_name
-	card.summary = layout.summary
+	card.title = TranslationServer.translate(layout.display_name)
+	card.summary = TranslationServer.translate(layout.summary)
 	card.preview = layout.preview
 	card.facts = [
-		PackedStringArray(["도시 지구", "%d곳" % layout.city_districts.size()]),
-		PackedStringArray(["최고층 건물", "%dm" % roundi(layout.maximum_building_height)]),
-		PackedStringArray(["추가 예산", "+%d" % layout.starting_budget_bonus if layout.starting_budget_bonus > 0 else "없음"]),
+		PackedStringArray([TranslationServer.translate("도시 지구"), TranslationServer.translate("%d곳") % layout.city_districts.size()]),
+		PackedStringArray([TranslationServer.translate("최고층 건물"), "%dm" % roundi(layout.maximum_building_height)]),
+		PackedStringArray([TranslationServer.translate("추가 예산"), "+%d" % layout.starting_budget_bonus if layout.starting_budget_bonus > 0 else TranslationServer.translate("없음")]),
 	]
 	return card
 
 static func random_choice(preview_texture: Texture2D, layout_count: int) -> BattlefieldChoiceCard:
 	var card := BattlefieldChoiceCard.new()
 	card.name = "RandomLayoutButton"
-	card.title = "랜덤"
-	card.summary = "%d가지 전장 중 하나를 무작위로 고르고 방향과 세부 지형도 새로 만듭니다." % layout_count
+	card.title = TranslationServer.translate("랜덤")
+	card.summary = TranslationServer.translate("%d가지 전장 중 하나를 무작위로 고르고 방향과 세부 지형도 새로 만듭니다.") % layout_count
 	card.preview = preview_texture
 	card.facts = [
-		PackedStringArray(["전장 종류", "%d종 중 하나" % layout_count]),
-		PackedStringArray(["지형 변형", "매번 새로"]),
-		PackedStringArray(["추가 예산", "전장별 적용"]),
+		PackedStringArray([TranslationServer.translate("전장 종류"), TranslationServer.translate("%d종 중 하나") % layout_count]),
+		PackedStringArray([TranslationServer.translate("지형 변형"), TranslationServer.translate("매번 새로")]),
+		PackedStringArray([TranslationServer.translate("추가 예산"), TranslationServer.translate("전장별 적용")]),
 	]
 	return card
 

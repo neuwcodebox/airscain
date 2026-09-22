@@ -10,7 +10,7 @@ func setup(color: Color, reason: String) -> void:
 	material.emission = color
 	$Flash.material_override = material
 	$Smoke.emitting = true
-	$Reason.text = reason
+	$Reason.text = tr(reason)
 
 func _process(delta: float) -> void:
 	elapsed += delta

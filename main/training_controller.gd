@@ -68,7 +68,7 @@ func defense_placed(unit: DefenseUnit) -> void:
 	elif step == Step.SUPPORT and unit.service_range() > 0.0:
 		var battery := _training_battery()
 		if battery == null or not unit.supports_position(battery.global_position):
-			hud.set_feedback("포대까지 녹색 지원선이 연결되는 범위 안에 지원기지를 배치하세요.")
+			hud.set_feedback(tr("포대까지 녹색 지원선이 연결되는 범위 안에 지원기지를 배치하세요."))
 			return
 		selection_clear_requested.emit()
 		_set_step(Step.WAIT_RESUPPLY)
@@ -132,7 +132,7 @@ func support_completed(kind: StringName, unit: DefenseUnit) -> void:
 		return
 	if (step == Step.WAIT_RESUPPLY and kind == &"resupply") or (step == Step.WAIT_REPAIR and kind == &"repair"):
 		support_lesson_completed = true
-		hud.set_training_lesson(int(step), LESSON_COUNT, "보급 완료" if kind == &"resupply" else "수리 완료", hud.training_description + "\n\n작업이 완료됐습니다. 확인했으면 계속을 누르세요.", true)
+		hud.set_training_lesson(int(step), LESSON_COUNT, "보급 완료" if kind == &"resupply" else "수리 완료", hud.training_body_source, true, "작업이 완료됐습니다. 확인했으면 계속을 누르세요.")
 
 func city_restored() -> void:
 	if step == Step.CITY_RESTORE:

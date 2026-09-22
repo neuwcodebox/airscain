@@ -13,17 +13,31 @@ const CARD_REVEAL_SECONDS := 0.24
 
 var _last_layout_id: StringName = &""
 var _cards_by_layout_id: Dictionary[StringName, BattlefieldChoiceCard] = {}
+var _layouts: Array[BattlefieldLayoutDefinition] = []
+var _random_preview: Texture2D
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and is_node_ready() and not _layouts.is_empty():
+		_rebuild_cards()
 
 func configure(layouts: Array[BattlefieldLayoutDefinition], random_preview: Texture2D) -> void:
-	if not _cards_by_layout_id.is_empty():
-		return
-	var cards: Array[BattlefieldChoiceCard] = [BattlefieldChoiceCard.random_choice(random_preview, layouts.size())]
-	for layout: BattlefieldLayoutDefinition in layouts:
+	_layouts = layouts
+	_random_preview = random_preview
+	_rebuild_cards()
+
+func _rebuild_cards() -> void:
+	for child: Node in choice_list.get_children():
+		child.free()
+	_cards_by_layout_id.clear()
+	var cards: Array[BattlefieldChoiceCard] = [BattlefieldChoiceCard.random_choice(_random_preview, _layouts.size())]
+	for layout: BattlefieldLayoutDefinition in _layouts:
 		cards.append(BattlefieldChoiceCard.for_layout(layout))
 	for card: BattlefieldChoiceCard in cards:
 		card.pressed.connect(_select_layout.bind(card.layout_id))
 		choice_list.add_child(card)
 		_cards_by_layout_id[card.layout_id] = card
+	if visible:
+		card_for_layout(_last_layout_id).grab_focus.call_deferred()
 
 func present(mode_name: String) -> void:
 	mode_label.text = mode_name

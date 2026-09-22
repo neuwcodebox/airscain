@@ -35,6 +35,13 @@ var pending_game_mode: AirscainMain.GameMode = AirscainMain.GameMode.SUSTAINED
 @onready var build_version_label: Label = %BuildVersionLabel
 @onready var ui_audio: UiAudio = $UiAudio
 
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_TRANSLATION_CHANGED or not is_node_ready():
+		return
+	var focused := get_viewport().gui_get_focus_owner() as MenuListButton
+	if focused != null:
+		_show_menu_description(focused)
+
 func _enter_tree() -> void:
 	apply_global_font()
 
@@ -73,7 +80,7 @@ static func quit_controls_available(is_web: bool) -> bool:
 	return not is_web
 
 func _show_menu_description(button: MenuListButton) -> void:
-	menu_description_label.text = button.description
+	menu_description_label.text = tr(button.description)
 
 ## Staggers the title and entries in, then selects the first available entry for keyboard play.
 func _reveal_main_menu() -> void:
@@ -105,7 +112,7 @@ func _start_combat_vfx_warmup() -> void:
 	var warmup := CombatVfxWarmup.new()
 	warmup.progress_changed.connect(func(fraction: float) -> void:
 		loading_bar.value = fraction
-		loading_label.text = "로딩 중  %d%%" % roundi(fraction * 100.0))
+		loading_label.text = tr("로딩 중  %d%%") % roundi(fraction * 100.0))
 	warmup.completed.connect(_on_combat_vfx_warmup_completed)
 	add_child(warmup)
 
@@ -206,7 +213,7 @@ func _on_sandbox_pressed() -> void:
 func _open_battlefield_selection(mode: AirscainMain.GameMode) -> void:
 	pending_game_mode = mode
 	main_menu_panel.hide()
-	battlefield_selection.present("자유 모드" if mode == AirscainMain.GameMode.SANDBOX else "새 게임")
+	battlefield_selection.present(tr("자유 모드") if mode == AirscainMain.GameMode.SANDBOX else tr("새 게임"))
 
 func _on_battlefield_choice_pressed(layout_id: StringName) -> void:
 	main_menu_panel.show()

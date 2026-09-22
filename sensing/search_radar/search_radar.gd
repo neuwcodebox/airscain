@@ -82,7 +82,7 @@ func altitude_in_envelope(target_position: Vector3) -> bool:
 	return altitude >= _definition.minimum_detection_altitude and altitude <= _definition.maximum_detection_altitude
 
 func resource_status_text() -> String:
-	return "%s\n감시 고도 %d–%dm · 탐지거리 %dm\n동시 추적 %d/%d" % [super.resource_status_text(), roundi(_definition.minimum_detection_altitude), roundi(_definition.maximum_detection_altitude), roundi(_definition.detection_range), current_tracking_count(), _definition.tracking_capacity]
+	return tr("%s\n감시 고도 %d–%dm · 탐지거리 %dm\n동시 추적 %d/%d") % [super.resource_status_text(), roundi(_definition.minimum_detection_altitude), roundi(_definition.maximum_detection_altitude), roundi(_definition.detection_range), current_tracking_count(), _definition.tracking_capacity]
 
 func selection_status_rows() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = [{"label": "동시 추적", "value": "%d / %d" % [current_tracking_count(), _definition.tracking_capacity], "warning": active and saturated}]

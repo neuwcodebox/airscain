@@ -4,6 +4,7 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	_apply_requested_locale()
 	var app := load("res://main/app.tscn").instantiate() as AirscainApp
 	root.add_child(app)
 	while not app.combat_vfx_warmup_completed:
@@ -40,3 +41,8 @@ func run() -> void:
 	root.get_texture().get_image().save_png("/tmp/airscain_settings_ingame.png")
 	print("SETTINGS_CAPTURE_OK")
 	quit()
+
+func _apply_requested_locale() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--locale="):
+			PlayerSettings.instance().set_value("language", argument.trim_prefix("--locale="))

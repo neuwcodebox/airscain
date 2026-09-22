@@ -12,6 +12,7 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	_apply_requested_locale()
 	app = APP_SCENE.instantiate() as AirscainApp
 	root.add_child(app)
 	while not app.combat_vfx_warmup_completed:
@@ -49,6 +50,11 @@ func run() -> void:
 	await _save_capture("/tmp/airscain_hud_game_over.png")
 	print("HUD_VISUAL_CAPTURE_OK tracks=%d" % tracks.size())
 	quit(0)
+
+func _apply_requested_locale() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--locale="):
+			PlayerSettings.instance().set_value("language", argument.trim_prefix("--locale="))
 
 func _place_near_city(definition: DefenseDefinition, slot: int) -> DefenseUnit:
 	var angle := 0.6 + slot * 0.9

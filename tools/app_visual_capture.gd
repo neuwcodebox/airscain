@@ -7,6 +7,7 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	_apply_requested_locale()
 	var app: Node = APP_SCENE.instantiate()
 	root.add_child(app)
 	var backdrop := (app as AirscainApp).main_menu.get_node("Background")
@@ -33,6 +34,16 @@ func run() -> void:
 	for index: int in 10:
 		await process_frame
 	_save_capture("/tmp/airscain_main_menu.png")
+	if OS.get_cmdline_user_args().has("--training-only"):
+		(app as AirscainApp).call("_on_training_pressed")
+		while not (app as AirscainApp).gameplay.combat_effect_pool.prepared:
+			await process_frame
+		for index: int in 20:
+			await process_frame
+		_save_capture("/tmp/airscain_training.png")
+		print("TRAINING_CAPTURE_OK")
+		quit(0)
+		return
 	((app as AirscainApp).main_menu.get_node("Panel/VBox/SustainedButton") as Button).pressed.emit()
 	(app as AirscainApp).battlefield_selection.card_for_layout(&"valley_corridor").grab_focus()
 	await create_timer(0.6).timeout
@@ -68,3 +79,8 @@ func _save_capture(path: String) -> void:
 	if error != OK:
 		push_error("Could not save app capture: %s" % error_string(error))
 		quit(1)
+
+func _apply_requested_locale() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--locale="):
+			PlayerSettings.instance().set_value("language", argument.trim_prefix("--locale="))

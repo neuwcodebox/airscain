@@ -24,7 +24,7 @@ func power_capacity() -> float:
 	return _definition.power_capacity * operational_efficiency()
 
 func resource_status_text() -> String:
-	var status := "%s\n지원 %.1f · 동시 %d · 전력 %.1f" % [operational_status_text(), support_capacity(), support_slots(), power_capacity()]
+	var status := tr("%s\n지원 %.1f · 동시 %d · 전력 %.1f") % [operational_status_text(), support_capacity(), support_slots(), power_capacity()]
 	if support_manager != null and not support_manager.task_status(self).is_empty():
 		status += " · %s" % support_manager.task_status(self)
 	return status

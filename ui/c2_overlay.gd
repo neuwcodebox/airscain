@@ -124,7 +124,7 @@ func _rebuild() -> void:
 func _rebuild_range() -> void:
 	var center := Vector3.ZERO
 	var radius := 0.0
-	var title := "지휘 연결"
+	var title := tr("지휘 연결")
 	operation_material.albedo_color = SUPPORT_COLOR
 	operation_ring.hide()
 	if placement_active:
@@ -137,7 +137,7 @@ func _rebuild_range() -> void:
 		if selected_asset.service_range() > 0.0:
 			radius = selected_asset.service_range()
 			range_material.albedo_color = SUPPORT_COLOR
-			title = "지원 범위"
+			title = tr("지원 범위")
 		else:
 			radius = selected_asset.c2_link_range()
 			range_material.albedo_color = C2_COLOR

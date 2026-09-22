@@ -79,8 +79,8 @@ func _fire_pulse(track: PlayerTrack) -> int:
 	return affected
 
 func resource_status_text() -> String:
-	var status := "%s\nHPM 충전 %d%%" % [operational_status_text(), roundi(energy_state.energy / energy_state.capacity * 100.0)]
-	status += "\n전력 수요 %d" % roundi(_definition.power_demand)
+	var status := tr("%s\nHPM 충전 %d%%") % [operational_status_text(), roundi(energy_state.energy / energy_state.capacity * 100.0)]
+	status += tr("\n전력 수요 %d") % roundi(_definition.power_demand)
 	if support_manager != null and not support_manager.task_status(self).is_empty():
 		status += "\n%s" % support_manager.task_status(self)
 	if relocation_manager != null and not relocation_manager.task_status(self).is_empty():

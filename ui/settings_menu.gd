@@ -13,6 +13,13 @@ var close_button: Button
 var tabs: TabContainer
 var previous_focus: Control
 
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_TRANSLATION_CHANGED or not is_node_ready():
+		return
+	for index: int in mini(tabs.get_tab_count(), 3):
+		tabs.set_tab_title(index, tr(["사운드", "조작", "화면"][index]))
+	refresh()
+
 func _ready() -> void:
 	layer = 110
 	var dim := ColorRect.new()
@@ -126,7 +133,7 @@ func _refresh_render_readout() -> void:
 	var output := get_tree().root.size
 	var scale := PlayerSettings.render_scale_for(output, int(PlayerSettings.instance().values.render_resolution))
 	var rendered := Vector2i(Vector2(output) * scale)
-	render_readout.text = "3D 렌더링 %d × %d · UI %d × %d" % [rendered.x, rendered.y, output.x, output.y]
+	render_readout.text = tr("3D 렌더링 %d × %d · UI %d × %d") % [rendered.x, rendered.y, output.x, output.y]
 
 func _option(parent: VBoxContainer, key: String, caption: String, items: Array[String]) -> void:
 	var row := HBoxContainer.new()
@@ -150,9 +157,9 @@ func _refresh_display_options() -> void:
 		options[key].select(int(PlayerSettings.instance().values[key]))
 	var resolution := options["resolution"]
 	resolution.disabled = OS.has_feature("web") or fullscreen.button_pressed
-	resolution.tooltip_text = "브라우저 창 크기에 맞춤" if OS.has_feature("web") else "전체 화면에서는 모니터 해상도를 사용합니다" if fullscreen.button_pressed else ""
+	resolution.tooltip_text = tr("브라우저 창 크기에 맞춤") if OS.has_feature("web") else tr("전체 화면에서는 모니터 해상도를 사용합니다") if fullscreen.button_pressed else ""
 	if OS.has_feature("web"):
-		resolution.set_item_text(resolution.selected, "브라우저 크기에 맞춤")
+		resolution.set_item_text(resolution.selected, tr("브라우저 크기에 맞춤"))
 
 func _tab(tabs: TabContainer, caption: String) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
@@ -224,7 +231,7 @@ func close() -> void:
 	if DisplayServer.get_name() != "headless":
 		PlayerSettings.instance().values.fullscreen = DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
 	if PlayerSettings.instance().save_preferences() != OK:
-		feedback.text = "설정을 저장하지 못했습니다"
+		feedback.text = tr("설정을 저장하지 못했습니다")
 		return
 	visible = false
 	if is_instance_valid(previous_focus) and previous_focus.is_visible_in_tree():

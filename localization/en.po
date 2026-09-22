@@ -30,3 +30,1293 @@ msgstr "Restore Defaults"
 
 msgid "닫기"
 msgstr "Close"
+
+# Main menu and application shell
+msgid "실시간 방공 전략 게임"
+msgstr "REAL-TIME AIR DEFENSE STRATEGY"
+
+msgid "새 게임"
+msgstr "New Operation"
+
+msgid "이어하기"
+msgstr "Continue"
+
+msgid "훈련"
+msgstr "Training"
+
+msgid "자유 모드"
+msgstr "Sandbox"
+
+msgid "종료"
+msgstr "Quit"
+
+msgid "방공 자산을 배치하고 도시를 방어합니다.\n시간이 지날수록 공격 규모가 커집니다."
+msgstr "Deploy air-defense assets and protect the city.\nEnemy attacks grow over time."
+
+msgid "저장한 게임을 불러옵니다."
+msgstr "Load a saved operation."
+
+msgid "자산 배치, 탐지, 교전, 보급 등 기본 조작을 익힙니다."
+msgstr "Learn deployment, detection, engagement, and logistics."
+
+msgid "방공 자산을 자유롭게 배치하고 위협을 직접 투입합니다."
+msgstr "Deploy assets freely and launch threats manually."
+
+msgid "사운드, 조작 감도와 화면 옵션을 조정합니다."
+msgstr "Adjust audio, control sensitivity, and display options."
+
+msgid "게임을 종료합니다."
+msgstr "Exit the game."
+
+msgid "전장 선택"
+msgstr "Select Battlefield"
+
+msgid "작전을 펼칠 전장의 큰 지형을 고르세요. 지형 방향과 해안선, 도시 배치는 작전마다 새로 만들어집니다."
+msgstr "Choose the battlefield terrain. Its orientation, coastline, and city layout are regenerated for every operation."
+
+msgid "뒤로"
+msgstr "Back"
+
+msgid "메인 메뉴로 돌아갑니다."
+msgstr "Return to the main menu."
+
+msgid "←  →  전장 선택      Enter  작전 시작      Esc  뒤로"
+msgstr "←  →  SELECT      Enter  START OPERATION      Esc  BACK"
+
+msgid "로딩 중"
+msgstr "Loading"
+
+msgid "로딩 중  %d%%"
+msgstr "Loading  %d%%"
+
+msgid "일시정지"
+msgstr "Paused"
+
+msgid "계속하기"
+msgstr "Resume"
+
+msgid "저장"
+msgstr "Save"
+
+msgid "불러오기"
+msgstr "Load"
+
+msgid "메인 메뉴"
+msgstr "Main Menu"
+
+# Settings
+msgid "전체"
+msgstr "Master"
+
+msgid "미사일"
+msgstr "Missiles"
+
+msgid "기관포"
+msgstr "Guns"
+
+msgid "폭발"
+msgstr "Explosions"
+
+msgid "경보 · 접촉"
+msgstr "Alerts · Contacts"
+
+msgid "카메라 이동"
+msgstr "Camera Pan"
+
+msgid "카메라 회전"
+msgstr "Camera Rotation"
+
+msgid "카메라 줌"
+msgstr "Camera Zoom"
+
+msgid "WASD  이동\n가운데 버튼 드래그  수평·수직 회전\nQ / E  수평 회전\n휠  확대·축소\nBackspace  위치·줌·각도 초기화\n우클릭  배치 취소·선택 해제"
+msgstr "WASD  Pan\nMiddle-button drag  Orbit\nQ / E  Rotate horizontally\nWheel  Zoom\nBackspace  Reset view\nRight click  Cancel deployment or clear selection"
+
+msgid "창 해상도"
+msgstr "Window Resolution"
+
+msgid "자동 · 화면 픽셀에 맞춤"
+msgstr "Automatic · Match display pixels"
+
+msgid "렌더링 해상도"
+msgstr "Render Resolution"
+
+msgid "안티앨리어싱"
+msgstr "Antialiasing"
+
+msgid "끄기"
+msgstr "Off"
+
+msgid "최대 프레임"
+msgstr "Frame Limit"
+
+msgid "제한 없음"
+msgstr "Unlimited"
+
+msgid "3D 렌더링 %d × %d · UI %d × %d"
+msgstr "3D render %d × %d · UI %d × %d"
+
+msgid "브라우저 창 크기에 맞춤"
+msgstr "Matches the browser window"
+
+msgid "전체 화면에서는 모니터 해상도를 사용합니다"
+msgstr "Fullscreen uses the monitor resolution"
+
+msgid "브라우저 크기에 맞춤"
+msgstr "Match browser size"
+
+msgid "설정을 저장하지 못했습니다"
+msgstr "Could not save settings"
+
+# Battlefield selection
+msgid "랜덤"
+msgstr "Random"
+
+msgid "%d가지 전장 중 하나를 무작위로 고르고 방향과 세부 지형도 새로 만듭니다."
+msgstr "Randomly selects one of %d battlefields and regenerates its orientation and terrain details."
+
+msgid "도시 지구"
+msgstr "City Districts"
+
+msgid "%d곳"
+msgstr "%d"
+
+msgid "최고층 건물"
+msgstr "Tallest Building"
+
+msgid "추가 예산"
+msgstr "Budget Bonus"
+
+msgid "없음"
+msgstr "None"
+
+msgid "전장 종류"
+msgstr "Battlefield"
+
+msgid "%d종 중 하나"
+msgstr "One of %d"
+
+msgid "지형 변형"
+msgstr "Terrain Variation"
+
+msgid "매번 새로"
+msgstr "Regenerated"
+
+msgid "전장별 적용"
+msgstr "Varies"
+
+msgid "산악 항만도시"
+msgstr "Mountain Harbor"
+
+msgid "깊은 만을 산지가 감싸고, 만 안쪽에 도심과 항만 공업 지구가 자리합니다. 능선과 고층 빌딩이 시야를 가립니다."
+msgstr "Mountains surround a deep bay with downtown and harbor industry inland. Ridges and high-rises obstruct sensors."
+
+msgid "평탄한 섬 도시"
+msgstr "Flat Island City"
+
+msgid "바다에 둘러싸인 평탄한 섬 중앙에 하나의 도심이 밀집해 있습니다. 사방이 트여 있어 기본에 충실한 전장입니다."
+msgstr "A dense city occupies the center of a flat island. Open approaches on every side make this a balanced battlefield."
+
+msgid "계곡 도시 회랑"
+msgstr "Valley Corridor"
+
+msgid "양쪽 능선 사이의 좁은 회랑을 따라 세 지구가 남북으로 이어집니다. 높은 산이 저고도 접근을 가립니다."
+msgstr "Three districts stretch through a narrow corridor between two ridges. High mountains conceal low-altitude approaches."
+
+msgid "광역 해안 평야"
+msgstr "Coastal Plain"
+
+msgid "완만한 평야가 한쪽 해안까지 넓게 열려 있고 세 지구가 흩어져 있습니다. 지켜야 할 범위가 넓습니다."
+msgstr "A broad plain opens onto the coast with three dispersed districts. The defense perimeter is extensive."
+
+# HUD and tactical information
+msgid "현재 운용 예산"
+msgstr "Current operating budget"
+
+msgid "가동 중 에너지 무장 수요 / 전체 지원기지 공급"
+msgstr "Active energy-weapon demand / total support-base supply"
+
+msgid "방공 자산  %s"
+msgstr "DEFENSE  %s"
+
+msgid "도시 관리  %s"
+msgstr "CITY  %s"
+
+msgid "위협 투입  %s"
+msgstr "THREATS  %s"
+
+msgid "위협 단계  %d"
+msgstr "THREAT  %d"
+
+msgid "▲ 적성 항적 %d"
+msgstr "▲ HOSTILE TRACKS %d"
+
+msgid "교전 %d"
+msgstr "ENGAGED %d"
+
+msgid "전력 수요  %d / %d\n배치 후  %d / %d"
+msgstr "POWER DEMAND  %d / %d\nAFTER DEPLOYMENT  %d / %d"
+
+msgid "전력  %d / %d"
+msgstr "POWER  %d / %d"
+
+msgid "예산  무제한"
+msgstr "BUDGET  ∞"
+
+msgid "예산  $%d"
+msgstr "BUDGET  $%d"
+
+msgid "예산 무제한"
+msgstr "Unlimited Budget"
+
+msgid "예산 $%d"
+msgstr "Budget $%d"
+
+msgid "생존  %02d:%02d"
+msgstr "TIME  %02d:%02d"
+
+msgid "%d단계 해금"
+msgstr "Unlocks at %d"
+
+msgid "무료"
+msgstr "Free"
+
+msgid "도시  %d / %d"
+msgstr "CITY  %d / %d"
+
+msgid "피해 복구"
+msgstr "Restore Damage"
+
+msgid "+%d    무료"
+msgstr "+%d    FREE"
+
+msgid "재보급 요청"
+msgstr "Request Resupply"
+
+msgid "재보급 요청  $%d"
+msgstr "Request Resupply  $%d"
+
+msgid "수리 요청"
+msgstr "Request Repair"
+
+msgid "수리 요청  $%d"
+msgstr "Request Repair  $%d"
+
+msgid "재배치 중"
+msgstr "Relocating"
+
+msgid "재배치  기본 %d초"
+msgstr "Relocate  Base %ds"
+
+msgid "방공 자산"
+msgstr "Air-Defense Asset"
+
+msgid "항적 정보"
+msgstr "Track Information"
+
+msgid "교전 검토"
+msgstr "Engagement Review"
+
+msgid "자산과 항적"
+msgstr "Asset and Track"
+
+msgid "선택됨"
+msgstr "Selected"
+
+msgid "식별 및 추적 정보"
+msgstr "IDENTIFICATION AND TRACKING"
+
+msgid "직접 연결 %d"
+msgstr "%d Direct Links"
+
+msgid "연결됨"
+msgstr "Connected"
+
+msgid "범위 밖"
+msgstr "Out of Range"
+
+msgid "해당 없음"
+msgstr "N/A"
+
+msgid "지원 가능 %d"
+msgstr "%d Supported"
+
+msgid "내구도"
+msgstr "Integrity"
+
+msgid "지휘통제"
+msgstr "Command & Control"
+
+msgid "지역 지원"
+msgstr "Local Support"
+
+msgid "무력화"
+msgstr "Neutralized"
+
+msgid "상태"
+msgstr "Status"
+
+msgid "추적 품질"
+msgstr "Track Quality"
+
+msgid "고도"
+msgstr "Altitude"
+
+msgid "속도"
+msgstr "Speed"
+
+msgid "기능 정지"
+msgstr "Disabled"
+
+msgid "성능 저하"
+msgstr "Degraded"
+
+msgid "정상"
+msgstr "Operational"
+
+msgid "조류"
+msgstr "Bird"
+
+msgid "무인기"
+msgstr "UAV"
+
+msgid "소형 무인기"
+msgstr "Small UAV"
+
+msgid "순항미사일"
+msgstr "Cruise Missile"
+
+msgid "탄도미사일"
+msgstr "Ballistic Missile"
+
+msgid "로켓"
+msgstr "Rocket"
+
+msgid "고속 항공기"
+msgstr "High-Speed Aircraft"
+
+msgid "항공 접촉"
+msgstr "Air Contact"
+
+msgid "미분류 표적"
+msgstr "Unclassified Target"
+
+msgid "잠정"
+msgstr "Tentative"
+
+msgid "확인"
+msgstr "Confirmed"
+
+msgid "관측 단절"
+msgstr "Coasting"
+
+msgid "소실"
+msgstr "Lost"
+
+msgid "미확인"
+msgstr "Unknown"
+
+msgid "적성"
+msgstr "Hostile"
+
+msgid "중립"
+msgstr "Neutral"
+
+msgid "아군"
+msgstr "Friendly"
+
+msgid "감시·추적"
+msgstr "SURVEILLANCE · TRACKING"
+
+msgid "지휘·지원"
+msgstr "COMMAND · SUPPORT"
+
+msgid "미사일 방어"
+msgstr "MISSILE DEFENSE"
+
+msgid "근접·특수 요격"
+msgstr "POINT · SPECIAL DEFENSE"
+
+msgid "전술 표시"
+msgstr "Overlay"
+
+msgid "탐지 범위"
+msgstr "Sensor Range"
+
+msgid "사거리"
+msgstr "Weapon Range"
+
+msgid "교전 범위"
+msgstr "Engagement Range"
+
+msgid "지원 범위"
+msgstr "Support Range"
+
+msgid "전자전"
+msgstr "Electronic Warfare"
+
+msgid "전자전 범위"
+msgstr "Electronic Warfare Range"
+
+msgid "작동 범위"
+msgstr "Operating Range"
+
+msgid "지휘 연결"
+msgstr "Command Link"
+
+msgid "고도 프로파일"
+msgstr "ALTITUDE PROFILE"
+
+msgid "고층"
+msgstr "HIGH"
+
+msgid "중층"
+msgstr "MEDIUM"
+
+msgid "저층"
+msgstr "LOW"
+
+msgid "요격체"
+msgstr "INTERCEPTOR"
+
+msgid "항적"
+msgstr "TRACK"
+
+msgid "훈련 %d/%d: %s"
+msgstr "TRAINING %d/%d: %s"
+
+msgid "작전 종료"
+msgstr "OPERATION ENDED"
+
+msgid "도시 기능 상실"
+msgstr "CITY FUNCTION LOST"
+
+msgid "생존 시간"
+msgstr "SURVIVAL TIME"
+
+msgid "작전 결과"
+msgstr "OPERATION RESULT"
+
+msgid "교전 성과"
+msgstr "COMBAT PERFORMANCE"
+
+msgid "방공망"
+msgstr "DEFENSE NETWORK"
+
+msgid "같은 전장 재시작"
+msgstr "Restart Same Battlefield"
+
+msgid "새 전장 재시작"
+msgstr "Restart New Battlefield"
+
+msgid "도시 기반시설"
+msgstr "CITY INFRASTRUCTURE"
+
+msgid "예산을 사용해 도시 상태를 즉시 복구합니다"
+msgstr "Spend budget to restore city function immediately"
+
+msgid "선택 위협 투입"
+msgstr "Launch Selected Threat"
+
+msgid "방어 시작"
+msgstr "Begin Defense"
+
+msgid "훈련 안내"
+msgstr "TRAINING GUIDANCE"
+
+msgid "계속"
+msgstr "Continue"
+
+msgid "운용 상태"
+msgstr "OPERATING STATUS"
+
+msgid "분류 확신"
+msgstr "Classification Confidence"
+
+msgid "소속 확신"
+msgstr "Affiliation Confidence"
+
+msgid "위치 오차"
+msgstr "Position Error"
+
+msgid "기여 센서"
+msgstr "Contributing Sensors"
+
+msgid "교전 자산"
+msgstr "Engaging Assets"
+
+msgid "센서 기여"
+msgstr "Sensor Contribution"
+
+msgid "교전 중"
+msgstr "Engaging"
+
+msgid "예상 경로"
+msgstr "Predicted Path"
+
+msgid "선택 자산"
+msgstr "Selected Asset"
+
+msgid "선택 항적"
+msgstr "Selected Track"
+
+msgid "적성 무인기"
+msgstr "Hostile UAV"
+
+msgid "교전 설정"
+msgstr "ENGAGEMENT SETTINGS"
+
+msgid "교전 대상"
+msgstr "Target Classes"
+
+msgid "사격중지"
+msgstr "Hold Fire"
+
+msgid "미확인 항적 교전 허용"
+msgstr "Engage Unknown Tracks"
+
+msgid "탄종"
+msgstr "Munition"
+
+msgid "자동"
+msgstr "Automatic"
+
+msgid "자동 재보급"
+msgstr "Automatic Resupply"
+
+msgid "명령"
+msgstr "COMMANDS"
+
+msgid "재배치 위치 지정"
+msgstr "Set Relocation Position"
+
+msgid "위치로 이동"
+msgstr "Focus Position"
+
+msgid "무력화한 위협  %d\n배치한 포대  %d\n최고 위협 단계  %d"
+msgstr "THREATS NEUTRALIZED  %d\nASSETS DEPLOYED  %d\nHIGHEST THREAT LEVEL  %d"
+
+msgid "방어 구간  %d\n최고 강도  %d\n도시 피해  %d"
+msgstr "DEFENSE PHASES  %d\nPEAK INTENSITY  %d\nCITY DAMAGE  %d"
+
+msgid "무력화  %d\n무기 운용  %d회\n\n주요 격추 · 상위 3종\n%s"
+msgstr "NEUTRALIZED  %d\nWEAPONS FIRED  %d\n\nTOP 3 ELIMINATIONS\n%s"
+
+msgid "가동 자산  %d / %d\n자산 피해  %d\n\n방공망  $%d\n지원  $%d\n회수 보상  $%d"
+msgstr "OPERATIONAL ASSETS  %d / %d\nASSET DAMAGE  %d\n\nDEFENSE NETWORK  $%d\nSUPPORT  $%d\nRECOVERY REWARD  $%d"
+
+msgid "\n그 외 %d종"
+msgstr "\n%d OTHER TYPES"
+
+msgid "탄약 고갈 %d"
+msgstr "AMMO DEPLETED %d"
+
+msgid "기능 정지 %d"
+msgstr "DISABLED %d"
+
+msgid "도시 기능 위험"
+msgstr "CITY FUNCTION CRITICAL"
+
+# Asset status and commands
+msgid "손상"
+msgstr "Damaged"
+
+msgid "상태 정상 · 내구도 %d%%"
+msgstr "Status Operational · Integrity %d%%"
+
+msgid "상태 성능저하 · 내구도 %d%%"
+msgstr "Status Degraded · Integrity %d%%"
+
+msgid "상태 기능정지 · 내구도 %d%%"
+msgstr "Status Disabled · Integrity %d%%"
+
+msgid "재보급 진행"
+msgstr "Resupply Active"
+
+msgid "재보급 대기"
+msgstr "Awaiting Resupply"
+
+msgid "수리 진행"
+msgstr "Repair Active"
+
+msgid "수리 대기"
+msgstr "Awaiting Repair"
+
+msgid "재보급 중"
+msgstr "Resupplying"
+
+msgid "탄약 고갈"
+msgstr "Ammunition Depleted"
+
+msgid "일부 탄종 고갈"
+msgstr "Munition Type Depleted"
+
+msgid "%s · %.1f초"
+msgstr "%s · %.1fs"
+
+msgid "재배치 %.1f초"
+msgstr "Relocating %.1fs"
+
+msgid "%s\n탄약 %d + %d · 재장전 %.1f초"
+msgstr "%s\nAmmo %d + %d · Reloading %.1fs"
+
+msgid "%s\n탄약 고갈"
+msgstr "%s\nAmmunition Depleted"
+
+msgid "%s\n탄약 %d + %d"
+msgstr "%s\nAmmo %d + %d"
+
+msgid "고갈"
+msgstr "Depleted"
+
+msgid "표적에 맞춰 선택 · 마지막 고가탄은 특화 위협용으로 보존\n수동 탄종 선택 시 보존 해제"
+msgstr "Selects for the target · Reserves the final premium round for specialized threats\nManual selection overrides the reserve"
+
+msgid "교전 고도 %d–%dm"
+msgstr "Engagement Altitude %d–%dm"
+
+msgid "탄종 %s"
+msgstr "Munition %s"
+
+msgid " · 재장전 %.1f초"
+msgstr " · Reloading %.1fs"
+
+msgid "탄약 %s %d + %d%s"
+msgstr "Ammo %s %d + %d%s"
+
+msgid "우선 위협용"
+msgstr "Reserved for Priority Threats"
+
+msgid "%s\n감시 고도 %d–%dm · 탐지거리 %dm\n동시 추적 %d/%d"
+msgstr "%s\nCoverage Altitude %d–%dm · Detection Range %dm\nConcurrent Tracks %d/%d"
+
+msgid "%s\n지원 %.1f · 동시 %d · 전력 %.1f"
+msgstr "%s\nSupport %.1f · Concurrent %d · Power %.1f"
+
+msgid "과열"
+msgstr "Overheated"
+
+msgid "열 %d%%"
+msgstr "Heat %d%%"
+
+msgid "%s\n충전 %d%% · %s"
+msgstr "%s\nCharge %d%% · %s"
+
+msgid "\n전력 수요 %d"
+msgstr "\nPower Demand %d"
+
+msgid "%s\nHPM 충전 %d%%"
+msgstr "%s\nHPM Charge %d%%"
+
+msgid "%s\n드론 대기 %d · 출격 %d · 충전 %d"
+msgstr "%s\nDrones Ready %d · Active %d · Charging %d"
+
+msgid "클릭: 항적 정보"
+msgstr "Click: Track Information"
+
+msgid "재장전 · %.1f초"
+msgstr "Reloading · %.1fs"
+
+msgid "유도 상실"
+msgstr "GUIDANCE LOST"
+
+msgid "표적 소실"
+msgstr "TARGET LOST"
+
+msgid "요격 실패"
+msgstr "INTERCEPT FAILED"
+
+msgid "유도 이탈"
+msgstr "GUIDANCE DEPARTURE"
+
+msgid "지형 충돌"
+msgstr "TERRAIN IMPACT"
+
+msgid "표적 파괴 확인"
+msgstr "TARGET DESTROYED"
+
+msgid "지형 충돌 · 유도 상실 · 표적 소실 · 요격 실패"
+msgstr "TERRAIN IMPACT · GUIDANCE LOST · TARGET LOST · INTERCEPT FAILED"
+
+msgid "지형 충돌 · 유도 상실 · 표적 소실"
+msgstr "TERRAIN IMPACT · GUIDANCE LOST · TARGET LOST"
+
+msgid "%s\n%s · 클릭하여 %s"
+msgstr "%s\n%s · Click to %s"
+
+msgid "교전 허용"
+msgstr "ENGAGEMENT ALLOWED"
+
+msgid "교전 차단"
+msgstr "ENGAGEMENT BLOCKED"
+
+msgid "차단"
+msgstr "BLOCK"
+
+msgid "허용"
+msgstr "ALLOW"
+
+# Content names and descriptions
+msgid "지휘통제소"
+msgstr "Command Post"
+
+msgid "센서 항적을 연결된 방어 자산에 전달합니다.\n센서와 방어 자산 양쪽에 C2 연결이 필요합니다."
+msgstr "Relays sensor tracks to connected defense assets.\nBoth sensors and weapons require a C2 link."
+
+msgid "근접방어기관포"
+msgstr "Close-In Gun"
+
+msgid "접근한 소형 무인기와 순항 위협을 탄막으로 방어합니다.\n탄약 소진 후 통합 지원기지에서 재보급할 수 있습니다."
+msgstr "Engages nearby small UAVs and cruise threats with gunfire.\nA support base can replenish expended ammunition."
+
+msgid "고출력 레이저"
+msgstr "High-Energy Laser"
+
+msgid "단일 표적을 과열 전까지 지속 조사합니다.\n탄약은 없지만 통합 지원기지의 전력 용량을 사용합니다."
+msgstr "Continuously illuminates one target until overheating.\nUses support-base power capacity instead of ammunition."
+
+msgid "고출력 마이크로파"
+msgstr "High-Power Microwave"
+
+msgid "조준점 주변의 여러 전자 표적을 한 번에 무력화합니다.\n단독·분산 표적에는 비효율적이며 전력 수요가 매우 높습니다."
+msgstr "Disables multiple electronic targets around the aim point.\nInefficient against isolated targets and demands substantial power."
+
+msgid "요격드론 기지"
+msgstr "Interceptor Drone Base"
+
+msgid "느린 무인기를 방어선 외곽에서 추적해 제거합니다.\n드론은 복귀 후 재사용하지만 고속·포화 표적에는 부적합합니다."
+msgstr "Pursues slow UAVs beyond the defense perimeter.\nDrones return for reuse but are ill-suited to fast or saturated attacks."
+
+msgid "일반 요격탄"
+msgstr "Standard Interceptor"
+
+msgid "고속 요격탄"
+msgstr "High-Speed Interceptor"
+
+msgid "표준 요격탄"
+msgstr "Standard Interceptor"
+
+msgid "근접 요격탄"
+msgstr "Point-Defense Interceptor"
+
+msgid "항공기·순항미사일"
+msgstr "Aircraft · Cruise Missiles"
+
+msgid "탄도미사일·로켓·고속 항공기"
+msgstr "Ballistic Missiles · Rockets · High-Speed Aircraft"
+
+msgid "장거리 미사일 포대"
+msgstr "Long-Range Missile Battery"
+
+msgid "고고도 항공기와 탄도 표적을 장거리에서 요격합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."
+msgstr "Intercepts high-altitude aircraft and ballistic targets at long range.\nReceives sensor tracks through the C2 network."
+
+msgid "미사일 포대"
+msgstr "Missile Battery"
+
+msgid "중고도 항공 위협을 다수의 요격탄으로 방어합니다.\nC2 지휘 경로를 통해 센서 항적을 공유받습니다."
+msgstr "Defends against medium-altitude air threats with multiple interceptors.\nReceives sensor tracks through the C2 network."
+
+msgid "단거리 미사일 포대"
+msgstr "Short-Range Missile Battery"
+
+msgid "새어 들어온 저고도 표적에 한 발씩 빠르게 대응합니다.\n짧은 사거리와 4발 준비탄 때문에 포화 공격에는 취약합니다."
+msgstr "Rapidly engages leaking low-altitude targets one round at a time.\nIts short range and four ready rounds make it vulnerable to saturation."
+
+msgid "저·중고도 레이더"
+msgstr "Low/Medium-Altitude Radar"
+
+msgid "저고도와 중고도 항공 위협을 넓게 탐지합니다.\nC2 연결 시 탐지 항적을 방어 자산과 공유합니다."
+msgstr "Detects low- and medium-altitude air threats over a wide area.\nShares tracks with defense assets through C2."
+
+msgid "고고도 레이더"
+msgstr "High-Altitude Radar"
+
+msgid "고고도 항공기와 탄도 표적을 탐지합니다.\nC2 연결 시 탐지 항적을 방어 자산과 공유합니다."
+msgstr "Detects high-altitude aircraft and ballistic targets.\nShares tracks with defense assets through C2."
+
+msgid "통합 지원기지"
+msgstr "Integrated Support Base"
+
+msgid "근처 방공 자산을 재보급하고 수리합니다.\n에너지 무기에 전력을 공급합니다."
+msgstr "Resupplies and repairs nearby air-defense assets.\nProvides power capacity for energy weapons."
+
+msgid "도시"
+msgstr "City"
+
+msgid "조류 접촉"
+msgstr "Bird Contact"
+
+msgid "공대지 미사일"
+msgstr "Air-to-Ground Missile"
+
+msgid "레이더 타격 미사일"
+msgstr "Anti-Radar Missile"
+
+msgid "도시 자폭 UAV"
+msgstr "City-Strike UAV"
+
+msgid "방공무장 자폭 UAV"
+msgstr "Defense-Strike UAV"
+
+msgid "도시 타격 탄도미사일"
+msgstr "City-Strike Ballistic Missile"
+
+msgid "방공무장 타격 순항미사일"
+msgstr "Defense-Strike Cruise Missile"
+
+msgid "도시 타격 순항미사일"
+msgstr "City-Strike Cruise Missile"
+
+msgid "지원시설 타격 순항미사일"
+msgstr "Support-Strike Cruise Missile"
+
+msgid "기만 UAV"
+msgstr "Decoy UAV"
+
+msgid "전자전 UAV"
+msgstr "Electronic-Warfare UAV"
+
+msgid "방공무장 폭격 UAV"
+msgstr "Defense-Bombing UAV"
+
+msgid "지원시설 폭격 UAV"
+msgstr "Support-Bombing UAV"
+
+msgid "정찰 UAV"
+msgstr "Reconnaissance UAV"
+
+msgid "도시 타격 로켓"
+msgstr "City-Strike Rocket"
+
+msgid "방공무장 타격기"
+msgstr "Defense-Strike Aircraft"
+
+msgid "레이더 타격기"
+msgstr "Radar-Strike Aircraft"
+
+msgid "도시 타격기"
+msgstr "City-Strike Aircraft"
+
+msgid "레이더 포화 소형 UAV"
+msgstr "Radar-Saturation Small UAV"
+
+msgid "방공무장 자폭 소형 UAV"
+msgstr "Defense-Strike Small UAV"
+
+msgid "도시 자폭 소형 UAV"
+msgstr "City-Strike Small UAV"
+
+msgid "방공무장 포화 소형 UAV"
+msgstr "Weapon-Saturation Small UAV"
+
+# Placement and player feedback
+msgid "우클릭 / Esc: 배치 취소"
+msgstr "Right Click / Esc: Cancel Deployment"
+
+msgid "우클릭 / Esc: 재배치 취소"
+msgstr "Right Click / Esc: Cancel Relocation"
+
+msgid "우클릭 / Esc: 위협 투입 취소"
+msgstr "Right Click / Esc: Cancel Threat Launch"
+
+msgid "배치 불가\n지도 위에서 위치를 선택하세요"
+msgstr "CANNOT DEPLOY\nSelect a position on the map"
+
+msgid "위협 투입 가능"
+msgstr "Threat Launch Available"
+
+msgid "배치 불가\n%s"
+msgstr "CANNOT DEPLOY\n%s"
+
+msgid "재배치 가능\n예상 소요 시간 %d초"
+msgstr "RELOCATION AVAILABLE\nEstimated Time %ds"
+
+msgid "재배치 시작"
+msgstr "Relocation Started"
+
+msgid "재배치할 수 없습니다"
+msgstr "Cannot relocate"
+
+msgid "배치했습니다. 같은 자산을 계속 배치할 수 있습니다."
+msgstr "Asset deployed. You can continue deploying the same asset."
+
+msgid "위협을 투입했습니다. 같은 위협을 계속 투입할 수 있습니다."
+msgstr "Threat launched. You can continue launching the same threat."
+
+msgid "예산이 부족합니다"
+msgstr "Insufficient budget"
+
+msgid "지도 경계 밖입니다"
+msgstr "Outside the battlefield"
+
+msgid "이 장비는 옥상에 배치할 수 없습니다"
+msgstr "This asset cannot be deployed on rooftops"
+
+msgid "옥상 공간이 부족합니다"
+msgstr "Insufficient rooftop space"
+
+msgid "보호 시설과 겹칩니다"
+msgstr "Overlaps protected infrastructure"
+
+msgid "건물과 겹칩니다"
+msgstr "Overlaps a building"
+
+msgid "바다에는 배치할 수 없습니다"
+msgstr "Cannot deploy at sea"
+
+msgid "지형 경사가 너무 가파릅니다"
+msgstr "Terrain slope is too steep"
+
+msgid "다른 방어 수단과 겹칩니다"
+msgstr "Overlaps another defense asset"
+
+msgid "배치 가능"
+msgstr "Deployment Available"
+
+msgid "게임이 종료되었습니다"
+msgstr "The operation has ended"
+
+msgid "잘못된 방어 수단입니다"
+msgstr "Invalid defense asset"
+
+msgid "위협 단계 %d에서 해금됩니다"
+msgstr "Unlocks at threat level %d"
+
+msgid "방어 수단을 생성할 수 없습니다"
+msgstr "Could not create the defense asset"
+
+msgid "배치했습니다"
+msgstr "Deployed"
+
+msgid "방공 자산을 배치하거나 위협 투입 메뉴에서 공격을 구성하세요."
+msgstr "Deploy air-defense assets or configure an attack from the threat menu."
+
+msgid "적이 외곽에서 접근합니다. 방공 자산을 배치하세요."
+msgstr "Hostiles are approaching from the perimeter. Deploy air-defense assets."
+
+msgid "전장 효과 준비 중…"
+msgstr "Preparing battlefield effects…"
+
+msgid "위협 투입 메뉴에서 공격을 추가할 수 있습니다."
+msgstr "Add attacks from the threat launch menu."
+
+msgid "예산 +$%d (%s)"
+msgstr "Budget +$%d (%s)"
+
+msgid "정기 작전 지원"
+msgstr "Periodic Operational Support"
+
+msgid "공격 구간 방어 보상"
+msgstr "Attack-Phase Defense Reward"
+
+msgid "탄종 운용 모드를 변경했습니다"
+msgstr "Munition mode changed"
+
+msgid "재보급 작업을 요청했습니다"
+msgstr "Resupply requested"
+
+msgid "현재 재보급을 요청할 수 없습니다"
+msgstr "Resupply is currently unavailable"
+
+msgid "자동 재보급 켜짐"
+msgstr "Automatic resupply enabled"
+
+msgid "자동 재보급 꺼짐"
+msgstr "Automatic resupply disabled"
+
+msgid "수리 작업을 요청했습니다"
+msgstr "Repair requested"
+
+msgid "현재 수리를 요청할 수 없습니다"
+msgstr "Repair is currently unavailable"
+
+msgid "도시 기능이 이미 최대입니다"
+msgstr "City function is already at maximum"
+
+msgid "도시 복구 예산이 부족합니다"
+msgstr "Insufficient budget to restore the city"
+
+msgid "도시 기능을 %d 복구했습니다"
+msgstr "Restored %d city function"
+
+msgid "현재 재배치할 수 없습니다"
+msgstr "Relocation is currently unavailable"
+
+msgid "저장은 지속 작전에서만 사용할 수 있습니다"
+msgstr "Saving is available only in sustained operations"
+
+msgid "불러오기는 지속 작전에서만 사용할 수 있습니다"
+msgstr "Loading is available only in sustained operations"
+
+# Training
+msgid "진입 방향 확인"
+msgstr "Locate the Approach"
+
+msgid "작전은 이미 시작됐으며 안내와 배치를 위해 자동 일시정지했습니다. 실전에서는 우측 상단 일시정지를 직접 사용할 수 있습니다.\n\n주황색 훈련 표적 진입 표시를 찾아보세요.\nWASD: 이동\n가운데 버튼 드래그: 수평, 수직 회전\n휠: 확대, 축소\nBackspace: 시점 초기화\n\n방향을 확인했으면 계속을 누르세요."
+msgstr "The operation is already underway and has paused for instruction and deployment. In a live operation, use the pause control at the upper right.\n\nLocate the orange training approach marker.\nWASD: Pan\nMiddle-button drag: Orbit\nWheel: Zoom\nBackspace: Reset view\n\nSelect Continue after locating the approach."
+
+msgid "접근로 감시"
+msgstr "Monitor the Approach"
+
+msgid "방공 자산을 열어 저·중고도 레이더를 선택하세요. 도시와 주황색 진입 표시 사이의 추천 위치에 배치해 접근로를 감시하세요."
+msgstr "Open Air Defense and select the low/medium-altitude radar. Deploy it at the recommended position between the city and the orange approach marker."
+
+msgid "요격 포대 배치"
+msgstr "Deploy an Interceptor Battery"
+
+msgid "방공 자산에서 미사일 포대를 선택하세요. 레이더 근처의 추천 위치에 놓고 청색 연결선을 확인하세요. 도시의 지휘통제소가 레이더 정보를 포대로 전달합니다."
+msgstr "Select the missile battery from Air Defense. Place it near the radar at the recommended position and check the blue link. The city command post relays radar tracks to the battery."
+
+msgid "끊긴 연결 복구"
+msgstr "Restore the Broken Link"
+
+msgid "청색 연결선이 이어지지 않았습니다. 강조된 자산을 선택하고 재배치를 눌러 추천 위치로 옮기세요."
+msgstr "The blue command link is incomplete. Select the highlighted asset, choose Relocate, and move it to the recommended position."
+
+msgid "접근 감시"
+msgstr "Observe the Approach"
+
+msgid "레이더와 포대가 연결됐습니다. 주황색으로 표시했던 방향에서 표적이 접근 중입니다. 레이더가 항적을 만드는 모습을 관찰하세요."
+msgstr "The radar and battery are connected. A target is approaching from the marked direction. Observe the radar establish a track."
+
+msgid "탐지된 표적 확인"
+msgstr "Inspect the Detected Target"
+
+msgid "적성 항적이 확인됐습니다. 강조된 항적 표식을 클릭해 표적 정보를 열어보세요."
+msgstr "A hostile track is confirmed. Select the highlighted track marker to inspect its information."
+
+msgid "요격 관찰"
+msgstr "Observe the Interception"
+
+msgid "표적이 사거리 안에 들어오면 포대가 자동으로 발사합니다. 발사된 미사일과 표적의 움직임을 관찰하세요."
+msgstr "The battery fires automatically when the target enters range. Observe the interceptor and target movement."
+
+msgid "재보급 대기 확인"
+msgstr "Inspect Resupply Status"
+
+msgid "첫 교전이 끝났습니다. 보급 실습을 위해 포대의 예비탄을 소진 상태로 설정했습니다.\n\n포대의 노란 모래시계 표시에 커서를 올려 재보급 대기 상태를 확인하세요. 주변에 지원기지가 없어 보급을 기다리고 있습니다."
+msgstr "The first engagement is complete. The battery reserves have been depleted for this logistics exercise.\n\nPoint at the yellow hourglass on the battery to inspect its awaiting-resupply status. It cannot resupply without a nearby support base."
+
+msgid "지원기지 연결"
+msgstr "Connect a Support Base"
+
+msgid "방공 자산을 열어 통합 지원기지를 포대 근처에 배치하세요. 포대까지 녹색 지원선이 연결되면 자동으로 재보급을 시작합니다."
+msgstr "Open Air Defense and deploy an integrated support base near the battery. Resupply begins automatically when the green support link reaches the battery."
+
+msgid "탄약 보충 확인"
+msgstr "Monitor Ammunition Resupply"
+
+msgid "지원기지가 자동으로 예비탄을 보충합니다. 포대 선택 패널의 작업 진행도와 예비탄 수량을 확인하세요. 완료되면 예비탄이 채워집니다."
+msgstr "The support base automatically replenishes reserve ammunition. Monitor task progress and reserve count in the battery panel."
+
+msgid "손상된 포대 수리"
+msgstr "Repair the Damaged Battery"
+
+msgid "보급이 완료됐습니다. 다음 정비 실습을 위해 포대에 경미한 손상을 적용했습니다.\n\n포대를 선택해 내구도를 확인하고 수리 요청을 누르세요."
+msgstr "Resupply is complete. The battery has taken minor damage for the maintenance exercise.\n\nSelect the battery, inspect its integrity, and request repair."
+
+msgid "수리 결과 확인"
+msgstr "Monitor the Repair"
+
+msgid "지원기지가 포대의 내구도를 회복합니다. 선택 패널에서 수리 결과를 확인하세요."
+msgstr "The support base restores battery integrity. Monitor the repair in the selection panel."
+
+msgid "도시 피해 복구"
+msgstr "Restore City Damage"
+
+msgid "포대 수리가 완료됐습니다. 마지막으로 도시 복구 실습용 피해를 적용했습니다.\n\n상단 도시 관리를 열고 피해 복구를 누르세요. 예산을 사용해 도시 내구도를 즉시 회복합니다."
+msgstr "Battery repair is complete. City damage has been applied for the final exercise.\n\nOpen City Management and select Restore Damage to spend budget and restore city function immediately."
+
+msgid "훈련 완료"
+msgstr "Training Complete"
+
+msgid "도시 복구까지 마쳤습니다. 레이더와 포대를 연결해 요격하고, 소모된 탄약과 피해를 복구했습니다.\n\nEsc 메뉴에서 메인 메뉴로 돌아가 새 게임을 시작하세요."
+msgstr "City restoration is complete. You connected a radar and battery, intercepted a threat, and restored ammunition and damage.\n\nOpen the Esc menu, return to the main menu, and begin a new operation."
+
+msgid "탐지 사각 해결"
+msgstr "Resolve the Sensor Blind Spot"
+
+msgid "표적이 탐지거리 안에 들어왔지만 지형에 가려져 있습니다. 강조된 레이더를 선택하고 재배치를 누른 뒤, 접근로가 트인 추천 위치로 옮기세요."
+msgstr "The target is in detection range but hidden by terrain. Select the highlighted radar, choose Relocate, and move it to the recommended position with a clear view of the approach."
+
+msgid "자산 재설치"
+msgstr "Reinstall the Asset"
+
+msgid "자산을 옮기고 있습니다. 재설치가 끝나면 연결과 탐지 상태를 다시 확인합니다."
+msgstr "The asset is relocating. Links and detection will be checked after installation completes."
+
+msgid "포대까지 녹색 지원선이 연결되는 범위 안에 지원기지를 배치하세요."
+msgstr "Deploy the support base where its green support link reaches the battery."
+
+msgid "보급 완료"
+msgstr "Resupply Complete"
+
+msgid "수리 완료"
+msgstr "Repair Complete"
+
+msgid "작업이 완료됐습니다. 확인했으면 계속을 누르세요."
+msgstr "The task is complete. Select Continue after confirming the result."
+
+msgid "훈련 표적 진입"
+msgstr "TRAINING TARGET APPROACH"
+
+msgid "메뉴 닫기"
+msgstr "Close Menu"
+
+msgid "선택"
+msgstr "Select"
+
+msgid "항적 선택"
+msgstr "Select Track"
+
+msgid "우클릭: 배치 취소"
+msgstr "Right Click: Cancel Deployment"
+
+msgid "방공 자산 열기"
+msgstr "Open Air Defense"
+
+msgid "목록 스크롤"
+msgstr "Scroll List"
+
+msgid "추천 위치"
+msgstr "Recommended Position"
+
+msgid "초록색 위치에 배치"
+msgstr "Deploy at the Green Position"
+
+msgid "WASD: 이쪽으로 이동"
+msgstr "WASD: Move This Way"
+
+# Persistence feedback
+msgid "%s 완료"
+msgstr "%s complete"
+
+msgid "%s 완료 · 이전 정상 저장을 복구했습니다"
+msgstr "%s complete · Restored the last valid backup"
+
+msgid "%s 완료 · 이전 정상 저장을 복구하고 상태 %d건을 정리했습니다"
+msgstr "%s complete · Restored the last valid backup and repaired %d state entries"
+
+msgid "%s 완료 · 문제가 있던 상태 %d건을 자동으로 정리했습니다"
+msgstr "%s complete · Automatically repaired %d state entries"
+
+msgid "저장된 작전을 찾을 수 없습니다."
+msgstr "No saved operation was found."
+
+msgid "이 저장 파일은 현재 게임 버전과 호환되지 않습니다. 게임 버전을 확인해 주세요."
+msgstr "This save is incompatible with the current game version. Check the game version and try again."
+
+msgid "저장 파일을 쓸 수 없습니다. 저장 공간을 확인한 뒤 다시 시도해 주세요."
+msgstr "Could not write the save file. Check available storage and try again."
+
+msgid "현재 작전을 안전하게 저장하지 못했습니다. 잠시 후 다시 시도해 주세요."
+msgstr "The current operation could not be saved safely. Try again shortly."
+
+msgid "저장 파일이 손상되어 작전을 불러오지 못했습니다."
+msgstr "The save file is damaged and could not be loaded."
+
+msgid "저장된 작전을 불러오지 못했습니다."
+msgstr "The saved operation could not be loaded."
+
+msgid "기본 저장과 이전 정상 저장을 모두 불러오지 못했습니다."
+msgstr "Neither the primary save nor the last valid backup could be loaded."
+
+msgid "%s 현재 작전은 그대로 유지됩니다."
+msgstr "%s The current operation remains unchanged."
+
+msgid "%s 새 작전을 시작하거나 다른 저장 파일을 사용해 주세요."
+msgstr "%s Start a new operation or use another save file."
+
+msgid "방공 자산  ▼"
+msgstr "DEFENSE  ▼"
+
+msgid "도시 관리"
+msgstr "City Management"
+
+msgid "도시 관리  ▼"
+msgstr "CITY  ▼"
+
+msgid "위협 투입  ▼"
+msgstr "THREATS  ▼"
+
+msgid "예산  $400"
+msgstr "BUDGET  $400"
+
+msgid "예산 $400"
+msgstr "Budget $400"
+
+msgid "전력  0 / 0"
+msgstr "POWER  0 / 0"
+
+msgid "생존  00:00"
+msgstr "SURVIVAL  00:00"
+
+msgid "도시  100 / 100"
+msgstr "CITY  100 / 100"
+
+msgid "위협 단계  1"
+msgstr "THREAT  1"
+
+msgid "▲ 적성 항적 0    교전 0"
+msgstr "▲ HOSTILE TRACKS 0    ENGAGED 0"
+
+msgid "전력 수요  0 / 20\n배치 후  12 / 20"
+msgstr "POWER DEMAND  0 / 20\nAFTER DEPLOYMENT  12 / 20"
+
+msgid "자산 배치"
+msgstr "DEPLOY ASSETS"
+
+msgid "지원 작업"
+msgstr "Support Task"
+
+msgid "재배치"
+msgstr "Relocation"
+
+msgid "탄약"
+msgstr "Ammunition"
+
+msgid "재장전"
+msgstr "Reloading"
+
+msgid "%.1f초"
+msgstr "%.1fs"
+
+msgid "전력 수요"
+msgstr "Power Demand"
+
+msgid "교전 고도"
+msgstr "Engagement Altitude"
+
+msgid "최후 1발"
+msgstr "Final Round"
+
+msgid "동시 추적"
+msgstr "Concurrent Tracks"
+
+msgid "대기 드론"
+msgstr "Ready Drones"
+
+msgid "출격"
+msgstr "Active"
+
+msgid "충전"
+msgstr "Charge"
+
+msgid "열"
+msgstr "Heat"
+
+msgid "HPM 충전"
+msgstr "HPM Charge"
+
+msgid "교전"
+msgstr "Engagement"
+
+msgid "사선 차단"
+msgstr "Line of Fire Blocked"
+
+msgid "순항·유도미사일"
+msgstr "Cruise · Guided Missiles"
+
+msgid "항공기"
+msgstr "Aircraft"

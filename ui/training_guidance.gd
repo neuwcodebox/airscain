@@ -67,7 +67,7 @@ func refresh() -> void:
 			_track()
 		TrainingController.Step.SUPPLY_STATUS:
 			_asset(training.training_battery)
-			caption = "재보급 대기 확인" if world_target else caption
+			caption = tr("재보급 대기 확인") if world_target else caption
 		TrainingController.Step.REPAIR:
 			_asset_action(training.training_battery, hud.repair_button, "수리 요청")
 		TrainingController.Step.CITY_RESTORE:
@@ -90,7 +90,7 @@ func _button(control: Control, text: String) -> void:
 		return
 	target_control = control
 	target_rect = control.get_global_rect().grow(4.0)
-	caption = text
+	caption = tr(text)
 
 func _asset_action(unit: DefenseUnit, button: Control, text: String) -> void:
 	if hud.selected_asset == unit and button.is_visible_in_tree():
@@ -114,7 +114,7 @@ func _track() -> void:
 		if training.is_selectable_training_track(track):
 			var point := overlay.track_marker_screen_position(track)
 			target_rect = Rect2(point - Vector2.ONE * 22.0, Vector2.ONE * 44.0)
-			caption = "항적 선택"
+			caption = tr("항적 선택")
 			world_target = true
 			_avoid_world_menu()
 			return
@@ -125,7 +125,7 @@ func _placement_cue(id: StringName) -> void:
 		return
 	if placement.selected != null:
 		target_rect = Rect2(get_viewport().get_mouse_position() - Vector2.ONE * 16, Vector2.ONE * 32)
-		caption = "우클릭: 배치 취소"
+		caption = tr("우클릭: 배치 취소")
 		return
 	if not hud.catalog_expanded:
 		revealed_button = null
@@ -154,7 +154,7 @@ func _placement_destination(definition: DefenseDefinition) -> void:
 		_point(suggestion, "추천 위치")
 	else:
 		target_rect = Rect2(get_viewport().get_mouse_position() - Vector2.ONE * 20, Vector2.ONE * 40)
-		caption = "초록색 위치에 배치"
+		caption = tr("초록색 위치에 배치")
 	_avoid_world_menu()
 
 func _find_suggestion(definition: DefenseDefinition) -> Vector3:
@@ -198,7 +198,7 @@ func _point(position: Vector3, text: String) -> void:
 	var on_screen := not behind and safe.has_point(projected)
 	var point := projected if on_screen else TacticalScreenOverlay.marker_position_in_safe_area(projected, get_viewport_rect().size, behind, 28, 110, 28, 80)
 	target_rect = Rect2(point - Vector2.ONE * 22, Vector2.ONE * 44)
-	caption = text if on_screen else "WASD: 이쪽으로 이동"
+	caption = tr(text) if on_screen else tr("WASD: 이쪽으로 이동")
 	world_target = true
 
 func _avoid_world_menu() -> void:

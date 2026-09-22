@@ -187,22 +187,25 @@ func combat_resource_depleted() -> bool:
 	return true
 
 func supply_status_text() -> String:
-	var status := super.supply_status_text()
+	return super.supply_status_text()
+
+func supply_status_kind() -> StringName:
+	var status := super.supply_status_kind()
 	if not status.is_empty():
 		return status
 	for stock: WeaponMagazine in magazines.values():
 		if stock.is_depleted():
-			return "일부 탄종 고갈"
-	return ""
+			return &"ammunition_partial"
+	return &""
 
 func set_munition_mode(mode: StringName) -> void:
 	if mode == &"auto" or magazines.has(mode):
 		munition_mode = mode
 
 func munition_options() -> Array[Dictionary]:
-	var options: Array[Dictionary] = [{"id": &"auto", "label": "자동", "tooltip": "표적에 맞춰 선택 · 마지막 고가탄은 특화 위협용으로 보존\n수동 탄종 선택 시 보존 해제", "selected": munition_mode == &"auto"}]
+	var options: Array[Dictionary] = [{"id": &"auto", "label": tr("자동"), "tooltip": tr("표적에 맞춰 선택 · 마지막 고가탄은 특화 위협용으로 보존\n수동 탄종 선택 시 보존 해제"), "selected": munition_mode == &"auto"}]
 	for munition: MissileMunitionDefinition in _definition.munitions:
-		options.append({"id": munition.id, "label": munition.display_name, "tooltip": munition.role_tooltip, "icon": munition.target_icon, "selected": munition_mode == munition.id})
+		options.append({"id": munition.id, "label": tr(munition.display_name), "tooltip": tr(munition.role_tooltip), "icon": munition.target_icon, "selected": munition_mode == munition.id})
 	return options
 
 func supports_munition_selection() -> bool:
@@ -210,11 +213,11 @@ func supports_munition_selection() -> bool:
 
 func munition_mode_text() -> String:
 	if munition_mode == &"auto":
-		return "자동"
+		return tr("자동")
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		if munition.id == munition_mode:
-			return munition.display_name
-	return "자동"
+			return tr(munition.display_name)
+	return tr("자동")
 
 func resupply_cost() -> int:
 	var result := 0
@@ -254,11 +257,11 @@ func reserve_resupply() -> void:
 		munition_magazine.reserve_resupply()
 
 func resource_status_text() -> String:
-	var lines: Array[String] = [operational_status_text(), "교전 고도 %d–%dm" % [roundi(_definition.minimum_engagement_altitude), roundi(_definition.maximum_engagement_altitude)], "탄종 %s" % munition_mode_text()]
+	var lines: Array[String] = [operational_status_text(), tr("교전 고도 %d–%dm") % [roundi(_definition.minimum_engagement_altitude), roundi(_definition.maximum_engagement_altitude)], tr("탄종 %s") % munition_mode_text()]
 	for munition: MissileMunitionDefinition in _definition.munitions:
 		var munition_magazine: WeaponMagazine = magazines[munition.id]
-		var reload_text := " · 재장전 %.1f초" % munition_magazine.reload_remaining if munition_magazine.is_reloading() else ""
-		lines.append("탄약 %s %d + %d%s" % [munition.display_name, munition_magazine.rounds, munition_magazine.reserve, reload_text])
+		var reload_text := tr(" · 재장전 %.1f초") % munition_magazine.reload_remaining if munition_magazine.is_reloading() else ""
+		lines.append(tr("탄약 %s %d + %d%s") % [tr(munition.display_name), munition_magazine.rounds, munition_magazine.reserve, reload_text])
 	return _with_support_status("\n".join(lines))
 
 func selection_status_rows() -> Array[Dictionary]:
@@ -269,10 +272,10 @@ func selection_status_rows() -> Array[Dictionary]:
 		var munition_magazine: WeaponMagazine = magazines[munition.id]
 		var ammunition := "%d + %d" % [munition_magazine.rounds, munition_magazine.reserve]
 		if munition_magazine.is_depleted():
-			ammunition = "고갈"
+			ammunition = tr("고갈")
 		rows.append({"label": munition.display_name, "value": ammunition, "warning": munition_magazine.is_depleted(), "tooltip": munition.role_tooltip, "icon": munition.target_icon})
 		if _preserves_last_round(munition):
-			rows.append({"label": "최후 1발", "value": "우선 위협용", "warning": true})
+			rows.append({"label": "최후 1발", "value": tr("우선 위협용"), "warning": true})
 		if munition_magazine.is_reloading():
 			rows.append({"label": "재장전", "value": "%.1f초" % munition_magazine.reload_remaining})
 	rows.append_array(_selection_task_rows())

@@ -173,11 +173,19 @@ func _complete_task(index: int) -> void:
 		task_completed.emit(StringName(task.kind), target, bool(task.user_requested))
 
 func task_status(unit: DefenseUnit) -> String:
+	match task_state(unit):
+		&"resupply_active": return tr("재보급 진행")
+		&"resupply_waiting": return tr("재보급 대기")
+		&"repair_active": return tr("수리 진행")
+		&"repair_waiting": return tr("수리 대기")
+	return ""
+
+func task_state(unit: DefenseUnit) -> StringName:
 	for index: int in tasks.size():
 		if int(tasks[index].target_defense_id) == unit.runtime_id:
-			var label := "재보급" if String(tasks[index].kind) == RESUPPLY else "수리"
-			return "%s 진행" % label if _task_is_active(index) else "%s 대기" % label
-	return ""
+			var active_suffix := "active" if _task_is_active(index) else "waiting"
+			return StringName("%s_%s" % [String(tasks[index].kind), active_suffix])
+	return &""
 
 func task_detail_status(unit: DefenseUnit) -> String:
 	for index: int in tasks.size():
@@ -186,16 +194,22 @@ func task_detail_status(unit: DefenseUnit) -> String:
 		var status := task_status(unit)
 		if not _task_is_active(index):
 			return status
-		return "%s · %.1f초" % [status, _task_remaining_seconds(index)]
+		return tr("%s · %.1f초") % [status, _task_remaining_seconds(index)]
 	return ""
 
 func automatic_resupply_status(unit: DefenseUnit) -> String:
+	return supply_status_text(automatic_resupply_state(unit))
+
+func automatic_resupply_state(unit: DefenseUnit) -> StringName:
 	if not automatic_resupply_enabled(unit):
-		return ""
+		return &""
 	for index: int in tasks.size():
 		if int(tasks[index].target_defense_id) == unit.runtime_id and String(tasks[index].kind) == RESUPPLY:
-			return "재보급 중" if _task_is_active(index) else "재보급 대기"
-	return "재보급 대기" if unit.combat_resource_low() else ""
+			return &"resupply_active" if _task_is_active(index) else &"resupply_waiting"
+	return &"resupply_waiting" if unit.combat_resource_low() else &""
+
+static func supply_status_text(state: StringName) -> String:
+	return TranslationServer.translate("재보급 중") if state == &"resupply_active" else TranslationServer.translate("재보급 대기") if state == &"resupply_waiting" else ""
 
 func _task_is_active(task_index: int) -> bool:
 	var target := _task_target(task_index)

@@ -137,8 +137,8 @@ static func primary_radius(definition: DefenseDefinition) -> float:
 
 static func primary_title(definition: DefenseDefinition) -> String:
 	match definition.tactical_overlay_mode():
-		&"sensor": return "탐지 범위"
-		&"weapon": return "교전 범위"
-		&"support": return "지원 범위"
-		&"electronic": return "전자전 범위"
-	return "작동 범위"
+		&"sensor": return TranslationServer.translate("탐지 범위")
+		&"weapon": return TranslationServer.translate("교전 범위")
+		&"support": return TranslationServer.translate("지원 범위")
+		&"electronic": return TranslationServer.translate("전자전 범위")
+	return TranslationServer.translate("작동 범위")

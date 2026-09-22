@@ -62,7 +62,7 @@ func _draw() -> void:
 	draw_rect(panel.grow(-0.5), Color(accent, 0.35), false, 1.0)
 	draw_rect(Rect2(0.0, 0.0, size.x, 2.0), Color(accent, 0.8), true)
 	var font := ThemeDB.fallback_font
-	draw_string(MenuStyle.tracked_font(1), Vector2(10.0, 20.0), "고도 프로파일", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, MenuStyle.TEXT)
+	draw_string(MenuStyle.tracked_font(1), Vector2(10.0, 20.0), tr("고도 프로파일"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 12, MenuStyle.TEXT)
 	draw_string(font, Vector2(size.x - 10.0 - 12.0, 20.0), "m", HORIZONTAL_ALIGNMENT_RIGHT, 12.0, 10, MenuStyle.TEXT_MUTED)
 	var plot_left := 36.0
 	var plot_right := size.x - 8.0
@@ -70,9 +70,9 @@ func _draw() -> void:
 	var plot_bottom := size.y - 30.0
 	var band_height := (plot_bottom - plot_top) / 3.0
 	var bands: Array[Dictionary] = [
-		{"name": "고층", "color": Color(0.5, 0.68, 0.96)},
-		{"name": "중층", "color": Color(0.44, 0.84, 0.86)},
-		{"name": "저층", "color": Color(0.5, 0.88, 0.62)},
+		{"name": tr("고층"), "color": Color(0.5, 0.68, 0.96)},
+		{"name": tr("중층"), "color": Color(0.44, 0.84, 0.86)},
+		{"name": tr("저층"), "color": Color(0.5, 0.88, 0.62)},
 	]
 	for index: int in bands.size():
 		var band: Dictionary = bands[index]
@@ -103,14 +103,14 @@ func _draw() -> void:
 		_draw_diamond(point, 4.5, Color(0.25, 0.92, 1.0, 0.98))
 	# Right-aligned legend: [shape][label] pairs packed from the plot's right edge.
 	var legend_y := size.y - 12.0
-	var interceptor_width := font.get_string_size("요격체", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10).x
-	var track_width := font.get_string_size("항적", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10).x
+	var interceptor_width := font.get_string_size(tr("요격체"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10).x
+	var track_width := font.get_string_size(tr("항적"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10).x
 	var interceptor_text_x := plot_right - interceptor_width
 	_draw_diamond(Vector2(interceptor_text_x - 7.0, legend_y - 3.5), 4.0, MenuStyle.TEXT)
-	draw_string(font, Vector2(interceptor_text_x, legend_y), "요격체", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
+	draw_string(font, Vector2(interceptor_text_x, legend_y), tr("요격체"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
 	var track_text_x := interceptor_text_x - 7.0 - 4.0 - 10.0 - track_width
 	draw_circle(Vector2(track_text_x - 7.0, legend_y - 3.5), 3.5, MenuStyle.TEXT)
-	draw_string(font, Vector2(track_text_x, legend_y), "항적", HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
+	draw_string(font, Vector2(track_text_x, legend_y), tr("항적"), HORIZONTAL_ALIGNMENT_LEFT, -1.0, 10, MenuStyle.TEXT_MUTED)
 
 func _draw_diamond(point: Vector2, radius: float, color: Color) -> void:
 	var diamond := PackedVector2Array([point + Vector2(0.0, -radius), point + Vector2(radius * 0.8, 0.0), point + Vector2(0.0, radius), point + Vector2(-radius * 0.8, 0.0)])

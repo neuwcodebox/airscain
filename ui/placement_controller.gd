@@ -63,7 +63,7 @@ func select(definition: DefenseDefinition) -> void:
 	battlefield.set_rooftop_pads_visible(definition.placement_profile.rooftop_allowed)
 	_create_preview()
 	_publish_dependency_preview(definition, Vector3.ZERO, false, true)
-	feedback_changed.emit("우클릭 / Esc: 배치 취소", false)
+	feedback_changed.emit(tr("우클릭 / Esc: 배치 취소"), false)
 
 func select_relocation(unit: DefenseUnit) -> void:
 	placement_status_changed.emit("", false, Vector2.ZERO, false)
@@ -74,7 +74,7 @@ func select_relocation(unit: DefenseUnit) -> void:
 	_create_preview()
 	_create_relocation_line()
 	_publish_dependency_preview(null, Vector3.ZERO, false, true)
-	feedback_changed.emit("우클릭 / Esc: 재배치 취소", false)
+	feedback_changed.emit(tr("우클릭 / Esc: 재배치 취소"), false)
 
 func select_sandbox_threat(definition: ThreatDefinition) -> void:
 	placement_status_changed.emit("", false, Vector2.ZERO, false)
@@ -86,7 +86,7 @@ func select_sandbox_threat(definition: ThreatDefinition) -> void:
 	battlefield.set_rooftop_pads_visible(false)
 	_create_threat_preview()
 	_publish_dependency_preview(null, Vector3.ZERO, false, true)
-	feedback_changed.emit("우클릭 / Esc: 위협 투입 취소", false)
+	feedback_changed.emit(tr("우클릭 / Esc: 위협 투입 취소"), false)
 
 func cancel() -> void:
 	_remove_relocation_line()
@@ -127,7 +127,7 @@ func _process(delta: float) -> void:
 		_hide_relocation_line()
 		candidate_valid = false
 		_publish_dependency_preview(null, Vector3.ZERO, false)
-		placement_status_changed.emit("배치 불가\n지도 위에서 위치를 선택하세요", false, mouse, true)
+		placement_status_changed.emit(tr("배치 불가\n지도 위에서 위치를 선택하세요"), false, mouse, true)
 		return
 	preview.visible = true
 	candidate_position = hit.position if selected_threat != null else battlefield.snap_placement_position(hit.position, selected.placement_profile)
@@ -144,11 +144,11 @@ func _process(delta: float) -> void:
 		if refresh_due:
 			dependency_refresh_remaining = DEPENDENCY_REFRESH_INTERVAL
 	preview_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48) if candidate_valid else Color(1.0, 0.18, 0.12, 0.52)
-	var message := String(result.reason)
+	var message := tr(String(result.reason))
 	if not candidate_valid:
-		message = "배치 불가\n%s" % message
+		message = tr("배치 불가\n%s") % message
 	elif relocating_unit != null:
-		message = "재배치 가능\n예상 소요 시간 %d초" % ceili(relocation_manager.estimated_duration(relocating_unit, candidate_position))
+		message = tr("재배치 가능\n예상 소요 시간 %d초") % ceili(relocation_manager.estimated_duration(relocating_unit, candidate_position))
 	placement_status_changed.emit(message, candidate_valid, mouse, true)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -201,14 +201,14 @@ func request_selected_defense_placement() -> bool:
 		result = {"success": moved, "reason": "재배치 시작" if moved else "재배치할 수 없습니다"}
 	else:
 		result = session.request_placement(selected, candidate_position, battlefield, defense_parent, registry, projectile_parent)
-	feedback_changed.emit(String(result.reason), true)
+	feedback_changed.emit(tr(String(result.reason)), true)
 	if not result.success:
 		placement_rejected.emit()
 		return false
 	placement_succeeded.emit()
 	if continuous_defense_placement and relocating_unit == null:
 		_publish_dependency_preview(selected, candidate_position, true, true)
-		feedback_changed.emit("배치했습니다. 같은 자산을 계속 배치할 수 있습니다.", true)
+		feedback_changed.emit(tr("배치했습니다. 같은 자산을 계속 배치할 수 있습니다."), true)
 	else:
 		cancel()
 	return true
@@ -217,7 +217,7 @@ func request_selected_sandbox_threat_placement() -> bool:
 	if selected_threat == null:
 		return false
 	sandbox_threat_placement_requested.emit(selected_threat, candidate_position)
-	feedback_changed.emit("위협을 투입했습니다. 같은 위협을 계속 투입할 수 있습니다.", true)
+	feedback_changed.emit(tr("위협을 투입했습니다. 같은 위협을 계속 투입할 수 있습니다."), true)
 	return true
 
 func _validation() -> Dictionary:
