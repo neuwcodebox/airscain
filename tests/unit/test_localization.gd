@@ -22,7 +22,7 @@ func test_english_catalog_translates_static_and_formatted_messages() -> void:
 	assert_eq(tr("고도 프로파일"), "ALTITUDE")
 	assert_eq(tr("항적"), "TRACK")
 	assert_eq(tr("요격체"), "INTERCEPTOR")
-	assert_eq(tr("%d단계 해금") % 5, "Level 5")
+	assert_eq(tr("%d단계 해금") % 5, "Lv. 5")
 
 func test_korean_uses_korean_source_messages() -> void:
 	TranslationServer.set_locale("ko")
