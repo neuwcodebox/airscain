@@ -33,5 +33,10 @@ camera_rotate_right={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_
 camera_reset={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":4194308)]}
 cancel_placement={"deadzone": 0.5, "events": [Object(InputEventKey,"physical_keycode":4194305)]}
 
+[internationalization]
+
+locale/fallback="ko"
+locale/translations=PackedStringArray("res://localization/en.po")
+
 [layer_names]
 3d_physics/layer_1="Terrain"

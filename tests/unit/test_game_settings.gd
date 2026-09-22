@@ -9,8 +9,10 @@ var previous_render_scale: float
 var previous_window_mode: DisplayServer.WindowMode
 var previous_window_size: Vector2i
 var previous_window_position: Vector2i
+var previous_locale: String
 
 func before_each() -> void:
+	previous_locale = TranslationServer.get_locale()
 	previous_audio_state.clear()
 	for bus_name: StringName in PlayerSettings.AUDIO_BUSES.values():
 		var bus_index := AudioServer.get_bus_index(bus_name)
@@ -35,6 +37,7 @@ func after_each() -> void:
 	_cleanup_settings_file()
 	PlayerSettings.instance().settings_path = previous_path
 	PlayerSettings.instance().values = previous_values
+	TranslationServer.set_locale(previous_locale)
 	for bus_name: StringName in previous_audio_state:
 		var bus_index := AudioServer.get_bus_index(bus_name)
 		AudioServer.set_bus_mute(bus_index, bool(previous_audio_state[bus_name].mute))
@@ -127,6 +130,31 @@ func test_numeric_preferences_round_trip() -> void:
 	PlayerSettings.instance().load_preferences()
 	assert_eq(PlayerSettings.instance().values.missile, 0.35)
 	assert_eq(PlayerSettings.instance().values.pan, 1.5)
+
+func test_language_preference_uses_supported_system_fallback_and_round_trips() -> void:
+	assert_eq(PlayerSettings.preferred_language("ko_KR"), "ko")
+	assert_eq(PlayerSettings.preferred_language("en_US"), "en")
+	assert_eq(PlayerSettings.preferred_language("ja_JP"), "en")
+	PlayerSettings.instance().set_value("language", "en")
+	assert_eq(TranslationServer.get_locale(), "en")
+	assert_eq(PlayerSettings.instance().save_preferences(), OK)
+	PlayerSettings.instance().set_value("language", "ko")
+	PlayerSettings.instance().load_preferences()
+	PlayerSettings.instance().apply_language()
+	assert_eq(PlayerSettings.instance().values.language, "en")
+	assert_eq(TranslationServer.get_locale(), "en")
+
+func test_invalid_language_value_is_ignored() -> void:
+	PlayerSettings.instance().set_value("language", "ko")
+	PlayerSettings.instance().set_value("language", "fr")
+	assert_eq(PlayerSettings.instance().values.language, "ko")
+	assert_eq(TranslationServer.get_locale(), "ko")
+
+func test_english_catalog_is_loaded() -> void:
+	TranslationServer.set_locale("en")
+	assert_eq(tr("설정"), "Settings")
+	TranslationServer.set_locale("ko")
+	assert_eq(tr("설정"), "설정")
 
 func test_invalid_control_and_audio_values_keep_safe_limits() -> void:
 	PlayerSettings.instance().set_value("zoom", -100)

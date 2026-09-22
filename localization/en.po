@@ -1,0 +1,32 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Airscain\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "설정"
+msgstr "Settings"
+
+msgid "사운드"
+msgstr "Audio"
+
+msgid "조작"
+msgstr "Controls"
+
+msgid "화면"
+msgstr "Display"
+
+msgid "언어"
+msgstr "Language"
+
+msgid "전체 화면"
+msgstr "Fullscreen"
+
+msgid "기본값 복원"
+msgstr "Restore Defaults"
+
+msgid "닫기"
+msgstr "Close"

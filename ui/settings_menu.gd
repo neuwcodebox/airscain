@@ -6,6 +6,7 @@ var sliders: Dictionary[String, HSlider] = {}
 var readouts: Dictionary[String, Label] = {}
 var fullscreen: CheckButton
 var options: Dictionary[String, OptionButton] = {}
+var language_option: OptionButton
 var render_readout: Label
 var feedback: Label
 var close_button: Button
@@ -58,6 +59,22 @@ func _ready() -> void:
 	camera_help.add_theme_color_override("font_color", MenuStyle.TEXT_MUTED)
 	controls.add_child(camera_help)
 	var display := _tab(tabs, "화면")
+	var language_row := HBoxContainer.new()
+	language_row.add_theme_constant_override("separation", 20)
+	display.add_child(language_row)
+	var language_label := Label.new()
+	language_label.text = "언어"
+	language_label.custom_minimum_size.x = 160
+	language_row.add_child(language_label)
+	language_option = OptionButton.new()
+	language_option.custom_minimum_size = Vector2(230, 44)
+	MenuStyle.apply_option(language_option)
+	language_option.add_item("한국어")
+	language_option.add_item("English")
+	language_option.item_selected.connect(func(index: int) -> void:
+		PlayerSettings.instance().set_value("language", PlayerSettings.SUPPORTED_LANGUAGES[index])
+		refresh())
+	language_row.add_child(language_option)
 	fullscreen = CheckButton.new()
 	fullscreen.text = "전체 화면"
 	fullscreen.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -179,6 +196,7 @@ func refresh() -> void:
 		sliders[key].set_value_no_signal(value)
 		readouts[key].text = "%d%%" % roundi(value)
 	fullscreen.set_pressed_no_signal(DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN])
+	language_option.select(PlayerSettings.SUPPORTED_LANGUAGES.find(String(PlayerSettings.instance().values.language)))
 	_refresh_display_options()
 	_refresh_render_readout()
 
