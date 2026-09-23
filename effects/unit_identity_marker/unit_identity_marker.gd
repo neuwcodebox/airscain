@@ -76,16 +76,18 @@ func status_half_width() -> float:
 	return boundary.texture.get_width() * 0.5 * boundary.pixel_size * boundary.scale.x
 
 func set_reload(magazine: WeaponMagazine) -> void:
+	var reloading := magazine != null and magazine.is_reloading() and not magazine.is_depleted()
+	set_progress(1.0 - magazine.reload_remaining / magazine.reload_duration if reloading else 0.0, reloading)
+
+func set_progress(progress: float, shown: bool) -> void:
 	if reload_background == null:
 		reload_background = get_node("ReloadBackground") as Sprite3D
 		reload_fill = get_node("ReloadFill") as Sprite3D
-	var reloading := magazine != null and magazine.is_reloading() and not magazine.is_depleted()
-	reload_background.visible = reloading
-	reload_fill.visible = reloading
-	if not reloading:
+	reload_background.visible = shown
+	reload_fill.visible = shown
+	if not shown:
 		return
-	var progress := clampf(1.0 - magazine.reload_remaining / magazine.reload_duration, 0.0, 1.0)
-	var width := 40.0 * progress
+	var width := 40.0 * clampf(progress, 0.0, 1.0)
 	reload_fill.region_rect = Rect2(0, 0, width, 2)
 	reload_fill.offset = Vector2((width - 40.0) * 0.5, -29)
 	reload_fill.visible = width > 0.0

@@ -3,6 +3,8 @@ extends Node3D
 
 const UNLOAD_SECONDS := 18.0
 const EMERGENCY_REPAIR_SECONDS := 180.0
+const IDENTITY_MARKER_SCENE := preload("res://effects/unit_identity_marker/unit_identity_marker.tscn")
+const IDENTITY_ICON := preload("res://world/port/harbor_icon.svg")
 
 signal struck
 
@@ -18,6 +20,7 @@ var crane_cables: Array[MeshInstance3D] = []
 var crane_loads: Array[MeshInstance3D] = []
 var crane_spreaders: Array[MeshInstance3D] = []
 var repair_visual: HarborRepairVisual
+var identity_marker: UnitIdentityMarker
 var damage_point := Vector3(0, 4.3, -23)
 var dispatch_shed: MeshInstance3D
 var alarm_beacons: Array[MeshInstance3D] = []
@@ -41,6 +44,11 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 	var orientation := Basis(Vector3(route.along_quay.x, 0.0, route.along_quay.y), Vector3.UP, Vector3(route.seaward.x, 0.0, route.seaward.y))
 	global_transform = Transform3D(orientation, Vector3(route.berth.x, route.sea_level, route.berth.y))
 	_build_port()
+	identity_marker = IDENTITY_MARKER_SCENE.instantiate() as UnitIdentityMarker
+	identity_marker.name = "HarborIdentityMarker"
+	identity_marker.position = Vector3(0.0, 26.0, -25.0)
+	add_child(identity_marker)
+	identity_marker.configure(IDENTITY_ICON, 0)
 	repair_visual = HarborRepairVisual.new()
 	add_child(repair_visual)
 	session.regular_support_due.connect(_on_regular_support_due)
@@ -100,6 +108,9 @@ func update_at_time(time_seconds: float) -> void:
 		if index < first:
 			delivery_outcomes.erase(index)
 	repair_visual.update_at_time(time_seconds, closed_from, closed_until, damage_point, closed_until - EMERGENCY_REPAIR_SECONDS)
+	var repairing := not _operational_at(time_seconds)
+	identity_marker.set_condition(not repairing, false)
+	identity_marker.set_progress((time_seconds - closed_from) / maxf(closed_until - closed_from, 0.001) if repairing else 0.0, repairing)
 	_animate_crane(unloading_fraction)
 	if dispatch_shed != null:
 		(dispatch_shed.material_override as StandardMaterial3D).albedo_color = Color("c5b694") if _operational_at(time_seconds) else Color("6c5c57")
