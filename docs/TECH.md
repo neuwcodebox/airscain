@@ -862,7 +862,7 @@ raid_budget =
 
 같은 짧은 wave 목록을 반복하지 않되, 모든 공격을 완전히 무작위로 만들어 의도를 잃지 않는다.
 
-자동 공습 가중치는 해금됐지만 아직 한 번도 생성되지 않은 공습 위협에 `DEBUT_WEIGHT_MULTIPLIER`(4배)를 곱한다. Director는 위협을 실제 생성할 때 Definition ID를 첫 출격 이력에 기록하며, 관측 요구로 가중치가 0인 제압 위협은 곱셈 뒤에도 0으로 남는다. 해금 단계는 계속 `ThreatSpawnEntry.unlock_level`과 `DefenseDefinition.unlock_pressure_level`이 소유한다.
+자동 공습 가중치는 해금됐지만 아직 한 번도 생성되지 않은 공습 위협에 `DEBUT_WEIGHT_MULTIPLIER`(4배)를 곱한다. Director는 위협을 실제 생성할 때 Definition ID를 첫 출격 이력에 기록하며, 관측 요구로 가중치가 0인 제압 위협은 곱셈 뒤에도 0으로 남는다. 해금 단계는 계속 `ThreatSpawnEntry.unlock_level`과 `DefenseDefinition.unlock_pressure_level`이 소유한다. 방어 자산 해금은 `GameSession.is_unlocked()`로 판정하며, 자유 모드는 `configure_free_play()`로 위협 단계를 0에 둔 채 `unlock_all`로 모든 자산을 연다. 자유 모드 root는 Director 단계 신호를 세션·HUD에 반영하지 않는다.
 
 
 ### 작전 국면 브리핑

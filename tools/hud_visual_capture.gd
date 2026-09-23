@@ -44,6 +44,7 @@ func run() -> void:
 	main.session.unlimited_budget = false
 	main.session.budget = 400
 	main.session.current_pressure = 1
+	main.session.unlock_all = false
 	main.hud._catalog_state.clear()
 	main.hud._on_state_changed()
 	main.hud.set_catalog_expanded(true)

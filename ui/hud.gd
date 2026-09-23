@@ -705,13 +705,13 @@ func _on_state_changed() -> void:
 	time_label.text = tr("생존  %02d:%02d") % [int(session.survival_time) / 60, int(session.survival_time) % 60]
 	_refresh_speed_buttons()
 	start_button.disabled = session.phase != GameSession.Phase.PREPARATION or session.defense_count < 1
-	var catalog_state: Array = [session.budget, session.unlimited_budget, session.current_pressure, session.phase]
+	var catalog_state: Array = [session.budget, session.unlimited_budget, session.unlock_all, session.current_pressure, session.phase]
 	if catalog_state == _catalog_state:
 		return
 	_catalog_state = catalog_state
 	for index: int in defense_buttons.size():
 		var definition := defense_definitions[index]
-		var locked := definition.unlock_pressure_level > session.current_pressure
+		var locked := not session.is_unlocked(definition)
 		var unaffordable := not session.unlimited_budget and session.budget < definition.price
 		defense_buttons[index].disabled = session.phase == GameSession.Phase.GAME_OVER or unaffordable or locked
 		defense_name_labels[index].add_theme_color_override("font_color", Color(0.48, 0.55, 0.6) if defense_buttons[index].disabled else Color(0.86, 0.92, 0.95))

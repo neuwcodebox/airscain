@@ -704,7 +704,12 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	AirscainMain.requested_mode = previous_mode
 	await get_tree().process_frame
 	assert_true(sandbox.session.unlimited_budget)
-	assert_eq(sandbox.session.current_pressure, 999)
+	assert_eq(sandbox.session.current_pressure, 0, "자유 모드는 위협 단계를 0으로 고정합니다")
+	assert_eq(sandbox.hud.pressure_label.text, "위협 단계  0")
+	for definition: DefenseDefinition in sandbox.scenario.available_defenses:
+		assert_true(sandbox.session.is_unlocked(definition), String(definition.id))
+	sandbox.director.pressure_changed.emit(5)
+	assert_eq(sandbox.session.highest_pressure, 0, "자유 모드는 작전 단계 신호를 무시합니다")
 	assert_false(sandbox.hud.catalog.visible)
 	assert_true(sandbox.hud.threat_menu_button.visible)
 	sandbox.hud.threat_menu_button.pressed.emit()

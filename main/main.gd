@@ -92,8 +92,7 @@ func _ready() -> void:
 	if game_mode == GameMode.TRAINING:
 		session.budget = 2500
 	elif game_mode == GameMode.SANDBOX:
-		session.unlimited_budget = true
-		session.update_pressure(999)
+		session.configure_free_play()
 	support_manager.configure(session, TrainingController.REPAIR_DURATION_LIMIT if game_mode == GameMode.TRAINING else INF)
 	relocation_manager.configure(battlefield)
 	enemy_knowledge.reset()
@@ -108,6 +107,8 @@ func _ready() -> void:
 	director.configure(scenario, battlefield, objective, registry, threat_parent, defense_parent, enemy_knowledge)
 	placement.configure(session, battlefield, camera_rig.camera, defense_parent, projectile_parent, registry, relocation_manager, range_label_obstacles, game_mode != GameMode.TRAINING)
 	hud.configure(session, objective, scenario.available_defenses, _sandbox_threat_definitions(), game_mode)
+	if game_mode == GameMode.SANDBOX:
+		hud.set_pressure(0)
 	ui_audio.connect_buttons(hud)
 	camera_rig.exclude_wheel_input_over(hud.get_node("Catalog") as Control)
 	tactical_screen_overlay.configure(camera_rig.camera, player_knowledge, hud.training_panel)
@@ -343,6 +344,8 @@ func _on_objective_depleted(_objective: ProtectedObjective) -> void:
 	placement.cancel()
 
 func _on_pressure_changed(level: int) -> void:
+	if game_mode == GameMode.SANDBOX:
+		return
 	session.update_pressure(level)
 	hud.set_pressure(level)
 	combat_audio.play_event(CombatAudio.PRESSURE, clampf(0.45 + float(level) * 0.04, 0.45, 1.0))

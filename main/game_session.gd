@@ -25,6 +25,8 @@ var support_payment_count: int = 0
 var completed_attack_windows: int = 0
 var total_support_received: int = 0
 var unlimited_budget: bool = false
+## Free-play access to every asset without advancing the operation's threat level.
+var unlock_all: bool = false
 var starting_budget: int = 0
 var defense_spending: int = 0
 var support_spending: int = 0
@@ -49,6 +51,7 @@ func reset(starting_budget: int, support_interval_value: float = 90.0, support_a
 	completed_attack_windows = 0
 	total_support_received = 0
 	unlimited_budget = false
+	unlock_all = false
 	self.starting_budget = starting_budget
 	defense_spending = 0
 	support_spending = 0
@@ -83,7 +86,7 @@ func request_placement(definition: DefenseDefinition, position: Vector3, battlef
 		return {"success": false, "reason": tr("게임이 종료되었습니다")}
 	if definition == null or definition.placement_profile == null:
 		return {"success": false, "reason": tr("잘못된 방어 수단입니다")}
-	if definition.unlock_pressure_level > current_pressure:
+	if not is_unlocked(definition):
 		return {"success": false, "reason": tr("위협 단계 %d에서 해금됩니다") % definition.unlock_pressure_level}
 	if not unlimited_budget and budget < definition.price:
 		return {"success": false, "reason": tr("예산이 부족합니다")}
@@ -120,6 +123,17 @@ func register_threat_resolution(_threat: ThreatUnit, neutralized: bool, reward: 
 		var definition_id := String(_threat.definition.id)
 		neutralized_by_type[definition_id] = neutralized_by_type.get(definition_id, 0) + 1
 		budget_changed.emit(budget)
+	statistics_changed.emit()
+
+func is_unlocked(definition: DefenseDefinition) -> bool:
+	return unlock_all or definition.unlock_pressure_level <= current_pressure
+
+## Sandbox runs outside the operation's escalation: threat level stays 0 and every asset is available.
+func configure_free_play() -> void:
+	unlimited_budget = true
+	unlock_all = true
+	current_pressure = 0
+	highest_pressure = 0
 	statistics_changed.emit()
 
 func update_pressure(level: int) -> void:
