@@ -9,7 +9,10 @@ signal struck
 var route: HarborRoute
 var session: GameSession
 var ships: Dictionary[int, CargoShip] = {}
-var crane_hook: Node3D
+var crane_trolleys: Array[Node3D] = []
+var crane_cables: Array[MeshInstance3D] = []
+var crane_loads: Array[MeshInstance3D] = []
+var crane_spreaders: Array[MeshInstance3D] = []
 var dispatch_shed: MeshInstance3D
 var alarm_beacons: Array[MeshInstance3D] = []
 var closed_from: float = INF
@@ -171,45 +174,124 @@ func _box(name_value: String, size: Vector3, position_value: Vector3, material: 
 	return item
 
 func _build_port() -> void:
-	var concrete := _material(Color("9c9d93"))
-	var asphalt := _material(Color("505c5b"))
-	var steel := _material(Color("667b7d"), 0.32)
-	var cream := _material(Color("c5b694"))
-	_box("Quay", Vector3(170.0, 4.0, 26.0), Vector3(0.0, 2.0, -25.0), concrete)
-	_box("AccessPier", Vector3(24.0, 3.0, 148.0), Vector3(0.0, 1.8, -102.0), concrete)
-	_box("Apron", Vector3(150.0, 0.3, 21.0), Vector3(0.0, 4.1, -25.0), asphalt)
-	for side: int in [-1, 1]:
-		var x := float(side) * 72.0
-		_box("Bollard%d" % side, Vector3(2.4, 2.2, 2.4), Vector3(x, 5.2, -12.0), steel)
-		_box("CraneTower%d" % side, Vector3(5.2, 33.0, 5.2), Vector3(x * 0.64, 20.5, -29.0), steel)
-		_box("CraneBoom%d" % side, Vector3(3.2, 2.7, 56.0), Vector3(x * 0.64, 37.0, -4.0), steel)
-		_box("CraneCab%d" % side, Vector3(5.0, 4.0, 6.0), Vector3(x * 0.64, 35.0, -27.0), cream)
-		var beacon := _box("CraneAlarm%d" % side, Vector3(3.6, 2.8, 3.6), Vector3(x * 0.64, 39.9, -29.0), _material(Color("ff5239")))
-		var alarm_material := beacon.material_override as StandardMaterial3D
-		alarm_material.emission_enabled = true
-		alarm_material.emission = Color("ff5239")
-		alarm_material.emission_energy_multiplier = 2.0
-		beacon.visible = false
-		alarm_beacons.append(beacon)
-	dispatch_shed = _box("DispatchShed", Vector3(18.0, 7.0, 15.0), Vector3(0.0, 7.2, -145.0), cream)
-	_box("DispatchRoof", Vector3(20.0, 0.8, 17.0), Vector3(0.0, 11.1, -145.0), steel)
-	for index: int in 8:
-		var x := -51.0 + float(index % 4) * 18.0
-		var z := -54.0 - float(index / 4) * 10.0
-		_box("YardContainer%d" % index, Vector3(13.0, 3.0, 5.0), Vector3(x, 5.8, z), _material(Color("a87d55") if index % 2 == 0 else Color("597e85")))
-	crane_hook = Node3D.new()
-	crane_hook.name = "MovingCargoHook"
-	add_child(crane_hook)
-	_box("SuspendedContainer", Vector3(8.0, 2.8, 4.0), Vector3.ZERO, _material(Color("b46548")), crane_hook)
-	crane_hook.visible = false
+	var geometry := HarborGeometry.new()
+	geometry.box(Vector3(170, 4, 28), Vector3(0, 2, -26), "92958a")
+	geometry.box(Vector3(116, 4, 38), Vector3(0, 2, -59), "92958a")
+	geometry.box(Vector3(24, 3, 110), Vector3(0, 1.8, -125), "92958a")
+	geometry.box(Vector3(166, 0.15, 25), Vector3(0, 4.08, -26), "586362")
+	geometry.box(Vector3(112, 0.15, 35), Vector3(0, 4.08, -59), "65716b")
+	geometry.box(Vector3(20, 0.15, 98), Vector3(0, 3.36, -125), "586362")
+	# Working quay: capstones, fenders, mooring bollards, crane rails and painted lanes.
+	for index: int in 22:
+		var x := -82.0 + index * 7.8
+		geometry.box(Vector3(7.5, 0.35, 1.1), Vector3(x, 4.23, -12.5), "c3c0a8")
+		if index % 2 == 0:
+			geometry.box(Vector3(1.7, 3, 0.9), Vector3(x, 1.5, -11.5), "303d40")
+			geometry.cylinder(0.48, 0.85, Vector3(x, 4.7, -14.1), "bca069")
+			geometry.beam(Vector3(x - 0.8, 5.1, -14.1), Vector3(x + 0.8, 5.1, -14.1), 0.3, "bca069")
+	for z: float in [-17.0, -33.0]:
+		geometry.box(Vector3(154, 0.16, 0.2), Vector3(0, 4.25, z), "b4b8b0")
+	for index: int in 17:
+		geometry.box(Vector3(4, 0.03, 0.25), Vector3(-76 + index * 9, 4.18, -38), "d2bd80")
+	for index: int in 11:
+		geometry.box(Vector3(0.25, 0.03, 4), Vector3(0, 3.46, -80 - index * 8), "d2bd80")
+	for side: float in [-1.0, 1.0]:
+		for index: int in 8:
+			var z := -82.0 - index * 12.0
+			geometry.cylinder(0.9, 12, Vector3(side * 9, -3, z), "777f76")
+			geometry.beam(Vector3(side * 11, 3.3, z), Vector3(side * 11, 4.8, z), 0.16, "bdc1b2")
+		geometry.beam(Vector3(side * 11, 4.8, -78), Vector3(side * 11, 4.8, -177), 0.16, "bdc1b2")
+		_build_crane(geometry, side * 19)
+	# Yard stacks sit on the widened concrete apron, with space for the access lane.
+	var container_mesh := HarborGeometry.container_mesh()
+	for side: float in [-1.0, 1.0]:
+		for row: int in 3:
+			for lane: int in 4:
+				for level: int in (2 if lane < 3 else 1):
+					var at := Vector3(side * (18 + lane * 9), 5.5 + level * 2.65, -47 - row * 9)
+					var tint: String = ["a26a4b", "607d82", "a9a083", "6a7b70"][(row + lane + level) % 4]
+					for surface: int in container_mesh.get_surface_count():
+						if not geometry.surfaces.has(tint):
+							var buffer := SurfaceTool.new()
+							buffer.begin(Mesh.PRIMITIVE_TRIANGLES)
+							geometry.surfaces[tint] = buffer
+						geometry.surfaces[tint].append_from(container_mesh, surface, Transform3D(Basis(Vector3.UP, PI / 2), at))
+	# Dispatch office, roller doors, roof seams, vents and glazed frontage.
+	dispatch_shed = _box("DispatchShed", Vector3(16, 6, 13), Vector3(0, 6.6, -145), _material(Color("c5b694")))
+	geometry.box(Vector3(18, 0.45, 15), Vector3(0, 9.85, -145), "566c70")
+	for index: int in 9:
+		geometry.box(Vector3(0.12, 0.15, 15), Vector3(-8 + index * 2, 10.15, -145), "84928b")
+	for x: float in [-4.5, 4.5]:
+		geometry.box(Vector3(5, 3.8, 0.1), Vector3(x, 5.6, -138.4), "778783")
+		for row: int in 6:
+			geometry.box(Vector3(5, 0.06, 0.13), Vector3(x, 4.0 + row * 0.6, -138.3), "a3aaa0")
+	geometry.box(Vector3(9, 1, 0.14), Vector3(0, 8.5, -138.4), "334c55")
+	for x: float in [-3.0, 3.0]:
+		geometry.box(Vector3(2, 1.2, 2.2), Vector3(x, 10.6, -146), "b4b8ac")
+	# Yard floodlight poles and housings remain legible at tactical zoom.
+	for x: float in [-73.0, 73.0]:
+		geometry.beam(Vector3(x, 4, -32), Vector3(x, 19, -32), 0.35, "798d89")
+		geometry.box(Vector3(4, 0.5, 1.4), Vector3(x, 19, -32), "d5d1b7")
+	geometry.instance(self, "TerminalStructure")
+
+func _build_crane(geometry: HarborGeometry, x: float) -> void:
+	var paint := "b9a675"
+	var dark := "596e70"
+	for side: float in [-1.0, 1.0]:
+		for z: float in [-17.0, -33.0]:
+			geometry.box(Vector3(5.5, 1.5, 1.8), Vector3(x + side * 6, 5, z), dark)
+			geometry.beam(Vector3(x + side * 6, 5.5, z), Vector3(x + side * 4, 28, z), 0.85, paint)
+		geometry.beam(Vector3(x + side * 6, 8, -17), Vector3(x + side * 4, 27, -33), 0.4, paint)
+		geometry.beam(Vector3(x + side * 6, 8, -33), Vector3(x + side * 4, 27, -17), 0.4, paint)
+		geometry.beam(Vector3(x + side * 4, 28, -33), Vector3(x + side * 4, 40, -26), 0.6, paint)
+		geometry.beam(Vector3(x + side * 4, 40, -26), Vector3(x + side * 4, 28, 9), 0.16, dark)
+		geometry.beam(Vector3(x + side * 4, 40, -26), Vector3(x + side * 4, 28, -49), 0.16, dark)
+		geometry.beam(Vector3(x + side * 4, 28, -49), Vector3(x + side * 4, 28, 10), 0.65, paint)
+		geometry.beam(Vector3(x + side * 4, 30, -49), Vector3(x + side * 4, 30, 10), 0.45, paint)
+		for segment: int in 12:
+			var z := -49.0 + segment * 4.9
+			geometry.beam(Vector3(x + side * 4, 28, z), Vector3(x + side * 4, 30, z + 4.9), 0.22, paint)
+	for z: float in [-33.0, -17.0, 8.0]:
+		geometry.beam(Vector3(x - 4, 28, z), Vector3(x + 4, 28, z), 0.75, paint)
+	geometry.box(Vector3(7, 3.5, 8), Vector3(x, 30, -38), dark)
+	geometry.box(Vector3(3, 3, 3.5), Vector3(x + 5, 26, -18), "cfcead")
+	geometry.box(Vector3(3.1, 1.3, 0.12), Vector3(x + 5, 26.3, -16.2), "365463")
+	var beacon := _box("CraneAlarm", Vector3(1.1, 1.0, 1.1), Vector3(x, 40, -26), _material(Color("ff5239")))
+	var material := beacon.material_override as StandardMaterial3D
+	material.emission_enabled = true
+	material.emission = Color("ff5239")
+	material.emission_energy_multiplier = 2.0
+	beacon.visible = false
+	alarm_beacons.append(beacon)
+	var trolley := Node3D.new()
+	trolley.position = Vector3(x, 27, -18)
+	add_child(trolley)
+	crane_trolleys.append(trolley)
+	_box("Trolley", Vector3(7, 1.0, 2.5), Vector3.ZERO, _material(Color(dark)), trolley)
+	var cable_geometry := HarborGeometry.new()
+	for side: float in [-1.0, 1.0]:
+		cable_geometry.beam(Vector3(side * 2.5, 0, 0), Vector3(side * 2.5, -1, 0), 0.08, "303e42")
+	crane_cables.append(cable_geometry.instance(trolley, "HoistCables"))
+	var spreader := _box("Spreader", Vector3(6.3, 0.45, 2.6), Vector3(0, -10, 0), _material(Color("c0a35a")), trolley)
+	crane_spreaders.append(spreader)
+	var load := MeshInstance3D.new()
+	load.mesh = HarborGeometry.container_mesh()
+	load.rotation.y = PI / 2
+	load.position.y = -1.55
+	spreader.add_child(load)
+	crane_loads.append(load)
 
 func _animate_crane(fraction: float) -> void:
-	if crane_hook == null:
-		return
-	crane_hook.visible = fraction >= 0.0 and operational
-	if not crane_hook.visible:
-		return
-	var cycle := fposmod(fraction * 3.0, 1.0)
-	var progress := smoothstep(0.05, 0.45, cycle)
-	var retreat := smoothstep(0.55, 0.95, cycle)
-	crane_hook.position = Vector3(-46.0, 14.0 + 8.0 * sin(cycle * PI), lerpf(9.0, -22.0, progress - retreat))
+	for index: int in crane_trolleys.size():
+		var working := fraction >= 0.0 and operational
+		var cycle := fposmod(fraction * 3.0 + float(index) * 0.5, 1.0) if working else 0.0
+		var outward := smoothstep(0.2, 0.45, cycle)
+		var returning := smoothstep(0.7, 0.95, cycle)
+		crane_trolleys[index].position.z = lerpf(0, -45, outward - returning) if working else -18.0
+		var height := 20.0
+		if working:
+			height -= 9.0 * (1.0 - smoothstep(0.0, 0.2, cycle))
+			height -= 12.0 * sin(PI * clampf((cycle - 0.45) / 0.25, 0.0, 1.0))
+		crane_cables[index].scale.y = 27.0 - height
+		crane_spreaders[index].position.y = height - 27.0
+		crane_loads[index].visible = working and cycle < 0.58
