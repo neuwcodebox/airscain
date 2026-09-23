@@ -37,6 +37,7 @@ var radar_tracking_coordinator := RadarTrackingCoordinator.new()
 var last_persistence_repairs: Array[String] = []
 var briefing_panel: OperationBriefingPanel
 var speed_before_briefing: float = 1.0
+var harbor_port: HarborPort
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -90,6 +91,8 @@ func _ready() -> void:
 	_spawn_objective()
 	_spawn_ambient_contacts()
 	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus, scenario.support_interval, scenario.support_amount)
+	if game_mode == GameMode.SUSTAINED:
+		_create_harbor_port()
 	if game_mode == GameMode.TRAINING:
 		session.budget = 2500
 	elif game_mode == GameMode.SANDBOX:
@@ -174,6 +177,8 @@ func _process(delta: float) -> void:
 		tactical_ui_refresh_remaining += 0.2
 		_refresh_tactical_ui()
 	var simulation_delta := session.gameplay_delta(delta)
+	if harbor_port != null:
+		harbor_port.update_at_time(session.survival_time)
 	day_night.apply_time(session.survival_time)
 	combat_audio.simulation_paused = simulation_delta <= 0.0
 	combat_audio.simulation_rate = session.simulation_speed
@@ -209,6 +214,20 @@ func _spawn_objective() -> void:
 	objective.exclusion_radius = scenario.city_size * 0.5
 	objective.setup(1, scenario.objective_definition)
 	battlefield.set_objective(objective)
+
+func _create_harbor_port() -> void:
+	if harbor_port != null:
+		harbor_port.free()
+	harbor_port = HarborPort.new()
+	harbor_port.name = "HarborPort"
+	world_objects.add_child(harbor_port)
+	if harbor_port.configure(battlefield, session):
+		session.external_regular_support = true
+	else:
+		push_warning("이 전장에 안전한 항구 항로를 찾지 못해 기존 정기 지원을 사용합니다")
+		harbor_port.free()
+		harbor_port = null
+		session.external_regular_support = false
 
 func _deploy_initial_defenses() -> void:
 	for mount: Dictionary in objective.initial_defense_mounts():
@@ -768,6 +787,8 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	briefing_controller.restore_state(payload.briefings)
 	director.restore_state(payload.director)
 	session.restore_state(payload.session)
+	if game_mode == GameMode.SUSTAINED:
+		_create_harbor_port()
 	day_night.apply_time(session.survival_time, true)
 
 func _clear_runtime_objects() -> void:

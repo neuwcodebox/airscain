@@ -8,6 +8,7 @@ signal phase_changed(phase: Phase)
 signal statistics_changed
 signal defense_placed(unit: DefenseUnit)
 signal support_received(amount: int, reason: String)
+signal regular_support_due(amount: int, scheduled_time: float)
 
 var phase := Phase.PREPARATION
 var budget: int = 0
@@ -33,6 +34,7 @@ var support_spending: int = 0
 var weapon_fire_count: int = 0
 var neutralized_reward_total: int = 0
 var neutralized_by_type: Dictionary[String, int] = {}
+var external_regular_support: bool = false
 
 func reset(starting_budget: int, support_interval_value: float = 90.0, support_amount_value: int = 180) -> void:
 	phase = Phase.PREPARATION
@@ -58,6 +60,7 @@ func reset(starting_budget: int, support_interval_value: float = 90.0, support_a
 	weapon_fire_count = 0
 	neutralized_reward_total = 0
 	neutralized_by_type.clear()
+	external_regular_support = false
 	budget_changed.emit(budget)
 	phase_changed.emit(phase)
 	statistics_changed.emit()
@@ -75,8 +78,10 @@ func gameplay_delta(delta: float) -> float:
 	var result := delta * simulation_speed
 	survival_time += result
 	while survival_time >= next_support_at:
-		_grant_support(support_amount, "정기 작전 지원")
-		support_payment_count += 1
+		if external_regular_support:
+			regular_support_due.emit(support_amount, next_support_at)
+		else:
+			grant_regular_support(support_amount)
 		next_support_at += support_interval
 	statistics_changed.emit()
 	return result
@@ -146,6 +151,12 @@ func grant_attack_window_reward(amount: int) -> void:
 		return
 	completed_attack_windows += 1
 	_grant_support(amount, "공격 구간 방어 보상")
+
+func grant_regular_support(amount: int) -> void:
+	if phase != Phase.RUNNING or amount <= 0:
+		return
+	support_payment_count += 1
+	_grant_support(amount, "정기 작전 지원")
 
 func _grant_support(amount: int, reason: String) -> void:
 	if amount <= 0 or phase == Phase.GAME_OVER:

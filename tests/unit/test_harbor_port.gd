@@ -1,0 +1,63 @@
+extends GutTest
+
+const SCENARIO := preload("res://main/first_scenario.tres")
+
+func test_each_battlefield_has_a_water_route_between_the_fog_and_a_coastal_berth() -> void:
+	for layout_id: StringName in [&"rugged_harbor", &"island_city", &"valley_corridor", &"coastal_plain"]:
+		var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+		scenario.selected_battlefield_layout_id = layout_id
+		var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+		field.build(scenario)
+		var route := HarborRoute.plan(field)
+		assert_not_null(route, String(layout_id))
+		if route == null:
+			continue
+		assert_gt(route.inbound_duration, 90.0, "%s: 화물선이 수 km를 비현실적으로 질주하지 않습니다" % layout_id)
+		assert_gt(route.outbound_duration, 90.0, String(layout_id))
+		assert_gt(Vector2(route.inbound[0].x, route.inbound[0].z).length(), scenario.battlefield_size * 2.2, "%s: 불투명 연무 바깥에서 출발합니다" % layout_id)
+		assert_almost_eq(route.inbound[route.inbound.size() - 1], Vector3(route.berth.x, route.sea_level, route.berth.y), Vector3.ONE * 0.01)
+		assert_almost_eq(route.outbound[0], route.inbound[route.inbound.size() - 1], Vector3.ONE * 0.01)
+		var inbound_direction := (route.inbound[route.inbound.size() - 1] - route.inbound[route.inbound.size() - 2]).normalized()
+		assert_gt(-route.inbound_pose(route.inbound_duration).basis.z.dot(inbound_direction), 0.99, "%s: 선수는 접안 방향을 향합니다" % layout_id)
+		for index: int in range(0, route.inbound.size(), 8):
+			var point := route.inbound[index]
+			assert_lt(field.terrain_height(point.x, point.z), route.sea_level - HarborRoute.MINIMUM_WATER_DEPTH, "%s: inbound %d" % [layout_id, index])
+		for index: int in range(0, route.outbound.size(), 8):
+			var point := route.outbound[index]
+			assert_lt(field.terrain_height(point.x, point.z), route.sea_level - HarborRoute.MINIMUM_WATER_DEPTH, "%s: outbound %d" % [layout_id, index])
+
+func test_delivery_occurs_after_docking_and_is_reconstructed_from_operation_time() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var session := add_child_autofree(GameSession.new()) as GameSession
+	session.reset(100, 90.0, 180)
+	var port := add_child_autofree(HarborPort.new()) as HarborPort
+	assert_true(port.configure(field, session))
+	if port.route == null:
+		return
+	session.external_regular_support = true
+	session.defense_count = 1
+	assert_true(session.start_defense())
+	port.update_at_time(80.0)
+	assert_true(port.ships.has(1))
+	var vessel := port.ships[1]
+	assert_lt(vessel.global_position.distance_to(Vector3(port.route.berth.x, port.route.sea_level, port.route.berth.y)), 1.0)
+	assert_true(port.ships.has(2))
+	assert_gt(port.ships[2].global_position.distance_to(vessel.global_position), CargoShip.HULL_LENGTH * 2.0)
+	assert_eq(session.budget, 100)
+	session.gameplay_delta(90.0)
+	port.update_at_time(session.survival_time)
+	assert_eq(session.budget, 280)
+	assert_eq(session.support_payment_count, 1)
+	var saved_time := session.survival_time
+	var dock_position := vessel.global_position
+	port.update_at_time(saved_time + 20.0)
+	assert_gt(port.ships[1].global_position.distance_to(dock_position), 1.0)
+	assert_false(port.ships[1].cargo_containers[0].visible)
+	var state := session.capture_state()
+	port.free()
+	session.restore_state(state)
+	var restored_port := add_child_autofree(HarborPort.new()) as HarborPort
+	assert_true(restored_port.configure(field, session))
+	assert_true(restored_port.ships.has(1))
+	assert_almost_eq(restored_port.ships[1].global_position, dock_position, Vector3.ONE * 0.5)
