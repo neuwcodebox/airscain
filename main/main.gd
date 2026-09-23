@@ -218,6 +218,7 @@ func _spawn_objective() -> void:
 func _create_harbor_port() -> void:
 	objective.impact_redirect = Callable()
 	director.harbor_port = null
+	tactical_screen_overlay.harbor_port = null
 	if harbor_port != null:
 		harbor_port.free()
 	harbor_port = HarborPort.new()
@@ -233,6 +234,7 @@ func _create_harbor_port() -> void:
 		harbor_port.free()
 		harbor_port = null
 		session.external_regular_support = false
+	tactical_screen_overlay.harbor_port = harbor_port
 
 func _on_harbor_struck() -> void:
 	hud.set_feedback(tr("항구 피격: 하역이 중단되어 정기 지원이 끊깁니다. 긴급 복구가 진행 중입니다."), true)

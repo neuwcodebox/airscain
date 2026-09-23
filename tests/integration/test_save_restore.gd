@@ -87,12 +87,14 @@ func test_harbor_strike_and_delivery_schedule_survive_operation_restore() -> voi
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
 	assert_eq(main.restore_from_document(document), "")
 	assert_false(main.harbor_port.operational)
+	assert_same(main.tactical_screen_overlay.harbor_port, main.harbor_port)
 	var budget := main.session.budget
 	main.session.gameplay_delta(225.0)
 	assert_eq(main.session.survival_time, 270.0)
 	assert_eq(main.session.budget, budget + main.session.support_amount)
 	assert_eq(main.session.support_payment_count, 1)
 	assert_true(main.harbor_port.operational)
+	assert_same(main.tactical_screen_overlay.harbor_port, main.harbor_port)
 
 func test_version_32_without_harbor_state_starts_with_operational_port() -> void:
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))

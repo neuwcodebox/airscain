@@ -36,6 +36,16 @@ func run() -> void:
 			push_error("Harbor capture failed: %s" % error_string(result))
 			quit(1)
 			return
+	Input.warp_mouse(main.camera_rig.camera.unproject_position(main.harbor_port.identity_marker.icon.global_position))
+	for frame: int in 4:
+		await process_frame
+	if not main.tactical_screen_overlay.pointer_hint.visible or main.tactical_screen_overlay.pointer_label.text != TranslationServer.translate("화물 항구"):
+		push_error("Harbor hover did not display the tactical hint")
+		quit(1)
+		return
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("/tmp/airscain_harbor_hint_normal.png")
+	Input.warp_mouse(Vector2(12.0, 12.0))
 	main.harbor_port.update_at_time(125.0)
 	main.camera_rig.camera.global_position = berth - seaward * 330.0 + Vector3.UP * 310.0
 	main.camera_rig.camera.look_at(berth + seaward * 500.0)
@@ -45,6 +55,7 @@ func run() -> void:
 	root.get_texture().get_image().save_png("/tmp/airscain_harbor_shipping.png")
 	main.camera_rig.camera.global_position = berth + along * 170.0 + seaward * 230.0 + Vector3.UP * 145.0
 	main.camera_rig.camera.look_at(berth + Vector3.UP * 7.0)
+	Input.warp_mouse(main.camera_rig.camera.unproject_position(main.harbor_port.identity_marker.icon.global_position))
 	var city_integrity := main.objective.current_integrity
 	if not main.objective.apply_surface_impact(30, main.harbor_port.strike_target()) or main.objective.current_integrity != city_integrity:
 		push_error("Harbor impact did not stay separate from city damage")
@@ -57,5 +68,12 @@ func run() -> void:
 			await process_frame
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("/tmp/airscain_harbor_repair_%d.png" % int(age))
+		if age == 42.0 or age == 181.0:
+			var expected := TranslationServer.translate("복구 중 · 지원 중단") if age == 42.0 else TranslationServer.translate("정상 운영")
+			if not main.tactical_screen_overlay.pointer_hint.visible or main.tactical_screen_overlay.hint_rows[1].text != expected:
+				push_error("Harbor tactical hint did not follow repair state")
+				quit(1)
+				return
+			root.get_texture().get_image().save_png("/tmp/airscain_harbor_hint_%d.png" % int(age))
 	print("HARBOR_VISUAL_CAPTURE_OK berth=%s inbound=%.1f outbound=%.1f" % [berth, route.inbound_duration, route.outbound_duration])
 	quit(0)

@@ -12,6 +12,7 @@ var training_approach_position: Vector3
 var training_approach_text: String = "훈련 표적 진입"
 var training_left_panel: Control
 var placement: PlacementController
+var harbor_port: HarborPort
 var hovered_track: PlayerTrack
 var pointer_hint := PanelContainer.new()
 var pointer_label := Label.new()
@@ -114,6 +115,8 @@ func _process(delta: float) -> void:
 	var asset := placement.asset_at_screen(mouse) if can_hover else null
 	if is_instance_valid(asset):
 		_show_asset_hint(asset, mouse)
+	elif can_hover and harbor_marker_at_screen(harbor_port, camera, mouse):
+		_show_harbor_hint(harbor_port, mouse)
 	elif can_hover:
 		hovered_track = track_at_screen(mouse)
 		if hovered_track != null:
@@ -128,10 +131,20 @@ func _show_pointer_hint(message: String, mouse: Vector2) -> void:
 	_position_pointer_hint(mouse)
 
 func _show_asset_hint(unit: DefenseUnit, mouse: Vector2) -> void:
-	pointer_label.text = tr(unit.definition.display_name)
-	hint_icon.texture = unit.definition.identity_icon
+	_show_status_hint(tr(unit.definition.display_name), unit.definition.identity_icon, asset_hint_status_entries(unit), mouse)
+
+func _show_harbor_hint(port: HarborPort, mouse: Vector2) -> void:
+	_show_status_hint(tr("화물 항구"), HarborPort.IDENTITY_ICON, harbor_hint_status_entries(port), mouse)
+
+static func harbor_hint_status_entries(port: HarborPort) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = [{"kind": &"normal", "text": TranslationServer.translate("화물 하역 · 정기 지원")}]
+	entries.append({"kind": &"normal" if port.operational else &"disabled", "text": TranslationServer.translate("정상 운영") if port.operational else TranslationServer.translate("복구 중 · 지원 중단")})
+	return entries
+
+func _show_status_hint(title: String, texture: Texture2D, entries: Array[Dictionary], mouse: Vector2) -> void:
+	pointer_label.text = title
+	hint_icon.texture = texture
 	hint_icon.show()
-	var entries := asset_hint_status_entries(unit)
 	hint_separator.visible = not entries.is_empty()
 	hint_details.visible = not entries.is_empty()
 	for index: int in hint_rows.size():
@@ -141,6 +154,16 @@ func _show_asset_hint(unit: DefenseUnit, mouse: Vector2) -> void:
 			row.text = String(entries[index].text)
 			row.add_theme_color_override("font_color", _hint_status_color(StringName(entries[index].kind)))
 	_position_pointer_hint(mouse)
+
+static func harbor_marker_at_screen(port: HarborPort, view_camera: Camera3D, point: Vector2) -> bool:
+	if not is_instance_valid(port) or not is_instance_valid(port.identity_marker) or view_camera == null:
+		return false
+	var marker := port.identity_marker
+	for sprite: Sprite3D in [marker.icon, marker.condition_frame, marker.reload_background, marker.reload_fill]:
+		var rect := AssetPointerTarget.marker_screen_rect(sprite, view_camera)
+		if rect.has_area() and rect.grow(4.0).has_point(point):
+			return true
+	return false
 
 static func _hint_status_color(kind: StringName) -> Color:
 	if kind in [&"disabled", &"ammunition_empty"]:

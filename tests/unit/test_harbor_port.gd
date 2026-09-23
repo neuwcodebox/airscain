@@ -191,3 +191,25 @@ func test_harbor_damage_point_rejects_invalid_coordinates_and_accepts_older_save
 	for point: Array in [[INF, -23.0], [0.0, -1000.0], ["bad", -23.0], [12.0]]:
 		state.damage_point = point
 		assert_ne(HarborPort.state_validation_error(state), "", str(point))
+
+func test_harbor_marker_hover_shows_facility_role_and_current_repair_state() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var session := add_child_autofree(GameSession.new()) as GameSession
+	session.reset(100, 90.0, 180)
+	var port := add_child_autofree(HarborPort.new()) as HarborPort
+	assert_true(port.configure(field, session))
+	var view_camera := add_child_autofree(Camera3D.new()) as Camera3D
+	view_camera.global_position = port.identity_marker.global_position + Vector3(0, 100, 200)
+	view_camera.look_at(port.identity_marker.global_position)
+	var center := view_camera.unproject_position(port.identity_marker.icon.global_position)
+	assert_true(TacticalScreenOverlay.harbor_marker_at_screen(port, view_camera, center))
+	assert_false(TacticalScreenOverlay.harbor_marker_at_screen(port, view_camera, center + Vector2(120, 0)))
+	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[1].text), "정상 운영")
+	assert_true(port.try_apply_impact(30, port.strike_target()))
+	assert_true(TacticalScreenOverlay.harbor_marker_at_screen(port, view_camera, center))
+	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[0].text), "화물 하역 · 정기 지원")
+	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[1].text), "복구 중 · 지원 중단")
+	session.survival_time = HarborPort.EMERGENCY_REPAIR_SECONDS
+	port.update_at_time(session.survival_time)
+	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[1].text), "정상 운영")

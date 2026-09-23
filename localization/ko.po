@@ -1486,3 +1486,16 @@ msgstr "즉시 출격"
 
 msgid "%d단계부터 출격"
 msgstr "%d단계부터 출격"
+
+# Harbor tactical hint
+msgid "화물 항구"
+msgstr "화물 항구"
+
+msgid "화물 하역 · 정기 지원"
+msgstr "화물 하역 · 정기 지원"
+
+msgid "정상 운영"
+msgstr "정상 운영"
+
+msgid "복구 중 · 지원 중단"
+msgstr "복구 중 · 지원 중단"

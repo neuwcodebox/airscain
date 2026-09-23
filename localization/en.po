@@ -1486,3 +1486,16 @@ msgstr "Flying now"
 
 msgid "%d단계부터 출격"
 msgstr "Flies from Lv. %d"
+
+# Harbor tactical hint
+msgid "화물 항구"
+msgstr "Cargo Port"
+
+msgid "화물 하역 · 정기 지원"
+msgstr "Cargo unloading · regular support"
+
+msgid "정상 운영"
+msgstr "Operational"
+
+msgid "복구 중 · 지원 중단"
+msgstr "Under repair · support suspended"
