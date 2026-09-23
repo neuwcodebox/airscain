@@ -20,11 +20,8 @@ var crane_trolleys: Array[Node3D] = []
 var crane_cables: Array[MeshInstance3D] = []
 var crane_loads: Array[MeshInstance3D] = []
 var crane_spreaders: Array[MeshInstance3D] = []
-var repair_visual: HarborRepairVisual
 var identity_marker: UnitIdentityMarker
-var damage_point := Vector3(0, 4.3, -23)
-var dispatch_shed: MeshInstance3D
-var alarm_beacons: Array[MeshInstance3D] = []
+var window_material: ShaderMaterial
 var closed_from: float = INF
 var closed_until: float = 0.0
 var delivery_outcomes: Dictionary[int, bool] = {}
@@ -42,6 +39,7 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 		maximum_inbound = maxf(maximum_inbound, shipping_route.inbound_duration)
 		maximum_outbound = maxf(maximum_outbound, shipping_route.outbound_duration)
 	session = session_value
+	field.night_amount_changed.connect(_on_night_amount_changed)
 	var orientation := Basis(Vector3(route.along_quay.x, 0.0, route.along_quay.y), Vector3.UP, Vector3(route.seaward.x, 0.0, route.seaward.y))
 	global_transform = Transform3D(orientation, Vector3(route.berth.x, route.sea_level, route.berth.y))
 	_build_port()
@@ -51,8 +49,7 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 	add_child(identity_marker)
 	identity_marker.configure(IDENTITY_ICON, 0, IDENTITY_COLOR)
 	identity_marker.icon.scale = Vector3.ONE * 1.25
-	repair_visual = HarborRepairVisual.new()
-	add_child(repair_visual)
+	_on_night_amount_changed(field.night_amount)
 	session.regular_support_due.connect(_on_regular_support_due)
 	update_at_time(session.survival_time)
 	return true
@@ -109,15 +106,12 @@ func update_at_time(time_seconds: float) -> void:
 	for index: int in delivery_outcomes.keys():
 		if index < first:
 			delivery_outcomes.erase(index)
-	repair_visual.update_at_time(time_seconds, closed_from, closed_until, damage_point, closed_until - EMERGENCY_REPAIR_SECONDS)
 	var repairing := not _operational_at(time_seconds)
 	identity_marker.set_condition(not repairing, false)
 	identity_marker.set_progress((time_seconds - closed_from) / maxf(closed_until - closed_from, 0.001) if repairing else 0.0, repairing)
+	# The city window shader switches off every band inside a damaged footprint.
+	window_material.set_shader_parameter("damaged_building_count", 1 if repairing else 0)
 	_animate_crane(unloading_fraction)
-	if dispatch_shed != null:
-		(dispatch_shed.material_override as StandardMaterial3D).albedo_color = Color("c5b694") if _operational_at(time_seconds) else Color("6c5c57")
-	for beacon: MeshInstance3D in alarm_beacons:
-		beacon.visible = not _operational_at(time_seconds) and floori(time_seconds * 2.0) % 2 == 0
 
 func _operational_at(time_seconds: float) -> bool:
 	return time_seconds < closed_from or time_seconds >= closed_until
@@ -134,7 +128,6 @@ func try_apply_impact(amount: int, global_impact_position: Vector3) -> bool:
 	if operational:
 		closed_from = session.survival_time
 	closed_until = maxf(closed_until, session.survival_time + EMERGENCY_REPAIR_SECONDS)
-	damage_point = Vector3(clampf(local.x, -74, 74), 4.3, clampf(local.z, -34, -20))
 	update_at_time(session.survival_time)
 	struck.emit()
 	return true
@@ -145,7 +138,7 @@ func capture_state() -> Dictionary:
 	indices.sort()
 	for index: int in indices:
 		outcomes.append({"index": index, "delivered": delivery_outcomes[index]})
-	return {"closed_from": closed_from if is_finite(closed_from) else -1.0, "closed_until": closed_until, "deliveries": outcomes, "damage_point": [damage_point.x, damage_point.z]}
+	return {"closed_from": closed_from if is_finite(closed_from) else -1.0, "closed_until": closed_until, "deliveries": outcomes}
 
 static func state_validation_error(state: Dictionary) -> String:
 	var from_value: Variant = state.get("closed_from")
@@ -156,15 +149,6 @@ static func state_validation_error(state: Dictionary) -> String:
 	var finish := float(until_value)
 	if not is_finite(start) or not is_finite(finish) or (start != -1.0 and (start < 0.0 or finish <= start)) or finish < 0.0:
 		return "항구 복구 시간이 올바르지 않습니다"
-	if state.has("damage_point"):
-		var point: Variant = state.damage_point
-		if not point is Array or point.size() != 2:
-			return "항구 피해 위치가 올바르지 않습니다"
-		for value: Variant in point:
-			if not (value is int or value is float) or not is_finite(float(value)):
-				return "항구 피해 위치가 올바르지 않습니다"
-		if absf(float(point[0])) > 74.0 or float(point[1]) < -34.0 or float(point[1]) > -20.0:
-			return "항구 피해 위치가 올바르지 않습니다"
 	var outcomes: Variant = state.get("deliveries")
 	if not outcomes is Array or outcomes.size() > 32:
 		return "항구 배송 기록이 올바르지 않습니다"
@@ -185,8 +169,6 @@ func restore_state(state: Dictionary) -> void:
 	var restored_until := float(state.closed_until)
 	closed_from = restored_from if restored_from >= 0.0 else INF
 	closed_until = restored_until
-	var point: Array = state.get("damage_point", [0.0, -23.0])
-	damage_point = Vector3(float(point[0]), 4.3, float(point[1]))
 	delivery_outcomes.clear()
 	for value: Dictionary in state.deliveries:
 		delivery_outcomes[int(value.index)] = bool(value.delivered)
@@ -197,6 +179,9 @@ func _on_regular_support_due(amount: int, scheduled_time: float) -> void:
 	delivery_outcomes[roundi(scheduled_time / session.support_interval)] = delivered
 	if delivered:
 		session.grant_regular_support(amount)
+
+func _on_night_amount_changed(amount: float) -> void:
+	window_material.set_shader_parameter("night_amount", amount)
 
 func _material(color: Color, metallic: float = 0.0) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
@@ -218,6 +203,7 @@ func _box(name_value: String, size: Vector3, position_value: Vector3, material: 
 
 func _build_port() -> void:
 	var geometry := HarborGeometry.new()
+	var windows: Array[Transform3D] = []
 	geometry.box(Vector3(170, 4, 28), Vector3(0, 2, -26), "92958a")
 	geometry.box(Vector3(116, 4, 38), Vector3(0, 2, -59), "92958a")
 	geometry.box(Vector3(24, 3, 110), Vector3(0, 1.8, -125), "92958a")
@@ -245,6 +231,7 @@ func _build_port() -> void:
 			geometry.beam(Vector3(side * 11, 3.3, z), Vector3(side * 11, 4.8, z), 0.16, "bdc1b2")
 		geometry.beam(Vector3(side * 11, 4.8, -78), Vector3(side * 11, 4.8, -177), 0.16, "bdc1b2")
 		_build_crane(geometry, side * 19)
+		windows.append(Transform3D(Basis.from_scale(Vector3(3.1, 1.3, 0.12)), Vector3(side * 19 + 5, 26.3, -16.2)))
 	# Yard stacks sit on the widened concrete apron, with space for the access lane.
 	var container_mesh := HarborGeometry.container_mesh()
 	for side: float in [-1.0, 1.0]:
@@ -260,7 +247,13 @@ func _build_port() -> void:
 							geometry.surfaces[tint] = buffer
 						geometry.surfaces[tint].append_from(container_mesh, surface, Transform3D(Basis(Vector3.UP, PI / 2), at))
 	# Dispatch office, roller doors, roof seams, vents and glazed frontage.
-	dispatch_shed = _box("DispatchShed", Vector3(16, 6, 13), Vector3(0, 6.6, -145), _material(Color("c5b694")))
+	geometry.box(Vector3(16, 6, 13), Vector3(0, 6.6, -145), "c5b694")
+	for y: float in [5.3, 7.9]:
+		for index: int in 4:
+			windows.append(Transform3D(Basis.from_scale(Vector3(2.6, 1.3, 0.12)), Vector3(-5.4 + index * 3.6, y, -151.57)))
+		for side: float in [-1.0, 1.0]:
+			for index: int in 3:
+				windows.append(Transform3D(Basis.from_scale(Vector3(0.12, 1.3, 2.8)), Vector3(side * 8.07, y, -149 + index * 4)))
 	geometry.box(Vector3(18, 0.45, 15), Vector3(0, 9.85, -145), "566c70")
 	for index: int in 9:
 		geometry.box(Vector3(0.12, 0.15, 15), Vector3(-8 + index * 2, 10.15, -145), "84928b")
@@ -269,6 +262,8 @@ func _build_port() -> void:
 		for row: int in 6:
 			geometry.box(Vector3(5, 0.06, 0.13), Vector3(x, 4.0 + row * 0.6, -138.3), "a3aaa0")
 	geometry.box(Vector3(9, 1, 0.14), Vector3(0, 8.5, -138.4), "334c55")
+	for x: float in [-6.6, 6.6]:
+		windows.append(Transform3D(Basis.from_scale(Vector3(2.0, 1.0, 0.12)), Vector3(x, 8.6, -138.43)))
 	for x: float in [-3.0, 3.0]:
 		geometry.box(Vector3(2, 1.2, 2.2), Vector3(x, 10.6, -146), "b4b8ac")
 	# Yard floodlight poles and housings remain legible at tactical zoom.
@@ -276,6 +271,27 @@ func _build_port() -> void:
 		geometry.beam(Vector3(x, 4, -32), Vector3(x, 19, -32), 0.35, "798d89")
 		geometry.box(Vector3(4, 0.5, 1.4), Vector3(x, 19, -32), "d5d1b7")
 	geometry.instance(self, "TerminalStructure")
+	_build_windows(windows)
+
+func _build_windows(windows: Array[Transform3D]) -> void:
+	window_material = ShaderMaterial.new()
+	window_material.shader = preload("res://world/city_windows.gdshader")
+	var damaged := PackedVector4Array([Vector4(0.0, 0.0, 1.0e6, 1.0e6)])
+	damaged.resize(ProtectedObjective.MAX_DAMAGE_SMOKE_SITES)
+	window_material.set_shader_parameter("damaged_buildings", damaged)
+	var window_mesh := BoxMesh.new()
+	window_mesh.size = Vector3.ONE
+	window_mesh.material = window_material
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = window_mesh
+	multimesh.instance_count = windows.size()
+	for index: int in windows.size():
+		multimesh.set_instance_transform(index, windows[index])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "TerminalWindows"
+	instance.multimesh = multimesh
+	add_child(instance)
 
 func _build_crane(geometry: HarborGeometry, x: float) -> void:
 	var paint := "b9a675"
@@ -298,14 +314,6 @@ func _build_crane(geometry: HarborGeometry, x: float) -> void:
 		geometry.beam(Vector3(x - 4, 28, z), Vector3(x + 4, 28, z), 0.75, paint)
 	geometry.box(Vector3(7, 3.5, 8), Vector3(x, 30, -38), dark)
 	geometry.box(Vector3(3, 3, 3.5), Vector3(x + 5, 26, -18), "cfcead")
-	geometry.box(Vector3(3.1, 1.3, 0.12), Vector3(x + 5, 26.3, -16.2), "365463")
-	var beacon := _box("CraneAlarm", Vector3(1.1, 1.0, 1.1), Vector3(x, 40, -26), _material(Color("ff5239")))
-	var material := beacon.material_override as StandardMaterial3D
-	material.emission_enabled = true
-	material.emission = Color("ff5239")
-	material.emission_energy_multiplier = 2.0
-	beacon.visible = false
-	alarm_beacons.append(beacon)
 	var trolley := Node3D.new()
 	trolley.position = Vector3(x, 27, -18)
 	add_child(trolley)

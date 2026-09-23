@@ -93,15 +93,13 @@ func test_port_impact_interrupts_deliveries_without_city_damage_and_restores_rep
 	assert_eq(session.budget, 100)
 	assert_true(port.ships[1].cargo_containers[0].visible)
 	var harbor_state := port.capture_state()
-	var impact_site := port.damage_point
 	var session_state := session.capture_state()
 	port.free()
 	session.restore_state(session_state)
 	var restored_port := add_child_autofree(HarborPort.new()) as HarborPort
 	assert_true(restored_port.configure(field, session))
 	restored_port.restore_state(harbor_state)
-	assert_eq(restored_port.damage_point, impact_site)
-	assert_true(restored_port.repair_visual.visible)
+	assert_eq(restored_port.window_material.get_shader_parameter("damaged_building_count"), 1, "복원된 폐쇄 항구는 불빛이 꺼져 있습니다")
 	assert_false(restored_port.operational)
 	assert_true(restored_port.identity_marker.condition_frame.visible)
 	assert_almost_eq(restored_port.identity_marker.reload_fill.region_rect.size.x, 20.0, 0.1)
@@ -161,55 +159,21 @@ func test_ship_haze_fades_all_surfaces_without_changing_cargo_or_other_ships() -
 	assert_true(ship.cargo_containers[0].visible)
 	assert_false(ship.cargo_containers[-1].visible, "안개 복귀가 하역한 화물을 다시 표시하지 않습니다")
 
-func test_repair_scene_reconstructs_damage_work_and_completion_from_operation_time() -> void:
-	var visual := add_child_autofree(HarborRepairVisual.new()) as HarborRepairVisual
-	var restored := add_child_autofree(HarborRepairVisual.new()) as HarborRepairVisual
-	var site := Vector3(12, 4.3, -23)
-	visual.update_at_time(8, 0, 180, site)
-	assert_true(visual.visible)
-	assert_true(visual.smoke[0].visible)
-	assert_false(visual.crew.visible)
-	visual.update_at_time(42, 0, 180, site)
-	assert_true(visual.crew.visible)
-	restored.update_at_time(42, 0, 180, site)
-	assert_eq(visual.truck.transform, restored.truck.transform)
-	assert_eq(visual.smoke[0].transform, restored.smoke[0].transform)
-	assert_eq(visual.sparks.visible, restored.sparks.visible)
-	visual.update_at_time(145, 0, 180, site)
-	assert_false(visual.smoke[0].visible)
-	assert_true(visual.crew.visible)
-	visual.update_at_time(148, 0, 325, site, 145)
-	assert_true(visual.smoke[0].visible, "재피격하면 연기가 다시 발생합니다")
-	visual.update_at_time(180, 0, 180, site)
-	assert_false(visual.visible)
-
-func test_harbor_damage_point_rejects_invalid_coordinates_and_accepts_older_saves() -> void:
-	var state := {"closed_from": 0.0, "closed_until": 180.0, "deliveries": []}
-	assert_eq(HarborPort.state_validation_error(state), "")
-	state.damage_point = [12.0, -23.0]
-	assert_eq(HarborPort.state_validation_error(state), "")
-	for point: Array in [[INF, -23.0], [0.0, -1000.0], ["bad", -23.0], [12.0]]:
-		state.damage_point = point
-		assert_ne(HarborPort.state_validation_error(state), "", str(point))
-
-func test_harbor_marker_hover_shows_facility_role_and_current_repair_state() -> void:
+func test_terminal_lights_follow_night_and_go_dark_until_repair_completes() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	field.build(SCENARIO)
 	var session := add_child_autofree(GameSession.new()) as GameSession
 	session.reset(100, 90.0, 180)
 	var port := add_child_autofree(HarborPort.new()) as HarborPort
 	assert_true(port.configure(field, session))
-	var view_camera := add_child_autofree(Camera3D.new()) as Camera3D
-	view_camera.global_position = port.identity_marker.global_position + Vector3(0, 100, 200)
-	view_camera.look_at(port.identity_marker.global_position)
-	var center := view_camera.unproject_position(port.identity_marker.icon.global_position)
-	assert_true(TacticalScreenOverlay.harbor_marker_at_screen(port, view_camera, center))
-	assert_false(TacticalScreenOverlay.harbor_marker_at_screen(port, view_camera, center + Vector2(120, 0)))
-	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[1].text), "정상 운영")
+	field.set_night_amount(1.0)
+	assert_eq(port.window_material.get_shader_parameter("night_amount"), 1.0)
+	assert_eq(port.window_material.get_shader_parameter("damaged_building_count"), 0)
+	session.external_regular_support = true
+	session.defense_count = 1
+	assert_true(session.start_defense())
 	assert_true(port.try_apply_impact(30, port.strike_target()))
-	assert_true(TacticalScreenOverlay.harbor_marker_at_screen(port, view_camera, center))
-	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[0].text), "화물 하역 · 정기 지원")
-	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[1].text), "복구 중 · 지원 중단")
-	session.survival_time = HarborPort.EMERGENCY_REPAIR_SECONDS
+	assert_eq(port.window_material.get_shader_parameter("damaged_building_count"), 1, "피격 후 불빛이 꺼집니다")
+	session.gameplay_delta(HarborPort.EMERGENCY_REPAIR_SECONDS)
 	port.update_at_time(session.survival_time)
-	assert_eq(String(TacticalScreenOverlay.harbor_hint_status_entries(port)[1].text), "정상 운영")
+	assert_eq(port.window_material.get_shader_parameter("damaged_building_count"), 0, "복구 후 불빛이 다시 켜집니다")

@@ -61,7 +61,9 @@ func run() -> void:
 		push_error("Harbor impact did not stay separate from city damage")
 		quit(1)
 		return
-	for age: float in [8.0, 42.0, 145.0, 181.0]:
+	var night := fposmod(22.0 - DayNightCycle.START_HOUR, 24.0) / 24.0 * DayNightCycle.CYCLE_SECONDS
+	main.day_night.apply_time(night, true)
+	for age: float in [42.0, 181.0]:
 		main.session.survival_time = age
 		main.harbor_port.update_at_time(age)
 		for frame: int in 4:

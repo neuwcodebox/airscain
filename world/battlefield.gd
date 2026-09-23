@@ -6,6 +6,8 @@ const OCEAN_HEIGHT_TEXTURE_SCALE := 4
 const CITY_TARGET_HORIZONTAL_FRACTION := Vector2(-0.34, 0.34)
 const CITY_TARGET_HEIGHT_FRACTION := Vector2(0.32, 0.86)
 
+signal night_amount_changed(amount: float)
+
 var generator := WorldGenerator.new()
 var window_material: ShaderMaterial
 var street_lights: Array[OmniLight3D] = []
@@ -14,6 +16,8 @@ var lamp_glare_material: StandardMaterial3D
 var smoke_shadow_materials: Array[ShaderMaterial] = []
 var smoke_shadow_projection: SmokeShadowProjection
 var _night_amount: float = 0.0
+var night_amount: float:
+	get: return _night_amount
 var _placement_light_active: bool = false
 var _placement_light_center := Vector3.ZERO
 var _placement_light_strength: float = 0.0
@@ -75,6 +79,7 @@ var _city_boxes := CityBoxBatch.new()
 
 func set_night_amount(amount: float) -> void:
 	_night_amount = amount
+	night_amount_changed.emit(amount)
 	if window_material != null:
 		window_material.set_shader_parameter("night_amount", amount)
 	if lamp_material != null:
