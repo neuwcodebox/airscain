@@ -33,7 +33,7 @@ func run() -> void:
 	main.director.pressure_changed.emit(3)
 	await _wait_seconds(0.8)
 	await _save_capture("/tmp/airscain_briefing_%s_phase3.png" % locale)
-	main.briefing_panel._on_deploy_pressed()
+	main.briefing_panel.deploy_button.pressed.emit()
 	await _wait_seconds(0.5)
 	await _save_capture("/tmp/airscain_briefing_%s_catalog.png" % locale)
 	main.hud.set_catalog_expanded(false)

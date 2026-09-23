@@ -442,7 +442,7 @@ func test_variants_require_matching_knowledge_and_join_legacy_pair_candidates() 
 			request.scenario = main.scenario
 			request.weights = weights
 			request.budget = budget
-			request.level = maxi(entry.unlock_level, city.unlock_level)
+			request.level = maxi(main.scenario.threat_flight_level(entry), main.scenario.threat_flight_level(city))
 			request.max_delay = 32.0
 			request.rng = rng
 			var waves := planner.generate(request)

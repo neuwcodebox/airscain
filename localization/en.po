@@ -1480,3 +1480,9 @@ msgstr "Twelve-drone swarms overwhelm a radar to blind the network."
 
 msgid "고고도 중간비행 뒤 급경사로 재진입하며 한 발의 피해가 큽니다."
 msgstr "Flies a high midcourse, then reenters steeply; a single hit is costly."
+
+msgid "즉시 출격"
+msgstr "Flying now"
+
+msgid "%d단계부터 출격"
+msgstr "Flies from Lv. %d"

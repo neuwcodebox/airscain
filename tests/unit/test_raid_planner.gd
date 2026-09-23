@@ -25,7 +25,7 @@ func test_procedural_raids_obey_budget_unlocks_and_scheduling_limits() -> void:
 				cost += entry.threat_cost * entry.group_size
 				strikes += int(entry.raid_role == ThreatSpawnEntry.RaidRole.STRIKE)
 				composition.append(String(entry.threat_definition.id))
-				assert_lte(entry.unlock_level, level, "%s threat %s" % [case_label, entry.threat_definition.id])
+				assert_true(SCENARIO.is_threat_available(entry, level), "%s threat %s" % [case_label, entry.threat_definition.id])
 				assert_between(float(wave.remaining), 0.0, max_delay, "%s threat %s delay" % [case_label, entry.threat_definition.id])
 				assert_between(float(wave.angle), 0.0, TAU, "%s threat %s angle" % [case_label, entry.threat_definition.id])
 			assert_lte(cost, budget, case_label)

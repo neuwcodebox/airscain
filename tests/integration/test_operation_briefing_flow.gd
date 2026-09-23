@@ -47,6 +47,7 @@ func test_briefing_lists_the_threats_and_assets_of_its_phase() -> void:
 	assert_eq(operation.briefing_panel.threat_list.get_child_count(), operation.scenario.briefing_threats(briefing).size())
 	assert_eq(operation.briefing_panel.asset_list.get_child_count(), operation.scenario.briefing_defenses(briefing).size())
 	assert_true(operation.briefing_panel.deploy_button.visible)
+	assert_eq(operation.briefing_panel.threat_timing_label.text, "4단계부터 출격", "대응 자산 배치 시간을 알립니다")
 
 func test_deploy_opens_the_catalog_with_only_new_assets_highlighted_until_closed() -> void:
 	var operation := _acknowledged_operation()

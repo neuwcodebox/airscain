@@ -11,14 +11,11 @@ const ASSET_COLOR := Color(0.52, 0.92, 0.64)
 const ICON_SIZE := 30.0
 ## Tall enough for five two-line rows, so paging through the archive keeps the card still.
 const COLUMN_MIN_HEIGHT := 330.0
-const WORD_JOINER := "\u2060"
 
 var scenario: ScenarioDefinition
-var session: GameSession
 var briefings: Array[OperationBriefingDefinition] = []
 var page_index: int = 0
 var live: bool = false
-var previous_speed: float = 1.0
 
 var card: PanelContainer
 var caption_label: Label
@@ -27,6 +24,7 @@ var level_label: Label
 var intel_label: Label
 var threat_list: VBoxContainer
 var asset_list: VBoxContainer
+var threat_timing_label: Label
 var recommendation_label: Label
 var previous_button: Button
 var next_button: Button
@@ -42,23 +40,19 @@ func _ready() -> void:
 	visible = false
 	_build()
 
-func configure(scenario_value: ScenarioDefinition, session_value: GameSession) -> void:
+func configure(scenario_value: ScenarioDefinition) -> void:
 	scenario = scenario_value
-	session = session_value
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_TRANSLATION_CHANGED and is_node_ready() and visible:
 		_render_page()
 
-## Opens on a newly delivered briefing and pauses the operation until it is acknowledged.
+## Opens on a newly delivered briefing with acknowledge and deploy actions.
 func present_delivered(delivered: Array[OperationBriefingDefinition], briefing: OperationBriefingDefinition) -> void:
-	if not visible:
-		previous_speed = session.simulation_speed
 	live = true
-	session.set_simulation_speed(0.0)
 	_open(delivered, maxi(0, delivered.find(briefing)))
 
-## Opens the archive of delivered briefings on the latest one without touching the time control.
+## Opens the archive of delivered briefings on the latest one.
 func present_archive(delivered: Array[OperationBriefingDefinition]) -> void:
 	live = false
 	_open(delivered, delivered.size() - 1)
@@ -71,8 +65,6 @@ func close() -> void:
 		return
 	visible = false
 	var was_archive := not live
-	if live and session != null and session.phase != GameSession.Phase.GAME_OVER:
-		session.set_simulation_speed(previous_speed)
 	live = false
 	closed.emit(was_archive)
 
@@ -114,17 +106,18 @@ func _render_page() -> void:
 	caption_label.text = tr("작전 첩보 · 국면 %d / %d") % [scenario.operation_briefings.find(briefing) + 1, scenario.operation_briefings.size()]
 	title_label.text = tr(briefing.title)
 	level_label.text = tr("위협 단계 %d") % briefing.unlock_level
-	intel_label.text = keep_words(tr(briefing.intel))
-	recommendation_label.text = keep_words(tr(briefing.recommendation))
+	intel_label.text = KoreanLineBreak.keep_words(tr(briefing.intel))
+	recommendation_label.text = KoreanLineBreak.keep_words(tr(briefing.recommendation))
+	threat_timing_label.text = _threat_timing_text(briefing)
 	_clear(threat_list)
 	for definition: ThreatDefinition in scenario.briefing_threats(briefing):
-		threat_list.add_child(_content_row(threat_icon(definition), tr(definition.display_name), keep_words(tr(definition.briefing_note)), "", THREAT_COLOR))
+		threat_list.add_child(_content_row(threat_icon(definition), tr(definition.display_name), KoreanLineBreak.keep_words(tr(definition.briefing_note)), "", THREAT_COLOR))
 	_clear(asset_list)
 	var assets := scenario.briefing_defenses(briefing)
 	for definition: DefenseDefinition in assets:
-		asset_list.add_child(_content_row(definition.identity_icon, tr(definition.display_name), keep_words(purchase_role(definition)), "$%d" % definition.price, Color.WHITE))
+		asset_list.add_child(_content_row(definition.identity_icon, tr(definition.display_name), KoreanLineBreak.keep_words(purchase_role(definition)), "$%d" % definition.price, Color.WHITE))
 	if assets.is_empty():
-		var empty := _muted_label(keep_words(tr("새 방공 자산은 없습니다. 기존 방공망의 배치와 교전 설정으로 대응하세요.")), 14)
+		var empty := _muted_label(KoreanLineBreak.keep_words(tr("새 방공 자산은 없습니다. 기존 방공망의 배치와 교전 설정으로 대응하세요.")), 14)
 		asset_list.add_child(empty)
 	previous_button.disabled = page_index <= 0
 	next_button.disabled = page_index >= briefings.size() - 1
@@ -134,19 +127,17 @@ func _render_page() -> void:
 	deploy_button.visible = live and not assets.is_empty()
 	acknowledge_button.text = tr("확인", &"briefing") if live else tr("닫기")
 
-## Korean lines should break between words, not between syllables; joins adjacent Hangul characters.
-static func keep_words(text: String) -> String:
-	var result := ""
-	for index: int in text.length():
-		var character := text[index]
-		result += character
-		if index + 1 < text.length() and character != " " and text[index + 1] != " " and character != "\n" and text[index + 1] != "\n" and (_is_hangul(character) or _is_hangul(text[index + 1])):
-			result += WORD_JOINER
-	return result
-
-static func _is_hangul(character: String) -> bool:
-	var code := character.unicode_at(0)
-	return code >= 0xAC00 and code <= 0xD7A3
+## States when the phase's threats start flying so players know how long they have to prepare.
+func _threat_timing_text(briefing: OperationBriefingDefinition) -> String:
+	var first_flight := -1
+	var phase_threats := scenario.briefing_threats(briefing)
+	for entry: ThreatSpawnEntry in scenario.threat_entries:
+		if phase_threats.has(entry.threat_definition):
+			var flight := scenario.threat_flight_level(entry)
+			first_flight = flight if first_flight < 0 else mini(first_flight, flight)
+	if first_flight <= briefing.unlock_level:
+		return tr("즉시 출격")
+	return tr("%d단계부터 출격") % first_flight
 
 static func threat_icon(definition: ThreatDefinition) -> Texture2D:
 	var index := EngagementDoctrine.TARGET_KINDS.find(EngagementDoctrine.target_kind(definition.signature_class))
@@ -236,6 +227,10 @@ func _build() -> void:
 	body.add_child(columns)
 	threat_list = _column(columns, "ThreatColumn", "예상 위협", THREAT_COLOR)
 	asset_list = _column(columns, "AssetColumn", "신규 방공 자산", ASSET_COLOR)
+	threat_timing_label = _muted_label("", 13)
+	threat_timing_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	threat_timing_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	threat_list.get_parent().get_node("Header").add_child(threat_timing_label)
 
 	var advice := PanelContainer.new()
 	advice.name = "Recommendation"
@@ -308,7 +303,12 @@ func _column(parent: HBoxContainer, node_name: String, heading: String, color: C
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", 12)
 	panel.add_child(body)
-	body.add_child(_caption(heading, color))
+	var header := HBoxContainer.new()
+	header.name = "Header"
+	body.add_child(header)
+	var caption := _caption(heading, color)
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(caption)
 	var list := VBoxContainer.new()
 	list.name = "List"
 	list.add_theme_constant_override("separation", 12)

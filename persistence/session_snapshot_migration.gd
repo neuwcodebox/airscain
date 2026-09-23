@@ -20,7 +20,7 @@ static func migrate_content(
 	if version < 31 and result.get("director") is Dictionary and scenario != null:
 		var debuted: Array = []
 		for entry: ThreatSpawnEntry in scenario.threat_entries:
-			if entry.unlock_level <= int(result.director.get("pressure_level", 1)) and not debuted.has(String(entry.threat_definition.id)):
+			if scenario.is_threat_available(entry, int(result.director.get("pressure_level", 1))) and not debuted.has(String(entry.threat_definition.id)):
 				debuted.append(String(entry.threat_definition.id))
 		result.director.debuted_threat_ids = debuted
 	# Version 30 assigns saved city smoke sites to districts. The runtime resolves

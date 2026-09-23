@@ -36,6 +36,7 @@ var combat_effect_pool: CombatEffectPool
 var radar_tracking_coordinator := RadarTrackingCoordinator.new()
 var last_persistence_repairs: Array[String] = []
 var briefing_panel: OperationBriefingPanel
+var speed_before_briefing: float = 1.0
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -119,7 +120,7 @@ func _ready() -> void:
 	if game_mode == GameMode.SUSTAINED:
 		briefing_panel = OperationBriefingPanel.new()
 		hud.add_child(briefing_panel)
-		briefing_panel.configure(scenario, session)
+		briefing_panel.configure(scenario)
 	_connect_flow()
 	_deploy_initial_defenses()
 	if game_mode == GameMode.TRAINING:
@@ -358,6 +359,9 @@ func _on_briefing_delivered(briefing: OperationBriefingDefinition) -> void:
 	if not bool(PlayerSettings.instance().values.get("briefings", true)):
 		hud.set_feedback(tr("새 작전 첩보: %s  ·  Esc 메뉴에서 확인") % tr(briefing.title))
 		return
+	if not briefing_panel.visible:
+		speed_before_briefing = session.simulation_speed
+	session.set_simulation_speed(0.0)
 	placement.cancel()
 	hud.close_context_menus()
 	camera_rig.input_blocked = true
@@ -370,9 +374,12 @@ func open_briefing_archive() -> bool:
 	briefing_panel.present_archive(briefing_controller.delivered_briefings())
 	return true
 
+## New briefings pause the operation; the archive runs under the pause menu, which owns time and camera.
 func _on_briefing_closed(archive: bool) -> void:
-	if not archive:
-		camera_rig.input_blocked = false
+	if archive:
+		return
+	camera_rig.input_blocked = false
+	session.set_simulation_speed(speed_before_briefing)
 
 func _on_briefing_deploy_requested(defense_ids: Array[StringName]) -> void:
 	hud.set_catalog_expanded(true)

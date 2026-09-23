@@ -515,7 +515,7 @@ func _choose_entry_for_budget(budget: float) -> ThreatSpawnEntry:
 	var available: Array[ThreatSpawnEntry] = []
 	var total_weight := 0.0
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
-		if entry.unlock_level <= pressure_level and entry.threat_cost * float(entry.group_size) <= budget:
+		if scenario.is_threat_available(entry, pressure_level) and entry.threat_cost * float(entry.group_size) <= budget:
 			available.append(entry)
 			total_weight += adaptive_entry_weight(entry)
 	if available.is_empty() or total_weight <= 0.0:

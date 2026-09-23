@@ -1461,7 +1461,7 @@ func test_physical_decoy_creates_plausible_tracks_without_matching_objects() -> 
 	var radar := radar_result.unit as SearchRadar
 	var decoy_entry := _threat_entry_for(main, &"decoy_uav")
 	main.scenario.threat_entries = [decoy_entry]
-	main.director.pressure_level = 2
+	main.director.pressure_level = main.scenario.threat_flight_level(decoy_entry)
 	var decoy := main.director.spawn_one()
 	decoy.global_position = radar.global_position + Vector3(0.0, 80.0, 180.0)
 	radar.gameplay_tick(0.8)
@@ -1632,8 +1632,8 @@ func test_swarm_entry_spawns_a_close_formation_package() -> void:
 	main.director.elapsed = 120.0
 	main.director.opening_raid_started = true
 	main.director.opening_raid_complete = true
-	main.director.pressure_started_at = main.director.elapsed
-	main.director.pressure_level = 2
+	main.director.pressure_level = main.scenario.threat_flight_level(main.scenario.threat_entries[0])
+	main.director.pressure_started_at = main.director.elapsed - main.scenario.pressure_step_duration * float(main.director.pressure_level - 2)
 	main.director.enabled = true
 	main.director.until_spawn = 0.0
 	main.director.gameplay_tick(0.1)
@@ -1671,7 +1671,7 @@ func test_recon_mission_upgrades_enemy_sensor_estimate() -> void:
 	var recon_entry := _threat_entry_for(main, &"recon_uav")
 	var recon_definition := recon_entry.threat_definition as AttackUavDefinition
 	main.scenario.threat_entries = [recon_entry]
-	main.director.pressure_level = 2
+	main.director.pressure_level = main.scenario.threat_flight_level(recon_entry)
 	var recon := main.director.spawn_one() as AttackUav
 	assert_null(recon.mission_runtime.target_asset)
 	recon.global_position = radar.global_position + Vector3(10.0, 145.0, 0.0)
@@ -1692,7 +1692,7 @@ func test_facility_strike_releases_weapon_then_egresses() -> void:
 	assert_true(support_result.success)
 	var support := support_result.unit as SupportFacility
 	main.scenario.threat_entries = [_threat_entry_for(main, &"support_strike_uav")]
-	main.director.pressure_level = 3
+	main.director.pressure_level = main.scenario.threat_flight_level(main.scenario.threat_entries[0])
 	assert_null(main.director.spawn_one(), "지원시설 관측이 없으면 타격 UAV를 생성하지 않습니다")
 	main.enemy_knowledge.record_recon(support)
 	var threat := main.director.spawn_one() as AttackUav
@@ -2697,7 +2697,7 @@ func _raid_plan_request(weights: Dictionary[StringName, float], rng: RandomNumbe
 	request.scenario = main.scenario
 	request.weights = weights
 	request.budget = 8.0
-	request.level = 4
+	request.level = main.scenario.threat_flight_level(_battery_strike_entry())
 	request.max_delay = 32.0
 	request.rng = rng
 	return request

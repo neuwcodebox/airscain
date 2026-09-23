@@ -127,7 +127,7 @@ func test_first_sortie_history_survives_save_and_legacy_saves_mark_reached_threa
 	legacy.payload.director.pressure_level = 2
 	assert_eq(main.restore_from_document(legacy), "")
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
-		assert_eq(main.director.debuted_definition_ids.has(entry.threat_definition.id), entry.unlock_level <= 2, String(entry.threat_definition.id))
+		assert_eq(main.director.debuted_definition_ids.has(entry.threat_definition.id), main.scenario.is_threat_available(entry, 2), String(entry.threat_definition.id))
 	var invalid := document.duplicate(true)
 	invalid.payload.director.debuted_threat_ids = ["missing_threat"]
 	assert_eq(main.restore_from_document(invalid), "")

@@ -23,7 +23,7 @@ func generate(request: RaidPlanRequest) -> Array[Dictionary]:
 	var rng := request.rng
 	var entries: Array[ThreatSpawnEntry] = []
 	for entry: ThreatSpawnEntry in scenario.threat_entries:
-		if entry.unlock_level <= level and _cost(entry) <= budget and weights.get(entry.threat_definition.id, 0.0) > 0.0:
+		if scenario.is_threat_available(entry, level) and _cost(entry) <= budget and weights.get(entry.threat_definition.id, 0.0) > 0.0:
 			entries.append(entry)
 	var strikes := _strikes(entries)
 	if strikes.is_empty():

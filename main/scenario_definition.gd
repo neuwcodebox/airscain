@@ -14,6 +14,9 @@ var selected_battlefield_layout_id: StringName = &""
 @export var raid_archetypes: Array[RaidArchetypeDefinition] = []
 ## Sustained-operation phases in ascending threat level; each groups the unlocks up to the next phase.
 @export var operation_briefings: Array[OperationBriefingDefinition] = []
+## Threats are announced by intel at their unlock level and first fly this many levels later,
+## giving players time to deploy the counter assets unlocked alongside the briefing.
+@export var threat_intel_lead_levels: int = 0
 @export var ambient_contacts: Array[ThreatDefinition] = []
 @export var ambient_contacts_per_type: int = 4
 @export var initial_spawn_interval: float = 12.0
@@ -53,6 +56,8 @@ func validation_error() -> String:
 		layout_ids[layout.id] = true
 	if not selected_battlefield_layout_id.is_empty() and not layout_ids.has(selected_battlefield_layout_id):
 		return "선택한 전장 레이아웃을 찾을 수 없습니다"
+	if threat_intel_lead_levels < 0:
+		return "위협 첩보 선행 단계가 올바르지 않습니다"
 	if starting_budget < 0 or initial_spawn_interval <= 0.0 or opening_raid_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
@@ -108,6 +113,14 @@ func battlefield_layout_by_id(layout_id: StringName) -> BattlefieldLayoutDefinit
 		if layout.id == layout_id:
 			return layout
 	return null
+
+## Level at which an announced threat may join automatic raids.
+## The operation opens with a raid, so opening-level threats fly immediately.
+func threat_flight_level(entry: ThreatSpawnEntry) -> int:
+	return entry.unlock_level if entry.unlock_level <= 1 else entry.unlock_level + threat_intel_lead_levels
+
+func is_threat_available(entry: ThreatSpawnEntry, level: int) -> bool:
+	return threat_flight_level(entry) <= level
 
 func _briefing_validation_error() -> String:
 	var ids: Dictionary[StringName, bool] = {}

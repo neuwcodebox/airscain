@@ -86,10 +86,37 @@ func test_delivered_state_round_trips_and_rejects_unknown_or_duplicate_ids() -> 
 func test_legacy_state_marks_phases_up_to_the_reached_level() -> void:
 	assert_eq(OperationBriefingController.legacy_state(SCENARIO, 3).delivered, ["operation_start", "recon_and_swarms", "cruise_and_jamming"])
 
+func test_briefed_threats_first_fly_one_level_after_their_briefing() -> void:
+	for briefing: OperationBriefingDefinition in SCENARIO.operation_briefings:
+		for definition: ThreatDefinition in SCENARIO.briefing_threats(briefing):
+			var entry := _entry(definition.id)
+			var case_label := "%s %s" % [briefing.id, definition.id]
+			if briefing.unlock_level == 1:
+				assert_true(SCENARIO.is_threat_available(entry, 1), "%s: 작전 개시 위협은 첫 공습에 바로 출격합니다" % case_label)
+				continue
+			assert_false(SCENARIO.is_threat_available(entry, briefing.unlock_level), "%s: 브리핑 단계에는 출격하지 않습니다" % case_label)
+			assert_true(SCENARIO.is_threat_available(entry, entry.unlock_level + SCENARIO.threat_intel_lead_levels), case_label)
+
+func test_counter_assets_unlock_before_their_phase_threats_fly() -> void:
+	for briefing: OperationBriefingDefinition in SCENARIO.operation_briefings:
+		var earliest_flight := 1000000
+		for definition: ThreatDefinition in SCENARIO.briefing_threats(briefing):
+			earliest_flight = mini(earliest_flight, SCENARIO.threat_flight_level(_entry(definition.id)))
+		for definition: DefenseDefinition in SCENARIO.briefing_defenses(briefing):
+			if briefing.unlock_level > 1:
+				assert_lt(definition.unlock_pressure_level, earliest_flight, "%s %s" % [briefing.id, definition.id])
+
 func test_korean_briefing_text_breaks_only_between_words() -> void:
-	var joined := OperationBriefingPanel.keep_words("적 무인기 부대가 출격")
-	assert_eq(joined.replace(OperationBriefingPanel.WORD_JOINER, ""), "적 무인기 부대가 출격")
-	assert_eq(joined.split(" ").size(), 4)
-	for word: String in joined.split(" "):
-		assert_eq(word.replace(OperationBriefingPanel.WORD_JOINER, "").length() * 2 - 1, maxi(1, word.length()), word)
-	assert_eq(OperationBriefingPanel.keep_words("Enemy drones launch"), "Enemy drones launch")
+	var joined := KoreanLineBreak.keep_words("적 무인기 부대가\n출격")
+	assert_eq(joined.replace(KoreanLineBreak.WORD_JOINER, ""), "적 무인기 부대가\n출격")
+	for word: String in ["적", "무인기", "부대가", "출격"]:
+		assert_string_contains(joined, KoreanLineBreak.WORD_JOINER.join(word.split("")), word)
+	assert_false(joined.contains(" " + KoreanLineBreak.WORD_JOINER), "공백 뒤는 줄바꿈 가능 지점입니다")
+	assert_eq(KoreanLineBreak.keep_words("Enemy drones launch"), "Enemy drones launch")
+
+func _entry(id: StringName) -> ThreatSpawnEntry:
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		if entry.threat_definition.id == id:
+			return entry
+	fail_test("missing threat entry %s" % id)
+	return null
