@@ -17,6 +17,8 @@ var crane_trolleys: Array[Node3D] = []
 var crane_cables: Array[MeshInstance3D] = []
 var crane_loads: Array[MeshInstance3D] = []
 var crane_spreaders: Array[MeshInstance3D] = []
+var repair_visual: HarborRepairVisual
+var damage_point := Vector3(0, 4.3, -23)
 var dispatch_shed: MeshInstance3D
 var alarm_beacons: Array[MeshInstance3D] = []
 var closed_from: float = INF
@@ -39,6 +41,8 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 	var orientation := Basis(Vector3(route.along_quay.x, 0.0, route.along_quay.y), Vector3.UP, Vector3(route.seaward.x, 0.0, route.seaward.y))
 	global_transform = Transform3D(orientation, Vector3(route.berth.x, route.sea_level, route.berth.y))
 	_build_port()
+	repair_visual = HarborRepairVisual.new()
+	add_child(repair_visual)
 	session.regular_support_due.connect(_on_regular_support_due)
 	update_at_time(session.survival_time)
 	return true
@@ -95,6 +99,7 @@ func update_at_time(time_seconds: float) -> void:
 	for index: int in delivery_outcomes.keys():
 		if index < first:
 			delivery_outcomes.erase(index)
+	repair_visual.update_at_time(time_seconds, closed_from, closed_until, damage_point, closed_until - EMERGENCY_REPAIR_SECONDS)
 	_animate_crane(unloading_fraction)
 	if dispatch_shed != null:
 		(dispatch_shed.material_override as StandardMaterial3D).albedo_color = Color("c5b694") if _operational_at(time_seconds) else Color("6c5c57")
@@ -116,6 +121,8 @@ func try_apply_impact(amount: int, global_impact_position: Vector3) -> bool:
 	if operational:
 		closed_from = session.survival_time
 	closed_until = maxf(closed_until, session.survival_time + EMERGENCY_REPAIR_SECONDS)
+	damage_point = Vector3(clampf(local.x, -74, 74), 4.3, clampf(local.z, -34, -20))
+	update_at_time(session.survival_time)
 	struck.emit()
 	return true
 
@@ -125,7 +132,7 @@ func capture_state() -> Dictionary:
 	indices.sort()
 	for index: int in indices:
 		outcomes.append({"index": index, "delivered": delivery_outcomes[index]})
-	return {"closed_from": closed_from if is_finite(closed_from) else -1.0, "closed_until": closed_until, "deliveries": outcomes}
+	return {"closed_from": closed_from if is_finite(closed_from) else -1.0, "closed_until": closed_until, "deliveries": outcomes, "damage_point": [damage_point.x, damage_point.z]}
 
 static func state_validation_error(state: Dictionary) -> String:
 	var from_value: Variant = state.get("closed_from")
@@ -136,6 +143,15 @@ static func state_validation_error(state: Dictionary) -> String:
 	var finish := float(until_value)
 	if not is_finite(start) or not is_finite(finish) or (start != -1.0 and (start < 0.0 or finish <= start)) or finish < 0.0:
 		return "항구 복구 시간이 올바르지 않습니다"
+	if state.has("damage_point"):
+		var point: Variant = state.damage_point
+		if not point is Array or point.size() != 2:
+			return "항구 피해 위치가 올바르지 않습니다"
+		for value: Variant in point:
+			if not (value is int or value is float) or not is_finite(float(value)):
+				return "항구 피해 위치가 올바르지 않습니다"
+		if absf(float(point[0])) > 74.0 or float(point[1]) < -34.0 or float(point[1]) > -20.0:
+			return "항구 피해 위치가 올바르지 않습니다"
 	var outcomes: Variant = state.get("deliveries")
 	if not outcomes is Array or outcomes.size() > 32:
 		return "항구 배송 기록이 올바르지 않습니다"
@@ -156,6 +172,8 @@ func restore_state(state: Dictionary) -> void:
 	var restored_until := float(state.closed_until)
 	closed_from = restored_from if restored_from >= 0.0 else INF
 	closed_until = restored_until
+	var point: Array = state.get("damage_point", [0.0, -23.0])
+	damage_point = Vector3(float(point[0]), 4.3, float(point[1]))
 	delivery_outcomes.clear()
 	for value: Dictionary in state.deliveries:
 		delivery_outcomes[int(value.index)] = bool(value.delivered)

@@ -83,12 +83,15 @@ func test_port_impact_interrupts_deliveries_without_city_damage_and_restores_rep
 	assert_eq(session.budget, 100)
 	assert_true(port.ships[1].cargo_containers[0].visible)
 	var harbor_state := port.capture_state()
+	var impact_site := port.damage_point
 	var session_state := session.capture_state()
 	port.free()
 	session.restore_state(session_state)
 	var restored_port := add_child_autofree(HarborPort.new()) as HarborPort
 	assert_true(restored_port.configure(field, session))
 	restored_port.restore_state(harbor_state)
+	assert_eq(restored_port.damage_point, impact_site)
+	assert_true(restored_port.repair_visual.visible)
 	assert_false(restored_port.operational)
 	session.gameplay_delta(90.0)
 	assert_true(restored_port.operational)
@@ -142,3 +145,34 @@ func test_ship_haze_fades_all_surfaces_without_changing_cargo_or_other_ships() -
 	assert_true(ship.visible)
 	assert_true(ship.cargo_containers[0].visible)
 	assert_false(ship.cargo_containers[-1].visible, "안개 복귀가 하역한 화물을 다시 표시하지 않습니다")
+
+func test_repair_scene_reconstructs_damage_work_and_completion_from_operation_time() -> void:
+	var visual := add_child_autofree(HarborRepairVisual.new()) as HarborRepairVisual
+	var restored := add_child_autofree(HarborRepairVisual.new()) as HarborRepairVisual
+	var site := Vector3(12, 4.3, -23)
+	visual.update_at_time(8, 0, 180, site)
+	assert_true(visual.visible)
+	assert_true(visual.smoke[0].visible)
+	assert_false(visual.crew.visible)
+	visual.update_at_time(42, 0, 180, site)
+	assert_true(visual.crew.visible)
+	restored.update_at_time(42, 0, 180, site)
+	assert_eq(visual.truck.transform, restored.truck.transform)
+	assert_eq(visual.smoke[0].transform, restored.smoke[0].transform)
+	assert_eq(visual.sparks.visible, restored.sparks.visible)
+	visual.update_at_time(145, 0, 180, site)
+	assert_false(visual.smoke[0].visible)
+	assert_true(visual.crew.visible)
+	visual.update_at_time(148, 0, 325, site, 145)
+	assert_true(visual.smoke[0].visible, "재피격하면 연기가 다시 발생합니다")
+	visual.update_at_time(180, 0, 180, site)
+	assert_false(visual.visible)
+
+func test_harbor_damage_point_rejects_invalid_coordinates_and_accepts_older_saves() -> void:
+	var state := {"closed_from": 0.0, "closed_until": 180.0, "deliveries": []}
+	assert_eq(HarborPort.state_validation_error(state), "")
+	state.damage_point = [12.0, -23.0]
+	assert_eq(HarborPort.state_validation_error(state), "")
+	for point: Array in [[INF, -23.0], [0.0, -1000.0], ["bad", -23.0], [12.0]]:
+		state.damage_point = point
+		assert_ne(HarborPort.state_validation_error(state), "", str(point))

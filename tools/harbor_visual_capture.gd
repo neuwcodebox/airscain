@@ -50,10 +50,12 @@ func run() -> void:
 		push_error("Harbor impact did not stay separate from city damage")
 		quit(1)
 		return
-	main.harbor_port.update_at_time(80.0)
-	for frame: int in 4:
-		await process_frame
-	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png("/tmp/airscain_harbor_struck.png")
+	for age: float in [8.0, 42.0, 145.0, 181.0]:
+		main.session.survival_time = age
+		main.harbor_port.update_at_time(age)
+		for frame: int in 4:
+			await process_frame
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png("/tmp/airscain_harbor_repair_%d.png" % int(age))
 	print("HARBOR_VISUAL_CAPTURE_OK berth=%s inbound=%.1f outbound=%.1f" % [berth, route.inbound_duration, route.outbound_duration])
 	quit(0)
