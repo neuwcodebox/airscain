@@ -61,3 +61,43 @@ func test_delivery_occurs_after_docking_and_is_reconstructed_from_operation_time
 	assert_true(restored_port.configure(field, session))
 	assert_true(restored_port.ships.has(1))
 	assert_almost_eq(restored_port.ships[1].global_position, dock_position, Vector3.ONE * 0.5)
+
+func test_port_impact_interrupts_deliveries_without_city_damage_and_restores_repair_time() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var session := add_child_autofree(GameSession.new()) as GameSession
+	session.reset(100, 90.0, 180)
+	var city := add_child_autofree(SCENARIO.objective_definition.scene.instantiate()) as ProtectedObjective
+	city.setup(1, SCENARIO.objective_definition)
+	var port := add_child_autofree(HarborPort.new()) as HarborPort
+	assert_true(port.configure(field, session))
+	city.impact_redirect = Callable(port, "try_apply_impact")
+	session.external_regular_support = true
+	session.defense_count = 1
+	assert_true(session.start_defense())
+	assert_true(city.apply_surface_impact(30, port.strike_target()))
+	assert_eq(city.current_integrity, city.definition.maximum_integrity)
+	assert_false(port.operational)
+	session.gameplay_delta(90.0)
+	port.update_at_time(session.survival_time)
+	assert_eq(session.budget, 100)
+	assert_true(port.ships[1].cargo_containers[0].visible)
+	var harbor_state := port.capture_state()
+	var session_state := session.capture_state()
+	port.free()
+	session.restore_state(session_state)
+	var restored_port := add_child_autofree(HarborPort.new()) as HarborPort
+	assert_true(restored_port.configure(field, session))
+	restored_port.restore_state(harbor_state)
+	assert_false(restored_port.operational)
+	session.gameplay_delta(90.0)
+	assert_true(restored_port.operational)
+	assert_eq(session.budget, 280)
+	assert_eq(session.support_payment_count, 1)
+	city.impact_redirect = Callable(restored_port, "try_apply_impact")
+	session.gameplay_delta(20.0)
+	assert_true(city.apply_surface_impact(30, restored_port.strike_target()))
+	session.gameplay_delta(100.0)
+	restored_port.update_at_time(session.survival_time)
+	assert_true(restored_port.ships[1].cargo_containers[0].visible, "이전 중단 배송의 화물은 새 피격 후에도 복원되지 않습니다")
+	assert_false(restored_port.ships[2].cargo_containers[0].visible, "이미 하역한 선박의 화물은 새 피격으로 되돌아오지 않습니다")

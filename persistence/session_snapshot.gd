@@ -42,7 +42,7 @@ static func _repairable_structure_error(payload: Dictionary) -> String:
 	for key: String in ["defenses", "contacts", "projectiles"]:
 		if not world.get(key) is Array:
 			return "월드 객체 목록이 올바르지 않습니다"
-	for key: String in ["engagements", "support", "relocations", "enemy_knowledge"]:
+	for key: String in ["engagements", "support", "relocations", "enemy_knowledge", "harbor"]:
 		if not world.get(key) is Dictionary:
 			return "월드 객체 목록이 올바르지 않습니다"
 	if not payload.player_knowledge.get("tracks") is Array:
@@ -402,6 +402,9 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if not contact_definition_map(scenario).has(StringName(definition_id)) or int(session_state.neutralized_by_type[definition_id]) < 0:
 			return "위협 유형별 결과 통계가 올바르지 않습니다"
 	var world_state: Dictionary = payload.world
+	var harbor_error := HarborPort.state_validation_error(world_state.harbor)
+	if not harbor_error.is_empty():
+		return harbor_error
 	if int(world_state.get("objective_integrity", -1)) < 0:
 		return "도시 기능 상태가 올바르지 않습니다"
 	var damage_smoke_states: Variant = world_state.get("objective_damage_smoke", [])

@@ -11,6 +11,10 @@ static func migrate_content(
 	if version >= SaveDocument.CURRENT_VERSION:
 		return payload
 	var result := payload.duplicate(true)
+	# Version 33 records temporary harbor closure; earlier operations start with
+	# an operational port and keep their existing support schedule.
+	if version < 33 and result.get("world") is Dictionary:
+		result.world.harbor = {"closed_from": -1.0, "closed_until": 0.0, "deliveries": []}
 	# Version 32 records delivered operation briefings; older operations have
 	# already seen every phase up to the threat level they reached.
 	if version < 32 and scenario != null:

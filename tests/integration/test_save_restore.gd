@@ -77,6 +77,35 @@ func test_initial_command_rotation_survives_current_and_legacy_save_restore() ->
 	var restored_command := _find_defense(command_id)
 	assert_almost_eq(restored_command.global_basis.x.normalized().dot(main.objective.global_basis.x.normalized()), 1.0, 0.0001, "기존 저장의 옥상 자산은 설치점 방향을 복구합니다")
 
+func test_harbor_strike_and_delivery_schedule_survive_operation_restore() -> void:
+	assert_not_null(main.harbor_port)
+	assert_true(main.session.start_defense())
+	main.session.gameplay_delta(45.0)
+	var city_integrity := main.objective.current_integrity
+	assert_true(main.objective.apply_surface_impact(30, main.harbor_port.strike_target()))
+	assert_eq(main.objective.current_integrity, city_integrity)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	assert_eq(main.restore_from_document(document), "")
+	assert_false(main.harbor_port.operational)
+	var budget := main.session.budget
+	main.session.gameplay_delta(225.0)
+	assert_eq(main.session.survival_time, 270.0)
+	assert_eq(main.session.budget, budget + main.session.support_amount)
+	assert_eq(main.session.support_payment_count, 1)
+	assert_true(main.harbor_port.operational)
+
+func test_version_32_without_harbor_state_starts_with_operational_port() -> void:
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var invalid := document.duplicate(true)
+	invalid.payload.world.harbor.closed_until = INF
+	assert_ne(main.restore_from_document(invalid), "")
+	assert_true(main.harbor_port.operational)
+	document.version = 32
+	document.payload.world.erase("harbor")
+	assert_eq(main.restore_from_document(document), "")
+	assert_not_null(main.harbor_port)
+	assert_true(main.harbor_port.operational)
+
 func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void:
 	main.director.elapsed = 240.0
 	main.director.pressure_level = 12

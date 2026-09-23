@@ -17,6 +17,7 @@ const DEBUT_WEIGHT_MULTIPLIER := 4.0
 var scenario: ScenarioDefinition
 var battlefield: Battlefield
 var objective: ProtectedObjective
+var harbor_port: HarborPort
 var registry: ThreatRegistry
 var threat_parent: Node3D
 var defense_parent: Node3D
@@ -163,6 +164,10 @@ func _spawn_group(entry: ThreatSpawnEntry, group_angle: float, opening_raid: boo
 		target_district = target_district if target_district != null else battlefield.random_city_district(rng)
 		group_target = battlefield.random_city_building_target_in_district(target_district, rng)
 	var spawn_center := target_district.center if target_district != null and entry.threat_definition.shares_city_impact_target() else Vector2.ZERO
+	if not opening_raid and entry.threat_definition.shares_city_impact_target() and is_instance_valid(harbor_port) and harbor_port.operational and rng.randf() < 0.18:
+		var port_target := harbor_port.strike_target()
+		group_target = port_target
+		spawn_center = Vector2(port_target.x, port_target.z)
 	for group_index: int in entry.group_size:
 		if registry.hostile_count() >= scenario.active_threat_cap:
 			return

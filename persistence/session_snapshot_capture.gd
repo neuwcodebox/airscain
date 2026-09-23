@@ -26,6 +26,7 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 		"session": main.session.capture_state(),
 		"world": {
 			"objective_integrity": main.objective.current_integrity,
+			"harbor": main.harbor_port.capture_state() if main.harbor_port != null else {"closed_from": -1.0, "closed_until": 0.0, "deliveries": []},
 			"objective_damage_smoke": main.objective.capture_damage_smoke_state(),
 			"defenses": defense_states,
 			"contacts": contact_states,

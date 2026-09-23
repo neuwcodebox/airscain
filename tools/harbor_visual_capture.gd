@@ -36,5 +36,15 @@ func run() -> void:
 			push_error("Harbor capture failed: %s" % error_string(result))
 			quit(1)
 			return
+	var city_integrity := main.objective.current_integrity
+	if not main.objective.apply_surface_impact(30, main.harbor_port.strike_target()) or main.objective.current_integrity != city_integrity:
+		push_error("Harbor impact did not stay separate from city damage")
+		quit(1)
+		return
+	main.harbor_port.update_at_time(80.0)
+	for frame: int in 4:
+		await process_frame
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("/tmp/airscain_harbor_struck.png")
 	print("HARBOR_VISUAL_CAPTURE_OK berth=%s inbound=%.1f outbound=%.1f" % [berth, route.inbound_duration, route.outbound_duration])
 	quit(0)

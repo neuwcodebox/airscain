@@ -102,14 +102,19 @@ func _build_lights() -> void:
 	_box(self, "MastLight", Vector3(0.7, 0.7, 0.7), Vector3(0.0, 18.3, 22.0), _material(Color("fff0bf"), 0.0, true))
 
 func _build_wake() -> void:
-	var wake_mesh := PlaneMesh.new()
-	wake_mesh.size = Vector2(16.0, 45.0)
+	var foam := SurfaceTool.new()
+	foam.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for point: Vector3 in [Vector3(-5.0, 0.0, 34.0), Vector3(5.0, 0.0, 34.0), Vector3(-15.0, 0.0, 84.0), Vector3(5.0, 0.0, 34.0), Vector3(15.0, 0.0, 84.0), Vector3(-15.0, 0.0, 84.0)]:
+		foam.set_color(Color(0.8, 0.94, 0.93, 0.14 if point.z < 50.0 else 0.0))
+		foam.add_vertex(point)
 	wake = MeshInstance3D.new()
 	wake.name = "Wake"
-	wake.mesh = wake_mesh
-	wake.position = Vector3(0.0, 0.1, 55.0)
-	var material := _material(Color(0.75, 0.91, 0.89, 0.18))
+	wake.mesh = foam.commit()
+	wake.position.y = 0.3
+	wake.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := _material(Color.WHITE)
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
 	wake.material_override = material
 	add_child(wake)

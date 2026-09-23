@@ -216,6 +216,8 @@ func _spawn_objective() -> void:
 	battlefield.set_objective(objective)
 
 func _create_harbor_port() -> void:
+	objective.impact_redirect = Callable()
+	director.harbor_port = null
 	if harbor_port != null:
 		harbor_port.free()
 	harbor_port = HarborPort.new()
@@ -223,11 +225,17 @@ func _create_harbor_port() -> void:
 	world_objects.add_child(harbor_port)
 	if harbor_port.configure(battlefield, session):
 		session.external_regular_support = true
+		objective.impact_redirect = Callable(harbor_port, "try_apply_impact")
+		director.harbor_port = harbor_port
+		harbor_port.struck.connect(_on_harbor_struck)
 	else:
 		push_warning("이 전장에 안전한 항구 항로를 찾지 못해 기존 정기 지원을 사용합니다")
 		harbor_port.free()
 		harbor_port = null
 		session.external_regular_support = false
+
+func _on_harbor_struck() -> void:
+	hud.set_feedback(tr("항구 피격: 하역이 중단되어 정기 지원이 끊깁니다. 긴급 복구가 진행 중입니다."), true)
 
 func _deploy_initial_defenses() -> void:
 	for mount: Dictionary in objective.initial_defense_mounts():
@@ -789,6 +797,8 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	session.restore_state(payload.session)
 	if game_mode == GameMode.SUSTAINED:
 		_create_harbor_port()
+		if harbor_port != null and world_state.get("harbor") is Dictionary:
+			harbor_port.restore_state(world_state.harbor)
 	day_night.apply_time(session.survival_time, true)
 
 func _clear_runtime_objects() -> void:

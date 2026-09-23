@@ -21,6 +21,7 @@ var damage_smoke_sites: Array[Dictionary] = []
 var prepared_smoke_effects: Array[DamageSmokeEffect] = []
 var damage_district_centers: Dictionary[StringName, Vector2] = {}
 var restored_smoke_needs_repair_reordering: bool = false
+var impact_redirect: Callable
 
 func initial_defense_mounts() -> Array[Dictionary]:
 	return []
@@ -55,12 +56,16 @@ func apply_mission_damage(amount: int) -> bool:
 	return true
 
 func apply_building_impact(amount: int, global_impact_position: Vector3, building_height: float) -> bool:
+	if impact_redirect.is_valid() and bool(impact_redirect.call(amount, global_impact_position)):
+		return true
 	if current_integrity <= 0 or amount <= 0:
 		return false
 	_append_damage_smoke_site(global_impact_position, building_height)
 	return apply_mission_damage(amount)
 
 func apply_surface_impact(amount: int, global_impact_position: Vector3) -> bool:
+	if impact_redirect.is_valid() and bool(impact_redirect.call(amount, global_impact_position)):
+		return true
 	if current_integrity <= 0 or amount <= 0:
 		return false
 	_append_damage_smoke_site(global_impact_position, SURFACE_IMPACT_PLUME_REFERENCE_HEIGHT)
