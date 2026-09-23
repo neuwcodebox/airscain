@@ -1722,12 +1722,35 @@ func test_director_enters_recovery_once_per_attack_window() -> void:
 	assert_false(director.in_recovery)
 	assert_eq(recovery_count[0], 1)
 
-func test_advanced_defenses_require_matching_pressure_level() -> void:
-	assert_eq(_defense(&"missile_battery").unlock_pressure_level, 1)
-	assert_eq(_defense(&"tracking_radar").unlock_pressure_level, 2)
-	assert_eq(_defense(&"high_energy_laser").unlock_pressure_level, 3)
-	assert_eq(_defense(&"long_range_missile").unlock_pressure_level, 4)
-	assert_eq(_defense(&"high_power_microwave").unlock_pressure_level, 5)
+func test_high_altitude_threats_unlock_after_a_matching_high_altitude_radar() -> void:
+	var earliest_high_radar := 1000000
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		if definition is SearchRadarDefinition and (definition as SearchRadarDefinition).maximum_detection_altitude >= 900.0:
+			earliest_high_radar = mini(earliest_high_radar, definition.unlock_pressure_level)
+	var high_entry_count := 0
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		if entry.attack_layer == ThreatSpawnEntry.AttackLayer.HIGH:
+			high_entry_count += 1
+			assert_gte(entry.unlock_level, earliest_high_radar, "%s는 고고도 레이더 해금 이후에 등장해야 합니다" % entry.threat_definition.id)
+	assert_gt(high_entry_count, 0)
+
+func test_ballistic_threats_unlock_after_a_high_altitude_interceptor() -> void:
+	var earliest_interceptor := 1000000
+	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		if definition is MissileBatteryDefinition and (definition as MissileBatteryDefinition).maximum_engagement_altitude >= 900.0:
+			earliest_interceptor = mini(earliest_interceptor, definition.unlock_pressure_level)
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		if EngagementDoctrine.target_kind(entry.threat_definition.signature_class) == &"ballistic_missile":
+			assert_gte(entry.unlock_level, earliest_interceptor, "%s" % entry.threat_definition.id)
+
+func test_unlocked_threat_is_favored_until_its_first_sortie() -> void:
+	var director := autofree(ThreatDirector.new()) as ThreatDirector
+	director.scenario = SCENARIO
+	var entry: ThreatSpawnEntry = SCENARIO.threat_entries[0]
+	var debut_weight := director.adaptive_entry_weight(entry)
+	director.debuted_definition_ids[entry.threat_definition.id] = true
+	assert_gt(debut_weight, director.adaptive_entry_weight(entry))
+	assert_eq(director.adaptive_entry_weight(entry), entry.selection_weight)
 
 func test_close_in_gun_has_distinct_small_target_match_and_short_range() -> void:
 	var definition := _defense(&"close_in_gun") as CloseInGunDefinition

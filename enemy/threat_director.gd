@@ -11,6 +11,8 @@ const PARTIAL_SUPPRESSION_FOLLOWUP_CHANCE := 0.9
 const FIRST_FAILED_SUPPRESSION_FOLLOWUP_CHANCE := 0.8
 const SUPPRESSION_EXPLOIT_CHANCE := 0.0
 const REPEATED_FAILURE_FOLLOWUP_CHANCE := 0.2
+## Unlocked threats that have never flown are favored so briefed content appears early.
+const DEBUT_WEIGHT_MULTIPLIER := 4.0
 
 var scenario: ScenarioDefinition
 var battlefield: Battlefield
@@ -35,6 +37,7 @@ var opening_threat_ids: Array[int] = []
 var pressure_started_at: float = 0.0
 var last_assessed_outcome_id: int = 0
 var suppression_failure_streak: int = 0
+var debuted_definition_ids: Dictionary[StringName, bool] = {}
 
 func configure(scenario_value: ScenarioDefinition, battlefield_value: Battlefield, objective_value: ProtectedObjective, registry_value: ThreatRegistry, threat_parent_value: Node3D, defense_parent_value: Node3D, enemy_knowledge_value: EnemyKnowledge) -> void:
 	scenario = scenario_value
@@ -64,6 +67,7 @@ func reset() -> void:
 	pressure_started_at = 0.0
 	last_assessed_outcome_id = 0
 	suppression_failure_streak = 0
+	debuted_definition_ids.clear()
 	raid_planner.last_pattern = &""
 	raid_planner.recent_definition_ids.clear()
 	pressure_changed.emit(pressure_level)
@@ -435,6 +439,7 @@ func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, tar
 		target.y = battlefield.terrain_height(target.x, target.z)
 	threat.configure_mission(objective, battlefield, target, speed_multiplier_at(elapsed), target_asset, spawn_position)
 	next_runtime_id += 1
+	debuted_definition_ids[entry.threat_definition.id] = true
 	registry.add(threat)
 	bind_releases(threat)
 	threat_spawned.emit(threat)
@@ -524,6 +529,8 @@ func _choose_entry_for_budget(budget: float) -> ThreatSpawnEntry:
 
 func adaptive_entry_weight(entry: ThreatSpawnEntry) -> float:
 	var weight := maxf(0.0, entry.selection_weight)
+	if not debuted_definition_ids.has(entry.threat_definition.id):
+		weight *= DEBUT_WEIGHT_MULTIPLIER
 	if enemy_knowledge == null:
 		return weight
 	var definition := entry.threat_definition
@@ -571,6 +578,7 @@ func capture_state() -> Dictionary:
 		"pressure_started_at": pressure_started_at,
 		"last_assessed_outcome_id": last_assessed_outcome_id,
 		"suppression_failure_streak": suppression_failure_streak,
+		"debuted_threat_ids": debuted_threat_ids(),
 	}
 
 func restore_state(state: Dictionary) -> void:
@@ -591,9 +599,19 @@ func restore_state(state: Dictionary) -> void:
 	pressure_started_at = float(state.pressure_started_at)
 	last_assessed_outcome_id = int(state.get("last_assessed_outcome_id", 0))
 	suppression_failure_streak = int(state.get("suppression_failure_streak", 0))
+	debuted_definition_ids.clear()
+	for definition_id: Variant in state.get("debuted_threat_ids", []):
+		debuted_definition_ids[StringName(String(definition_id))] = true
 	raid_planner.last_pattern = StringName(state.get("last_raid_pattern", ""))
 	raid_planner.restore_recent_definitions(state.get("recent_raid_definitions", []))
 	pressure_changed.emit(pressure_level)
+
+func debuted_threat_ids() -> Array[String]:
+	var result: Array[String] = []
+	for definition_id: StringName in debuted_definition_ids:
+		result.append(String(definition_id))
+	result.sort()
+	return result
 
 static func opening_state_validation_error(state: Dictionary) -> String:
 	if not state.get("opening_raid_started") is bool or not state.get("opening_raid_complete") is bool or not state.get("opening_threat_ids") is Array:
@@ -666,6 +684,13 @@ static func repair_history_state(state: Dictionary, valid_definition_ids: Dictio
 				recent.append(String(definition_id))
 				seen[definition_id] = true
 	repaired.recent_raid_definitions = recent
+	var debuted: Array = []
+	var debuted_values: Variant = repaired.get("debuted_threat_ids")
+	if debuted_values is Array:
+		for value: Variant in debuted_values:
+			if value is String and valid_definition_ids.has(StringName(value)) and not debuted.has(value):
+				debuted.append(value)
+	repaired.debuted_threat_ids = debuted
 	return repaired
 
 func _mission_assignments() -> Dictionary[int, int]:

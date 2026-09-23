@@ -610,6 +610,15 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if not value is String or not valid_raid_definitions.has(definition_id) or seen_recent_definitions.has(definition_id):
 			return "최근 공습 위협 이력이 올바르지 않습니다"
 		seen_recent_definitions[definition_id] = true
+	var debuted: Variant = director_state.get("debuted_threat_ids")
+	if not debuted is Array:
+		return "위협 첫 출격 이력이 올바르지 않습니다"
+	var seen_debuted: Dictionary[StringName, bool] = {}
+	for value: Variant in debuted:
+		var definition_id := StringName(String(value))
+		if not value is String or not valid_raid_definitions.has(definition_id) or seen_debuted.has(definition_id):
+			return "위협 첫 출격 이력이 올바르지 않습니다"
+		seen_debuted[definition_id] = true
 	if float(director_state.get("elapsed", -1.0)) < 0.0 or float(director_state.get("until_spawn", -1.0)) < 0.0 or int(director_state.get("pressure_level", 0)) < 1 or int(director_state.get("next_runtime_id", 0)) < 1 or int(director_state.get("completed_attack_windows", -1)) < 0 or int(director_state.get("last_assessed_outcome_id", -1)) < 0 or int(director_state.get("suppression_failure_streak", -1)) < 0 or not director_state.get("in_recovery", null) is bool or not director_state.get("pending_waves", null) is Array:
 		return "공격 Director 상태가 올바르지 않습니다"
 	var opening_error := ThreatDirector.opening_state_validation_error(director_state)

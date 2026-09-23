@@ -483,11 +483,13 @@ func test_pressure_unlocks_advanced_defense_in_domain_and_catalog() -> void:
 	var catalog_meta := _catalog_meta_label_for(main, definition.id)
 	var position := _find_valid_position_for(definition.placement_profile)
 	var locked_result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	var unlock_level := definition.unlock_pressure_level
+	assert_gt(unlock_level, 1)
 	assert_false(locked_result.success)
-	assert_string_contains(locked_result.reason, "위협 단계 2")
+	assert_string_contains(locked_result.reason, "위협 단계 %d" % unlock_level)
 	assert_true(catalog_button.disabled)
-	assert_eq(catalog_meta.text, "2단계 해금")
-	main.director.pressure_changed.emit(2)
+	assert_eq(catalog_meta.text, "%d단계 해금" % unlock_level)
+	main.director.pressure_changed.emit(unlock_level)
 	assert_false(catalog_button.disabled)
 	assert_true(main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent).success)
 
@@ -1010,9 +1012,9 @@ func test_search_radar_observes_only_threats_inside_its_coverage() -> void:
 func test_high_altitude_radar_tracks_targets_above_search_radar_ceiling() -> void:
 	main.registry.clear()
 	main.player_knowledge.reset()
-	main.director.pressure_changed.emit(2)
 	var search_definition := _defense_definition_for(main, &"search_radar")
 	var high_definition := _defense_definition_for(main, &"tracking_radar")
+	main.director.pressure_changed.emit(high_definition.unlock_pressure_level)
 	var search_result: Dictionary = main.session.request_placement(search_definition, _find_valid_position_for(search_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var high_result: Dictionary = main.session.request_placement(high_definition, _find_valid_position_for(high_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	var search_radar := search_result.unit as SearchRadar
@@ -1982,7 +1984,7 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 
 func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_rounds() -> void:
 	main.registry.clear()
-	main.director.pressure_changed.emit(4)
+	main.director.pressure_changed.emit(_threat_entry_for(main, &"ballistic_missile").unlock_level)
 	var radar_result := _place_for(main, _defense_definition_for(main, &"tracking_radar"))
 	var command_result := _place_for(main, _defense_definition_for(main, &"command_post"))
 	var battery_result := _place_for(main, _defense_definition_for(main, &"long_range_missile"))

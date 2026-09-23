@@ -11,6 +11,14 @@ static func migrate_content(
 	if version >= SaveDocument.CURRENT_VERSION:
 		return payload
 	var result := payload.duplicate(true)
+	# Version 31 records which threats already flew so debut weighting skips
+	# content an older operation has presumably seen at its saved threat level.
+	if version < 31 and result.get("director") is Dictionary and scenario != null:
+		var debuted: Array = []
+		for entry: ThreatSpawnEntry in scenario.threat_entries:
+			if entry.unlock_level <= int(result.director.get("pressure_level", 1)) and not debuted.has(String(entry.threat_definition.id)):
+				debuted.append(String(entry.threat_definition.id))
+		result.director.debuted_threat_ids = debuted
 	# Version 30 assigns saved city smoke sites to districts. The runtime resolves
 	# legacy sites from their impact positions after rebuilding the battlefield.
 	if version < 30:

@@ -115,6 +115,25 @@ func test_procedural_raid_history_and_rng_restore_the_same_next_attack() -> void
 	assert_eq(main.director.pending_waves, pending)
 	assert_false(legacy.payload.director.has("last_raid_pattern"))
 
+func test_first_sortie_history_survives_save_and_legacy_saves_mark_reached_threats_flown() -> void:
+	main.director.debuted_definition_ids[&"swarm_uav"] = true
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	main.director.debuted_definition_ids.clear()
+	assert_eq(main.restore_from_document(document), "")
+	assert_true(main.director.debuted_definition_ids.has(&"swarm_uav"))
+	var legacy := document.duplicate(true)
+	legacy.version = 30
+	legacy.payload.director.erase("debuted_threat_ids")
+	legacy.payload.director.pressure_level = 2
+	assert_eq(main.restore_from_document(legacy), "")
+	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
+		assert_eq(main.director.debuted_definition_ids.has(entry.threat_definition.id), entry.unlock_level <= 2, String(entry.threat_definition.id))
+	var invalid := document.duplicate(true)
+	invalid.payload.director.debuted_threat_ids = ["missing_threat"]
+	assert_eq(main.restore_from_document(invalid), "")
+	assert_true(main.director.debuted_definition_ids.is_empty())
+	assert_false(main.last_persistence_repairs.is_empty())
+
 func test_defense_neutralization_count_round_trips_and_rejects_negative_values() -> void:
 	var battery := _place_defense(_defense_definition(&"missile_battery")) as MissileBattery
 	battery.neutralized_count = 4
