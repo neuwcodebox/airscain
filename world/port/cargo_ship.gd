@@ -8,6 +8,8 @@ static var structure_meshes: Dictionary[String, Mesh] = {}
 static var cargo_mesh: ArrayMesh
 static var cargo_materials: Array[StandardMaterial3D] = []
 
+var haze: DistantContactHaze
+
 var wake: MeshInstance3D
 var cargo_containers: Array[MeshInstance3D] = []
 
@@ -28,6 +30,17 @@ func _ready() -> void:
 	_build_cargo()
 	_build_lights()
 	_build_wake()
+
+func configure_haze(size: float) -> void:
+	haze = DistantContactHaze.new()
+	add_child(haze)
+	haze.configure(self, size)
+	haze.set_process(false)
+
+func refresh_haze() -> void:
+	if haze != null:
+		haze.refresh()
+		visible = haze.opacity > 0.001
 
 func set_underway(underway: bool) -> void:
 	if wake != null:

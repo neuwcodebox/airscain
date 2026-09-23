@@ -61,14 +61,29 @@ static func plan(field: Battlefield) -> HarborRoute:
 				prior_height = height
 	return best
 
-func _build(battlefield_size: float) -> void:
-	var far := berth + seaward * (battlefield_size * 2.3) - along_quay * 400.0
+func variants(field: Battlefield) -> Array[HarborRoute]:
+	var result: Array[HarborRoute] = [self]
+	for spread: float in [750.0, 1850.0, 350.0, 1250.0]:
+		var candidate := HarborRoute.new()
+		candidate.shore = shore
+		candidate.berth = berth
+		candidate.seaward = seaward
+		candidate.along_quay = along_quay
+		candidate.sea_level = sea_level
+		candidate._build(field.battlefield_size, spread)
+		if candidate._has_clear_water(field):
+			result.append(candidate)
+	return result
+
+func _build(battlefield_size: float, spread: float = 0.0) -> void:
+	var far := berth + seaward * (battlefield_size * 2.3) - along_quay * (400.0 + spread)
 	var turn := berth + seaward * 540.0 - along_quay * 300.0
-	inbound = _append_line(inbound, far, turn, 96)
+	inbound = _append_curve(inbound, far, far - seaward * battlefield_size * 0.75, turn + seaward * 630.0 + along_quay * 90.0, turn, 128)
 	inbound = _append_curve(inbound, turn, berth + seaward * 330.0 - along_quay * 330.0, berth - along_quay * 130.0, berth, 64)
 	var exit_turn := berth + seaward * 540.0 + along_quay * 300.0
 	outbound = _append_curve(outbound, berth, berth + along_quay * 130.0, berth + seaward * 330.0 + along_quay * 330.0, exit_turn, 64)
-	outbound = _append_line(outbound, exit_turn, berth + seaward * (battlefield_size * 2.3) + along_quay * 400.0, 96)
+	var exit_far := berth + seaward * (battlefield_size * 2.3) + along_quay * (400.0 + spread)
+	outbound = _append_curve(outbound, exit_turn, exit_turn + seaward * 630.0 - along_quay * 90.0, exit_far - seaward * battlefield_size * 0.75, exit_far, 128)
 	inbound_times = _travel_times(inbound, true)
 	outbound_times = _travel_times(outbound, false)
 
@@ -78,12 +93,6 @@ func _has_clear_water(field: Battlefield) -> bool:
 			if field.terrain_height(point.x, point.z) > sea_level - MINIMUM_WATER_DEPTH:
 				return false
 	return true
-
-func _append_line(points: PackedVector3Array, start: Vector2, finish: Vector2, count: int) -> PackedVector3Array:
-	for index: int in range(count + 1):
-		var point := start.lerp(finish, float(index) / float(count))
-		points.append(Vector3(point.x, sea_level, point.y))
-	return points
 
 func _append_curve(points: PackedVector3Array, start: Vector2, control_a: Vector2, control_b: Vector2, finish: Vector2, count: int) -> PackedVector3Array:
 	if points.is_empty():
@@ -124,6 +133,21 @@ func _pose_at(points: PackedVector3Array, times: PackedFloat32Array, elapsed: fl
 		else:
 			high = midpoint
 	var weight := inverse_lerp(times[low], times[high], time)
-	var position := points[low].lerp(points[high], weight)
-	var direction := (points[high] - points[low]).normalized()
-	return Transform3D(Basis.looking_at(direction, Vector3.UP), position)
+	# Hermite interpolation keeps position and heading continuous across samples.
+	var length := points[low].distance_to(points[high])
+	var tangent_a := _tangent(points, low) * length
+	var tangent_b := _tangent(points, high) * length
+	var t2 := weight * weight
+	var t3 := t2 * weight
+	var position := (2.0 * t3 - 3.0 * t2 + 1.0) * points[low] + (t3 - 2.0 * t2 + weight) * tangent_a + (-2.0 * t3 + 3.0 * t2) * points[high] + (t3 - t2) * tangent_b
+	var direction := (6.0 * t2 - 6.0 * weight) * points[low] + (3.0 * t2 - 4.0 * weight + 1.0) * tangent_a + (-6.0 * t2 + 6.0 * weight) * points[high] + (3.0 * t2 - 2.0 * weight) * tangent_b
+	return Transform3D(Basis.looking_at(direction.normalized(), Vector3.UP), position)
+
+func _tangent(points: PackedVector3Array, index: int) -> Vector3:
+	if points[index].distance_to(Vector3(berth.x, sea_level, berth.y)) < 0.01:
+		return Vector3(along_quay.x, 0, along_quay.y)
+	if index == 0:
+		return (points[1] - points[0]).normalized()
+	if index == points.size() - 1:
+		return (points[index] - points[index - 1]).normalized()
+	return ((points[index] - points[index - 1]).normalized() + (points[index + 1] - points[index]).normalized()).normalized()

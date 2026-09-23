@@ -101,3 +101,44 @@ func test_port_impact_interrupts_deliveries_without_city_damage_and_restores_rep
 	restored_port.update_at_time(session.survival_time)
 	assert_true(restored_port.ships[1].cargo_containers[0].visible, "이전 중단 배송의 화물은 새 피격 후에도 복원되지 않습니다")
 	assert_false(restored_port.ships[2].cargo_containers[0].visible, "이미 하역한 선박의 화물은 새 피격으로 되돌아오지 않습니다")
+
+func test_voyages_use_separate_water_approaches_and_turn_continuously() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var route := HarborRoute.plan(field)
+	var variants := route.variants(field)
+	assert_gt(variants.size(), 1, "먼바다 접근 항로가 분산됩니다")
+	assert_gt(variants[0].inbound[0].distance_to(variants[-1].inbound[0]), 100.0)
+	for voyage: HarborRoute in variants:
+		for entering: bool in [true, false]:
+			var times := voyage.inbound_times if entering else voyage.outbound_times
+			for index: int in range(1, times.size() - 1):
+				var before := voyage.inbound_pose(times[index] - 0.001) if entering else voyage.outbound_pose(times[index] - 0.001)
+				var after := voyage.inbound_pose(times[index] + 0.001) if entering else voyage.outbound_pose(times[index] + 0.001)
+				assert_lt(before.basis.get_rotation_quaternion().angle_to(after.basis.get_rotation_quaternion()), 0.002, "항로 %d 진입 %s 표본 %d에서 방향이 연속입니다" % [variants.find(voyage), entering, index])
+				assert_lt(field.terrain_height(after.origin.x, after.origin.z), voyage.sea_level - HarborRoute.MINIMUM_WATER_DEPTH, "변형 항로의 수심을 유지합니다")
+		var dock := voyage.inbound_pose(voyage.inbound_duration)
+		var departure := voyage.outbound_pose(0.0)
+		assert_almost_eq(dock.basis.z, departure.basis.z, Vector3.ONE * 0.0001, "접안과 출항 사이에 선수가 튀지 않습니다")
+
+func test_ship_haze_fades_all_surfaces_without_changing_cargo_or_other_ships() -> void:
+	var ship := add_child_autofree(CargoShip.new()) as CargoShip
+	var other := add_child_autofree(CargoShip.new()) as CargoShip
+	ship.configure_haze(1000.0)
+	other.configure_haze(1000.0)
+	ship.set_cargo_remaining(0.5)
+	ship.position = Vector3(1600, 0, 0)
+	ship.refresh_haze()
+	assert_gt(ship.haze.opacity, 0.0)
+	assert_lt(ship.haze.opacity, 1.0)
+	for surface: DistantContactHaze.SurfaceFade in ship.haze.surfaces:
+		assert_almost_eq(surface.faded.albedo_color.a, surface.alpha * ship.haze.opacity, 0.0001)
+	assert_eq(other.haze.opacity, 1.0, "공유 모델을 쓰는 다른 배는 흐려지지 않습니다")
+	ship.position = Vector3(2300, 0, 0)
+	ship.refresh_haze()
+	assert_false(ship.visible, "연무 밖의 선박과 항적은 보이지 않습니다")
+	ship.position = Vector3.ZERO
+	ship.refresh_haze()
+	assert_true(ship.visible)
+	assert_true(ship.cargo_containers[0].visible)
+	assert_false(ship.cargo_containers[-1].visible, "안개 복귀가 하역한 화물을 다시 표시하지 않습니다")

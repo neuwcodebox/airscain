@@ -36,6 +36,15 @@ func run() -> void:
 			push_error("Harbor capture failed: %s" % error_string(result))
 			quit(1)
 			return
+	main.harbor_port.update_at_time(125.0)
+	main.camera_rig.camera.global_position = berth - seaward * 330.0 + Vector3.UP * 310.0
+	main.camera_rig.camera.look_at(berth + seaward * 500.0)
+	for frame: int in 4:
+		await process_frame
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("/tmp/airscain_harbor_shipping.png")
+	main.camera_rig.camera.global_position = berth + along * 170.0 + seaward * 230.0 + Vector3.UP * 145.0
+	main.camera_rig.camera.look_at(berth + Vector3.UP * 7.0)
 	var city_integrity := main.objective.current_integrity
 	if not main.objective.apply_surface_impact(30, main.harbor_port.strike_target()) or main.objective.current_integrity != city_integrity:
 		push_error("Harbor impact did not stay separate from city damage")

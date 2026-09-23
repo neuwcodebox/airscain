@@ -7,6 +7,10 @@ const EMERGENCY_REPAIR_SECONDS := 180.0
 signal struck
 
 var route: HarborRoute
+var shipping_routes: Array[HarborRoute] = []
+var maximum_inbound: float
+var maximum_outbound: float
+var haze_size: float
 var session: GameSession
 var ships: Dictionary[int, CargoShip] = {}
 var crane_trolleys: Array[Node3D] = []
@@ -26,6 +30,11 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 	route = HarborRoute.plan(field)
 	if route == null:
 		return false
+	shipping_routes = route.variants(field)
+	haze_size = field.battlefield_size
+	for shipping_route: HarborRoute in shipping_routes:
+		maximum_inbound = maxf(maximum_inbound, shipping_route.inbound_duration)
+		maximum_outbound = maxf(maximum_outbound, shipping_route.outbound_duration)
 	session = session_value
 	var orientation := Basis(Vector3(route.along_quay.x, 0.0, route.along_quay.y), Vector3.UP, Vector3(route.seaward.x, 0.0, route.seaward.y))
 	global_transform = Transform3D(orientation, Vector3(route.berth.x, route.sea_level, route.berth.y))
@@ -37,15 +46,16 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 func update_at_time(time_seconds: float) -> void:
 	if route == null or session == null:
 		return
-	var first := maxi(1, floori((time_seconds - route.outbound_duration) / session.support_interval) - 1)
-	var last := ceili((time_seconds + route.inbound_duration + UNLOAD_SECONDS) / session.support_interval) + 1
+	var first := maxi(1, floori((time_seconds - maximum_outbound) / session.support_interval) - 1)
+	var last := ceili((time_seconds + maximum_inbound + UNLOAD_SECONDS) / session.support_interval) + 1
 	var active: Dictionary[int, bool] = {}
 	var unloading_fraction := -1.0
 	for index: int in range(first, last + 1):
+		var voyage := shipping_routes[index % shipping_routes.size()]
 		var delivery_time := float(index) * session.support_interval
 		var arrival_time := delivery_time - UNLOAD_SECONDS
-		var entry_time := arrival_time - route.inbound_duration
-		var exit_time := delivery_time + route.outbound_duration
+		var entry_time := arrival_time - voyage.inbound_duration
+		var exit_time := delivery_time + voyage.outbound_duration
 		if time_seconds < entry_time or time_seconds >= exit_time:
 			continue
 		active[index] = true
@@ -55,24 +65,26 @@ func update_at_time(time_seconds: float) -> void:
 			ship.name = "Freighter%d" % index
 			ship.top_level = true
 			add_child(ship)
+			ship.configure_haze(haze_size)
 			ships[index] = ship
 		var pose: Transform3D
 		var underway := true
 		var cargo_remaining := 1.0
 		var delivery_available: bool = delivery_outcomes.get(index, _operational_at(delivery_time))
 		if time_seconds < arrival_time:
-			pose = route.inbound_pose(time_seconds - entry_time)
+			pose = voyage.inbound_pose(time_seconds - entry_time)
 		elif time_seconds < delivery_time:
-			pose = route.inbound_pose(route.inbound_duration)
+			pose = voyage.inbound_pose(voyage.inbound_duration)
 			underway = false
 			if _operational_at(time_seconds) and delivery_available:
 				unloading_fraction = (time_seconds - arrival_time) / UNLOAD_SECONDS
 				cargo_remaining = 1.0 - unloading_fraction
 		else:
-			pose = route.outbound_pose(time_seconds - delivery_time)
+			pose = voyage.outbound_pose(time_seconds - delivery_time)
 			cargo_remaining = 0.0 if delivery_available else 1.0
 		ship.global_transform = pose
 		ship.position.y += 0.35 * sin(time_seconds * 0.72 + float(index) * 1.7) if underway else 0.08 * sin(time_seconds * 0.4)
+		ship.refresh_haze()
 		ship.set_underway(underway)
 		ship.set_cargo_remaining(cargo_remaining)
 	for index: int in ships.keys():
