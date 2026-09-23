@@ -4,7 +4,8 @@ extends Node3D
 const UNLOAD_SECONDS := 18.0
 const EMERGENCY_REPAIR_SECONDS := 180.0
 const IDENTITY_MARKER_SCENE := preload("res://effects/unit_identity_marker/unit_identity_marker.tscn")
-const IDENTITY_ICON := preload("res://world/port/harbor_icon.svg")
+const IDENTITY_ICON := preload("res://ui/icons/asset_harbor.svg")
+const IDENTITY_COLOR := UnitIdentityMarker.SENSOR_COLOR
 
 signal struck
 
@@ -48,7 +49,8 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 	identity_marker.name = "HarborIdentityMarker"
 	identity_marker.position = Vector3(0.0, 26.0, -25.0)
 	add_child(identity_marker)
-	identity_marker.configure(IDENTITY_ICON, 0)
+	identity_marker.configure(IDENTITY_ICON, 0, IDENTITY_COLOR)
+	identity_marker.icon.scale = Vector3.ONE * 1.25
 	repair_visual = HarborRepairVisual.new()
 	add_child(repair_visual)
 	session.regular_support_due.connect(_on_regular_support_due)

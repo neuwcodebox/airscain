@@ -72,6 +72,8 @@ func test_port_impact_interrupts_deliveries_without_city_damage_and_restores_rep
 	var port := add_child_autofree(HarborPort.new()) as HarborPort
 	assert_true(port.configure(field, session))
 	assert_eq(port.identity_marker.icon.texture, HarborPort.IDENTITY_ICON)
+	assert_eq(port.identity_marker.icon.texture.get_size(), Vector2(48, 48))
+	assert_eq(port.identity_marker.icon.modulate, HarborPort.IDENTITY_COLOR)
 	assert_false(port.identity_marker.condition_frame.visible)
 	assert_false(port.identity_marker.reload_background.visible)
 	city.impact_redirect = Callable(port, "try_apply_impact")

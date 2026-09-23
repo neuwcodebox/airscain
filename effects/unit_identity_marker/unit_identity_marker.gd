@@ -40,7 +40,7 @@ func _ready() -> void:
 	selection_ring.material_override = material
 	_apply_selection()
 
-func configure(texture: Texture2D, roles: int) -> void:
+func configure(texture: Texture2D, roles: int, tint_override: Color = Color.TRANSPARENT) -> void:
 	if icon == null:
 		icon = get_node("Icon") as Sprite3D
 	icon.texture = texture
@@ -52,6 +52,8 @@ func configure(texture: Texture2D, roles: int) -> void:
 		icon.modulate = DEFENSE_COLOR
 	else:
 		icon.modulate = SUPPORT_COLOR
+	if tint_override.a > 0.0:
+		icon.modulate = tint_override
 	role_color = icon.modulate
 	visible = true
 	_apply_selection()

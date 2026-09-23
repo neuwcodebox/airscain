@@ -2611,5 +2611,5 @@ Compatibility 실제 창에서 직접 촬영한 1920×1080 PNG를 `docs/images/d
 - [x] 방공자산 마커의 아이콘·가동 중단 테두리·진행 막대로 항구 상태를 표시한다.
 - [x] 복구·저장 상태 연동과 실제 게임 창을 검증하고 커밋한다.
 
-- 2026-09-23: 항구 고유 화물선·크레인 아이콘을 추가하고 기존 `UnitIdentityMarker`의 지원 시설 색, 가동 중단 프레임, 진행 막대를 연결했다. 진행 막대는 `closed_from`·`closed_until`과 작전 시간으로 계산하므로 저장 복원 뒤에도 같은 상태가 보인다. 아이콘은 부두 크레인 근처에 붙여 전장 시점에서 위치를 읽을 수 있게 했다.
-- 검증: 항구 집중 테스트 7개·4,191개 단언 통과. 실제 Compatibility 게임 창에서 정상(`/tmp/airscain_harbor_80.png`), 복구 중(`/tmp/airscain_harbor_repair_42.png`), 완료(`/tmp/airscain_harbor_repair_181.png`) 상태를 확인했다. Godot import와 `git diff --check` 통과, 캡처 실행의 런타임 오류 없음.
+- 2026-09-23: 항구 고유 화물선·크레인 아이콘을 기존 방공자산과 같은 48×48 채운 실루엣·어두운 외곽선으로 만들고, 전장 배경에서 구분되도록 공용 청록색을 쓰고 화면 크기를 조정했다. `UnitIdentityMarker`의 가동 중단 프레임과 진행 막대를 연결했다. 진행 막대는 `closed_from`·`closed_until`과 작전 시간으로 계산하므로 저장 복원 뒤에도 같은 상태가 보인다. 아이콘은 부두 크레인 근처에 붙여 전장 시점에서 위치를 읽을 수 있게 했다.
+- 검증: 항구 집중 테스트 7개·4,193개 단언 통과. 실제 Compatibility 게임 창에서 정상(`/tmp/airscain_harbor_80.png`), 복구 중(`/tmp/airscain_harbor_repair_42.png`), 완료(`/tmp/airscain_harbor_repair_181.png`) 상태를 확인했다. Godot import와 `git diff --check` 통과, 캡처 실행의 런타임 오류 없음.
