@@ -78,6 +78,34 @@ func test_city_damage_vignette_appears_immediately_and_fades_once() -> void:
 	assert_false(vignette.visible)
 	assert_false(vignette.is_processing())
 
+func test_city_status_merges_rapid_damage_into_one_fading_change() -> void:
+	var indicator := main.hud.city_status_label
+	assert_false(indicator.change_label.visible)
+	assert_true(main.objective.apply_mission_damage(7))
+	indicator._process(CityStatusIndicator.CHANGE_MERGE_WINDOW * 0.5)
+	assert_true(main.objective.apply_mission_damage(5))
+	assert_true(indicator.change_label.visible)
+	assert_eq(indicator.change_label.text, "-12", "짧은 간격의 피해는 하나의 변화량으로 합칩니다")
+	assert_eq(indicator.text, "도시  88 / 100")
+	indicator._process(CityStatusIndicator.CHANGE_DURATION)
+	assert_false(indicator.change_label.visible)
+	assert_false(indicator.is_processing())
+
+func test_city_status_level_follows_remaining_integrity_ratio() -> void:
+	var cases: Array[Array] = [[100, CityStatusIndicator.Level.NORMAL], [51, CityStatusIndicator.Level.NORMAL], [50, CityStatusIndicator.Level.WARNING], [26, CityStatusIndicator.Level.WARNING], [25, CityStatusIndicator.Level.CRITICAL], [0, CityStatusIndicator.Level.CRITICAL]]
+	for case: Array in cases:
+		main.objective.restore_integrity(int(case[0]))
+		assert_eq(main.hud.city_status_label.level, case[1], "도시 %d / 100" % int(case[0]))
+
+func test_city_status_shows_restoration_gain_only_for_paid_restoration() -> void:
+	var indicator := main.hud.city_status_label
+	main.objective.restore_integrity(80)
+	assert_false(indicator.change_label.visible, "저장 복원 등 직접 설정은 변화량을 표시하지 않습니다")
+	main.session.budget = main.objective.definition.restoration_cost
+	main.hud.city_restoration_requested.emit()
+	assert_true(indicator.change_label.visible)
+	assert_eq(indicator.change_label.text, "+%d" % main.objective.definition.restoration_amount)
+
 func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	main.set_process(false)
 	main.session.phase = GameSession.Phase.RUNNING

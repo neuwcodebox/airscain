@@ -649,6 +649,7 @@ func _on_city_restoration_requested() -> void:
 		return
 	var restored := mini(definition.restoration_amount, definition.maximum_integrity - objective.current_integrity)
 	objective.restore_integrity(objective.current_integrity + restored)
+	hud.show_city_restoration(restored)
 	hud.set_feedback(tr("도시 기능을 %d 복구했습니다") % restored)
 	ui_audio.play_event(UiAudio.ACTION_COMPLETE)
 	if game_mode == GameMode.TRAINING:

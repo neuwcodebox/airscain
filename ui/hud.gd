@@ -86,7 +86,7 @@ const CATALOG_GROUP_LABELS := {
 @onready var budget_label: Label = %BudgetLabel
 @onready var power_icon: TextureRect = %PowerIcon
 @onready var power_label: Label = %PowerLabel
-@onready var city_status_label: Label = %CityStatusLabel
+@onready var city_status_label: CityStatusIndicator = %CityStatusLabel
 @onready var city_damage_vignette: CityDamageVignette = %CityDamageVignette
 @onready var defense_menu_button: Button = %DefenseMenuButton
 @onready var city_menu_button: Button = %CityMenuButton
@@ -213,6 +213,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	session.statistics_changed.connect(_on_state_changed)
 	objective.integrity_changed.connect(_on_integrity_changed)
 	objective.damage_received.connect(city_damage_vignette.show_damage)
+	objective.damage_received.connect(city_status_label.show_damage)
 	_on_state_changed()
 	_on_integrity_changed(objective.current_integrity, objective.definition.maximum_integrity)
 	set_selected_asset(null, 0)
@@ -734,9 +735,12 @@ func _refresh_speed_buttons() -> void:
 
 func _on_integrity_changed(current: int, maximum: int) -> void:
 	city_menu_button.text = _city_menu_text(MENU_EXPANDED_SYMBOL if city_menu_expanded else MENU_COLLAPSED_SYMBOL)
-	city_status_label.text = tr("도시  %d / %d") % [current, maximum]
+	city_status_label.set_integrity(current, maximum)
 	city_integrity_label.text = "%d / %d" % [current, maximum]
 	_refresh_city_restoration_button()
+
+func show_city_restoration(amount: int) -> void:
+	city_status_label.show_restoration(amount)
 
 func _city_menu_text(arrow: String) -> String:
 	return tr("도시 관리  %s") % arrow

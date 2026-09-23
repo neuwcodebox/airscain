@@ -1,8 +1,9 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource path="res://ui/hud.gd" type="Script" id="1"]
 [ext_resource type="Shader" path="res://ui/city_damage_vignette.gdshader" id="2_city_damage"]
 [ext_resource type="Script" path="res://ui/city_damage_vignette.gd" id="3_city_damage"]
+[ext_resource type="Script" path="res://ui/city_status_indicator.gd" id="3_city_status"]
 [ext_resource type="Texture2D" path="res://ui/icons/status_budget.svg" id="4_budget"]
 [ext_resource type="Texture2D" path="res://ui/icons/status_power.svg" id="5_power"]
 
@@ -211,6 +212,8 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.68, 0.8, 0.85, 1)
 theme_override_font_sizes/font_size = 18
 text = "도시  100 / 100"
+horizontal_alignment = 1
+script = ExtResource("3_city_status")
 
 [node name="Divider2" type="VSeparator" parent="TopBar/Margin/Status"]
 layout_mode = 2
