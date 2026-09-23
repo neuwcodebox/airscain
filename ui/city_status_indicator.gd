@@ -17,10 +17,9 @@ const HIT_SCALE := 0.18
 const CRITICAL_PULSE_PERIOD := 1.1
 const CHANGE_DURATION := 1.2
 const CHANGE_MERGE_WINDOW := 0.6
-const CHANGE_TRAVEL := 8.0
-const CHANGE_GAP := 8.0
-const CHANGE_SLOT_WIDTH := 44.0
-const CHANGE_FONT_SIZE := 15
+const CHANGE_TRAVEL := 4.0
+const CHANGE_OVERLAP := 5.0
+const CHANGE_FONT_SIZE := 13
 
 var level: Level = Level.NORMAL
 var hit_elapsed: float = HIT_DURATION
@@ -28,10 +27,9 @@ var pulse_time: float = 0.0
 var change_amount: int = 0
 var change_elapsed: float = CHANGE_DURATION
 var change_label: Label
-var value_width: float = 0.0
 
 func _ready() -> void:
-	horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	change_label = Label.new()
 	change_label.name = "ChangeLabel"
 	change_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -44,8 +42,7 @@ func _ready() -> void:
 func set_integrity(current: int, maximum: int) -> void:
 	var format := tr("도시  %d / %d")
 	text = format % [current, maximum]
-	value_width = ceilf(get_theme_font("font").get_string_size(format % [maximum, maximum], HORIZONTAL_ALIGNMENT_LEFT, -1.0, get_theme_font_size("font_size")).x)
-	custom_minimum_size.x = value_width + CHANGE_GAP + CHANGE_SLOT_WIDTH
+	custom_minimum_size.x = ceilf(get_theme_font("font").get_string_size(format % [maximum, maximum], HORIZONTAL_ALIGNMENT_LEFT, -1.0, get_theme_font_size("font_size")).x)
 	level = level_for(current, maximum)
 	_update_processing()
 	_apply_visuals()
@@ -105,7 +102,7 @@ func _apply_visuals() -> void:
 	var hit := 1.0 - smoothstep(0.0, 1.0, hit_elapsed / HIT_DURATION)
 	var base_color := level_color()
 	add_theme_color_override("font_color", base_color.lerp(HIT_COLOR if level == Level.CRITICAL else CRITICAL_COLOR, hit))
-	pivot_offset = Vector2(value_width * 0.5, size.y * 0.5)
+	pivot_offset = size * 0.5
 	scale = Vector2.ONE * (1.0 + HIT_SCALE * hit)
 	if change_label == null:
 		return
@@ -114,8 +111,7 @@ func _apply_visuals() -> void:
 		return
 	var progress := change_elapsed / CHANGE_DURATION
 	change_label.reset_size()
-	var rise := CHANGE_TRAVEL * smoothstep(0.0, 1.0, progress)
-	change_label.position = Vector2(value_width + CHANGE_GAP, (size.y - change_label.size.y) * 0.5 + CHANGE_TRAVEL * 0.5 - rise)
+	change_label.position = Vector2((size.x - change_label.size.x) * 0.5, size.y - CHANGE_OVERLAP + CHANGE_TRAVEL * (1.0 - smoothstep(0.0, 1.0, progress)))
 	change_label.modulate.a = 1.0 - smoothstep(0.55, 1.0, progress)
 
 func _update_processing() -> void:
