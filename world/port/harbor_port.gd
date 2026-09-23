@@ -6,6 +6,9 @@ const EMERGENCY_REPAIR_SECONDS := 180.0
 const IDENTITY_MARKER_SCENE := preload("res://effects/unit_identity_marker/unit_identity_marker.tscn")
 const IDENTITY_ICON := preload("res://ui/icons/asset_harbor.svg")
 const IDENTITY_COLOR := UnitIdentityMarker.SENSOR_COLOR
+## Sub-metre members alias into broken diagonals beyond this camera distance.
+const DETAIL_RANGE := 600.0
+const LOD_BOUNDS := AABB(Vector3(-90, -10, -180), Vector3(180, 55, 200))
 
 signal struck
 
@@ -203,6 +206,10 @@ func _box(name_value: String, size: Vector3, position_value: Vector3, material: 
 
 func _build_port() -> void:
 	var geometry := HarborGeometry.new()
+	# Thin members are only drawn up close; the far set replaces them with
+	# members at least a pixel wide at tactical zoom.
+	var near := HarborGeometry.new()
+	var far := HarborGeometry.new()
 	var windows: Array[Transform3D] = []
 	geometry.box(Vector3(170, 4, 28), Vector3(0, 2, -26), "92958a")
 	geometry.box(Vector3(116, 4, 38), Vector3(0, 2, -59), "92958a")
@@ -216,21 +223,21 @@ func _build_port() -> void:
 		geometry.box(Vector3(7.5, 0.35, 1.1), Vector3(x, 4.23, -12.5), "c3c0a8")
 		if index % 2 == 0:
 			geometry.box(Vector3(1.7, 3, 0.9), Vector3(x, 1.5, -11.5), "303d40")
-			geometry.cylinder(0.48, 0.85, Vector3(x, 4.7, -14.1), "bca069")
-			geometry.beam(Vector3(x - 0.8, 5.1, -14.1), Vector3(x + 0.8, 5.1, -14.1), 0.3, "bca069")
+			near.cylinder(0.48, 0.85, Vector3(x, 4.7, -14.1), "bca069")
+			near.beam(Vector3(x - 0.8, 5.1, -14.1), Vector3(x + 0.8, 5.1, -14.1), 0.3, "bca069")
 	for z: float in [-17.0, -33.0]:
-		geometry.box(Vector3(154, 0.16, 0.2), Vector3(0, 4.25, z), "b4b8b0")
+		near.box(Vector3(154, 0.16, 0.2), Vector3(0, 4.25, z), "b4b8b0")
 	for index: int in 17:
-		geometry.box(Vector3(4, 0.03, 0.25), Vector3(-76 + index * 9, 4.18, -38), "d2bd80")
+		near.box(Vector3(4, 0.03, 0.25), Vector3(-76 + index * 9, 4.18, -38), "d2bd80")
 	for index: int in 11:
-		geometry.box(Vector3(0.25, 0.03, 4), Vector3(0, 3.46, -80 - index * 8), "d2bd80")
+		near.box(Vector3(0.25, 0.03, 4), Vector3(0, 3.46, -80 - index * 8), "d2bd80")
 	for side: float in [-1.0, 1.0]:
 		for index: int in 8:
 			var z := -82.0 - index * 12.0
 			geometry.cylinder(0.9, 12, Vector3(side * 9, -3, z), "777f76")
-			geometry.beam(Vector3(side * 11, 3.3, z), Vector3(side * 11, 4.8, z), 0.16, "bdc1b2")
-		geometry.beam(Vector3(side * 11, 4.8, -78), Vector3(side * 11, 4.8, -177), 0.16, "bdc1b2")
-		_build_crane(geometry, side * 19)
+			near.beam(Vector3(side * 11, 3.3, z), Vector3(side * 11, 4.8, z), 0.16, "bdc1b2")
+		near.beam(Vector3(side * 11, 4.8, -78), Vector3(side * 11, 4.8, -177), 0.16, "bdc1b2")
+		_build_crane(geometry, near, far, side * 19)
 		windows.append(Transform3D(Basis.from_scale(Vector3(3.1, 1.3, 0.12)), Vector3(side * 19 + 5, 26.3, -16.2)))
 	# Yard stacks sit on the widened concrete apron, with space for the access lane.
 	var container_mesh := HarborGeometry.container_mesh()
@@ -240,12 +247,8 @@ func _build_port() -> void:
 				for level: int in (2 if lane < 3 else 1):
 					var at := Vector3(side * (18 + lane * 9), 5.5 + level * 2.65, -47 - row * 9)
 					var tint: String = ["a26a4b", "607d82", "a9a083", "6a7b70"][(row + lane + level) % 4]
-					for surface: int in container_mesh.get_surface_count():
-						if not geometry.surfaces.has(tint):
-							var buffer := SurfaceTool.new()
-							buffer.begin(Mesh.PRIMITIVE_TRIANGLES)
-							geometry.surfaces[tint] = buffer
-						geometry.surfaces[tint].append_from(container_mesh, surface, Transform3D(Basis(Vector3.UP, PI / 2), at))
+					near.append(container_mesh, Transform3D(Basis(Vector3.UP, PI / 2), at), tint)
+					far.box(Vector3(6.06, 2.59, 2.44), at, tint)
 	# Dispatch office, roller doors, roof seams, vents and glazed frontage.
 	geometry.box(Vector3(16, 6, 13), Vector3(0, 6.6, -145), "c5b694")
 	for y: float in [5.3, 7.9]:
@@ -256,11 +259,11 @@ func _build_port() -> void:
 				windows.append(Transform3D(Basis.from_scale(Vector3(0.12, 1.3, 2.8)), Vector3(side * 8.07, y, -149 + index * 4)))
 	geometry.box(Vector3(18, 0.45, 15), Vector3(0, 9.85, -145), "566c70")
 	for index: int in 9:
-		geometry.box(Vector3(0.12, 0.15, 15), Vector3(-8 + index * 2, 10.15, -145), "84928b")
+		near.box(Vector3(0.12, 0.15, 15), Vector3(-8 + index * 2, 10.15, -145), "84928b")
 	for x: float in [-4.5, 4.5]:
 		geometry.box(Vector3(5, 3.8, 0.1), Vector3(x, 5.6, -138.4), "778783")
 		for row: int in 6:
-			geometry.box(Vector3(5, 0.06, 0.13), Vector3(x, 4.0 + row * 0.6, -138.3), "a3aaa0")
+			near.box(Vector3(5, 0.06, 0.13), Vector3(x, 4.0 + row * 0.6, -138.3), "a3aaa0")
 	geometry.box(Vector3(9, 1, 0.14), Vector3(0, 8.5, -138.4), "334c55")
 	for x: float in [-6.6, 6.6]:
 		windows.append(Transform3D(Basis.from_scale(Vector3(2.0, 1.0, 0.12)), Vector3(x, 8.6, -138.43)))
@@ -268,9 +271,17 @@ func _build_port() -> void:
 		geometry.box(Vector3(2, 1.2, 2.2), Vector3(x, 10.6, -146), "b4b8ac")
 	# Yard floodlight poles and housings remain legible at tactical zoom.
 	for x: float in [-73.0, 73.0]:
-		geometry.beam(Vector3(x, 4, -32), Vector3(x, 19, -32), 0.35, "798d89")
+		near.beam(Vector3(x, 4, -32), Vector3(x, 19, -32), 0.35, "798d89")
+		far.beam(Vector3(x, 4, -32), Vector3(x, 19, -32), 1.0, "798d89")
 		geometry.box(Vector3(4, 0.5, 1.4), Vector3(x, 19, -32), "d5d1b7")
 	geometry.instance(self, "TerminalStructure")
+	var near_part := near.instance(self, "TerminalDetailNear")
+	near_part.visibility_range_end = DETAIL_RANGE
+	var far_part := far.instance(self, "TerminalDetailFar")
+	far_part.visibility_range_begin = DETAIL_RANGE
+	# Both tiers switch at the same distance only when they share one reference box.
+	for part: MeshInstance3D in [near_part, far_part]:
+		part.custom_aabb = LOD_BOUNDS
 	_build_windows(windows)
 
 func _build_windows(windows: Array[Transform3D]) -> void:
@@ -293,25 +304,31 @@ func _build_windows(windows: Array[Transform3D]) -> void:
 	instance.multimesh = multimesh
 	add_child(instance)
 
-func _build_crane(geometry: HarborGeometry, x: float) -> void:
+func _build_crane(geometry: HarborGeometry, near: HarborGeometry, far: HarborGeometry, x: float) -> void:
 	var paint := "b9a675"
 	var dark := "596e70"
 	for side: float in [-1.0, 1.0]:
+		var boom := x + side * 4
 		for z: float in [-17.0, -33.0]:
 			geometry.box(Vector3(5.5, 1.5, 1.8), Vector3(x + side * 6, 5, z), dark)
-			geometry.beam(Vector3(x + side * 6, 5.5, z), Vector3(x + side * 4, 28, z), 0.85, paint)
-		geometry.beam(Vector3(x + side * 6, 8, -17), Vector3(x + side * 4, 27, -33), 0.4, paint)
-		geometry.beam(Vector3(x + side * 6, 8, -33), Vector3(x + side * 4, 27, -17), 0.4, paint)
-		geometry.beam(Vector3(x + side * 4, 28, -33), Vector3(x + side * 4, 40, -26), 0.6, paint)
-		geometry.beam(Vector3(x + side * 4, 40, -26), Vector3(x + side * 4, 28, 9), 0.16, dark)
-		geometry.beam(Vector3(x + side * 4, 40, -26), Vector3(x + side * 4, 28, -49), 0.16, dark)
-		geometry.beam(Vector3(x + side * 4, 28, -49), Vector3(x + side * 4, 28, 10), 0.65, paint)
-		geometry.beam(Vector3(x + side * 4, 30, -49), Vector3(x + side * 4, 30, 10), 0.45, paint)
+			near.beam(Vector3(x + side * 6, 5.5, z), Vector3(boom, 28, z), 0.85, paint)
+			far.beam(Vector3(x + side * 6, 5.5, z), Vector3(boom, 28, z), 1.6, paint)
+		near.beam(Vector3(x + side * 6, 8, -17), Vector3(boom, 27, -33), 0.4, paint)
+		near.beam(Vector3(x + side * 6, 8, -33), Vector3(boom, 27, -17), 0.4, paint)
+		near.beam(Vector3(boom, 28, -33), Vector3(boom, 40, -26), 0.6, paint)
+		far.beam(Vector3(boom, 28, -33), Vector3(boom, 40, -26), 1.3, paint)
+		near.beam(Vector3(boom, 40, -26), Vector3(boom, 28, 9), 0.16, dark)
+		near.beam(Vector3(boom, 40, -26), Vector3(boom, 28, -49), 0.16, dark)
+		near.beam(Vector3(boom, 28, -49), Vector3(boom, 28, 10), 0.65, paint)
+		near.beam(Vector3(boom, 30, -49), Vector3(boom, 30, 10), 0.45, paint)
 		for segment: int in 12:
 			var z := -49.0 + segment * 4.9
-			geometry.beam(Vector3(x + side * 4, 28, z), Vector3(x + side * 4, 30, z + 4.9), 0.22, paint)
+			near.beam(Vector3(boom, 28, z), Vector3(boom, 30, z + 4.9), 0.22, paint)
+		# The far boom is one solid girder spanning the near chords and lattice.
+		far.box(Vector3(1.3, 2.6, 59), Vector3(boom, 29, -19.5), paint)
 	for z: float in [-33.0, -17.0, 8.0]:
-		geometry.beam(Vector3(x - 4, 28, z), Vector3(x + 4, 28, z), 0.75, paint)
+		near.beam(Vector3(x - 4, 28, z), Vector3(x + 4, 28, z), 0.75, paint)
+		far.beam(Vector3(x - 4, 28, z), Vector3(x + 4, 28, z), 1.4, paint)
 	geometry.box(Vector3(7, 3.5, 8), Vector3(x, 30, -38), dark)
 	geometry.box(Vector3(3, 3, 3.5), Vector3(x + 5, 26, -18), "cfcead")
 	var trolley := Node3D.new()
@@ -322,7 +339,9 @@ func _build_crane(geometry: HarborGeometry, x: float) -> void:
 	var cable_geometry := HarborGeometry.new()
 	for side: float in [-1.0, 1.0]:
 		cable_geometry.beam(Vector3(side * 2.5, 0, 0), Vector3(side * 2.5, -1, 0), 0.08, "303e42")
-	crane_cables.append(cable_geometry.instance(trolley, "HoistCables"))
+	var cables := cable_geometry.instance(trolley, "HoistCables")
+	cables.visibility_range_end = DETAIL_RANGE
+	crane_cables.append(cables)
 	var spreader := _box("Spreader", Vector3(6.3, 0.45, 2.6), Vector3(0, -10, 0), _material(Color("c0a35a")), trolley)
 	crane_spreaders.append(spreader)
 	var load := MeshInstance3D.new()

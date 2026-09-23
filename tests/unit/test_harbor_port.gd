@@ -177,3 +177,16 @@ func test_terminal_lights_follow_night_and_go_dark_until_repair_completes() -> v
 	session.gameplay_delta(HarborPort.EMERGENCY_REPAIR_SECONDS)
 	port.update_at_time(session.survival_time)
 	assert_eq(port.window_material.get_shader_parameter("damaged_building_count"), 0, "복구 후 불빛이 다시 켜집니다")
+
+func test_thin_harbor_detail_hands_over_to_thick_members_at_one_camera_distance() -> void:
+	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
+	field.build(SCENARIO)
+	var session := add_child_autofree(GameSession.new()) as GameSession
+	session.reset(100, 90.0, 180)
+	var port := add_child_autofree(HarborPort.new()) as HarborPort
+	assert_true(port.configure(field, session))
+	var near := port.get_node("TerminalDetailNear") as MeshInstance3D
+	var far := port.get_node("TerminalDetailFar") as MeshInstance3D
+	assert_gt(near.visibility_range_end, 0.0)
+	assert_eq(far.visibility_range_begin, near.visibility_range_end, "원거리 형상은 세부 형상이 사라지는 거리에서 나타납니다")
+	assert_eq(far.custom_aabb, near.custom_aabb, "두 단계는 같은 기준 거리로 전환됩니다")
