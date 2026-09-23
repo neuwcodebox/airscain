@@ -124,11 +124,11 @@ func _advance_ballistic(unit: Node3D, body: Node3D, target: Vector3, speed_multi
 		altitude = lerpf(ballistic_origin.y, apex_altitude, 1.0 - pow(1.0 - phase, 2.0))
 	elif ballistic_progress < profile.ballistic_reentry_fraction:
 		var phase := (ballistic_progress - profile.ballistic_boost_fraction) / (profile.ballistic_reentry_fraction - profile.ballistic_boost_fraction)
-		horizontal_progress = lerpf(0.07, 0.70, phase)
+		horizontal_progress = lerpf(0.07, profile.ballistic_reentry_horizontal_fraction, phase)
 		altitude = lerpf(apex_altitude, ballistic_target.y + profile.ballistic_apex * 0.82, smoothstep(0.0, 1.0, phase))
 	else:
 		var phase := (ballistic_progress - profile.ballistic_reentry_fraction) / (1.0 - profile.ballistic_reentry_fraction)
-		horizontal_progress = lerpf(0.70, 1.0, phase)
+		horizontal_progress = lerpf(profile.ballistic_reentry_horizontal_fraction, 1.0, phase)
 		altitude = lerpf(ballistic_target.y + profile.ballistic_apex * 0.82, ballistic_target.y, phase * phase)
 	unit.global_position = ballistic_origin.lerp(ballistic_target, horizontal_progress)
 	unit.global_position.y = altitude

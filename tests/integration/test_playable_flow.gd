@@ -2015,6 +2015,35 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	assert_gt(maximum_altitude, 900.0)
 	assert_eq(main.objective.current_integrity, starting_integrity - roundi(definition.mission.damage))
 
+func test_ballistic_missile_reenters_near_target_with_steep_terminal_velocity() -> void:
+	var profile := (_threat_entry_for(main, &"ballistic_missile").threat_definition as AttackUavDefinition).movement
+	var target := main.objective.global_position
+	var origin := target + Vector3(9000.0, 20.0, 0.0)
+	var unit := Node3D.new()
+	var body := Node3D.new()
+	unit.add_child(body)
+	add_child_autofree(unit)
+	unit.global_position = origin
+	var mover := ThreatMover.new()
+	mover.setup(profile, main.battlefield, target - origin)
+	var reentry_distance := -1.0
+	var steep_descent := false
+	for step: int in 400:
+		mover.advance(unit, body, target, 1.0, 0.2)
+		var remaining := Vector2(unit.global_position.x - target.x, unit.global_position.z - target.z).length()
+		if reentry_distance < 0.0 and mover.ballistic_phase() == &"reentry":
+			reentry_distance = remaining
+		if mover.ballistic_progress >= 0.95 and mover.ballistic_progress < 1.0:
+			var horizontal_speed := Vector2(mover.velocity.x, mover.velocity.z).length()
+			steep_descent = steep_descent or mover.velocity.y < -horizontal_speed * 2.0
+		if mover.ballistic_progress >= 1.0:
+			break
+	assert_gte(reentry_distance, 0.0, "재진입 구간에 도달합니다")
+	assert_lt(reentry_distance, 900.0, "표적에서 비행 거리의 10% 이내에서 재진입합니다")
+	assert_true(steep_descent, "종말 구간에서 수직 하강속도가 수평속도의 두 배를 넘습니다")
+	assert_almost_eq(unit.global_position.x, target.x, 0.01)
+	assert_almost_eq(unit.global_position.z, target.z, 0.01)
+
 func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_rounds() -> void:
 	main.registry.clear()
 	main.director.pressure_changed.emit(_threat_entry_for(main, &"ballistic_missile").unlock_level)

@@ -17,8 +17,9 @@ enum Mode { ALTITUDE_HOLD, TERRAIN_FOLLOWING, BALLISTIC_ARC }
 @export var ballistic_apex: float = 300.0
 @export_range(0.05, 0.4) var ballistic_boost_fraction: float = 0.18
 @export_range(0.5, 0.9) var ballistic_reentry_fraction: float = 0.72
+@export_range(0.7, 0.98) var ballistic_reentry_horizontal_fraction: float = 0.70
 
 func validation_error() -> String:
-	if speed <= 0.0 or maximum_speed_multiplier < 1.0 or cruise_altitude <= 0.0 or spawn_radius_multiplier < 0.5 or terminal_distance <= 0.0 or terminal_altitude < 0.0 or maximum_turn_rate_degrees <= 0.0 or maximum_climb_rate <= 0.0 or terrain_lookahead < 0.0 or ballistic_apex <= 0.0 or ballistic_boost_fraction >= ballistic_reentry_fraction:
+	if speed <= 0.0 or maximum_speed_multiplier < 1.0 or cruise_altitude <= 0.0 or spawn_radius_multiplier < 0.5 or terminal_distance <= 0.0 or terminal_altitude < 0.0 or maximum_turn_rate_degrees <= 0.0 or maximum_climb_rate <= 0.0 or terrain_lookahead < 0.0 or ballistic_apex <= 0.0 or ballistic_boost_fraction >= ballistic_reentry_fraction or ballistic_reentry_horizontal_fraction < 0.7 or ballistic_reentry_horizontal_fraction >= 1.0:
 		return "위협 이동 프로필이 올바르지 않습니다"
 	return ""
