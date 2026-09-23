@@ -1,4 +1,4 @@
-[gd_scene load_steps=25 format=3]
+[gd_scene load_steps=26 format=3]
 
 [ext_resource path="res://main/main.gd" type="Script" id="1"]
 [ext_resource path="res://effects/threat_resolution_effects.gd" type="Script" id="Resolution"]
@@ -23,6 +23,7 @@
 [ext_resource path="res://ui/altitude_profile.gd" type="Script" id="20"]
 [ext_resource path="res://main/training_controller.gd" type="Script" id="21"]
 [ext_resource path="res://ui/audio/ui_audio.gd" type="Script" id="22"]
+[ext_resource path="res://main/operation_briefing_controller.gd" type="Script" id="23"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -82,6 +83,9 @@ script = ExtResource("4")
 
 [node name="TrainingController" type="Node" parent="."]
 script = ExtResource("21")
+
+[node name="OperationBriefingController" type="Node" parent="."]
+script = ExtResource("23")
 
 [node name="CameraRig" parent="." instance=ExtResource("5")]
 

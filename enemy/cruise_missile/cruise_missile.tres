@@ -28,6 +28,7 @@ script = ExtResource("1")
 approach_audio_event = &"missile_approach"
 id = &"cruise_missile"
 display_name = "도시 타격 순항미사일"
+briefing_note = "지형을 따라 초저고도로 빠르게 날아와 레이더에 늦게 잡힙니다."
 scene = ExtResource("2")
 neutralization_reward = 22
 signature_class = &"cruise_missile"

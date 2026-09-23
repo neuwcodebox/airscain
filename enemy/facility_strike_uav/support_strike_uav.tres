@@ -30,6 +30,7 @@ script = ExtResource("1")
 loop_audio_event = &"uav_heavy"
 id = &"support_strike_uav"
 display_name = "지원시설 폭격 UAV"
+briefing_note = "통합 지원기지에 폭탄을 떨어뜨려 보급과 전력을 끊습니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 14

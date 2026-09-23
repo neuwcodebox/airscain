@@ -22,6 +22,7 @@ var pending_game_mode: AirscainMain.GameMode = AirscainMain.GameMode.SUSTAINED
 @onready var sandbox_button: MenuListButton = %SandboxButton
 @onready var main_load_button: MenuListButton = %MainLoadButton
 @onready var main_quit_button: MenuListButton = %QuitButton
+@onready var pause_briefing_button: MenuListButton = %PauseBriefingButton
 @onready var pause_save_button: MenuListButton = %PauseSaveButton
 @onready var pause_load_button: MenuListButton = %PauseLoadButton
 @onready var pause_quit_button: MenuListButton = %PauseQuitButton
@@ -181,6 +182,8 @@ func set_pause_menu(open: bool) -> void:
 	if open:
 		previous_simulation_speed = gameplay.session.simulation_speed
 		gameplay.session.set_simulation_speed(0.0)
+		pause_briefing_button.visible = gameplay.game_mode == AirscainMain.GameMode.SUSTAINED
+		pause_briefing_button.set_available(not gameplay.briefing_controller.delivered_ids.is_empty())
 		pause_save_button.set_available(gameplay.game_mode == AirscainMain.GameMode.SUSTAINED)
 		pause_load_button.set_available(gameplay.game_mode == AirscainMain.GameMode.SUSTAINED and _has_save_candidate())
 		pause_feedback_label.text = ""
@@ -226,6 +229,18 @@ func _on_battlefield_selection_closed() -> void:
 
 func _on_resume_pressed() -> void:
 	set_pause_menu(false)
+
+func _on_pause_briefings_pressed() -> void:
+	if gameplay == null or not gameplay.open_briefing_archive():
+		return
+	pause_menu.visible = false
+	gameplay.briefing_panel.closed.connect(_on_briefing_archive_closed, CONNECT_ONE_SHOT)
+
+func _on_briefing_archive_closed(_archive: bool) -> void:
+	if gameplay == null:
+		return
+	pause_menu.visible = true
+	pause_briefing_button.grab_focus()
 
 func _on_pause_save_pressed() -> void:
 	if gameplay != null:

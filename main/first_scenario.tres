@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=80 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=88 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -42,6 +42,7 @@
 [ext_resource path="res://world/layout_previews/island_city.svg" type="Texture2D" id="40"]
 [ext_resource path="res://world/layout_previews/valley_corridor.svg" type="Texture2D" id="41"]
 [ext_resource path="res://world/layout_previews/coastal_plain.svg" type="Texture2D" id="42"]
+[ext_resource path="res://main/operation_briefing_definition.gd" type="Script" id="43"]
 
 [sub_resource type="Resource" id="RuggedCentralDistrict"]
 script = ExtResource("38")
@@ -417,6 +418,62 @@ selection_weight = 0.42
 group_size = 12
 threat_cost = 0.5
 
+[sub_resource type="Resource" id="Briefing_operation_start"]
+script = ExtResource("43")
+id = &"operation_start"
+unlock_level = 1
+title = "작전 개시"
+intel = "적 무인기 부대가 해상에서 도시 방향으로 출격했습니다. 레이더로 먼저 발견하고 지휘통제소를 거쳐 포대에 항적을 공유해야 요격할 수 있습니다."
+recommendation = "접근 방향에 저·중고도 레이더를 두고, 미사일 포대와 기관포를 도시 앞에 겹쳐 배치하세요."
+
+[sub_resource type="Resource" id="Briefing_recon_and_swarms"]
+script = ExtResource("43")
+id = &"recon_and_swarms"
+unlock_level = 2
+title = "정찰과 군집"
+intel = "적이 우리 방공망의 위치를 정찰하기 시작했습니다. 소형 무인기 군집과 기만 기체도 함께 투입될 것으로 보입니다."
+recommendation = "값싸게 반복 교전하는 기관포와 레이저로 군집을 처리하고, 미사일은 큰 표적에 아끼세요."
+
+[sub_resource type="Resource" id="Briefing_cruise_and_jamming"]
+script = ExtResource("43")
+id = &"cruise_and_jamming"
+unlock_level = 3
+title = "순항미사일과 전자전"
+intel = "정찰로 드러난 레이더와 포대를 노리는 공격 준비가 포착됐습니다. 초저고도 순항미사일과 전자전 무인기도 등장합니다."
+recommendation = "단거리 포대로 새어 든 저고도 표적을 마무리하고, 요격드론으로 외곽의 느린 무인기를 먼저 제거하세요. 레이더 한 대에만 의존하지 마세요."
+
+[sub_resource type="Resource" id="Briefing_defense_suppression"]
+script = ExtResource("43")
+id = &"defense_suppression"
+unlock_level = 4
+title = "방공망 제압"
+intel = "적이 도시보다 방공망 자체를 먼저 무력화하려 합니다. 관측된 포대와 지원기지에 편대 공격이 집중될 것입니다."
+recommendation = "고출력 마이크로파로 밀집 편대를 한 번에 교란하고, 손상된 자산은 지원기지에서 빠르게 수리하세요. 자리를 옮기면 적의 관측이 낡습니다."
+
+[sub_resource type="Resource" id="Briefing_high_altitude_strikes"]
+script = ExtResource("43")
+id = &"high_altitude_strikes"
+unlock_level = 6
+title = "고고도 타격"
+intel = "로켓 부대와 타격기가 합류했습니다. 저·중고도 레이더의 감시 한계 근처나 그 위에서 빠르게 접근합니다."
+recommendation = "고고도 레이더로 높은 표적을 일찍 발견하고, 타격기는 미사일을 쏘기 전에 격추하세요."
+
+[sub_resource type="Resource" id="Briefing_air_strikes_and_saturation"]
+script = ExtResource("43")
+id = &"air_strikes_and_saturation"
+unlock_level = 8
+title = "항공 타격과 포화"
+intel = "고고도 도시 타격기와 12기 규모의 포화 군집이 확인됐습니다. 여러 방향과 고도에서 동시에 압박할 것입니다."
+recommendation = "장거리 포대로 외곽의 항공기를 먼저 잡고, 근거리 계층은 군집 대응에 집중시키세요."
+
+[sub_resource type="Resource" id="Briefing_ballistic_threat"]
+script = ExtResource("43")
+id = &"ballistic_threat"
+unlock_level = 11
+title = "탄도 위협"
+intel = "적이 탄도미사일 발사를 준비하고 있습니다. 먼 곳에서 높이 올라 급경사로 떨어지며 한 발의 피해가 큽니다."
+recommendation = "고고도 레이더를 장거리 포대와 연결하고, 탄종을 자동 또는 고속 요격탄으로 두어 재진입 구간에서 요격하세요."
+
 [resource]
 script = ExtResource("1")
 world_seed = 73129
@@ -428,6 +485,7 @@ starting_budget = 1900
 objective_definition = ExtResource("2")
 available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23"), ExtResource("24"), ExtResource("25")])
 threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("DefenseStrikeUavEntry"), SubResource("CruiseMissileEntry"), SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry"), SubResource("BallisticMissileEntry"), SubResource("RocketSalvoEntry"), SubResource("StrikeAircraftEntry"), SubResource("BatteryStrikeEntry"), SubResource("battery_strike_cruise_entry"), SubResource("support_strike_cruise_entry"), SubResource("battery_strike_aircraft_entry"), SubResource("radar_strike_aircraft_entry"), SubResource("small_defense_strike_uav_entry"), SubResource("weapon_saturation_uav_entry"), SubResource("radar_saturation_uav_entry")])
+operation_briefings = Array[ExtResource("43")]([SubResource("Briefing_operation_start"), SubResource("Briefing_recon_and_swarms"), SubResource("Briefing_cruise_and_jamming"), SubResource("Briefing_defense_suppression"), SubResource("Briefing_high_altitude_strikes"), SubResource("Briefing_air_strikes_and_saturation"), SubResource("Briefing_ballistic_threat")])
 raid_archetypes = Array[ExtResource("18")]([SubResource("ReconSaturationStrikeRaid"), SubResource("DeceptionSeadStrikeRaid"), SubResource("MixedBallisticAirRaid")])
 ambient_contacts = Array[ExtResource("9")]([ExtResource("9")])
 ambient_contacts_per_type = 4

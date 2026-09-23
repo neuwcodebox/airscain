@@ -31,6 +31,7 @@ script = ExtResource("1")
 approach_audio_event = &"missile_approach"
 id = &"battery_strike_cruise"
 display_name = "방공무장 타격 순항미사일"
+briefing_note = "방공무장을 노리는 더 빠른 순항미사일입니다."
 scene = ExtResource("2")
 neutralization_reward = 25
 signature_class = &"cruise_missile"

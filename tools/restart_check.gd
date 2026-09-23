@@ -6,6 +6,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	var first := MAIN_SCENE.instantiate() as AirscainMain
 	root.add_child(first)
 	current_scene = first

@@ -28,6 +28,7 @@ script = ExtResource("1")
 loop_audio_event = &"uav_light"
 id = &"swarm_uav"
 display_name = "도시 자폭 소형 UAV"
+briefing_note = "작은 기체 여러 대가 함께 몰려와 교전 채널을 포화시킵니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 3

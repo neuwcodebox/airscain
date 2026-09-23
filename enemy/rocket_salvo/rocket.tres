@@ -29,6 +29,7 @@ action_distance = 12.0
 script = ExtResource("1")
 id = &"rocket"
 display_name = "도시 타격 로켓"
+briefing_note = "높은 곡사 궤적으로 빠르게 떨어져 대응 시간이 짧습니다."
 scene = ExtResource("2")
 neutralization_reward = 3
 signature_class = &"rocket"

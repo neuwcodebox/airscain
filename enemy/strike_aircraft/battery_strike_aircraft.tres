@@ -36,6 +36,7 @@ acquisition_range = 800.0
 script = ExtResource("1")
 id = &"battery_strike_aircraft"
 display_name = "방공무장 타격기"
+briefing_note = "저고도로 진입해 방공무장에 공대지 미사일을 발사합니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 32

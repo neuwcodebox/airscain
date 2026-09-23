@@ -7,6 +7,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	_apply_requested_locale()
 	var app: Node = APP_SCENE.instantiate()
 	root.add_child(app)

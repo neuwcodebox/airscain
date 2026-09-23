@@ -29,6 +29,7 @@ script = ExtResource("1")
 loop_audio_event = &"uav_light"
 id = &"small_defense_strike_uav"
 display_name = "방공무장 자폭 소형 UAV"
+briefing_note = "3기 편대가 방공무장 하나를 함께 노립니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 4

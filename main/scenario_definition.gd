@@ -12,6 +12,8 @@ var selected_battlefield_layout_id: StringName = &""
 @export var available_defenses: Array[DefenseDefinition] = []
 @export var threat_entries: Array[ThreatSpawnEntry] = []
 @export var raid_archetypes: Array[RaidArchetypeDefinition] = []
+## Sustained-operation phases in ascending threat level; each groups the unlocks up to the next phase.
+@export var operation_briefings: Array[OperationBriefingDefinition] = []
 @export var ambient_contacts: Array[ThreatDefinition] = []
 @export var ambient_contacts_per_type: int = 4
 @export var initial_spawn_interval: float = 12.0
@@ -83,6 +85,9 @@ func validation_error() -> String:
 		for phase_entry: ThreatSpawnEntry in archetype.phase_entries:
 			if not threat_entries.has(phase_entry):
 				return "공격 archetype 단계가 시나리오 위협 목록에 없습니다"
+	var briefing_error := _briefing_validation_error()
+	if not briefing_error.is_empty():
+		return briefing_error
 	for contact: ThreatDefinition in ambient_contacts:
 		if contact == null:
 			return "환경 접촉 Definition이 비어 있습니다"
@@ -103,3 +108,47 @@ func battlefield_layout_by_id(layout_id: StringName) -> BattlefieldLayoutDefinit
 		if layout.id == layout_id:
 			return layout
 	return null
+
+func _briefing_validation_error() -> String:
+	var ids: Dictionary[StringName, bool] = {}
+	var previous_level := 0
+	for briefing: OperationBriefingDefinition in operation_briefings:
+		if briefing == null or ids.has(briefing.id):
+			return "작전 브리핑이 없거나 ID가 중복됩니다"
+		var error := briefing.validation_error()
+		if not error.is_empty():
+			return error
+		if briefing.unlock_level <= previous_level or previous_level == 0 and briefing.unlock_level != 1:
+			return "작전 브리핑은 1단계부터 해금 단계 오름차순이어야 합니다"
+		ids[briefing.id] = true
+		previous_level = briefing.unlock_level
+	if not operation_briefings.is_empty():
+		for entry: ThreatSpawnEntry in threat_entries:
+			if entry.threat_definition.briefing_note.is_empty():
+				return "브리핑에 소개할 위협 설명이 없습니다: %s" % entry.threat_definition.id
+	return ""
+
+## Last threat level covered by a briefing phase, or -1 when the phase is open-ended.
+func briefing_last_level(briefing: OperationBriefingDefinition) -> int:
+	var index := operation_briefings.find(briefing)
+	if index < 0 or index + 1 >= operation_briefings.size():
+		return -1
+	return operation_briefings[index + 1].unlock_level - 1
+
+## Threats first unlocked within the phase, in scenario order and without duplicate definitions.
+func briefing_threats(briefing: OperationBriefingDefinition) -> Array[ThreatDefinition]:
+	var result: Array[ThreatDefinition] = []
+	var last_level := briefing_last_level(briefing)
+	for entry: ThreatSpawnEntry in threat_entries:
+		if entry.unlock_level >= briefing.unlock_level and (last_level < 0 or entry.unlock_level <= last_level) and not result.has(entry.threat_definition):
+			result.append(entry.threat_definition)
+	return result
+
+## Defenses first unlocked within the phase, in catalog order.
+func briefing_defenses(briefing: OperationBriefingDefinition) -> Array[DefenseDefinition]:
+	var result: Array[DefenseDefinition] = []
+	var last_level := briefing_last_level(briefing)
+	for definition: DefenseDefinition in available_defenses:
+		if definition.unlock_pressure_level >= briefing.unlock_level and (last_level < 0 or definition.unlock_pressure_level <= last_level):
+			result.append(definition)
+	return result

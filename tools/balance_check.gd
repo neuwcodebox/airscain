@@ -19,6 +19,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	var args := OS.get_cmdline_user_args()
 	var kind := args[0] if args.size() > 0 else "gun"
 	var world_seed := int(args[1]) if args.size() > 1 else 73129

@@ -39,7 +39,7 @@ Budget is used to purchase new air-defense assets or restore city function. Repe
 
 | Mode | Description |
 |---|---|
-| Sustained Operation | Manage your budget and defense network while surviving increasingly complex air attacks. Supports saving and loading. |
+| Sustained Operation | Manage your budget and defense network while surviving increasingly complex air attacks. Each new operation phase opens with an intel briefing on expected threats and newly unlocked defense assets. Supports saving and loading. |
 | Training | Learn deployment, detection, automatic engagement, automatic resupply, repair, and city restoration through a 13-step guided exercise. |
 | Sandbox | Freely deploy assets and threats to test defensive combinations and engagement outcomes. |
 

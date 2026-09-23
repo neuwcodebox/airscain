@@ -34,6 +34,7 @@ released_missile = ExtResource("5")
 script = ExtResource("1")
 id = &"strike_aircraft"
 display_name = "도시 타격기"
+briefing_note = "고고도에서 도시에 공대지 미사일을 발사합니다. 발사 전에 격추해야 합니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 32

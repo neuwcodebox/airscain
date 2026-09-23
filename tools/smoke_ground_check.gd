@@ -6,6 +6,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	AudioServer.set_bus_mute(0, true)
 	AirscainMain.requested_seed = 73129
 	var main := MAIN.instantiate() as AirscainMain

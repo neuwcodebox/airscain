@@ -122,6 +122,17 @@ func test_render_resolution_preserves_native_pixels_and_aspect_ratio() -> void:
 	preferences.load_preferences()
 	assert_eq(preferences.values.render_resolution, 2)
 
+func test_briefing_preference_defaults_on_round_trips_and_rejects_non_booleans() -> void:
+	var preferences := PlayerSettings.instance()
+	assert_true(preferences.values.briefings)
+	preferences.set_value("briefings", false)
+	preferences.set_value("briefings", 1)
+	assert_false(preferences.values.briefings)
+	assert_eq(preferences.save_preferences(), OK)
+	preferences.values.clear()
+	preferences.load_preferences()
+	assert_false(preferences.values.briefings)
+
 func test_numeric_preferences_round_trip() -> void:
 	PlayerSettings.instance().set_value("missile", 0.35)
 	PlayerSettings.instance().set_value("pan", 1.5)

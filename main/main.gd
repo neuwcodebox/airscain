@@ -35,6 +35,7 @@ var game_mode: GameMode = GameMode.SUSTAINED
 var combat_effect_pool: CombatEffectPool
 var radar_tracking_coordinator := RadarTrackingCoordinator.new()
 var last_persistence_repairs: Array[String] = []
+var briefing_panel: OperationBriefingPanel
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -53,6 +54,7 @@ var last_persistence_repairs: Array[String] = []
 @onready var tactical_range_overlay: TacticalRangeOverlay = $WorldObjects/TacticalRangeOverlay
 @onready var director: ThreatDirector = $ThreatDirector
 @onready var training_controller: TrainingController = $TrainingController
+@onready var briefing_controller: OperationBriefingController = $OperationBriefingController
 @onready var camera_rig: CameraRig = $CameraRig
 @onready var world_objects: Node3D = $WorldObjects
 @onready var objectives: Node3D = $WorldObjects/Objectives
@@ -112,6 +114,11 @@ func _ready() -> void:
 	tactical_screen_overlay.placement = placement
 	altitude_profile.configure(camera_rig.camera, player_knowledge, objective, scenario.battlefield_size)
 	training_controller.configure(scenario, battlefield, objective, defenses, registry, director, session, hud, tactical_screen_overlay, c2_network)
+	briefing_controller.configure(scenario, game_mode == GameMode.SUSTAINED)
+	if game_mode == GameMode.SUSTAINED:
+		briefing_panel = OperationBriefingPanel.new()
+		hud.add_child(briefing_panel)
+		briefing_panel.configure(scenario, session)
 	_connect_flow()
 	_deploy_initial_defenses()
 	if game_mode == GameMode.TRAINING:
@@ -153,6 +160,7 @@ func _prepare_combat_visuals() -> void:
 		director._tick_pending_waves(0.0)
 		director.until_spawn = director.automatic_raid_interval_at(0.0)
 		hud.set_feedback(tr("적이 외곽에서 접근합니다. 방공 자산을 배치하세요."), false)
+		briefing_controller.pressure_reached(director.pressure_level)
 	if blocker != null:
 		blocker.queue_free()
 
@@ -265,6 +273,10 @@ func _connect_flow() -> void:
 	hud.sandbox_threat_selected.connect(placement.select_sandbox_threat)
 	placement.sandbox_threat_placement_requested.connect(_on_sandbox_threat_placement_requested)
 	training_controller.selection_clear_requested.connect(_clear_selection)
+	briefing_controller.briefing_delivered.connect(_on_briefing_delivered)
+	if briefing_panel != null:
+		briefing_panel.closed.connect(_on_briefing_closed)
+		briefing_panel.deploy_requested.connect(_on_briefing_deploy_requested)
 	player_knowledge.connect("track_removed", _on_track_removed)
 	player_knowledge.connect("track_created", _on_track_contact_audio)
 	objective.damage_received.connect(_on_objective_damage_audio)
@@ -334,6 +346,34 @@ func _on_pressure_changed(level: int) -> void:
 	session.update_pressure(level)
 	hud.set_pressure(level)
 	combat_audio.play_event(CombatAudio.PRESSURE, clampf(0.45 + float(level) * 0.04, 0.45, 1.0))
+	if session.phase == GameSession.Phase.RUNNING:
+		briefing_controller.pressure_reached(level)
+
+func _on_briefing_delivered(briefing: OperationBriefingDefinition) -> void:
+	if briefing_panel == null or session.phase != GameSession.Phase.RUNNING:
+		return
+	if not bool(PlayerSettings.instance().values.get("briefings", true)):
+		hud.set_feedback(tr("새 작전 첩보: %s  ·  Esc 메뉴에서 확인") % tr(briefing.title))
+		return
+	placement.cancel()
+	hud.close_context_menus()
+	camera_rig.input_blocked = true
+	briefing_panel.present_delivered(briefing_controller.delivered_briefings(), briefing)
+
+## Shows delivered briefings over the pause menu; the caller restores its own menu on close.
+func open_briefing_archive() -> bool:
+	if briefing_panel == null or briefing_controller.delivered_ids.is_empty():
+		return false
+	briefing_panel.present_archive(briefing_controller.delivered_briefings())
+	return true
+
+func _on_briefing_closed(archive: bool) -> void:
+	if not archive:
+		camera_rig.input_blocked = false
+
+func _on_briefing_deploy_requested(defense_ids: Array[StringName]) -> void:
+	hud.set_catalog_expanded(true)
+	hud.highlight_new_defenses(defense_ids)
 
 func _on_recovery_started(_completed_window: int) -> void:
 	session.grant_attack_window_reward(scenario.attack_window_reward)
@@ -715,6 +755,7 @@ func _apply_runtime_snapshot(payload: Dictionary) -> void:
 	relocation_manager.restore_state(world_state.relocations)
 	enemy_knowledge.restore_state(world_state.enemy_knowledge)
 	reconstruction.restore_projectiles(world_state.projectiles, player_knowledge)
+	briefing_controller.restore_state(payload.briefings)
 	director.restore_state(payload.director)
 	session.restore_state(payload.session)
 	day_night.apply_time(session.survival_time, true)

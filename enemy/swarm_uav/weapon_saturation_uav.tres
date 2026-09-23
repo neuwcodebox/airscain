@@ -28,6 +28,7 @@ script = ExtResource("1")
 loop_audio_event = &"uav_light"
 id = &"weapon_saturation_uav"
 display_name = "방공무장 포화 소형 UAV"
+briefing_note = "12기 군집으로 방공무장 한 곳을 한꺼번에 덮칩니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 4

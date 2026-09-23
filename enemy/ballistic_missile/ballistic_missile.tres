@@ -30,6 +30,7 @@ action_distance = 14.0
 script = ExtResource("1")
 id = &"ballistic_missile"
 display_name = "도시 타격 탄도미사일"
+briefing_note = "고고도 중간비행 뒤 급경사로 재진입하며 한 발의 피해가 큽니다."
 scene = ExtResource("2")
 neutralization_reward = 45
 signature_class = &"ballistic_missile"

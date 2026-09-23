@@ -60,3 +60,13 @@ func test_status_codes_are_locale_independent_while_text_is_translated() -> void
 	assert_true(UnitStatusMarker.SUPPLY_TEXTURES.has(&"resupply_active"))
 	assert_false(UnitStatusMarker.SUPPLY_TEXTURES.has(&"재보급 중"))
 	assert_eq(PersistenceFeedback.failure_message(PersistenceFeedback.Action.LOAD, SaveStore.ERROR_MISSING), "No saved operation was found.")
+
+func test_phase_briefing_content_translates_with_its_own_acknowledge_label() -> void:
+	TranslationServer.set_locale("en")
+	for briefing: OperationBriefingDefinition in SCENARIO.operation_briefings:
+		for text: String in [briefing.title, briefing.intel, briefing.recommendation]:
+			assert_ne(tr(text), text, "%s: %s" % [briefing.id, text])
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		assert_ne(tr(entry.threat_definition.briefing_note), entry.threat_definition.briefing_note, String(entry.threat_definition.id))
+	assert_eq(tr("확인", &"briefing"), "Acknowledge")
+	assert_eq(tr("확인"), "Confirmed")

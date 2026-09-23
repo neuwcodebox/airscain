@@ -36,6 +36,7 @@ acquisition_range = 950.0
 script = ExtResource("1")
 id = &"radar_strike_aircraft"
 display_name = "레이더 타격기"
+briefing_note = "도시 외곽에서 레이더를 향해 공대지 미사일을 쏘고 이탈합니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 32

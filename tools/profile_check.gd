@@ -214,6 +214,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	var workload_seed := 73129
 	var duration := PROFILE_DURATION
 	for argument: String in OS.get_cmdline_user_args():

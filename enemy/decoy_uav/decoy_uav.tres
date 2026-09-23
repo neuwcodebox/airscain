@@ -28,6 +28,7 @@ action_duration = 4.0
 script = ExtResource("1")
 id = &"decoy_uav"
 display_name = "기만 UAV"
+briefing_note = "실제 공격기와 구별하기 어려운 모습으로 요격탄을 끌어냅니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 2

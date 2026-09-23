@@ -5,6 +5,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	if OS.get_cmdline_user_args().has("--sky-menu"):
 		var app := load("res://main/app.tscn").instantiate() as AirscainApp
 		root.add_child(app)

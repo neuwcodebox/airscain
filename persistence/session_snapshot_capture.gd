@@ -37,4 +37,5 @@ static func capture_payload(main: AirscainMain) -> Dictionary:
 		},
 		"player_knowledge": main.player_knowledge.capture_state(),
 		"director": main.director.capture_state(),
+		"briefings": main.briefing_controller.capture_state(),
 	}

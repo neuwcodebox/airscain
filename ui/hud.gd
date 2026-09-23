@@ -27,6 +27,9 @@ var defense_definitions: Array[DefenseDefinition] = []
 var defense_buttons: Array[Button] = []
 var defense_name_labels: Array[Label] = []
 var defense_meta_labels: Array[Label] = []
+var defense_new_badges: Array[Label] = []
+var highlighted_defense_ids: Array[StringName] = []
+var menu_row_highlight: StyleBoxFlat
 var threat_definitions: Array[ThreatDefinition] = []
 var selected_asset: DefenseUnit
 var selected_track: PlayerTrack
@@ -196,7 +199,7 @@ func configure(session_value: GameSession, objective_value: ProtectedObjective, 
 	for label: String in OVERLAY_LABELS:
 		overlay_option.add_item(tr(label))
 	overlay_option.select(overlay_mode_index)
-	overlay_option.get_popup().about_to_popup.connect(_close_context_menus)
+	overlay_option.get_popup().about_to_popup.connect(close_context_menus)
 	_apply_menu_row_style(city_restoration_button)
 	_style_game_over_actions()
 	_style_selection_panel()
@@ -242,6 +245,8 @@ func set_catalog_expanded(expanded: bool) -> void:
 	if expanded:
 		_raise_context_menu(catalog)
 		_position_context_menus()
+	elif not highlighted_defense_ids.is_empty():
+		highlight_new_defenses([])
 
 func _on_defense_menu_pressed() -> void:
 	set_catalog_expanded(not catalog_expanded)
@@ -820,6 +825,8 @@ func _build_defense_catalog() -> void:
 	defense_name_labels.resize(defense_definitions.size())
 	defense_meta_labels.clear()
 	defense_meta_labels.resize(defense_definitions.size())
+	defense_new_badges.clear()
+	defense_new_badges.resize(defense_definitions.size())
 	for group_id: StringName in CATALOG_GROUP_ORDER:
 		var group_definitions: Array[DefenseDefinition] = []
 		for definition: DefenseDefinition in defense_definitions:
@@ -850,6 +857,20 @@ func _build_defense_catalog() -> void:
 			defense_buttons[definition_index] = button
 			defense_name_labels[definition_index] = row.name_label
 			defense_meta_labels[definition_index] = row.meta_label
+			var badge := Label.new()
+			badge.name = "NewBadge"
+			badge.text = "신규"
+			badge.visible = false
+			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			badge.add_theme_font_size_override("font_size", 11)
+			badge.add_theme_color_override("font_color", MenuStyle.ACCENT)
+			badge.add_theme_stylebox_override("normal", MenuStyle.badge(MenuStyle.ACCENT))
+			var row_box := (row.meta_label as Label).get_parent()
+			row_box.add_child(badge)
+			row_box.move_child(badge, (row.meta_label as Label).get_index())
+			defense_new_badges[definition_index] = badge
+	highlight_new_defenses(highlighted_defense_ids)
 
 func _create_menu_row(name: String, icon: Texture2D = null) -> Dictionary:
 	var margin := MarginContainer.new()
@@ -875,6 +896,7 @@ func _create_menu_row(name: String, icon: Texture2D = null) -> Dictionary:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	name_label.add_theme_font_size_override("font_size", 15)
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.text = name
 	row.add_child(name_label)
 	var meta_label := Label.new()
@@ -884,10 +906,24 @@ func _create_menu_row(name: String, icon: Texture2D = null) -> Dictionary:
 	row.add_child(meta_label)
 	return {"container": margin, "name_label": name_label, "meta_label": meta_label}
 
+## Marks catalog rows unlocked by the latest briefing until the catalog is closed.
+func highlight_new_defenses(defense_ids: Array[StringName]) -> void:
+	highlighted_defense_ids = defense_ids.duplicate()
+	for index: int in defense_buttons.size():
+		var button := defense_buttons[index]
+		if button == null:
+			continue
+		var highlighted := highlighted_defense_ids.has(defense_definitions[index].id)
+		defense_new_badges[index].visible = highlighted
+		button.add_theme_stylebox_override("normal", menu_row_highlight if highlighted else menu_row_normal)
+		if highlighted and highlighted_defense_ids.find(defense_definitions[index].id) == 0:
+			defense_scroll.ensure_control_visible.call_deferred(button)
+
 func _ensure_menu_row_styles() -> void:
 	if menu_row_normal != null:
 		return
 	menu_row_normal = _menu_row_style(Color(0.045, 0.075, 0.09, 0.96), Color(MenuStyle.ACCENT, 0.16))
+	menu_row_highlight = _menu_row_style(Color(0.05, 0.11, 0.12, 0.98), Color(MenuStyle.ACCENT, 0.6))
 	menu_row_hover = _menu_row_style(Color(0.07, 0.14, 0.15, 0.98), Color(MenuStyle.ACCENT, 0.75))
 	menu_row_pressed = _menu_row_style(Color(0.08, 0.2, 0.2, 0.98), MenuStyle.ACCENT)
 	menu_row_disabled = _menu_row_style(Color(0.035, 0.05, 0.06, 0.82), Color(MenuStyle.ACCENT, 0.06))
@@ -935,7 +971,7 @@ func _on_overlay_selected(index: int) -> void:
 	overlay_option.select(index)
 	overlay_requested.emit(OVERLAY_MODES[overlay_mode_index])
 
-func _close_context_menus() -> void:
+func close_context_menus() -> void:
 	set_catalog_expanded(false)
 	set_city_menu_expanded(false)
 	set_threat_menu_expanded(false)

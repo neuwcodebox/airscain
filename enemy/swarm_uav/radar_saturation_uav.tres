@@ -28,6 +28,7 @@ script = ExtResource("1")
 loop_audio_event = &"uav_light"
 id = &"radar_saturation_uav"
 display_name = "레이더 포화 소형 UAV"
+briefing_note = "12기 군집으로 레이더를 덮쳐 방공망의 눈을 가립니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 4

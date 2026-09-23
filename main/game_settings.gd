@@ -8,7 +8,7 @@ const RESOLUTIONS: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1600, 900), 
 const FRAME_LIMITS: Array[int] = [0, 30, 60, 120, 144]
 const RENDER_RESOLUTIONS: Array[Vector2i] = [Vector2i.ZERO, Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
 const OPTION_LIMITS := {"resolution": 3, "antialiasing": 3, "frame_limit": 4, "render_resolution": 5}
-const DEFAULTS := {"master": 1.0, "missile": 1.0, "gun": 1.0, "explosion": 1.0, "alert": 1.0, "ui": 1.0, "pan": 1.0, "rotation": 1.0, "zoom": 1.0, "fullscreen": false, "resolution": 1, "antialiasing": 1, "frame_limit": 0, "render_resolution": 0, "language": GameLocale.DEFAULT_LANGUAGE}
+const DEFAULTS := {"master": 1.0, "missile": 1.0, "gun": 1.0, "explosion": 1.0, "alert": 1.0, "ui": 1.0, "pan": 1.0, "rotation": 1.0, "zoom": 1.0, "fullscreen": false, "resolution": 1, "antialiasing": 1, "frame_limit": 0, "render_resolution": 0, "language": GameLocale.DEFAULT_LANGUAGE, "briefings": true}
 var values: Dictionary = DEFAULTS.duplicate()
 var settings_path: String = "user://settings.cfg"
 
@@ -36,7 +36,7 @@ func set_value(key: String, value: Variant) -> void:
 	if key == "language":
 		if not value is String or not GameLocale.is_supported(String(value)):
 			return
-	elif key == "fullscreen":
+	elif DEFAULTS[key] is bool:
 		if not value is bool:
 			return
 	else:
@@ -105,7 +105,7 @@ func load_preferences() -> void:
 		if key == "language":
 			if value is String and GameLocale.is_supported(String(value)):
 				values[key] = String(value)
-		elif key == "fullscreen":
+		elif DEFAULTS[key] is bool:
 			if value is bool:
 				values[key] = value
 		elif (value is int or value is float) and is_finite(float(value)):

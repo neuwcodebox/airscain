@@ -5,6 +5,8 @@ enum Affiliation { UNKNOWN, FRIENDLY, NEUTRAL, HOSTILE }
 
 @export var id: StringName
 @export var display_name: String
+## One-line player-facing summary of the threat's mission, used by operation briefings.
+@export var briefing_note: String
 @export var scene: PackedScene
 @export var approach_audio_event: StringName
 @export var loop_audio_event: StringName

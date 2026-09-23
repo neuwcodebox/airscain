@@ -5,6 +5,7 @@ signal closed
 var sliders: Dictionary[String, HSlider] = {}
 var readouts: Dictionary[String, Label] = {}
 var fullscreen: CheckButton
+var briefings: CheckButton
 var options: Dictionary[String, OptionButton] = {}
 var language_option: OptionButton
 var render_readout: Label
@@ -60,6 +61,14 @@ func _ready() -> void:
 	_slider(controls, "pan", "카메라 이동", false)
 	_slider(controls, "rotation", "카메라 회전", false)
 	_slider(controls, "zoom", "카메라 줌", false)
+	briefings = CheckButton.new()
+	briefings.name = "BriefingsToggle"
+	briefings.text = "새 작전 국면 브리핑 표시"
+	briefings.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	briefings.custom_minimum_size.y = 40
+	briefings.add_theme_constant_override("h_separation", 20)
+	briefings.toggled.connect(func(enabled: bool) -> void: PlayerSettings.instance().set_value("briefings", enabled))
+	controls.add_child(briefings)
 	var camera_help := Label.new()
 	camera_help.text = "WASD  이동\n가운데 버튼 드래그  수평·수직 회전\nQ / E  수평 회전\n휠  확대·축소\nBackspace  위치·줌·각도 초기화\n우클릭  배치 취소·선택 해제"
 	camera_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -203,6 +212,7 @@ func refresh() -> void:
 		sliders[key].set_value_no_signal(value)
 		readouts[key].text = "%d%%" % roundi(value)
 	fullscreen.set_pressed_no_signal(DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN])
+	briefings.set_pressed_no_signal(bool(PlayerSettings.instance().values.briefings))
 	language_option.select(GameLocale.option_index(String(PlayerSettings.instance().values.language)))
 	_refresh_display_options()
 	_refresh_render_readout()

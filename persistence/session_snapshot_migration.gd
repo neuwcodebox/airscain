@@ -11,6 +11,10 @@ static func migrate_content(
 	if version >= SaveDocument.CURRENT_VERSION:
 		return payload
 	var result := payload.duplicate(true)
+	# Version 32 records delivered operation briefings; older operations have
+	# already seen every phase up to the threat level they reached.
+	if version < 32 and scenario != null:
+		result.briefings = OperationBriefingController.legacy_state(scenario, int(result.get("session", {}).get("current_pressure", 1)))
 	# Version 31 records which threats already flew so debut weighting skips
 	# content an older operation has presumably seen at its saved threat level.
 	if version < 31 and result.get("director") is Dictionary and scenario != null:

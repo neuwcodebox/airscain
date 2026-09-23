@@ -29,6 +29,7 @@ orbit_radius_ratio = 0.4
 script = ExtResource("1")
 id = &"electronic_warfare_uav"
 display_name = "전자전 UAV"
+briefing_note = "보고된 레이더 주변을 선회하며 탐지와 지휘 연결을 방해합니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 16

@@ -6,6 +6,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	AirscainMain.requested_seed = 73129
 	var main := preload("res://main/main.tscn").instantiate() as AirscainMain
 	root.add_child(main)

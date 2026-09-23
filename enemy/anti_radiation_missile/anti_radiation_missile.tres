@@ -28,6 +28,7 @@ script = ExtResource("1")
 approach_audio_event = &"missile_approach"
 id = &"anti_radiation_missile"
 display_name = "레이더 타격 미사일"
+briefing_note = "방사 중인 레이더를 추적해 빠르게 돌입합니다."
 scene = ExtResource("2")
 neutralization_reward = 24
 signature_class = &"missile"

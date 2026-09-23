@@ -23,6 +23,8 @@ func _init() -> void:
 	call_deferred("run")
 
 func run() -> void:
+	# Diagnostic runs advance the simulation without modal phase briefings.
+	PlayerSettings.instance().values.briefings = false
 	var args := OS.get_cmdline_user_args()
 	var world_seed := int(args[0]) if not args.is_empty() else 73129
 	AirscainMain.requested_seed = world_seed

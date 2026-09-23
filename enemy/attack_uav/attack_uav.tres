@@ -28,6 +28,7 @@ script = ExtResource("1")
 loop_audio_event = &"uav_medium"
 id = &"attack_uav"
 display_name = "도시 자폭 UAV"
+briefing_note = "저고도로 느리게 접근해 도시 건물에 직접 충돌합니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 12

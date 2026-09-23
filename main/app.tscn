@@ -456,6 +456,14 @@ theme_override_font_sizes/font_size = 24
 text = "계속하기"
 script = ExtResource("5")
 
+[node name="PauseBriefingButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 54)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "작전 첩보"
+script = ExtResource("5")
+
 [node name="PauseSaveButton" type="Button" parent="PauseLayer/PauseMenu/Panel/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 54)
@@ -514,6 +522,7 @@ script = ExtResource("5")
 [connection signal="pressed" from="MainMenu/Panel/VBox/Footer/QuitButton" to="." method="_on_quit_pressed"]
 [connection signal="pressed" from="MainMenu/BattlefieldSelection/Margin/VBox/Footer/BackButton" to="MainMenu/BattlefieldSelection" method="close"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/ResumeButton" to="." method="_on_resume_pressed"]
+[connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseBriefingButton" to="." method="_on_pause_briefings_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseSaveButton" to="." method="_on_pause_save_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/PauseLoadButton" to="." method="_on_pause_load_pressed"]
 [connection signal="pressed" from="PauseLayer/PauseMenu/Panel/VBox/MainMenuButton" to="." method="_on_main_menu_pressed"]

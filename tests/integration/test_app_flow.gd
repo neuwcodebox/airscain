@@ -10,9 +10,11 @@ var original_last_generated_seed: int
 var original_default_font: Font
 var original_fallback_font: Font
 var temporary_paths: Array[String] = []
+var original_briefings: bool
 
 func before_each() -> void:
 	original_settings_path = PlayerSettings.instance().settings_path
+	original_briefings = bool(PlayerSettings.instance().values.briefings)
 	original_requested_seed = AirscainMain.requested_seed
 	original_requested_mode = AirscainMain.requested_mode
 	original_requested_layout_id = AirscainMain.requested_layout_id
@@ -62,6 +64,7 @@ func test_settings_from_pause_keep_simulation_paused_and_block_camera() -> void:
 
 func after_each() -> void:
 	PlayerSettings.instance().settings_path = original_settings_path
+	PlayerSettings.instance().values.briefings = original_briefings
 	for path: String in temporary_paths:
 		_cleanup_save_path(path)
 	temporary_paths.clear()
@@ -71,6 +74,37 @@ func after_each() -> void:
 	AirscainMain.last_generated_seed = original_last_generated_seed
 	ThemeDB.get_default_theme().default_font = original_default_font
 	ThemeDB.fallback_font = original_fallback_font
+
+func test_pause_menu_reviews_delivered_briefings_and_returns_to_pause() -> void:
+	PlayerSettings.instance().values.briefings = true
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	app.start_game(AirscainMain.GameMode.SUSTAINED)
+	var gameplay := app.gameplay
+	assert_true(gameplay.briefing_panel.visible, "새 작전은 첫 국면 브리핑으로 시작합니다")
+	gameplay.briefing_panel.acknowledge_button.pressed.emit()
+	app.set_pause_menu(true)
+	assert_true(app.pause_briefing_button.visible)
+	assert_false(app.pause_briefing_button.disabled)
+	app.pause_briefing_button.pressed.emit()
+	assert_false(app.pause_menu.visible)
+	assert_true(gameplay.briefing_panel.visible)
+	assert_false(gameplay.briefing_panel.live, "보관함은 새 브리핑이 아닙니다")
+	assert_eq(gameplay.session.simulation_speed, 0.0)
+	var escape := InputEventAction.new()
+	escape.action = &"ui_cancel"
+	escape.pressed = true
+	gameplay.briefing_panel._input(escape)
+	assert_false(gameplay.briefing_panel.visible)
+	assert_true(app.pause_menu.visible, "보관함을 닫으면 일시정지 메뉴로 돌아갑니다")
+	assert_eq(gameplay.session.simulation_speed, 0.0)
+	app.set_pause_menu(false)
+	assert_eq(gameplay.session.simulation_speed, 1.0)
+
+func test_sandbox_pause_menu_hides_briefing_archive() -> void:
+	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp
+	app.start_game(AirscainMain.GameMode.SANDBOX)
+	app.set_pause_menu(true)
+	assert_false(app.pause_briefing_button.visible)
 
 func test_menu_demo_builds_a_self_sufficient_isolated_defense_network() -> void:
 	var app := add_child_autofree(APP_SCENE.instantiate()) as AirscainApp

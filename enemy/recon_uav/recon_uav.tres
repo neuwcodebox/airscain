@@ -29,6 +29,7 @@ action_duration = 5.0
 script = ExtResource("1")
 id = &"recon_uav"
 display_name = "정찰 UAV"
+briefing_note = "중고도에서 방공 자산을 찾아 이후 제압 공격에 위치를 넘깁니다."
 scene = ExtResource("2")
 resolution_profile = ExtResource("Resolution")
 neutralization_reward = 6
