@@ -32,9 +32,11 @@ func build(generator: WorldGenerator, cover: GroundCover) -> void:
 			var x := -half + (float(x_index) + rng.randf()) * FOREST_SPACING
 			var z := -half + (float(z_index) + rng.randf()) * FOREST_SPACING
 			var roll := rng.randf()
+			if cover.is_farmed(x, z):
+				continue
 			var woods := cover.forest_at(x, z)
 			var density := woods * (0.35 + woods * 0.6)
-			var lone := 0.006 * (1.0 - cover.farmland_at(x, z)) * (1.0 - woods)
+			var lone := 0.006 * (1.0 - woods)
 			if roll >= density + lone and roll >= 0.02:
 				continue
 			var height := generator.height_at(x, z)
@@ -59,6 +61,15 @@ func clear_around(position: Vector3, radius: float) -> void:
 			if offset.length() < reach + chunk.radii[index]:
 				chunk.multimesh.set_instance_transform(index, Transform3D(Basis.from_scale(Vector3.ZERO), chunk.positions[index]))
 				chunk.radii[index] = -INF
+
+## Positions of every scenery piece still standing.
+func standing_positions() -> PackedVector3Array:
+	var result := PackedVector3Array()
+	for chunk: Chunk in _chunks:
+		for index: int in chunk.positions.size():
+			if chunk.radii[index] > -INF:
+				result.append(chunk.positions[index])
+	return result
 
 ## Number of scenery pieces still standing whose trunk lies within `radius`.
 func standing_within(position: Vector3, radius: float) -> int:

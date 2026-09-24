@@ -57,3 +57,44 @@ func _densest_forest_site(field: Battlefield) -> Vector3:
 				best_forest = forest
 				best = Vector3(float(x), field.terrain_height(float(x), float(z)), float(z))
 	return best
+
+func _layout_generator(layout_id: StringName) -> WorldGenerator:
+	var scenario := SCENARIO.duplicate(true) as ScenarioDefinition
+	scenario.selected_battlefield_layout_id = layout_id
+	var generator := WorldGenerator.new()
+	generator.generate(scenario.world_seed, scenario.battlefield_size, scenario.terrain_resolution, scenario.city_size, scenario.battlefield_layout())
+	return generator
+
+func test_farmed_fields_are_flat_lowland_in_groups() -> void:
+	var checked := 0
+	for layout_id: StringName in [&"rugged_harbor", &"island_city", &"valley_corridor", &"coastal_plain"]:
+		var generator := _layout_generator(layout_id)
+		var cover := _cover(generator)
+		for cell: Vector2i in cover.farmed_cells:
+			var label := "%s %s" % [layout_id, cell]
+			var lowest := INF
+			var highest := -INF
+			for corner: Vector2 in [Vector2(0.05, 0.05), Vector2(0.95, 0.05), Vector2(0.05, 0.95), Vector2(0.95, 0.95), Vector2(0.5, 0.5)]:
+				var point := cover._from_field((Vector2(cell) + corner) * GroundCover.FIELD_CELL)
+				var height := generator.height_at(point.x, point.y)
+				lowest = minf(lowest, height)
+				highest = maxf(highest, height)
+			assert_lte(highest - lowest, GroundCover.FIELD_MAXIMUM_RELIEF + 1.0, "%s: 필지 전체가 완만합니다" % label)
+			assert_lt(highest, generator.sea_level + GroundCover.FIELD_MAXIMUM_HEIGHT, "%s: 구릉 정상이 아닌 저지대입니다" % label)
+			var neighbors := 0
+			for offset: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				neighbors += 1 if cover.farmed_cells.has(cell + offset) else 0
+			assert_gt(neighbors, 0, "%s: 외톨이 필지가 없습니다" % label)
+			checked += 1
+	assert_gt(checked, 0, "평야 전장에는 경작지가 생깁니다")
+
+func test_no_scenery_stands_on_farmed_fields() -> void:
+	var generator := _layout_generator(&"coastal_plain")
+	var cover := _cover(generator)
+	var vegetation := add_child_autofree(Vegetation.new()) as Vegetation
+	vegetation.build(generator, cover)
+	var on_fields := 0
+	for position: Vector3 in vegetation.standing_positions():
+		if cover.is_farmed(position.x, position.z):
+			on_fields += 1
+	assert_eq(on_fields, 0)

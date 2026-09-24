@@ -43,14 +43,15 @@ mat2 field_basis() {
 	return mat2(vec2(cos(field_rotation), sin(field_rotation)), vec2(-sin(field_rotation), cos(field_rotation)));
 }
 
-// Whole fields: each rectangular cell is farmed or not from the cover map at its center.
+// Whole fields: GroundCover decides each cell (FIELD_CELL, same rotation) and
+// writes the decision into every texel of the cell, so the center sample is exact.
 vec4 field_color(vec2 world_xz, float footprint) {
-	vec2 cell_size = vec2(96.0, 58.0);
+	vec2 cell_size = vec2(64.0, 40.0);
 	vec2 local = field_basis() * world_xz;
 	vec2 cell = floor(local / cell_size);
 	vec2 inside = fract(local / cell_size);
 	vec2 center = transpose(field_basis()) * ((cell + 0.5) * cell_size);
-	float farmed = step(0.3, texture(ground_cover_map, center / battlefield_size + vec2(0.5)).b);
+	float farmed = step(0.5, texture(ground_cover_map, center / battlefield_size + vec2(0.5)).b);
 	float pick = hash21(cell + 17.0);
 	vec3 crop = pick < 0.28 ? vec3(0.430, 0.360, 0.160) : pick < 0.58 ? vec3(0.170, 0.250, 0.075) : pick < 0.78 ? vec3(0.240, 0.180, 0.115) : vec3(0.280, 0.285, 0.140);
 	crop *= 0.9 + hash21(cell + 3.0) * 0.2;
