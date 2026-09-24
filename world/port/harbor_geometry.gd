@@ -22,6 +22,13 @@ func cylinder(radius: float, height: float, at: Vector3, color: String) -> void:
 	append(mesh, Transform3D(Basis.IDENTITY, at), color)
 
 func append(mesh: Mesh, transform: Transform3D, color: String) -> void:
+	# A shared surface keeps only indexed triangles once any indexed part joins it,
+	# so unindexed parts are indexed first rather than silently dropped.
+	if mesh.surface_get_arrays(0)[Mesh.ARRAY_INDEX] == null:
+		var indexed := SurfaceTool.new()
+		indexed.create_from(mesh, 0)
+		indexed.index()
+		mesh = indexed.commit()
 	if not surfaces.has(color):
 		var surface := SurfaceTool.new()
 		surface.begin(Mesh.PRIMITIVE_TRIANGLES)

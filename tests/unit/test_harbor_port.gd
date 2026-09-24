@@ -190,3 +190,45 @@ func test_thin_harbor_detail_hands_over_to_thick_members_at_one_camera_distance(
 	assert_gt(near.visibility_range_end, 0.0)
 	assert_eq(far.visibility_range_begin, near.visibility_range_end, "원거리 형상은 세부 형상이 사라지는 거리에서 나타납니다")
 	assert_eq(far.custom_aabb, near.custom_aabb, "두 단계는 같은 기준 거리로 전환됩니다")
+
+func _triangle_count(mesh: ArrayMesh, surface: int) -> int:
+	var arrays := mesh.surface_get_arrays(surface)
+	var indices = arrays[Mesh.ARRAY_INDEX]
+	return (indices as PackedInt32Array).size() / 3 if indices != null else (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
+
+func test_same_colored_parts_keep_every_triangle_when_merged() -> void:
+	var loose := SurfaceTool.new()
+	loose.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for vertex: Vector3 in [Vector3.ZERO, Vector3.UP, Vector3.RIGHT, Vector3.RIGHT, Vector3.UP, Vector3(1, 1, 0)]:
+		loose.add_vertex(vertex)
+	loose.generate_normals()
+	var geometry := HarborGeometry.new()
+	geometry.append(loose.commit(), Transform3D.IDENTITY, "294552")
+	geometry.box(Vector3.ONE, Vector3(5, 0, 0), "294552")
+	var merged := geometry.mesh()
+	assert_eq(merged.get_surface_count(), 1)
+	assert_eq(_triangle_count(merged, 0), 2 + 12, "색이 같은 인덱스 없는 선체 면과 상자가 모두 그려집니다")
+
+func test_cargo_ship_hull_sides_face_outward() -> void:
+	var ship := add_child_autofree(CargoShip.new()) as CargoShip
+	var hull := (ship.get_node("SculptedHullAndRails") as MeshInstance3D).mesh as ArrayMesh
+	var outward := 0
+	var inward := 0
+	for surface: int in hull.get_surface_count():
+		var arrays := hull.surface_get_arrays(surface)
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		for triangle: int in range(0, indices.size(), 3):
+			var corners := [indices[triangle], indices[triangle + 1], indices[triangle + 2]]
+			var center := (vertices[corners[0]] + vertices[corners[1]] + vertices[corners[2]]) / 3.0
+			if absf(center.x) < CargoShip.HULL_WIDTH * 0.4 or center.y > 4.7 or absf(center.z) > 30.0:
+				continue
+			# Generated normals follow the front face, so they must point away from the keel.
+			var normal: Vector3 = normals[corners[0]] + normals[corners[1]] + normals[corners[2]]
+			if normal.x * signf(center.x) > 0.0:
+				outward += 1
+			else:
+				inward += 1
+	assert_gt(outward, 0, "측면 선체 삼각형이 존재합니다")
+	assert_eq(inward, 0, "측면 선체는 바깥에서 보입니다")
