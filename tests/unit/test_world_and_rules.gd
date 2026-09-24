@@ -324,6 +324,31 @@ func test_content_warmup_uses_runtime_setup_without_joining_combat() -> void:
 	assert_eq(threat.process_mode, Node.PROCESS_MODE_DISABLED)
 	assert_eq(defense.process_mode, Node.PROCESS_MODE_DISABLED)
 
+func test_threat_warmup_wreck_uses_the_charred_materials_of_a_real_kill() -> void:
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var definition := preload("res://enemy/attack_uav/attack_uav.tres")
+	var sample := CombatVfxSampleCatalog.create_content_sample(parent, definition) as ThreatUnit
+	var warmup_wreck := CombatVfxSampleCatalog.add_wreck_sample(parent, sample)
+	assert_not_null(warmup_wreck)
+	if warmup_wreck == null:
+		return
+	assert_eq(warmup_wreck.process_mode, Node.PROCESS_MODE_DISABLED, "예열 잔해는 낙하·충돌을 진행하지 않습니다")
+	var live := add_child_autofree(definition.scene.instantiate()) as ThreatUnit
+	live.setup(2, definition)
+	var live_wreck := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	live_wreck.use_airframe(live)
+	var warmup_materials := _wreck_surface_materials(warmup_wreck)
+	assert_gt(warmup_materials.size(), 0)
+	assert_eq(_wreck_surface_materials(live_wreck), warmup_materials, "실제 격추 잔해는 예열한 탄화 재질을 그대로 씁니다")
+
+func _wreck_surface_materials(effect: FallingWreckEffect) -> Array[Material]:
+	var materials: Array[Material] = []
+	for child: Node in effect.wreck.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := child as MeshInstance3D
+		for surface: int in mesh_instance.mesh.get_surface_count():
+			materials.append(mesh_instance.get_surface_override_material(surface))
+	return materials
+
 func test_airframe_palette_preserves_triangles_and_surface_finishes() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D
 	var finishes: Array[StandardMaterial3D] = [ModelGeometry.material(Color.RED, 0.2, 0.7), ModelGeometry.material(Color.BLUE, 0.8, 0.3)]

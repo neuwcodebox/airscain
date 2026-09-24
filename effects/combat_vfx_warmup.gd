@@ -62,6 +62,8 @@ func _add_content_sample(definition: Resource) -> Node3D:
 	var model := SAMPLE_CATALOG.create_content_sample(self, definition)
 	model.position = WARMUP_POSITION
 	model.scale = Vector3.ONE * 0.18
+	if model is ThreatUnit:
+		SAMPLE_CATALOG.add_wreck_sample(self, model as ThreatUnit)
 	return model
 
 func _render_samples() -> void:

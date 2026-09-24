@@ -24,7 +24,7 @@ func prepare(
 	impact_light.omni_range = 2400.0
 	impact_light.light_energy = 0.05
 	host.add_child(impact_light)
-	await _prepare_retained_effects(host, impact_light, pooled_explosions, city_smoke)
+	await _prepare_retained_effects(host, impact_light, pooled_explosions, city_smoke, battlefield)
 	if scenario != null:
 		await _prepare_content(host, impact_light, scenario)
 	await _prepare_transients(host, impact_light, pooled_explosions, battlefield)
@@ -54,7 +54,8 @@ func _prepare_retained_effects(
 		host: Node3D,
 		impact_light: OmniLight3D,
 		pooled_explosions: Array[ExplosionEffect],
-		city_smoke: Array[DamageSmokeEffect]
+		city_smoke: Array[DamageSmokeEffect],
+		battlefield: Battlefield
 ) -> void:
 	var nodes: Array[Node3D] = []
 	for effect: ExplosionEffect in pooled_explosions:
@@ -79,10 +80,15 @@ func _prepare_retained_effects(
 				particles.restart()
 		for local_light: bool in [true, false]:
 			impact_light.visible = local_light
+			# Samples sit in the city, whose street lights would otherwise keep
+			# every lit particle out of the no-omni variant that a battle
+			# outside the city reaches when its blast light ends.
+			_set_street_lights_visible(battlefield, local_light)
 			for node: Node3D in batch:
 				if node is ExplosionEffect:
 					(node as ExplosionEffect).blast_light.visible = local_light
 			await _render_frames(host, 3)
+		_set_street_lights_visible(battlefield, true)
 		for index: int in batch.size():
 			var node := batch[index]
 			for child: Node in node.find_children("*", "GPUParticles3D", true, false):
@@ -105,6 +111,10 @@ func _prepare_content(host: Node3D, impact_light: OmniLight3D, scenario: Scenari
 			model.global_position = Vector3(0, 80, 0)
 			models.append(model)
 			if model is ThreatUnit:
+				var wreck := SAMPLE_CATALOG.add_wreck_sample(host, model as ThreatUnit)
+				if wreck != null:
+					wreck.global_position += Vector3.RIGHT * 12.0
+					models.append(wreck)
 				var haze := DistantContactHaze.new()
 				model.add_child(haze)
 				haze.configure(model, scenario.battlefield_size)
@@ -156,6 +166,12 @@ func _prepare_transients(
 	for trail: LingeringSmokeTrail in released_trails:
 		if is_instance_valid(trail):
 			trail.queue_free()
+
+static func _set_street_lights_visible(battlefield: Battlefield, lights_visible: bool) -> void:
+	if battlefield == null:
+		return
+	for light: OmniLight3D in battlefield.street_lights:
+		light.visible = lights_visible
 
 static func _render_frames(host: Node, count: int) -> void:
 	for frame: int in count:

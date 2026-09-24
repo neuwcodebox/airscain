@@ -138,6 +138,19 @@ static func add_secondary_effect_samples(parent: Node, position_value: Vector3, 
 		if scene == STRIKE_SCENE:
 			wreck.use_airframe(model)
 
+## Adds the charred wreck a neutralized threat leaves, so its material variants compile before the first kill.
+static func add_wreck_sample(parent: Node, threat: ThreatUnit) -> FallingWreckEffect:
+	var profile := threat.definition.resolution_profile
+	if profile == null or not profile.leave_wreck:
+		return null
+	var wreck := WRECK_SCENE.instantiate() as FallingWreckEffect
+	parent.add_child(wreck)
+	wreck.global_transform = threat.global_transform
+	wreck.setup(threat.definition.wreck_tint(), Vector3.ZERO, -100.0, profile.wreck_scale, profile.wreck_smoke, profile.landing_flash)
+	wreck.use_airframe(threat)
+	wreck.process_mode = Node.PROCESS_MODE_DISABLED
+	return wreck
+
 static func _create_defense_sample(parent: Node, definition: DefenseDefinition) -> DefenseUnit:
 	var unit := definition.scene.instantiate() as DefenseUnit
 	parent.add_child(unit)
