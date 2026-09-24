@@ -1,10 +1,13 @@
 [gd_scene load_steps=5 format=3]
 
 [ext_resource path="res://defense/interceptor_drone/interceptor_drone_defense.gd" type="Script" id="1"]
+[ext_resource path="res://defense/interceptor_drone/drone_station_details.gd" type="Script" id="2"]
+[ext_resource path="res://defense/ground_equipment.gd" type="Script" id="3"]
 
 [sub_resource type="StandardMaterial3D" id="Material"]
-albedo_color = Color(0.16, 0.33, 0.38, 1)
+albedo_color = Color(0.2, 0.27, 0.27, 1)
 metallic = 0.35
+roughness = 0.55
 
 [sub_resource type="CylinderMesh" id="Base"]
 top_radius = 6.0
@@ -26,6 +29,16 @@ material_override = SubResource("Material")
 position = Vector3(0, 3.4, 0)
 mesh = SubResource("Pad")
 material_override = SubResource("Material")
+
+[node name="DeckDetails" type="Node3D" parent="."]
+script = ExtResource("2")
+
+[node name="ControlShelter" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.0, 0, 2.5)
+script = ExtResource("3")
+container_size = Vector3(2.4, 2.6, 5.0)
+generator = false
+cable_to = Vector3(3.0, 0.12, -1.6)
 
 [node name="LaunchPoint" type="Marker3D" parent="."]
 position = Vector3(0, 5, 0)

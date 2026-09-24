@@ -132,6 +132,10 @@ func _capture_defense_lineup() -> void:
 		unit.status_marker.hide()
 		units.append(unit)
 	await _capture_look("defenses", site + Vector3(70.0, 55.0, 110.0), site + Vector3(0.0, 4.0, 0.0))
+	if OS.get_cmdline_user_args().has("--closeups"):
+		for unit: DefenseUnit in units:
+			var reach := maxf(12.0, unit.definition.placement_profile.footprint_radius * 2.2)
+			await _capture_look("defense_%s" % unit.definition.id, unit.global_position + Vector3(reach * 0.9, reach * 0.55, reach * 1.1), unit.global_position + Vector3.UP * 3.0)
 	await _capture_look("defenses_close", site + Vector3(-40.0, 14.0, 20.0), site + Vector3(-50.0, 4.0, -15.0))
 	for unit: DefenseUnit in units:
 		unit.queue_free()

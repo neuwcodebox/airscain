@@ -25,6 +25,11 @@ var prepared_damage_smoke: DamageSmokeEffect
 var status_marker: UnitStatusMarker
 var identity_marker: UnitIdentityMarker
 var pointer_target: AssetPointerTarget
+var emplacement: MeshInstance3D
+
+## Shared concrete pads keyed by footprint, so identical assets reuse one mesh.
+static var _emplacement_meshes: Dictionary[float, CylinderMesh] = {}
+static var _emplacement_material: StandardMaterial3D
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	scale = Vector3.ONE * PRESENTATION_SCALE
@@ -32,6 +37,7 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	definition = definition_value
 	integrity = definition.maximum_integrity
 	active = true
+	_ensure_emplacement()
 	if pointer_target == null:
 		pointer_target = AssetPointerTarget.new()
 		pointer_target.prepare(self)
@@ -46,6 +52,32 @@ func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 
 func _process(_delta: float) -> void:
 	_refresh_status_marker()
+
+## A concrete pad grounds the equipment on terrain and rooftops. It extends below
+## the origin to cover sloped ground and is excluded from pointer picking.
+func _ensure_emplacement() -> void:
+	if emplacement != null or definition.placement_profile == null:
+		return
+	var radius := definition.placement_profile.footprint_radius * 0.82 / PRESENTATION_SCALE
+	if not _emplacement_meshes.has(radius):
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = radius
+		mesh.bottom_radius = radius + 0.5
+		mesh.height = 1.6
+		mesh.radial_segments = 8
+		mesh.rings = 1
+		_emplacement_meshes[radius] = mesh
+	if _emplacement_material == null:
+		_emplacement_material = StandardMaterial3D.new()
+		_emplacement_material.albedo_color = Color("5c5b55")
+		_emplacement_material.roughness = 0.95
+	emplacement = MeshInstance3D.new()
+	emplacement.name = "Emplacement"
+	emplacement.mesh = _emplacement_meshes[radius]
+	emplacement.material_override = _emplacement_material
+	emplacement.position = Vector3.DOWN * 0.66
+	emplacement.set_meta(AssetPointerTarget.IGNORED_META, true)
+	add_child(emplacement)
 
 func gameplay_tick(_delta: float) -> void:
 	pass

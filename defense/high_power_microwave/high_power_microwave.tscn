@@ -6,6 +6,7 @@
 [ext_resource path="res://effects/field_pulse.gd" type="Script" id="PulseScript"]
 
 [ext_resource path="res://defense/high_power_microwave/high_power_microwave.gd" type="Script" id="1"]
+[ext_resource path="res://defense/ground_equipment.gd" type="Script" id="2"]
 
 [sub_resource type="StandardMaterial3D" id="BaseMaterial"]
 albedo_color = Color(0.22, 0.25, 0.3, 1)
@@ -15,6 +16,17 @@ metallic = 0.5
 top_radius = 6.0
 bottom_radius = 7.0
 height = 3.0
+
+[sub_resource type="StandardMaterial3D" id="RingMaterial"]
+albedo_color = Color(0.13, 0.15, 0.17, 1)
+metallic = 0.5
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="RingMesh"]
+top_radius = 5.3
+bottom_radius = 5.6
+height = 0.7
+radial_segments = 16
 
 [sub_resource type="ShaderMaterial" id="FieldMaterial"]
 shader = ExtResource("PulseShader")
@@ -30,6 +42,17 @@ script = ExtResource("1")
 position = Vector3(0, 1.5, 0)
 mesh = SubResource("BaseMesh")
 material_override = SubResource("BaseMaterial")
+
+[node name="TurntableRing" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.35, 0)
+mesh = SubResource("RingMesh")
+material_override = SubResource("RingMaterial")
+
+[node name="PowerEquipment" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.4, 0, 2.2)
+script = ExtResource("2")
+container_size = Vector3(2.4, 2.6, 5.4)
+cable_to = Vector3(3.2, 0.12, -2.2)
 
 [node name="Turret" type="Node3D" parent="."]
 position = Vector3(0, 6, 0)

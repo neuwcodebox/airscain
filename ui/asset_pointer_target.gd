@@ -4,6 +4,8 @@ extends RefCounted
 const OUTLINE_SHADER := preload("res://ui/asset_hover_outline.gdshader")
 const CLICK_PADDING := 10.0
 const MINIMUM_TARGET_SIZE := 36.0
+## Ground dressing such as emplacement pads never enlarges the pickable silhouette.
+const IGNORED_META := &"pointer_ignored"
 static var outline_material: ShaderMaterial
 
 var meshes: Array[MeshInstance3D] = []
@@ -18,6 +20,8 @@ func prepare(unit: Node3D) -> void:
 		outline_material.shader = OUTLINE_SHADER
 
 func _collect(node: Node, local_transform: Transform3D) -> void:
+	if node.has_meta(IGNORED_META):
+		return
 	if node is MeshInstance3D:
 		var instance := node as MeshInstance3D
 		if instance.mesh == null or not instance.visible:
