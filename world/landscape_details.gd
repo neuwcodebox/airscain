@@ -1,34 +1,16 @@
 class_name LandscapeDetails
 extends Node3D
-## Cosmetic scenery uses its own RNG and batched geometry, never gameplay state.
+## Cosmetic street details use their own RNG and batched geometry, never gameplay state.
 
 var _batches: Dictionary[String, Array] = {}
 var _colors: Dictionary[String, Color] = {
-	"leaf": Color("435a3e"), "pine": Color("344d41"), "trunk": Color("65513e"),
-	"rock": Color("79786a"), "paint": Color("d6d3bb"), "car": Color("69858c"),
+	"paint": Color("d6d3bb"), "car": Color("69858c"),
 	"car_warm": Color("aa795b"), "glass": Color("283c42"), "metal": Color("4d5655"),
 }
 
 func build(generator: WorldGenerator, blocks: Array[Dictionary], buildings: Array[Transform3D], road_width: float) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = generator.seed_value ^ 0x45B7
-	for index: int in 1700:
-		var x := rng.randf_range(-0.46, 0.46) * generator.size
-		var z := rng.randf_range(-0.46, 0.46) * generator.size
-		var height := generator.height_at(x, z)
-		var slope := generator.slope_degrees_at(x, z, 8.0)
-		if height < 16.0 or slope < 7.0 or slope > 32.0 or _near_blocks(Vector2(x, z), blocks):
-			continue
-		var cluster := sin(x * 0.019) * cos(z * 0.015)
-		if cluster < -0.1:
-			continue
-		var scale_value := rng.randf_range(0.75, 1.65)
-		var position := Vector3(x, height - 0.5, z)
-		if slope > 21.0:
-			_append("rock", position + Vector3.UP, Vector3(4, 2.8, 3) * scale_value, rng.randf() * TAU)
-		else:
-			_append("trunk", position + Vector3.UP * 2.2 * scale_value, Vector3(0.65, 4.4, 0.65) * scale_value)
-			_append("pine" if index % 3 == 0 else "leaf", position + Vector3.UP * 4.6 * scale_value, Vector3(4.2, 5.6, 4.2) * scale_value, rng.randf() * TAU)
 	var occupied: Dictionary = {}
 	for block: Dictionary in blocks:
 		occupied[_block_key(block.district_id, block.grid)] = true
@@ -65,14 +47,6 @@ func build(generator: WorldGenerator, blocks: Array[Dictionary], buildings: Arra
 		_flush(key)
 	_batches.clear()
 
-func _near_blocks(position: Vector2, blocks: Array[Dictionary]) -> bool:
-	for block: Dictionary in blocks:
-		var center: Vector3 = block.position
-		var spacing: float = block.block_step
-		if position.distance_squared_to(Vector2(center.x, center.z)) < spacing * spacing:
-			return true
-	return false
-
 func _block_key(district_id: StringName, grid: Vector2i) -> String:
 	return "%s:%d:%d" % [String(district_id), grid.x, grid.y]
 
@@ -83,24 +57,9 @@ func _append(key: String, position: Vector3, size: Vector3, yaw: float = 0.0) ->
 
 func _flush(key: String) -> void:
 	var mesh: Mesh
-	if key in ["leaf", "rock"]:
-		var sphere := SphereMesh.new()
-		sphere.radius = 0.5
-		sphere.height = 1.0
-		sphere.radial_segments = 5
-		sphere.rings = 3
-		mesh = sphere
-	elif key == "pine":
-		var cone := CylinderMesh.new()
-		cone.top_radius = 0.03
-		cone.bottom_radius = 0.5
-		cone.height = 1.0
-		cone.radial_segments = 6
-		mesh = cone
-	else:
-		var box := BoxMesh.new()
-		box.size = Vector3.ONE
-		mesh = box
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE
+	mesh = box
 	var material := StandardMaterial3D.new()
 	material.albedo_color = _colors[key]
 	material.roughness = 0.88

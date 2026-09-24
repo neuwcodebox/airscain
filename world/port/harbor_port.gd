@@ -46,6 +46,8 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 	var orientation := Basis(Vector3(route.along_quay.x, 0.0, route.along_quay.y), Vector3.UP, Vector3(route.seaward.x, 0.0, route.seaward.y))
 	global_transform = Transform3D(orientation, Vector3(route.berth.x, route.sea_level, route.berth.y))
 	_build_port()
+	for depth: float in [-30.0, -90.0, -150.0]:
+		field.clear_scenery(global_transform * Vector3(0.0, 0.0, depth), 95.0)
 	identity_marker = IDENTITY_MARKER_SCENE.instantiate() as UnitIdentityMarker
 	identity_marker.name = "HarborIdentityMarker"
 	identity_marker.position = Vector3(0.0, 26.0, -25.0)

@@ -2514,7 +2514,7 @@ func _capture_city_smoke_and_ammo_status() -> void:
 	gun.set_automatic_resupply(false)
 	gun._process(0.0)
 	var badge := gun.status_marker.get_node("SupplyBadge") as Sprite3D
-	if not badge.visible or badge.texture != UnitStatusMarker.SUPPLY_TEXTURES["탄약 고갈"]:
+	if not badge.visible or badge.texture != UnitStatusMarker.SUPPLY_TEXTURES[&"ammunition_empty"]:
 		push_error("Depleted ammunition status was not concise and screen-sized")
 		quit(1)
 		return

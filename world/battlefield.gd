@@ -72,6 +72,8 @@ var _building_bounds: Array[AABB] = []
 var _building_cells: Dictionary[Vector2i, Array] = {}
 var _city_bounds := AABB()
 var _city_boxes := CityBoxBatch.new()
+var ground_cover := GroundCover.new()
+var vegetation: Vegetation
 
 @onready var terrain: MeshInstance3D = $Terrain
 @onready var ocean: MeshInstance3D = $Ocean
@@ -125,6 +127,17 @@ func build(scenario: ScenarioDefinition) -> void:
 	landscape.name = "LandscapeDetails"
 	city_visuals.add_child(landscape)
 	landscape.build(generator, city_blocks, building_transforms, city_road_width)
+	ground_cover = GroundCover.new()
+	ground_cover.build(generator, city_blocks)
+	var terrain_material := terrain.material_override as ShaderMaterial
+	terrain_material.set_shader_parameter("ground_cover_map", ground_cover.texture)
+	terrain_material.set_shader_parameter("field_rotation", ground_cover.field_rotation)
+	terrain_material.set_shader_parameter("battlefield_size", battlefield_size)
+	terrain_material.set_shader_parameter("sea_level", generator.sea_level)
+	vegetation = Vegetation.new()
+	vegetation.name = "Vegetation"
+	city_visuals.add_child(vegetation)
+	vegetation.build(generator, ground_cover)
 
 func _configure_city_shadow_receivers() -> void:
 	smoke_shadow_materials.clear()
@@ -419,6 +432,12 @@ func _rooftop_index_at(position: Vector3, height_tolerance: float = 2.0) -> int:
 func register_occupancy(position: Vector3, radius: float) -> void:
 	occupied_positions.append(position)
 	occupied_radii.append(radius)
+	clear_scenery(position, radius)
+
+## Cosmetic trees and boulders give way to equipment and facilities.
+func clear_scenery(position: Vector3, radius: float) -> void:
+	if is_instance_valid(vegetation):
+		vegetation.clear_around(position, radius)
 
 func unregister_occupancy(position: Vector3, radius: float) -> void:
 	for index: int in range(occupied_positions.size() - 1, -1, -1):
