@@ -16,12 +16,15 @@ var effect_radius: float = 10.0
 @onready var fireball: GPUParticles3D = $Fireball
 @onready var smoke: ShadowedSmokeParticles = $Smoke
 @onready var sparks: GPUParticles3D = $Sparks
+@onready var fire_body: GPUParticles3D = $FireBody
+@onready var debris: GPUParticles3D = $Debris
 
 var flash_material: StandardMaterial3D
 var halo_material: StandardMaterial3D
 var pressure_material: StandardMaterial3D
 var shockwave_material: StandardMaterial3D
 var fireball_material: StandardMaterial3D
+var fire_body_material: ShaderMaterial
 
 static func spawn(parent: Node3D, position: Vector3, color: Color, radius: float) -> ExplosionEffect:
 	for node: Node in parent.get_tree().get_nodes_in_group("combat_effect_pool"):
@@ -37,7 +40,7 @@ static func spawn(parent: Node3D, position: Vector3, color: Color, radius: float
 func deactivate() -> void:
 	visible = false
 	set_process(false)
-	for particles: GPUParticles3D in [fireball, smoke, sparks]:
+	for particles: GPUParticles3D in [fireball, fire_body, debris, smoke, sparks]:
 		particles.emitting = false
 	smoke._sync_shadow_state()
 	blast_light.visible = false
@@ -60,15 +63,21 @@ func setup(color: Color, radius: float) -> void:
 	smoke.scale = Vector3.ONE * maxf(0.8, radius / 8.0)
 	sparks.scale = Vector3.ONE * maxf(0.9, radius / 10.0)
 	fireball.scale = Vector3.ONE * maxf(0.85, radius / 9.0)
+	fire_body.scale = Vector3.ONE * maxf(0.85, radius / 9.0)
+	debris.scale = Vector3.ONE * maxf(0.8, radius / 10.0)
 	blast_light.light_color = color
 	blast_light.omni_range = radius * 4.0
 	_apply_timeline(ExplosionTimeline.sample(0.0, effect_radius))
 	fireball.restart()
+	fire_body.restart()
+	debris.restart()
 	smoke.restart()
 	sparks.restart()
 	if smoke.shadow_particles != null:
 		smoke.shadow_particles.restart()
 	fireball.emitting = true
+	fire_body.emitting = true
+	debris.emitting = true
 	smoke.emitting = true
 	sparks.emitting = true
 
@@ -119,6 +128,13 @@ func _configure_fireball(color: Color) -> void:
 	var hot_color := Color(hot_rgb.r, hot_rgb.g, hot_rgb.b, 0.68)
 	fireball_material.albedo_color = hot_color
 	fireball_material.emission = Color(hot_rgb.r, hot_rgb.g, hot_rgb.b, 1.0)
+	if fire_body_material == null:
+		var body_mesh := fire_body.draw_pass_1.duplicate() as QuadMesh
+		fire_body_material = (body_mesh.material as ShaderMaterial).duplicate() as ShaderMaterial
+		body_mesh.material = fire_body_material
+		fire_body.draw_pass_1 = body_mesh
+	# The ramp carries the temperature; the event color only shifts its hue.
+	fire_body_material.set_shader_parameter("tint", Color.WHITE.lerp(color, 0.35))
 
 func _set_alpha(material: StandardMaterial3D, alpha: float) -> void:
 	var color := material.albedo_color

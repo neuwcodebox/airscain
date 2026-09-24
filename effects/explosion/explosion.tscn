@@ -6,6 +6,7 @@
 [ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="4"]
 [ext_resource path="res://effects/shockwave_card_texture.tres" type="Texture2D" id="5"]
 [ext_resource path="res://effects/light_glare.svg" type="Texture2D" id="6"]
+[ext_resource path="res://effects/explosion/fire_card.gdshader" type="Shader" id="7"]
 
 [sub_resource type="Gradient" id="SmokeLifetimeGradient"]
 offsets = PackedFloat32Array(0, 0.08, 0.58, 1)
@@ -138,7 +139,76 @@ billboard_keep_scale = true
 material = SubResource("FireballMaterial")
 size = Vector2(2, 2)
 
+[sub_resource type="Gradient" id="FireBodyGradient"]
+offsets = PackedFloat32Array(0, 0.05, 0.26, 0.46, 0.66, 1)
+colors = PackedColorArray(1, 0.93, 0.7, 0, 1, 0.8, 0.45, 1, 1, 0.52, 0.16, 0.95, 0.5, 0.24, 0.1, 0.85, 0.2, 0.17, 0.15, 0.65, 0.17, 0.16, 0.15, 0)
+
+[sub_resource type="GradientTexture1D" id="FireBodyTexture"]
+gradient = SubResource("FireBodyGradient")
+
+[sub_resource type="Curve" id="FireBodyScaleCurve"]
+min_value = 0.0
+max_value = 1.6
+_data = [Vector2(0, 0.35), 0.0, 4.0, 0, 0, Vector2(0.25, 1.15), 0.0, 0.0, 0, 0, Vector2(1, 1.5), 0.5, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="CurveTexture" id="FireBodyScaleTexture"]
+curve = SubResource("FireBodyScaleCurve")
+
+[sub_resource type="ParticleProcessMaterial" id="FireBodyProcess"]
+emission_shape = 1
+emission_sphere_radius = 2.2
+angle_min = -180.0
+angle_max = 180.0
+angular_velocity_min = -40.0
+angular_velocity_max = 40.0
+direction = Vector3(0, 1, 0)
+spread = 180.0
+gravity = Vector3(0, 2.2, 0)
+initial_velocity_min = 3.0
+initial_velocity_max = 11.0
+damping_min = 5.0
+damping_max = 8.0
+scale_min = 2.2
+scale_max = 4.0
+scale_curve = SubResource("FireBodyScaleTexture")
+color_ramp = SubResource("FireBodyTexture")
+
+[sub_resource type="ShaderMaterial" id="FireBodyMaterial"]
+render_priority = 1
+shader = ExtResource("7")
+shader_parameter/tint = Color(1, 1, 1, 1)
+shader_parameter/heat = 1.3
+
+[sub_resource type="QuadMesh" id="FireBodyMesh"]
+material = SubResource("FireBodyMaterial")
+size = Vector2(2, 2)
+
+[sub_resource type="ParticleProcessMaterial" id="DebrisProcess"]
+emission_shape = 1
+emission_sphere_radius = 1.2
+angle_min = -180.0
+angle_max = 180.0
+angular_velocity_min = -360.0
+angular_velocity_max = 360.0
+direction = Vector3(0, 1, 0)
+spread = 75.0
+gravity = Vector3(0, -24, 0)
+initial_velocity_min = 9.0
+initial_velocity_max = 22.0
+scale_min = 0.4
+scale_max = 1.1
+
+[sub_resource type="StandardMaterial3D" id="DebrisMaterial"]
+albedo_color = Color(0.11, 0.1, 0.09, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="DebrisMesh"]
+material = SubResource("DebrisMaterial")
+size = Vector3(0.5, 0.24, 0.4)
+
 [sub_resource type="ParticleProcessMaterial" id="SparkProcess"]
+particle_flag_align_y = true
 emission_shape = 1
 emission_sphere_radius = 1.0
 direction = Vector3(0, 1, 0)
@@ -159,7 +229,7 @@ emission_energy_multiplier = 14.0
 
 [sub_resource type="BoxMesh" id="SparkMesh"]
 material = SubResource("SparkMaterial")
-size = Vector3(0.12, 0.12, 1.15)
+size = Vector3(0.12, 1.3, 0.12)
 
 [sub_resource type="StandardMaterial3D" id="ShockwaveMaterial"]
 transparency = 1
@@ -211,6 +281,30 @@ visibility_aabb = AABB(-28, -28, -28, 56, 56, 56)
 fixed_fps = 30
 process_material = SubResource("FireballProcess")
 draw_pass_1 = SubResource("FireballMesh")
+
+[node name="FireBody" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 22
+lifetime = 1.3
+one_shot = true
+explosiveness = 0.9
+randomness = 0.2
+visibility_aabb = AABB(-30, -30, -30, 60, 60, 60)
+cast_shadow = 0
+fixed_fps = 30
+process_material = SubResource("FireBodyProcess")
+draw_pass_1 = SubResource("FireBodyMesh")
+
+[node name="Debris" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 14
+lifetime = 2.2
+one_shot = true
+explosiveness = 1.0
+randomness = 0.3
+visibility_aabb = AABB(-40, -60, -40, 80, 90, 80)
+process_material = SubResource("DebrisProcess")
+draw_pass_1 = SubResource("DebrisMesh")
 
 [node name="Smoke" type="GPUParticles3D" parent="."]
 emitting = false
