@@ -86,14 +86,14 @@ static func cylinder(parent: Node3D, name_value: String, radius: float, height: 
 	shape.radial_segments = 10
 	return mesh(parent, name_value, shape, position, finish)
 
-static func hull(stations: Array[Vector3]) -> ArrayMesh:
+static func hull(stations: Array[Vector3], sides: int = 8) -> ArrayMesh:
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	surface.set_smooth_group(-1)
 	for station: int in stations.size() - 1:
-		for side: int in 8:
-			var angle := TAU * float(side) / 8.0
-			var next_angle := TAU * float(side + 1) / 8.0
+		for side: int in sides:
+			var angle := TAU * float(side) / float(sides)
+			var next_angle := TAU * float(side + 1) / float(sides)
 			var first := stations[station]
 			var next := stations[station + 1]
 			var a := Vector3(cos(angle) * first.x, sin(angle) * first.y, first.z)

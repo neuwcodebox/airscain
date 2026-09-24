@@ -39,7 +39,7 @@ script = ExtResource("1")
 
 [node name="Body" type="Node3D" parent="."]
 script = ExtResource("Airframe")
-jet = true
+shape = "jet"
 armed = true
 
 [node name="LeftEngineGlow" type="MeshInstance3D" parent="Body"]

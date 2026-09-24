@@ -156,12 +156,21 @@ func _capture_threat_lineup() -> void:
 		unit.setup(-900 - index, definition)
 		unit.set_process(false)
 		unit.set_physics_process(false)
-		unit.global_position = site + Vector3((float(index) - float(scenes.size() - 1) * 0.5) * 22.0, 0.0, 0.0)
+		unit.global_position = site + Vector3((float(index) - float(scenes.size() - 1) * 0.5) * 26.0, float(index % 2) * 60.0, 0.0)
 		unit.rotation = Vector3(0.0, 0.7, 0.0)
 		units.append(unit)
 		index += 1
 	await _capture_look("threats", site + Vector3(20.0, 30.0, 85.0), site)
 	await _capture_look("threats_below", site + Vector3(-10.0, -35.0, 60.0), site)
+	if OS.get_cmdline_user_args().has("--closeups"):
+		for unit: Node3D in units:
+			var threat := unit as ThreatUnit
+			var bounds := AABB()
+			for child: Node in unit.find_children("*", "MeshInstance3D", true, false):
+				var mesh_instance := child as MeshInstance3D
+				bounds = bounds.merge(mesh_instance.get_aabb()) if bounds.has_volume() else mesh_instance.get_aabb()
+			var reach := maxf(6.0, bounds.size.length() * 0.9)
+			await _capture_look("threat_%s" % threat.definition.id, unit.global_position + Vector3(reach * 0.7, reach * 0.45, reach * 0.8), unit.global_position)
 	for unit: Node3D in units:
 		unit.queue_free()
 	await process_frame

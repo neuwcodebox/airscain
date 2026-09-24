@@ -308,7 +308,7 @@ func test_runtime_airframe_paint_survives_the_last_aircraft_leaving() -> void:
 	var next := add_child_autofree(definition.scene.instantiate()) as AttackUav
 	next.setup(2, definition)
 	assert_same((next.body.get_node("Airframe") as MeshInstance3D).material_override, paint, "Runtime material stays alive across empty battlefields")
-	assert_false((paint as StandardMaterial3D).vertex_color_use_as_albedo)
+	assert_true((paint as StandardMaterial3D).vertex_color_use_as_albedo, "도색은 캐노피·하부 등 부위 명암에 곱해집니다")
 
 func test_content_warmup_uses_runtime_setup_without_joining_combat() -> void:
 	var parent := add_child_autofree(Node3D.new()) as Node3D

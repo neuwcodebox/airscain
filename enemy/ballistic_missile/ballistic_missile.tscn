@@ -24,12 +24,12 @@ rings = 4
 material = ExtResource("4")
 size = Vector2(3, 3)
 
-[node name="CruiseMissile" type="Node3D"]
+[node name="BallisticMissile" type="Node3D"]
 script = ExtResource("1")
 
 [node name="Body" type="Node3D" parent="."]
 script = ExtResource("5")
-shape = "cruise"
+shape = "ballistic"
 
 [node name="EngineGlow" type="MeshInstance3D" parent="Body"]
 position = Vector3(0, 0, 6.0)

@@ -2,7 +2,7 @@ class_name WreckAppearance
 extends RefCounted
 ## Visual snapshot only: no flight state, source scripts, lights or emitters.
 
-static var wreck_materials: Dictionary[Color, StandardMaterial3D] = {}
+static var wreck_materials: Dictionary[Array, StandardMaterial3D] = {}
 
 static func copy_visuals(source: Node, destination: Node3D) -> void:
 	for child: Node in source.get_children():
@@ -33,11 +33,15 @@ static func copy_visuals(source: Node, destination: Node3D) -> void:
 static func _charred_material(source: Material) -> Material:
 	if not source is StandardMaterial3D:
 		return source
-	var color := (source as StandardMaterial3D).albedo_color
-	if not wreck_materials.has(color):
+	var original := source as StandardMaterial3D
+	# Keep per-part airframe tone so the charred wreck still reads as the same model.
+	var key: Array = [original.albedo_color, original.vertex_color_use_as_albedo]
+	if not wreck_materials.has(key):
 		var surface := StandardMaterial3D.new()
-		surface.albedo_color = color.darkened(0.48)
+		surface.albedo_color = original.albedo_color.darkened(0.48)
+		surface.vertex_color_use_as_albedo = original.vertex_color_use_as_albedo
+		surface.vertex_color_is_srgb = original.vertex_color_is_srgb
 		surface.roughness = 0.92
 		surface.metallic = 0.25
-		wreck_materials[color] = surface
-	return wreck_materials[color]
+		wreck_materials[key] = surface
+	return wreck_materials[key]

@@ -203,13 +203,16 @@ func _apply_visual_color() -> void:
 			var source := mesh_instance.mesh.surface_get_material(0) as StandardMaterial3D
 			if source == null:
 				source = mesh_instance.material_override as StandardMaterial3D
+			# Engine glows keep their own flame color.
+			if source == null or source.emission_enabled:
+				continue
 			if not _paint_materials.has(source):
 				_paint_materials[source] = {}
 			var paints: Dictionary = _paint_materials[source]
 			if not paints.has(_definition.visual_color):
 				var material := source.duplicate() as StandardMaterial3D
+				# Airframe vertex colors hold per-part tone; paint multiplies it.
 				material.albedo_color = _definition.visual_color
-				material.vertex_color_use_as_albedo = false
 				paints[_definition.visual_color] = material
 			mesh_instance.material_override = paints[_definition.visual_color]
 
