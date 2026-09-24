@@ -483,12 +483,9 @@ func _build_city_visuals(transforms: Array[Transform3D], rooftop_spacing: int, c
 	city_amenity_count = 0
 	city_rooftop_detail_count = 0
 	var rooftop_buildings := _rooftop_building_indices(rooftop_spacing)
-	var palette: Array[Color] = [Color("8f7868"), Color("b8ad99"), Color("78838b"), Color("aa9274"), Color("c4c0b5"), Color("6f7a80")]
 	var facade_bands: Array[Transform3D] = []
 	for index: int in transforms.size():
-		var material := StandardMaterial3D.new()
-		material.albedo_color = palette[index % palette.size()]
-		material.roughness = 0.85
+		var material := _facade_material(index, transforms[index].basis.get_scale().y)
 		_city_boxes.add_box(transforms[index], material)
 		var reserves_rooftop := rooftop_buildings.has(index)
 		_add_building_architecture(index, transforms[index], material, reserves_rooftop)
@@ -576,29 +573,69 @@ func _build_street_lights(blocks: Array[Dictionary]) -> void:
 			city_visuals.add_child(light)
 			street_lights.append(light)
 
+## Warm stone and brick for low-rise blocks, cooler render and stone for towers.
+const LOW_RISE_FACADES: Array[Color] = [Color("8f7868"), Color("b8ad99"), Color("aa9274"), Color("8a604f"), Color("c2b49b")]
+const TOWER_FACADES: Array[Color] = [Color("78838b"), Color("c4c0b5"), Color("6f7a80")]
+const ROOF_FINISHES: Array[Color] = [Color("55585a"), Color("7a7b76"), Color("9b9a93")]
+const ROOF_EQUIPMENT := Color("8b9092")
+const SOLAR_PANEL := Color("27354a")
+var _surface_materials: Dictionary[Color, StandardMaterial3D] = {}
+
+func _surface_material(color: Color, roughness: float = 0.85) -> StandardMaterial3D:
+	if not _surface_materials.has(color):
+		var material := StandardMaterial3D.new()
+		material.albedo_color = color
+		material.roughness = roughness
+		_surface_materials[color] = material
+	return _surface_materials[color]
+
+func _facade_material(index: int, height: float) -> StandardMaterial3D:
+	var palette := TOWER_FACADES if height >= 40.0 else LOW_RISE_FACADES
+	return _surface_material(palette[(index * 7 + 3) % palette.size()])
+
 func _add_building_architecture(index: int, building_transform: Transform3D, facade_material: StandardMaterial3D, reserves_rooftop: bool) -> void:
 	var building_size := building_transform.basis.get_scale()
 	var yaw := _building_yaw(building_transform)
-	var ground_y := building_transform.origin.y - building_size.y * 0.5
+	var rotation := Basis(Vector3.UP, yaw)
+	var origin := building_transform.origin
+	var ground_y := origin.y - building_size.y * 0.5
 	var podium_height := minf(7.0, building_size.y * 0.22)
 	if index % 3 == 0:
-		_add_city_box("Podium%d" % index, Vector3(building_size.x + 2.4, podium_height, building_size.z + 2.4), Vector3(building_transform.origin.x, ground_y + podium_height * 0.5, building_transform.origin.z), facade_material, yaw)
-	var roof_material := StandardMaterial3D.new()
-	roof_material.albedo_color = facade_material.albedo_color.darkened(0.24)
-	roof_material.roughness = 0.88
+		_add_city_box("Podium%d" % index, Vector3(building_size.x + 2.4, podium_height, building_size.z + 2.4), Vector3(origin.x, ground_y + podium_height * 0.5, origin.z), facade_material, yaw)
 	var roof_y := ground_y + building_size.y
-	_add_city_box("RoofCap%d" % index, Vector3(building_size.x + 0.7, 0.6, building_size.z + 0.7), Vector3(building_transform.origin.x, roof_y + 0.3, building_transform.origin.z), roof_material, yaw)
+	var roof_material := _surface_material(ROOF_FINISHES[(index * 5 + 1) % ROOF_FINISHES.size()], 0.95)
+	# Recessed roof deck inside a parapet, with a cornice ledge below the edge.
+	_add_city_box("RoofCap%d" % index, Vector3(building_size.x - 1.1, 0.3, building_size.z - 1.1), Vector3(origin.x, roof_y + 0.15, origin.z), roof_material, yaw)
+	_add_city_box("Cornice%d" % index, Vector3(building_size.x + 0.6, 0.45, building_size.z + 0.6), Vector3(origin.x, roof_y - 0.5, origin.z), facade_material, yaw)
+	for side: float in [-1.0, 1.0]:
+		var along_x := origin + rotation * Vector3(0.0, 0.0, side * (building_size.z * 0.5 - 0.3))
+		_add_city_box("Parapet%d_x%d" % [index, int(side)], Vector3(building_size.x, 1.0, 0.6), Vector3(along_x.x, roof_y + 0.5, along_x.z), facade_material, yaw)
+		var along_z := origin + rotation * Vector3(side * (building_size.x * 0.5 - 0.3), 0.0, 0.0)
+		_add_city_box("Parapet%d_z%d" % [index, int(side)], Vector3(0.6, 1.0, building_size.z - 1.2), Vector3(along_z.x, roof_y + 0.5, along_z.z), facade_material, yaw)
 	if reserves_rooftop:
 		return
+	var equipment := _surface_material(ROOF_EQUIPMENT, 0.6)
+	var corner := rotation * Vector3(building_size.x * 0.28, 0.0, -building_size.z * 0.26)
+	if building_size.y >= 12.0:
+		_add_city_box("StairHousing%d" % index, Vector3(3.4, 3.0, 3.4), Vector3(origin.x + corner.x, roof_y + 1.8, origin.z + corner.z), facade_material, yaw)
+		city_rooftop_detail_count += 1
 	if building_size.y >= 28.0 and index % 2 == 0:
 		var crown_height := clampf(building_size.y * 0.12, 3.0, 7.0)
-		_add_city_box("Penthouse%d" % index, Vector3(building_size.x * 0.5, crown_height, building_size.z * 0.48), Vector3(building_transform.origin.x, roof_y + crown_height * 0.5 + 0.6, building_transform.origin.z), roof_material, yaw)
+		_add_city_box("Penthouse%d" % index, Vector3(building_size.x * 0.5, crown_height, building_size.z * 0.48), Vector3(origin.x, roof_y + crown_height * 0.5 + 0.3, origin.z), facade_material, yaw)
+		var mast := origin - corner * 0.4
+		_add_city_box("Mast%d" % index, Vector3(0.35, crown_height + 6.0, 0.35), Vector3(mast.x, roof_y + (crown_height + 6.0) * 0.5, mast.z), equipment, yaw)
+		city_rooftop_detail_count += 2
+		return
+	for unit_index: int in 2:
+		var offset := rotation * Vector3((-0.22 if unit_index == 0 else 0.02) * building_size.x, 0.0, building_size.z * 0.18)
+		_add_city_box("Hvac%d_%d" % [index, unit_index], Vector3(3.0, 1.6, 2.4), Vector3(origin.x + offset.x, roof_y + 1.1, origin.z + offset.z), equipment, yaw)
 		city_rooftop_detail_count += 1
-	else:
-		for unit_index: int in 2:
-			var offset_x := (-0.22 if unit_index == 0 else 0.22) * building_size.x
-			var offset := Basis(Vector3.UP, yaw) * Vector3(offset_x, 0.0, 0.0)
-			_add_city_box("Hvac%d_%d" % [index, unit_index], Vector3(3.0, 1.8, 2.4), Vector3(building_transform.origin.x + offset.x, roof_y + 1.2, building_transform.origin.z + offset.z), roof_material, yaw)
+	if building_size.y < 18.0 and index % 3 == 1:
+		var panels := _surface_material(SOLAR_PANEL, 0.35)
+		for row: int in 3:
+			var offset := rotation * Vector3(-building_size.x * 0.12, 0.0, (float(row) - 1.0) * 2.6 - building_size.z * 0.12)
+			var panel_basis := Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, -0.3)
+			_city_boxes.add_box(Transform3D(panel_basis * Basis.from_scale(Vector3(building_size.x * 0.4, 0.12, 2.0)), Vector3(origin.x + offset.x, roof_y + 1.0, origin.z + offset.z)), panels)
 			city_rooftop_detail_count += 1
 
 func _append_facade_bands(building_transform: Transform3D, bands: Array[Transform3D]) -> void:
@@ -664,7 +701,7 @@ func _block_has_building(block_center: Vector3, buildings: Array[Transform3D], r
 
 func _build_park(park_name: String, center: Vector3, size: float, yaw: float) -> void:
 	var lawn_material := StandardMaterial3D.new()
-	lawn_material.albedo_color = Color("446b43")
+	lawn_material.albedo_color = Color("4a663c")
 	lawn_material.roughness = 1.0
 	_add_city_box(park_name, Vector3(size, 0.22, size), center, lawn_material, yaw)
 	var trunk_material := StandardMaterial3D.new()
