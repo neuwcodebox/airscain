@@ -64,6 +64,15 @@ func run() -> void:
 	if main.harbor_port != null:
 		var harbor := main.harbor_port.global_position
 		await _capture_look("harbor", harbor + Vector3(140.0, 90.0, 160.0), harbor)
+		for ship: CargoShip in main.harbor_port.ships.values():
+			var at := ship.global_position
+			var side := ship.global_basis.x
+			print("SHIP distance=%.0f haze=%.3f scale=%s" % [Vector2(at.x, at.z).length(), ship.haze.opacity if ship.haze != null else -1.0, ship.global_basis.get_scale()])
+			await _capture_look("ship_side", at + side * 70.0 + Vector3.UP * 18.0, at)
+			await _capture_look("ship_other_side", at - side * 70.0 + Vector3.UP * 18.0, at)
+			await _capture_look("ship_hull_close", at + side * 22.0 + Vector3.UP * 3.0, at + Vector3.UP * 2.0)
+			await _capture_look("ship_hull_close_other", at - side * 22.0 + Vector3.UP * 3.0, at + Vector3.UP * 2.0)
+			break
 	for entry: Array in [["dusk", 17.6], ["night", 23.0]]:
 		main.day_night.apply_time((float(entry[1]) - DayNightCycle.START_HOUR) / 24.0 * DayNightCycle.CYCLE_SECONDS, true)
 		await _capture_rig(String(entry[0]), city, 0.0, main.camera_rig.pitch_radians, main.camera_rig.zoom_distance)

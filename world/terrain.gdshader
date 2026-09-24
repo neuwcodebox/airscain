@@ -118,13 +118,6 @@ void fragment() {
 		vec4 coverage = texture(radar_coverage_map, clamp(coverage_uv, vec2(0.0), vec2(1.0)));
 		ALBEDO = mix(ALBEDO, coverage.rgb, coverage.a);
 	}
-	// Gentle relief from the mid-scale noise; fades out where it would shimmer.
-	float relief_fade = 1.0 - smoothstep(2.0, 6.0, footprint_xz);
-	vec2 step_xz = vec2(1.6, 0.0);
-	float gx = value_noise((p + step_xz.xy) / 9.0) - value_noise((p - step_xz.xy) / 9.0);
-	float gz = value_noise((p + step_xz.yx) / 9.0) - value_noise((p - step_xz.yx) / 9.0);
-	vec3 world_bump = vec3(-gx, 0.0, -gz) * 0.55 * relief_fade;
-	NORMAL = normalize(NORMAL + (VIEW_MATRIX * vec4(world_bump, 0.0)).xyz);
 	ROUGHNESS = 0.94;
 	ALBEDO *= 1.0 - projected_smoke_shadow(shadow_receiver_position);
 	EMISSION = placement_surface_light(shadow_receiver_position, ALBEDO);
