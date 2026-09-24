@@ -818,6 +818,26 @@ func test_sandbox_mode_has_free_assets_and_places_selected_threats() -> void:
 	sandbox.hud.start_requested.emit()
 	assert_false(sandbox.director.enabled)
 
+func test_sandbox_ballistic_placed_beyond_terrain_launches_from_the_placed_sea_point() -> void:
+	var previous_mode := AirscainMain.requested_mode
+	AirscainMain.requested_mode = AirscainMain.GameMode.SANDBOX
+	var sandbox := add_child_autofree(MAIN_SCENE.instantiate()) as AirscainMain
+	AirscainMain.requested_mode = previous_mode
+	await get_tree().process_frame
+	var definition := _threat_entry_for(sandbox, &"ballistic_missile").threat_definition
+	var existing_hostile_ids := _hostile_runtime_ids(sandbox)
+	var launch_point := Vector3(sandbox.scenario.battlefield_size * 1.5, 0.0, -300.0)
+	sandbox.placement.select_sandbox_threat(definition)
+	sandbox.placement.candidate_position = launch_point
+	assert_true(sandbox.placement.request_selected_sandbox_threat_placement())
+	var threat := _new_hostile_since(sandbox, existing_hostile_ids, definition) as AttackUav
+	assert_not_null(threat)
+	if threat == null:
+		return
+	threat.gameplay_tick(0.05)
+	assert_almost_eq(threat.mover.ballistic_origin.x, launch_point.x, 0.001, "탄도 궤적은 지정한 바다 지점에서 출발합니다")
+	assert_almost_eq(threat.mover.ballistic_origin.z, launch_point.z, 0.001, "탄도 궤적은 지정한 바다 지점에서 출발합니다")
+
 func test_combat_audio_catalog_and_clip_selection_match_content() -> void:
 	main.set_process(false)
 	main.combat_audio.simulation_paused = false
@@ -1991,7 +2011,7 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	var definition := _threat_entry_for(main, &"ballistic_missile").threat_definition as AttackUavDefinition
 	var threat := definition.scene.instantiate() as AttackUav
 	main.threat_parent.add_child(threat)
-	threat.global_position = Vector3(900.0, 20.0, 0.0)
+	threat.global_position = Vector3(3000.0, 20.0, 0.0)
 	threat.setup(720, definition)
 	threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0, null, threat.global_position)
 	main.registry.add(threat)
@@ -1999,14 +2019,14 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	var starting_integrity := main.objective.current_integrity
 	var phases: Dictionary[StringName, bool] = {}
 	var maximum_altitude := threat.global_position.y
-	for step: int in 90:
+	for step: int in 500:
 		if threat.resolved_state:
 			break
 		threat.gameplay_tick(0.1)
 		phases[threat.mover.ballistic_phase()] = true
 		maximum_altitude = maxf(maximum_altitude, threat.global_position.y)
-		if step == 7:
-			assert_lt(Vector2(threat.global_position.x - 900.0, threat.global_position.z).length(), 100.0)
+		if step == 30:
+			assert_lt(Vector2(threat.global_position.x - 3000.0, threat.global_position.z).length(), 100.0)
 			assert_gt(threat.global_position.y, 500.0)
 	assert_true(threat.resolved_state)
 	assert_true(phases.has(&"boost"))
@@ -2044,6 +2064,33 @@ func test_ballistic_missile_reenters_near_target_with_steep_terminal_velocity() 
 		assert_true(steep_descent, "%.0fm 비행의 종말 구간은 수직속도가 수평속도의 두 배를 넘습니다" % flight_distance)
 		assert_almost_eq(unit.global_position.x, target.x, 0.01, "%.0fm 비행 후 목표에 도달합니다" % flight_distance)
 		assert_almost_eq(unit.global_position.z, target.z, 0.01, "%.0fm 비행 후 목표에 도달합니다" % flight_distance)
+
+func test_short_range_ballistic_launch_lofts_low_within_climb_rate_and_reaches_target() -> void:
+	var profile := (_threat_entry_for(main, &"ballistic_missile").threat_definition as AttackUavDefinition).movement
+	var target := main.objective.global_position
+	var origin := Vector3(target.x + 500.0, main.battlefield.flight_surface_height(target.x + 500.0, target.z) + profile.cruise_altitude, target.z)
+	var unit := Node3D.new()
+	var body := Node3D.new()
+	unit.add_child(body)
+	add_child_autofree(unit)
+	unit.global_position = origin
+	var mover := ThreatMover.new()
+	mover.setup(profile, main.battlefield, target - origin)
+	var maximum_altitude := origin.y
+	var maximum_climb := 0.0
+	var maximum_horizontal_speed := 0.0
+	for step: int in 400:
+		mover.advance(unit, body, target, 1.0, 0.05)
+		maximum_altitude = maxf(maximum_altitude, unit.global_position.y)
+		maximum_climb = maxf(maximum_climb, mover.velocity.y)
+		maximum_horizontal_speed = maxf(maximum_horizontal_speed, Vector2(mover.velocity.x, mover.velocity.z).length())
+		if mover.ballistic_progress >= 1.0:
+			break
+	assert_lt(maximum_altitude - origin.y, 500.0, "500m 근거리 발사는 전체 정점까지 치솟지 않습니다")
+	assert_lte(maximum_climb, profile.maximum_climb_rate * 1.05, "상승 속도는 이동 프로필 상승률을 넘지 않습니다")
+	assert_lte(maximum_horizontal_speed, profile.speed * profile.maximum_speed_multiplier * 2.0, "수평 이동이 순간적으로 튀지 않습니다")
+	assert_almost_eq(unit.global_position.x, target.x, 0.01)
+	assert_almost_eq(unit.global_position.z, target.z, 0.01)
 
 func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_rounds() -> void:
 	main.registry.clear()

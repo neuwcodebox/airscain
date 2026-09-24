@@ -717,12 +717,7 @@ func _on_sandbox_threat_placement_requested(definition: ThreatDefinition, positi
 	var mission := definition.mission_definition()
 	if definition.requires_role_knowledge and mission != null:
 		target_asset = director.choose_target_for(mission)
-	var threat := director._spawn_entry(entry, 0.0, 0.0, null, target_asset)
-	if threat != null:
-		var altitude := 55.0
-		if definition is AttackUavDefinition:
-			altitude = (definition as AttackUavDefinition).movement.cruise_altitude
-		threat.global_position = Vector3(position.x, battlefield.terrain_height(position.x, position.z) + altitude, position.z)
+	director.spawn_entry_at(entry, position, target_asset)
 
 func _on_training_next_requested() -> void:
 	if game_mode == GameMode.TRAINING:

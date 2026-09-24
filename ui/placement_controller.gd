@@ -119,7 +119,7 @@ func _process(delta: float) -> void:
 		_publish_dependency_preview(null, Vector3.ZERO, false)
 		placement_status_changed.emit("", false, mouse, false)
 		return
-	var hit := _terrain_hit(mouse)
+	var hit := _threat_surface_hit(mouse) if selected_threat != null else _terrain_hit(mouse)
 	if hit.is_empty():
 		battlefield.set_placement_light(false)
 		battlefield.set_placement_contours(false)
@@ -186,7 +186,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			if get_viewport().gui_get_hovered_control() != null:
 				return
 			if selected_threat != null:
-				request_selected_sandbox_threat_placement()
+				if candidate_valid:
+					request_selected_sandbox_threat_placement()
 				get_viewport().set_input_as_handled()
 				return
 			request_selected_defense_placement()
@@ -281,6 +282,19 @@ func _terrain_hit(screen_position: Vector2) -> Dictionary:
 	var direction := camera.project_ray_normal(screen_position)
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * camera.far, 1)
 	return get_world_3d().direct_space_state.intersect_ray(query)
+
+# Threat launch points may lie anywhere on land or sea, including beyond the terrain mesh.
+func _threat_surface_hit(screen_position: Vector2) -> Dictionary:
+	var origin := camera.project_ray_origin(screen_position)
+	var direction := camera.project_ray_normal(screen_position)
+	var sea_level := battlefield.generator.sea_level
+	var hit := _terrain_hit(screen_position)
+	if not hit.is_empty() and (hit.position as Vector3).y >= sea_level:
+		return hit
+	var sea_point: Variant = Plane(Vector3.UP, sea_level).intersects_ray(origin, direction)
+	if sea_point is Vector3:
+		return {"position": sea_point}
+	return hit
 
 func _create_preview() -> void:
 	if preview != null:

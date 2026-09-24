@@ -388,13 +388,18 @@ func spawn_one() -> ThreatUnit:
 		return null
 	return _spawn_entry(entry, rng.randf_range(0.0, TAU), 0.0)
 
-func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, target_override: Variant = null, target_asset_override: DefenseUnit = null, spawn_center: Vector2 = Vector2.ZERO) -> ThreatUnit:
+func spawn_entry_at(entry: ThreatSpawnEntry, launch_point: Vector3, target_asset_override: DefenseUnit = null) -> ThreatUnit:
+	return _spawn_entry(entry, 0.0, 0.0, null, target_asset_override, Vector2.ZERO, launch_point)
+
+func _spawn_entry(entry: ThreatSpawnEntry, angle: float, edge_offset: float, target_override: Variant = null, target_asset_override: DefenseUnit = null, spawn_center: Vector2 = Vector2.ZERO, launch_point: Variant = null) -> ThreatUnit:
 	var threat := entry.threat_definition.scene.instantiate() as ThreatUnit
 	if threat == null:
 		return null
 	threat_parent.add_child(threat)
 	var edge := scenario.battlefield_size * entry.threat_definition.spawn_radius_multiplier() - edge_offset
 	var spawn_position := Vector3(spawn_center.x + cos(angle) * edge, 0.0, spawn_center.y + sin(angle) * edge)
+	if launch_point is Vector3:
+		spawn_position = Vector3((launch_point as Vector3).x, 0.0, (launch_point as Vector3).z)
 	spawn_position.y = battlefield.flight_surface_height(spawn_position.x, spawn_position.z) + entry.threat_definition.spawn_altitude()
 	threat.global_position = spawn_position
 	threat.setup(next_runtime_id, entry.threat_definition)

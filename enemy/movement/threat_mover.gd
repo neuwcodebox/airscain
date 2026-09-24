@@ -1,6 +1,11 @@
 class_name ThreatMover
 extends RefCounted
 
+# Short flights loft proportionally to their range instead of climbing to the full apex.
+const BALLISTIC_LOFT_RATIO := 0.35
+const BALLISTIC_SHORT_REENTRY_TIME_FRACTION := 0.4
+const BALLISTIC_SHORT_REENTRY_DISTANCE_FRACTION := 0.25
+
 var profile: ThreatMovementDefinition
 var battlefield: Battlefield
 var velocity: Vector3
@@ -111,13 +116,17 @@ func _advance_ballistic(unit: Node3D, body: Node3D, target: Vector3, speed_multi
 	if not ballistic_initialized:
 		ballistic_origin = unit.global_position
 		ballistic_target = Vector3(target.x, battlefield.flight_surface_height(target.x, target.z) + profile.terminal_altitude, target.z)
-		ballistic_duration = maxf(0.1, Vector2(ballistic_target.x - ballistic_origin.x, ballistic_target.z - ballistic_origin.z).length() / (profile.speed * speed_multiplier))
+		var flight_distance := _ballistic_flight_distance()
+		# The boost climb must stay within the profile climb rate, so short lobs slow down horizontally.
+		var climb_seconds := 2.0 * _ballistic_apex() / (profile.ballistic_boost_fraction * profile.maximum_climb_rate)
+		ballistic_duration = maxf(0.1, maxf(flight_distance / (profile.speed * speed_multiplier), climb_seconds))
 		ballistic_initialized = true
 	var previous := unit.global_position
 	ballistic_progress = minf(1.0, ballistic_progress + delta / ballistic_duration)
 	var horizontal_progress := 0.0
 	var altitude := ballistic_origin.y
-	var apex_altitude := maxf(ballistic_origin.y, ballistic_target.y) + profile.ballistic_apex
+	var apex := _ballistic_apex()
+	var apex_altitude := maxf(ballistic_origin.y, ballistic_target.y) + apex
 	var reentry_progress := _ballistic_reentry_progress()
 	var reentry_horizontal_progress := _ballistic_reentry_horizontal_progress()
 	if ballistic_progress < profile.ballistic_boost_fraction:
@@ -127,11 +136,11 @@ func _advance_ballistic(unit: Node3D, body: Node3D, target: Vector3, speed_multi
 	elif ballistic_progress < reentry_progress:
 		var phase := (ballistic_progress - profile.ballistic_boost_fraction) / (reentry_progress - profile.ballistic_boost_fraction)
 		horizontal_progress = lerpf(0.07, reentry_horizontal_progress, phase)
-		altitude = lerpf(apex_altitude, ballistic_target.y + profile.ballistic_apex * 0.82, smoothstep(0.0, 1.0, phase))
+		altitude = lerpf(apex_altitude, ballistic_target.y + apex * 0.82, smoothstep(0.0, 1.0, phase))
 	else:
 		var phase := (ballistic_progress - reentry_progress) / (1.0 - reentry_progress)
 		horizontal_progress = lerpf(reentry_horizontal_progress, 1.0, phase)
-		altitude = lerpf(ballistic_target.y + profile.ballistic_apex * 0.82, ballistic_target.y, phase * phase)
+		altitude = lerpf(ballistic_target.y + apex * 0.82, ballistic_target.y, phase * phase)
 	unit.global_position = ballistic_origin.lerp(ballistic_target, horizontal_progress)
 	unit.global_position.y = altitude
 	velocity = (unit.global_position - previous) / maxf(delta, 0.0001)
@@ -148,13 +157,21 @@ func ballistic_phase() -> StringName:
 func _ballistic_reentry_progress() -> float:
 	if profile.ballistic_reentry_distance <= 0.0:
 		return profile.ballistic_reentry_fraction
-	return maxf(profile.ballistic_boost_fraction + 0.05, 1.0 - profile.ballistic_reentry_seconds / ballistic_duration)
+	var reentry_seconds := minf(profile.ballistic_reentry_seconds, ballistic_duration * BALLISTIC_SHORT_REENTRY_TIME_FRACTION)
+	return maxf(profile.ballistic_boost_fraction + 0.05, 1.0 - reentry_seconds / ballistic_duration)
 
 func _ballistic_reentry_horizontal_progress() -> float:
 	if profile.ballistic_reentry_distance <= 0.0:
 		return 0.70
-	var flight_distance := Vector2(ballistic_target.x - ballistic_origin.x, ballistic_target.z - ballistic_origin.z).length()
-	return maxf(0.07, 1.0 - profile.ballistic_reentry_distance / maxf(flight_distance, 0.001))
+	var flight_distance := _ballistic_flight_distance()
+	var reentry_distance := minf(profile.ballistic_reentry_distance, flight_distance * BALLISTIC_SHORT_REENTRY_DISTANCE_FRACTION)
+	return maxf(0.07, 1.0 - reentry_distance / maxf(flight_distance, 0.001))
+
+func _ballistic_flight_distance() -> float:
+	return Vector2(ballistic_target.x - ballistic_origin.x, ballistic_target.z - ballistic_origin.z).length()
+
+func _ballistic_apex() -> float:
+	return minf(profile.ballistic_apex, _ballistic_flight_distance() * BALLISTIC_LOFT_RATIO)
 
 func _cruise_height(position: Vector3, horizontal_to_target: Vector2) -> float:
 	var terrain_height := battlefield.flight_surface_height(position.x, position.z)
