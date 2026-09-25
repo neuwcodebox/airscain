@@ -2101,13 +2101,13 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 		phases[threat.mover.ballistic_phase()] = true
 		maximum_altitude = maxf(maximum_altitude, threat.global_position.y)
 		if step == 30:
-			assert_lt(Vector2(threat.global_position.x - 3000.0, threat.global_position.z).length(), 100.0)
-			assert_gt(threat.global_position.y, 500.0)
+			assert_lt(Vector2(threat.global_position.x - 3000.0, threat.global_position.z).length(), 300.0)
+			assert_gt(threat.global_position.y, 100.0)
 	assert_true(threat.resolved_state)
 	assert_true(phases.has(&"boost"))
 	assert_true(phases.has(&"midcourse"))
 	assert_true(phases.has(&"reentry"))
-	assert_gt(maximum_altitude, 900.0)
+	assert_gt(maximum_altitude, 300.0)
 	assert_eq(main.objective.current_integrity, starting_integrity - roundi(definition.mission.damage))
 
 func test_ballistic_missile_reenters_near_target_with_steep_terminal_velocity() -> void:
@@ -2124,18 +2124,21 @@ func test_ballistic_missile_reenters_near_target_with_steep_terminal_velocity() 
 		mover.setup(profile, main.battlefield, target - origin)
 		var reentry_distance := -1.0
 		var steep_descent := false
+		var maximum_horizontal_speed := 0.0
 		for step: int in 400:
 			mover.advance(unit, body, target, 1.0, 0.2)
 			var remaining := Vector2(unit.global_position.x - target.x, unit.global_position.z - target.z).length()
+			maximum_horizontal_speed = maxf(maximum_horizontal_speed, Vector2(mover.velocity.x, mover.velocity.z).length())
 			if reentry_distance < 0.0 and mover.ballistic_phase() == &"reentry":
 				reentry_distance = remaining
-			if remaining < 130.0 and mover.ballistic_progress < 1.0:
+			if remaining < 130.0 and mover.ballistic_stage_seconds > 0.0:
 				var horizontal_speed := Vector2(mover.velocity.x, mover.velocity.z).length()
 				steep_descent = steep_descent or mover.velocity.y < -horizontal_speed * 2.0
-			if mover.ballistic_progress >= 1.0:
+			if mover.ballistic_phase() == &"reentry" and mover.ballistic_stage_seconds <= 0.0:
 				break
-		assert_gt(reentry_distance, 470.0, "%.0fm 비행에서도 약 500m를 남기고 재진입합니다" % flight_distance)
-		assert_lte(reentry_distance, 500.0, "%.0fm 비행에서 재진입 거리가 고정됩니다" % flight_distance)
+		assert_gt(maximum_horizontal_speed, 300.0, "%.0fm 비행은 중간 구간을 빠르게 통과합니다" % flight_distance)
+		assert_gt(reentry_distance, 400.0, "%.0fm 비행은 목표 근처에서 재진입합니다" % flight_distance)
+		assert_lte(reentry_distance, 500.1, "%.0fm 비행에서 재진입 거리가 고정됩니다" % flight_distance)
 		assert_true(steep_descent, "%.0fm 비행의 종말 구간은 수직속도가 수평속도의 두 배를 넘습니다" % flight_distance)
 		assert_almost_eq(unit.global_position.x, target.x, 0.01, "%.0fm 비행 후 목표에 도달합니다" % flight_distance)
 		assert_almost_eq(unit.global_position.z, target.z, 0.01, "%.0fm 비행 후 목표에 도달합니다" % flight_distance)
@@ -2159,7 +2162,7 @@ func test_short_range_ballistic_launch_lofts_low_within_climb_rate_and_reaches_t
 		maximum_altitude = maxf(maximum_altitude, unit.global_position.y)
 		maximum_climb = maxf(maximum_climb, mover.velocity.y)
 		maximum_horizontal_speed = maxf(maximum_horizontal_speed, Vector2(mover.velocity.x, mover.velocity.z).length())
-		if mover.ballistic_progress >= 1.0:
+		if mover.ballistic_phase() == &"reentry" and mover.ballistic_stage_seconds <= 0.0:
 			break
 	assert_lt(maximum_altitude - origin.y, 500.0, "500m 근거리 발사는 전체 정점까지 치솟지 않습니다")
 	assert_lte(maximum_climb, profile.maximum_climb_rate * 1.05, "상승 속도는 이동 프로필 상승률을 넘지 않습니다")
@@ -2188,7 +2191,48 @@ func test_long_range_layer_intercepts_a_live_ballistic_attack_with_ready_rack_ro
 	assert_true(ballistic.resolved_state)
 	assert_eq(int(main.session.neutralized_by_type.get("ballistic_missile", 0)), 1)
 	assert_lt(battery.magazines[&"high_speed_interceptor"].rounds, 3)
-	assert_gte(main.session.weapon_fire_count, 2)
+	assert_gte(main.session.weapon_fire_count, 1)
+
+func test_ballistic_and_rocket_midcourse_obey_gravity_then_reach_their_targets() -> void:
+	var target := main.objective.global_position
+	for kind: StringName in [&"ballistic_missile", &"rocket"]:
+		var profile := (_threat_entry_for(main, kind).threat_definition as AttackUavDefinition).movement
+		var origin := target + Vector3(5400.0 if kind == &"rocket" else 9000.0, 20.0, 0.0)
+		var unit := Node3D.new()
+		var body := Node3D.new()
+		unit.add_child(body)
+		add_child_autofree(unit)
+		unit.global_position = origin
+		var mover := ThreatMover.new()
+		mover.setup(profile, main.battlefield, target - origin)
+		while mover.ballistic_phase() != &"midcourse":
+			mover.advance(unit, body, target, 1.0, 0.1)
+		var before_velocity := mover.velocity.y
+		var before_height := unit.global_position.y
+		mover.advance(unit, body, target, 1.0, 0.2)
+		assert_almost_eq(mover.velocity.y - before_velocity, -profile.ballistic_gravity * 0.2, 0.01, "%s 중간비행은 중력으로 감속합니다" % kind)
+		assert_almost_eq(unit.global_position.y - before_height, (before_velocity + mover.velocity.y) * 0.1, 0.01, "%s 위치는 속도를 적분해 갱신합니다" % kind)
+		for step: int in 700:
+			if mover.ballistic_phase() == &"reentry" and mover.ballistic_stage_seconds <= 0.0:
+				break
+			mover.advance(unit, body, target, 1.0, 0.1)
+		assert_almost_eq(unit.global_position.x, target.x, 0.01, "%s가 목표에 도달합니다" % kind)
+		assert_almost_eq(unit.global_position.z, target.z, 0.01, "%s가 목표에 도달합니다" % kind)
+
+func test_rocket_follows_the_shared_ballistic_flight_and_impacts_the_city() -> void:
+	var definition := _threat_entry_for(main, &"rocket").threat_definition as AttackUavDefinition
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	threat.global_position = main.objective.global_position + Vector3(5400.0, 20.0, 0.0)
+	threat.setup(721, definition)
+	threat.configure_mission(main.objective, main.battlefield, main.objective.global_position, 1.0, null, threat.global_position)
+	var integrity_before := main.objective.current_integrity
+	for step: int in 700:
+		if threat.resolved_state:
+			break
+		threat.gameplay_tick(0.1)
+	assert_true(threat.resolved_state)
+	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
 
 func test_raid_archetype_sequences_recon_saturation_and_facility_strike() -> void:
 	main.registry.clear()

@@ -8,17 +8,16 @@
 [sub_resource type="Resource" id="Movement"]
 script = ExtResource("3")
 mode = 2
-speed = 165.0
+speed = 360.0
 maximum_speed_multiplier = 1.1
 cruise_altitude = 30.0
 spawn_radius_multiplier = 5.0
 terminal_distance = 80.0
 maximum_turn_rate_degrees = 20.0
-maximum_climb_rate = 250.0
+maximum_climb_rate = 500.0
 ballistic_apex = 950.0
-ballistic_boost_fraction = 0.2
 ballistic_reentry_distance = 500.0
-ballistic_reentry_seconds = 8.0
+ballistic_gravity = 5.0
 
 [sub_resource type="Resource" id="Mission"]
 script = ExtResource("4")

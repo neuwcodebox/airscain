@@ -484,11 +484,48 @@ func test_invalid_ballistic_flight_state_removes_only_the_contact() -> void:
 	var threat := main.director._spawn_entry(entry, 0.0, 0.0) as AttackUav
 	threat.gameplay_tick(0.1)
 	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
-	_saved_contact(document, threat.runtime_id).content_state.movement.ballistic_duration = 0.0
+	_saved_contact(document, threat.runtime_id).content_state.movement.ballistic_stage_seconds = -1.0
 	var runtime_id := threat.runtime_id
 	assert_eq(main.restore_from_document(document), "")
 	assert_null(_find_contact(runtime_id))
 	assert_eq(main.last_persistence_repairs.size(), 1)
+
+func test_ballistic_flight_resumes_from_saved_velocity_and_acceleration() -> void:
+	var threat := main.director._spawn_entry(_threat_entry(&"ballistic_missile"), 0.0, 0.0) as AttackUav
+	for step: int in 20:
+		threat.gameplay_tick(0.1)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var runtime_id := threat.runtime_id
+	threat.gameplay_tick(0.2)
+	var expected_position := threat.global_position
+	var expected_velocity := threat.mover.velocity
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_contact(runtime_id) as AttackUav
+	assert_not_null(restored)
+	if restored == null:
+		return
+	restored.gameplay_tick(0.2)
+	assert_almost_eq(restored.global_position, expected_position, Vector3.ONE * 0.01)
+	assert_almost_eq(restored.mover.velocity, expected_velocity, Vector3.ONE * 0.01)
+
+func test_legacy_ballistic_arc_save_continues_with_physical_flight() -> void:
+	var threat := main.director._spawn_entry(_threat_entry(&"rocket"), 0.0, 0.0) as AttackUav
+	threat.gameplay_tick(0.1)
+	var document := SaveDocument.decode(SaveDocument.encode(main.capture_save_document()))
+	var movement: Dictionary = _saved_contact(document, threat.runtime_id).content_state.movement
+	movement.erase("ballistic_stage")
+	movement.erase("ballistic_acceleration")
+	movement.erase("ballistic_stage_seconds")
+	movement.ballistic_progress = 0.3
+	movement.ballistic_duration = 30.0
+	var runtime_id := threat.runtime_id
+	assert_eq(main.restore_from_document(document), "")
+	var restored := _find_contact(runtime_id) as AttackUav
+	assert_not_null(restored)
+	assert_eq(restored.mover.ballistic_phase(), &"midcourse")
+	var previous := restored.global_position
+	restored.gameplay_tick(0.1)
+	assert_gt(restored.global_position.distance_to(previous), 0.0)
 
 func test_multi_munition_inventory_mode_and_invalid_asset_recovery() -> void:
 	var battery := _place_defense(_defense_definition(&"long_range_missile")) as MissileBattery
