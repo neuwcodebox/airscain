@@ -350,24 +350,15 @@ func _on_decoy_destroyed(unit: DecoyUnit) -> void:
 func _remove_destroyed_decoy(unit: DecoyUnit) -> void:
 	if not is_instance_valid(unit) or not defenses.has(unit):
 		return
-	var id := unit.runtime_id
 	if selected_asset == unit:
 		_clear_selection()
 	defenses.erase(unit)
 	battlefield.unregister_occupancy(unit.global_position, unit.definition.placement_profile.footprint_radius)
-	support_manager.consumers.erase(id)
-	support_manager.automatic_resupply_ids.erase(id)
-	relocation_manager.units.erase(id)
-	enemy_knowledge.estimates.erase(id)
-	enemy_knowledge.sightings.erase(id)
-	for index: int in range(enemy_knowledge.reports.size() - 1, -1, -1):
-		if int(enemy_knowledge.reports[index].asset_id) == id:
-			enemy_knowledge.reports.remove_at(index)
-	for wave: Dictionary in director.pending_waves:
-		if int(wave.get("target_asset_id", 0)) == id:
-			ThreatDirector.clear_planned_target(wave)
-	session.defense_count = maxi(0, session.defense_count - 1)
-	session.statistics_changed.emit()
+	support_manager.unregister_asset(unit)
+	relocation_manager.unregister_asset(unit)
+	enemy_knowledge.forget_asset(unit.runtime_id)
+	director.forget_planned_target(unit.runtime_id)
+	session.unregister_defense()
 	unit.queue_free()
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:

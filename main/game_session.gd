@@ -118,6 +118,10 @@ func _deploy_defense(definition: DefenseDefinition, position: Vector3, battlefie
 	defense_placed.emit(unit)
 	return {"success": true, "reason": tr("배치했습니다"), "unit": unit}
 
+func unregister_defense() -> void:
+	defense_count = maxi(0, defense_count - 1)
+	statistics_changed.emit()
+
 func register_threat_resolution(_threat: ThreatUnit, neutralized: bool, reward: int) -> void:
 	if phase == Phase.GAME_OVER:
 		return

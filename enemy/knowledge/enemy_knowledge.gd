@@ -109,6 +109,13 @@ func reset() -> void:
 	search.reset()
 	sightings.clear()
 
+func forget_asset(asset_id: int) -> void:
+	estimates.erase(asset_id)
+	sightings.erase(asset_id)
+	for index: int in range(reports.size() - 1, -1, -1):
+		if int(reports[index].asset_id) == asset_id:
+			reports.remove_at(index)
+
 func gameplay_tick(delta: float) -> void:
 	simulation_time += delta
 	for id: int in sightings.keys():

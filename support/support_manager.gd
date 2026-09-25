@@ -33,6 +33,14 @@ func register_asset(unit: DefenseUnit) -> void:
 	if unit.service_range() > 0.0 and unit.support_slots() > 0:
 		facilities.append(unit)
 
+func unregister_asset(unit: DefenseUnit) -> void:
+	consumers.erase(unit.runtime_id)
+	automatic_resupply_ids.erase(unit.runtime_id)
+	facilities.erase(unit)
+	for index: int in range(tasks.size() - 1, -1, -1):
+		if int(tasks[index].target_defense_id) == unit.runtime_id:
+			tasks.remove_at(index)
+
 func request_resupply(unit: DefenseUnit, user_requested: bool = true) -> bool:
 	if unit == null or not unit.uses_ammunition() or unit.relocation_manager != null and not unit.relocation_manager.task_status(unit).is_empty() or not consumers.has(unit.runtime_id) or not unit.ammunition_needs_resupply() or task_status(unit) != "" or service_facility_for(unit) == null:
 		return false

@@ -20,6 +20,13 @@ func reset() -> void:
 func register_asset(unit: DefenseUnit) -> void:
 	units[unit.runtime_id] = unit
 
+func unregister_asset(unit: DefenseUnit) -> void:
+	units.erase(unit.runtime_id)
+	for index: int in range(tasks.size() - 1, -1, -1):
+		if int(tasks[index].target_defense_id) == unit.runtime_id:
+			battlefield.unregister_occupancy(SaveDocument.vector3_from_data(tasks[index].destination), unit.definition.placement_profile.footprint_radius)
+			tasks.remove_at(index)
+
 func estimated_duration(unit: DefenseUnit, destination: Vector3) -> float:
 	var origin_flat := Vector2(unit.global_position.x, unit.global_position.z)
 	var destination_flat := Vector2(destination.x, destination.z)

@@ -120,6 +120,11 @@ func schedule_archetype(archetype: RaidArchetypeDefinition, approach_angle: floa
 			wave[CITY_DISTRICT_KEY] = String(district.id)
 		pending_waves.append(wave)
 
+func forget_planned_target(asset_id: int) -> void:
+	for wave: Dictionary in pending_waves:
+		if int(wave.get("target_asset_id", 0)) == asset_id:
+			clear_planned_target(wave)
+
 func _district_for_city_entries(entries: Array[ThreatSpawnEntry]) -> CityDistrict:
 	for entry: ThreatSpawnEntry in entries:
 		if entry.threat_definition.shares_city_impact_target():

@@ -43,8 +43,20 @@ func test_purchased_decoy_diverts_a_strike_then_frees_its_site_and_saves_its_los
 	assert_eq(main.session.budget, budget_before - definition.price)
 	var position := decoy.global_position
 	var id := decoy.runtime_id
+	var defense_count := main.session.defense_count
 	main.enemy_knowledge.record_recon(decoy)
-	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, id)
+	var estimate := main.enemy_knowledge.best_estimate_for_role(&"weapon")
+	assert_eq(estimate.asset_id, id)
+	main.director.pending_waves.append({
+		"definition_id": "weapon_saturation_uav",
+		"remaining": 2.0,
+		"angle": 0.7,
+		"target_asset_id": id,
+		"target_role": "weapon",
+		"target_position": estimate.estimated_position.duplicate(),
+		"target_confidence": float(estimate.confidence),
+		"target_observed_at": float(estimate.observed_at),
+	})
 	assert_eq(main.director.known_suppression_asset_count(), 1)
 	assert_same(main.enemy_knowledge.acquire_local_asset(position + Vector3.UP * 10.0, &"weapon", 100.0), decoy)
 	main._on_asset_selected(decoy)
@@ -59,6 +71,12 @@ func test_purchased_decoy_diverts_a_strike_then_frees_its_site_and_saves_its_los
 	assert_null(main.selected_asset)
 	assert_null(main.c2_overlay.selected_asset)
 	assert_false(main.enemy_knowledge.estimates.has(id))
+	assert_false(main.support_manager.consumers.has(id))
+	assert_false(main.relocation_manager.units.has(id))
+	assert_eq(main.session.defense_count, defense_count - 1)
+	assert_false(main.director.pending_waves[0].has("target_asset_id"))
+	for report: Dictionary in main.enemy_knowledge.reports:
+		assert_ne(int(report.asset_id), id)
 	assert_true(main.battlefield.placement_result(position, definition.placement_profile).valid)
 	main.enemy_knowledge.record_outcome(false, position, &"weapon_saturation_uav", {"target_asset_id": id, "mission_succeeded": true, "damage": strike.effect_damage, "target_disabled": true})
 	var saved := main.capture_save_document()
