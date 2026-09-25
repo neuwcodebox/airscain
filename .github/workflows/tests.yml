@@ -12,6 +12,9 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      matrix:
+        jobs: [1, 2]
     steps:
       - uses: actions/checkout@v6
       - name: Install Godot 4.7.2
@@ -27,4 +30,4 @@ jobs:
       - name: Import resources
         run: godot --headless --audio-driver Dummy --editor --path . --quit
       - name: Run all tests
-        run: python3 tools/run_tests.py --jobs 2
+        run: python3 tools/run_tests.py --jobs ${{ matrix.jobs }}

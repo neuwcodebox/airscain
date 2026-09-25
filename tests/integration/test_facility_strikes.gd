@@ -40,27 +40,6 @@ func test_payload_damage_is_independent_of_visuals_and_idempotent() -> void:
 	payload.apply_impact(target.global_position + Vector3(1000, 0, 0))
 	assert_eq(target.integrity, 70.0)
 
-func test_resolution_policy_is_independent_of_sensor_classification() -> void:
-	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
-		var definition := entry.threat_definition as AttackUavDefinition
-		if definition == null or definition.movement.mode != ThreatMovementDefinition.Mode.ALTITUDE_HOLD:
-			continue
-		assert_not_null(definition.resolution_profile, "%s 항공체에 추락 정책이 필요합니다" % definition.id)
-		if definition.resolution_profile != null:
-			assert_true(definition.resolution_profile.leave_wreck, "%s 격추 시 잔해가 추락해야 합니다" % definition.id)
-	var aircraft := entry_for(&"battery_strike_aircraft").threat_definition.duplicate(true) as ThreatDefinition
-	assert_true(aircraft.resolution_profile.leave_wreck)
-	assert_true(aircraft.has_resolution_explosion())
-	aircraft.signature_class = &"bird"
-	assert_true(aircraft.has_resolution_explosion(), "센서 분류 변경은 파괴 연출을 변경하지 않습니다")
-	var bird := ambient_definition_for(&"bird_contact").duplicate(true) as ThreatDefinition
-	bird.signature_class = &"aircraft"
-	assert_false(bird.has_resolution_explosion())
-	assert_false(bird.resolution_profile.wreck_smoke)
-	assert_false(bird.resolution_profile.landing_flash)
-	assert_eq(bird.validation_error(), "")
-	assert_eq(aircraft.validation_error(), "")
-
 func test_recon_uav_neutralization_spawns_its_falling_airframe() -> void:
 	var recon := _spawn_entry_for(&"recon_uav") as AttackUav
 	assert_not_null(recon)

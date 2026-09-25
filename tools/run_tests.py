@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -36,7 +37,7 @@ def distribute(scripts: list[tuple[Path, int]], jobs: int) -> list[list[Path]]:
     return [shard for shard in shards if shard]
 
 
-def run_shard(index: int, scripts: list[Path], godot: str, work: Path) -> tuple[int, int, str]:
+def run_shard(index: int, scripts: list[Path], godot: str, work: Path) -> tuple[int, int, str, float]:
     data = work / f"user-data-{index}"
     data.mkdir()
     log = work / f"shard-{index}.log"
@@ -44,14 +45,20 @@ def run_shard(index: int, scripts: list[Path], godot: str, work: Path) -> tuple[
     env = dict(os.environ, XDG_DATA_HOME=str(data))
     command = [godot, "--headless", "--audio-driver", "Dummy", "--path", str(ROOT),
                "-s", "addons/gut/gut_cmdln.gd", f"-gtest={paths}", "-gexit"]
+    started = time.monotonic()
     with log.open("w", encoding="utf-8") as output:
         result = subprocess.run(command, cwd=ROOT, env=env, stdout=output,
                                 stderr=subprocess.STDOUT, check=False)
+    elapsed = time.monotonic() - started
     output_text = log.read_text(encoding="utf-8", errors="replace")
     summary = re.search(r"(?m)^Scripts\s+(\d+)\s*$", output_text)
+    ran = re.search(r"(?m)^Tests\s+(\d+)\s*$", output_text)
+    expected = sum(len(TEST_PATTERN.findall(path.read_text(encoding="utf-8"))) for path in scripts)
     # A missing class import can make GUT exit successfully without running tests.
-    complete = summary is not None and int(summary.group(1)) == len(scripts)
-    return index, result.returncode if complete else 1, str(log)
+    complete = (summary is not None and int(summary.group(1)) == len(scripts)
+                and ran is not None and int(ran.group(1)) == expected
+                and "Risky/Pending" not in output_text)
+    return index, result.returncode if complete else 1, str(log), elapsed
 
 
 def main() -> int:
@@ -73,8 +80,9 @@ def main() -> int:
             tasks = [executor.submit(run_shard, i, shard, args.godot, work)
                      for i, shard in enumerate(shards, 1)]
             for task in as_completed(tasks):
-                index, code, log = task.result()
-                print(f"Shard {index}: {'PASS' if code == 0 else 'FAIL'} ({len(shards[index - 1])} scripts)", flush=True)
+                index, code, log, elapsed = task.result()
+                print(f"Shard {index}: {'PASS' if code == 0 else 'FAIL'} "
+                      f"({len(shards[index - 1])} scripts, {elapsed:.1f}s)", flush=True)
                 if code != 0:
                     failed = True
                     print(Path(log).read_text(encoding="utf-8", errors="replace")[-12000:], file=sys.stderr)

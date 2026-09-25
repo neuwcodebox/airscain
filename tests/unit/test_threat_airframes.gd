@@ -55,3 +55,31 @@ func test_missile_families_have_their_own_silhouettes() -> void:
 	assert_ne(meshes[0], meshes[2])
 	assert_ne(meshes[1], meshes[2])
 	assert_lt(meshes[2].get_aabb().size.x, meshes[0].get_aabb().size.x, "로켓은 순항미사일 주익이 없는 가는 동체입니다")
+
+func test_resolution_policy_is_independent_of_sensor_classification() -> void:
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		var definition := entry.threat_definition as AttackUavDefinition
+		if definition == null or definition.movement.mode != ThreatMovementDefinition.Mode.ALTITUDE_HOLD:
+			continue
+		assert_not_null(definition.resolution_profile, "%s 항공체에 추락 정책이 필요합니다" % definition.id)
+		if definition.resolution_profile != null:
+			assert_true(definition.resolution_profile.leave_wreck, "%s 격추 시 잔해가 추락해야 합니다" % definition.id)
+	var aircraft := preload("res://enemy/strike_aircraft/battery_strike_aircraft.tres").duplicate(true) as ThreatDefinition
+	assert_true(aircraft.resolution_profile.leave_wreck)
+	assert_true(aircraft.has_resolution_explosion())
+	aircraft.signature_class = &"bird"
+	assert_true(aircraft.has_resolution_explosion(), "센서 분류 변경은 파괴 연출을 변경하지 않습니다")
+	var bird := _ambient_definition(&"bird_contact").duplicate(true) as ThreatDefinition
+	bird.signature_class = &"aircraft"
+	assert_false(bird.has_resolution_explosion())
+	assert_false(bird.resolution_profile.wreck_smoke)
+	assert_false(bird.resolution_profile.landing_flash)
+	assert_eq(bird.validation_error(), "")
+	assert_eq(aircraft.validation_error(), "")
+
+func _ambient_definition(id: StringName) -> ThreatDefinition:
+	for definition: ThreatDefinition in SCENARIO.ambient_contacts:
+		if definition.id == id:
+			return definition
+	fail_test("주변 접촉 정의를 찾지 못했습니다: %s" % id)
+	return null

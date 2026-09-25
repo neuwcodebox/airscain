@@ -4,6 +4,7 @@
 
 - [x] Move scene-independent flight and project configuration checks into unit suites.
 - [x] Reuse the training fixture for training flows instead of building an unrelated sustained operation first.
+- [x] Keep sampled harbor route invariants while reporting the first failing sample without thousands of assertion calls.
 - [x] Run the full suite in balanced Godot processes with separate user-data directories, fail on missing GUT summaries, and include web audio checks.
 - [ ] Verify all tests on Godot 4.7.2 and compare the parallel wall time with the sequential baseline before finalizing.
 

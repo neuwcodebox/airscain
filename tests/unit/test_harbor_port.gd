@@ -21,10 +21,14 @@ func test_each_battlefield_has_a_water_route_between_the_fog_and_a_coastal_berth
 		assert_gt(-route.inbound_pose(route.inbound_duration).basis.z.dot(inbound_direction), 0.99, "%s: 선수는 접안 방향을 향합니다" % layout_id)
 		for index: int in range(0, route.inbound.size(), 8):
 			var point := route.inbound[index]
-			assert_lt(field.terrain_height(point.x, point.z), route.sea_level - HarborRoute.MINIMUM_WATER_DEPTH, "%s: inbound %d" % [layout_id, index])
+			if field.terrain_height(point.x, point.z) >= route.sea_level - HarborRoute.MINIMUM_WATER_DEPTH:
+				fail_test("%s: inbound %d crosses shallow water" % [layout_id, index])
+				return
 		for index: int in range(0, route.outbound.size(), 8):
 			var point := route.outbound[index]
-			assert_lt(field.terrain_height(point.x, point.z), route.sea_level - HarborRoute.MINIMUM_WATER_DEPTH, "%s: outbound %d" % [layout_id, index])
+			if field.terrain_height(point.x, point.z) >= route.sea_level - HarborRoute.MINIMUM_WATER_DEPTH:
+				fail_test("%s: outbound %d crosses shallow water" % [layout_id, index])
+				return
 
 func test_delivery_occurs_after_docking_and_is_reconstructed_from_operation_time() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
@@ -131,8 +135,12 @@ func test_voyages_use_separate_water_approaches_and_turn_continuously() -> void:
 			for index: int in range(1, times.size() - 1):
 				var before := voyage.inbound_pose(times[index] - 0.001) if entering else voyage.outbound_pose(times[index] - 0.001)
 				var after := voyage.inbound_pose(times[index] + 0.001) if entering else voyage.outbound_pose(times[index] + 0.001)
-				assert_lt(before.basis.get_rotation_quaternion().angle_to(after.basis.get_rotation_quaternion()), 0.002, "항로 %d 진입 %s 표본 %d에서 방향이 연속입니다" % [variants.find(voyage), entering, index])
-				assert_lt(field.terrain_height(after.origin.x, after.origin.z), voyage.sea_level - HarborRoute.MINIMUM_WATER_DEPTH, "변형 항로의 수심을 유지합니다")
+				if before.basis.get_rotation_quaternion().angle_to(after.basis.get_rotation_quaternion()) >= 0.002:
+					fail_test("항로 %d 진입 %s 표본 %d에서 방향이 불연속입니다" % [variants.find(voyage), entering, index])
+					return
+				if field.terrain_height(after.origin.x, after.origin.z) >= voyage.sea_level - HarborRoute.MINIMUM_WATER_DEPTH:
+					fail_test("항로 %d 진입 %s 표본 %d에서 수심이 부족합니다" % [variants.find(voyage), entering, index])
+					return
 		var dock := voyage.inbound_pose(voyage.inbound_duration)
 		var departure := voyage.outbound_pose(0.0)
 		assert_almost_eq(dock.basis.z, departure.basis.z, Vector3.ONE * 0.0001, "접안과 출항 사이에 선수가 튀지 않습니다")
