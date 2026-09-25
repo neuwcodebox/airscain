@@ -2110,6 +2110,38 @@ func test_ballistic_missile_climbs_through_arc_then_impacts_once() -> void:
 	assert_gt(maximum_altitude, 300.0)
 	assert_eq(main.objective.current_integrity, starting_integrity - roundi(definition.mission.damage))
 
+func test_ballistic_city_impact_starts_damage_smoke_on_the_roof() -> void:
+	var definition := _threat_entry_for(main, &"ballistic_missile").threat_definition as AttackUavDefinition
+	var target := Vector3.ZERO
+	var found := false
+	for index: int in main.battlefield.city_buildings.size():
+		var bounds := main.battlefield.city_building_bounds(index)
+		if bounds.size.y >= 15.0 and bounds.size.y <= 24.0:
+			target = bounds.get_center()
+			found = true
+			break
+	assert_true(found)
+	if not found:
+		return
+	var threat := definition.scene.instantiate() as AttackUav
+	main.threat_parent.add_child(threat)
+	threat.global_position = target + Vector3(3000.0, 20.0, 0.0)
+	threat.setup(722, definition)
+	threat.configure_mission(main.objective, main.battlefield, target, 1.0, null, threat.global_position)
+	var integrity_before := main.objective.current_integrity
+	for step: int in 500:
+		if threat.resolved_state:
+			break
+		threat.gameplay_tick(0.1)
+	assert_true(threat.resolved_state)
+	assert_eq(main.objective.current_integrity, integrity_before - roundi(definition.mission.damage))
+	assert_false(main.objective.damage_smoke_effects.is_empty())
+	var smoke_position: Vector3 = main.objective.damage_smoke_effects.back().global_position
+	var surface := main.battlefield.city_surface_impact_below(smoke_position)
+	assert_true(surface.has("building_height"), "건물 타격 연기는 옥상에서 시작합니다")
+	assert_almost_eq(smoke_position, surface.position, Vector3.ONE * 0.01)
+	assert_almost_eq(smoke_position, threat.global_position, Vector3.ONE * 0.01)
+
 func test_ballistic_missile_reenters_near_target_with_steep_terminal_velocity() -> void:
 	var profile := (_threat_entry_for(main, &"ballistic_missile").threat_definition as AttackUavDefinition).movement
 	var target := main.objective.global_position

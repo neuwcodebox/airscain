@@ -293,6 +293,15 @@ func building_segment_impact(from_position: Vector3, to_position: Vector3) -> Di
 		}
 	return result
 
+func city_surface_impact_below(position: Vector3) -> Dictionary:
+	var ground_height := terrain_height(position.x, position.z)
+	var above := Vector3(position.x, maxf(position.y, _city_bounds.end.y) + 1.0, position.z)
+	var below := Vector3(position.x, ground_height - 1.0, position.z)
+	var building_impact := building_segment_impact(above, below)
+	if not building_impact.is_empty():
+		return building_impact
+	return {"position": Vector3(position.x, ground_height, position.z)}
+
 func terrain_segment_impact(from_position: Vector3, to_position: Vector3) -> Dictionary:
 	if generator.resolution < 2:
 		return {}

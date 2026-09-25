@@ -73,19 +73,28 @@ func gameplay_tick(delta: float) -> void:
 		var preserving_egress_altitude := mission_runtime.phase == ThreatMissionRuntime.Phase.EGRESS
 		mover.advance(self, body, _evasive_target(target_point), speed_multiplier, delta, preserving_egress_altitude, terminal_committed)
 	if _definition.mission.type == ThreatMissionDefinition.Type.IMPACT:
-		var building_impact := battlefield.building_segment_impact(previous_position, global_position)
-		if _definition.mission.target_role != ThreatMissionDefinition.TargetRole.CITY:
-			var terrain_impact := battlefield.terrain_segment_impact(previous_position, global_position)
-			if not terrain_impact.is_empty() and (building_impact.is_empty() or previous_position.distance_squared_to(terrain_impact.position) < previous_position.distance_squared_to(building_impact.position)):
-				building_impact = terrain_impact
-		if not building_impact.is_empty():
-			global_position = building_impact.position
+		var impact := battlefield.building_segment_impact(previous_position, global_position)
+		var terrain_impact := battlefield.terrain_segment_impact(previous_position, global_position)
+		if not terrain_impact.is_empty() and (impact.is_empty() or previous_position.distance_squared_to(terrain_impact.position) < previous_position.distance_squared_to(impact.position)):
+			impact = terrain_impact
+		if not impact.is_empty():
+			global_position = impact.position
 			_sample_exhaust(previous_position, global_position)
 			if _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
-				objective.apply_building_impact(roundi(_definition.mission.damage), global_position, float(building_impact.building_height))
+				_apply_city_impact(impact)
 			else:
 				mission_runtime.gameplay_tick(global_position, delta)
 			resolve_once(false)
+			return
+		if _definition.mission.target_role == ThreatMissionDefinition.TargetRole.CITY:
+			if global_position.distance_squared_to(previous_position) <= 0.0001 and global_position.distance_to(mission_target + Vector3.UP * 2.0) <= _definition.mission.action_distance:
+				var surface_impact := battlefield.city_surface_impact_below(global_position)
+				global_position = surface_impact.position
+				_sample_exhaust(previous_position, global_position)
+				_apply_city_impact(surface_impact)
+				resolve_once(false)
+			else:
+				_sample_exhaust(previous_position, global_position)
 			return
 		var impact_point := mission_target + Vector3.UP * 2.0
 		var nearest_impact := Geometry3D.get_closest_point_to_segment(impact_point, previous_position, global_position)
@@ -103,6 +112,12 @@ func gameplay_tick(delta: float) -> void:
 		var released := AircraftStrikeRelease.release(get_parent(), body.global_transform, mission_runtime, mission_target, mover.velocity, battlefield, objective)
 		if released is ThreatUnit:
 			threat_released.emit(released as ThreatUnit)
+
+func _apply_city_impact(impact: Dictionary) -> void:
+	if impact.has("building_height"):
+		objective.apply_building_impact(roundi(_definition.mission.damage), global_position, float(impact.building_height))
+	else:
+		objective.apply_surface_impact(roundi(_definition.mission.damage), global_position)
 
 func _ground_missed_target() -> void:
 	var point := mission_runtime.fixed_target
