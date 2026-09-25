@@ -75,12 +75,13 @@ const MENU_COLLAPSED_SYMBOL := "▼"
 const MENU_EXPANDED_SYMBOL := "▲"
 const OVERLAY_MODES: Array[StringName] = [&"none", &"sensor", &"weapon", &"support", &"electronic"]
 const OVERLAY_LABELS: Array[String] = ["없음", "탐지 범위", "사거리", "지원 범위", "전자전"]
-const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special"]
+const CATALOG_GROUP_ORDER: Array[StringName] = [&"sensor", &"network", &"missile", &"special", &"decoy"]
 const CATALOG_GROUP_LABELS := {
 	&"sensor": "감시·추적",
 	&"network": "지휘·지원",
 	&"missile": "미사일 방어",
 	&"special": "근접·특수 요격",
+	&"decoy": "기만·유인",
 }
 
 @onready var budget_label: Label = %BudgetLabel
@@ -508,7 +509,7 @@ func _refresh_selection_view(fit_panel: bool = true) -> void:
 	munition_field.visible = munition_mode_button.visible
 	resupply_button.visible = has_asset and not has_track and selected_asset.uses_ammunition()
 	automatic_resupply_button.visible = doctrine_section.visible and selected_asset.uses_ammunition()
-	repair_button.visible = has_asset and not has_track
+	repair_button.visible = has_asset and not has_track and not selected_asset.definition.is_consumable_decoy()
 	relocation_button.visible = has_asset and not has_track and selected_asset.definition.mobile
 	focus_button.visible = has_asset or has_track
 	if engagement_review:

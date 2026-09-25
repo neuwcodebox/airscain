@@ -4,7 +4,7 @@ const SCENARIO := preload("res://main/first_scenario.tres")
 
 func test_phase_briefings_match_the_spec_unlock_table() -> void:
 	var expected := {
-		&"operation_start": [[&"attack_uav"], [&"missile_battery", &"search_radar", &"command_post", &"close_in_gun", &"support_facility"]],
+		&"operation_start": [[&"attack_uav"], [&"missile_battery", &"search_radar", &"command_post", &"close_in_gun", &"support_facility", &"radar_decoy", &"weapon_decoy"]],
 		&"recon_and_swarms": [[&"swarm_uav", &"recon_uav", &"decoy_uav"], [&"high_energy_laser"]],
 		&"cruise_and_jamming": [[&"support_strike_uav", &"defense_strike_uav", &"cruise_missile", &"electronic_warfare_uav", &"anti_radiation_missile"], [&"short_range_missile", &"interceptor_drone_defense"]],
 		&"defense_suppression": [[&"battery_strike_uav", &"battery_strike_cruise", &"support_strike_cruise", &"small_defense_strike_uav"], [&"high_power_microwave"]],

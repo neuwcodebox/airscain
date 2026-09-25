@@ -1,0 +1,47 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource path="res://defense/decoy/decoy_unit.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="Metal"]
+albedo_color = Color(0.341, 0.408, 0.373, 1)
+metallic = 0.22
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Dark"]
+albedo_color = Color(0.149, 0.235, 0.224, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="BaseMesh"]
+size = Vector3(11, 2, 9)
+
+[sub_resource type="BoxMesh" id="MastMesh"]
+size = Vector3(1.8, 7.5, 1.8)
+
+[sub_resource type="BoxMesh" id="BackMesh"]
+size = Vector3(11, 4, 0.55)
+
+[sub_resource type="BoxMesh" id="FaceMesh"]
+size = Vector3(10.2, 3.3, 0.18)
+
+[node name="RadarDecoy" type="Node3D"]
+script = ExtResource("1")
+
+[node name="EquipmentBase" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1, 0)
+mesh = SubResource("BaseMesh")
+material_override = SubResource("Metal")
+
+[node name="Mast" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5.7, 0)
+mesh = SubResource("MastMesh")
+material_override = SubResource("Metal")
+
+[node name="AntennaBack" type="MeshInstance3D" parent="."]
+position = Vector3(0, 10, 0.2)
+mesh = SubResource("BackMesh")
+material_override = SubResource("Dark")
+
+[node name="AntennaFace" type="MeshInstance3D" parent="."]
+position = Vector3(0, 10, -0.2)
+mesh = SubResource("FaceMesh")
+material_override = SubResource("Metal")

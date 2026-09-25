@@ -33,6 +33,63 @@ func after_each() -> void:
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
 
+func test_purchased_decoy_diverts_a_strike_then_frees_its_site_and_saves_its_loss() -> void:
+	var definition := _defense_definition_for(main, &"weapon_decoy")
+	var budget_before := main.session.budget
+	var placed := _place_for(main, definition)
+	assert_true(placed.success)
+	var decoy := placed.unit as DecoyUnit
+	assert_not_null(decoy)
+	assert_eq(main.session.budget, budget_before - definition.price)
+	var position := decoy.global_position
+	var id := decoy.runtime_id
+	main.enemy_knowledge.record_recon(decoy)
+	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"weapon").asset_id, id)
+	assert_eq(main.director.known_suppression_asset_count(), 1)
+	assert_same(main.enemy_knowledge.acquire_local_asset(position + Vector3.UP * 10.0, &"weapon", 100.0), decoy)
+	main._on_asset_selected(decoy)
+	assert_false(main.hud.repair_button.visible)
+	var strike := StrikePayload.new()
+	strike.setup(main.objective, 60, decoy, false)
+	strike.apply_impact(position)
+	assert_true(strike.target_disabled)
+	assert_eq(strike.effect_damage, definition.maximum_integrity)
+	await get_tree().process_frame
+	assert_false(is_instance_valid(decoy))
+	assert_null(main.selected_asset)
+	assert_null(main.c2_overlay.selected_asset)
+	assert_false(main.enemy_knowledge.estimates.has(id))
+	assert_true(main.battlefield.placement_result(position, definition.placement_profile).valid)
+	main.enemy_knowledge.record_outcome(false, position, &"weapon_saturation_uav", {"target_asset_id": id, "mission_succeeded": true, "damage": strike.effect_damage, "target_disabled": true})
+	var saved := main.capture_save_document()
+	assert_eq(SessionSnapshot.prepare(saved.payload, main.scenario).error, "")
+	for state: Dictionary in saved.payload.world.defenses:
+		assert_ne(int(state.runtime_id), id)
+	assert_eq(main.restore_from_document(saved), "")
+	assert_eq(int(main.enemy_knowledge.recent_outcomes.back().target_asset_id), id)
+	var replacement := main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+	assert_true(replacement.success)
+
+func test_live_radar_decoy_restores_its_spoofed_sensor_role() -> void:
+	var definition := _defense_definition_for(main, &"radar_decoy")
+	var placed := _place_for(main, definition)
+	assert_true(placed.success)
+	var original := placed.unit as DecoyUnit
+	var id := original.runtime_id
+	original.gameplay_tick(0.4)
+	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"sensor").asset_id, id)
+	var saved := main.capture_save_document()
+	assert_eq(main.restore_from_document(saved), "")
+	var restored: DecoyUnit
+	for unit: DefenseUnit in main.defenses:
+		if unit.runtime_id == id:
+			restored = unit as DecoyUnit
+	assert_not_null(restored)
+	assert_true(restored.active)
+	assert_eq(restored.definition.enemy_knowledge_role(), &"sensor")
+	assert_eq(restored.c2_roles(), 0)
+	assert_eq(main.enemy_knowledge.best_estimate_for_role(&"sensor").asset_id, id)
+
 func test_result_visual_preparation_preserves_gameplay_and_hidden_panel() -> void:
 	main.set_process(false)
 	var phase := main.session.phase
@@ -1122,7 +1179,7 @@ func test_defense_catalog_lists_role_groups_and_definition_details() -> void:
 	for child: Node in main.hud.defense_list.get_children():
 		if child is Label:
 			headings.append((child as Label).text)
-	assert_eq(headings, ["감시·추적", "지휘·지원", "미사일 방어", "근접·특수 요격"])
+	assert_eq(headings, ["감시·추적", "지휘·지원", "미사일 방어", "근접·특수 요격", "기만·유인"])
 	assert_eq(main.hud.defense_buttons.size(), main.scenario.available_defenses.size())
 	for index: int in main.hud.defense_buttons.size():
 		assert_true(is_instance_valid(main.hud.defense_buttons[index]))

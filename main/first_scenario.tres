@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=88 format=3]
+[gd_resource type="Resource" script_class="ScenarioDefinition" load_steps=90 format=3]
 
 [ext_resource path="res://main/scenario_definition.gd" type="Script" id="1"]
 [ext_resource path="res://world/objective/city/city_objective.tres" type="Resource" id="2"]
@@ -43,6 +43,8 @@
 [ext_resource path="res://world/layout_previews/valley_corridor.svg" type="Texture2D" id="41"]
 [ext_resource path="res://world/layout_previews/coastal_plain.svg" type="Texture2D" id="42"]
 [ext_resource path="res://main/operation_briefing_definition.gd" type="Script" id="43"]
+[ext_resource path="res://defense/decoy/radar_decoy.tres" type="Resource" id="44"]
+[ext_resource path="res://defense/decoy/weapon_decoy.tres" type="Resource" id="45"]
 
 [sub_resource type="Resource" id="RuggedCentralDistrict"]
 script = ExtResource("38")
@@ -483,7 +485,7 @@ city_size = 480.0
 battlefield_layouts = Array[ExtResource("29")]([SubResource("RuggedHarborLayout"), SubResource("IslandCityLayout"), SubResource("ValleyCorridorLayout"), SubResource("CoastalPlainLayout")])
 starting_budget = 1900
 objective_definition = ExtResource("2")
-available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23"), ExtResource("24"), ExtResource("25")])
+available_defenses = Array[ExtResource("3")]([ExtResource("3"), ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("10"), ExtResource("12"), ExtResource("13"), ExtResource("22"), ExtResource("23"), ExtResource("24"), ExtResource("25"), ExtResource("44"), ExtResource("45")])
 threat_entries = Array[ExtResource("5")]([SubResource("AttackUavEntry"), SubResource("SwarmUavEntry"), SubResource("ReconUavEntry"), SubResource("SupportStrikeEntry"), SubResource("DefenseStrikeUavEntry"), SubResource("CruiseMissileEntry"), SubResource("DecoyUavEntry"), SubResource("ElectronicWarfareUavEntry"), SubResource("AntiRadiationMissileEntry"), SubResource("BallisticMissileEntry"), SubResource("RocketSalvoEntry"), SubResource("StrikeAircraftEntry"), SubResource("BatteryStrikeEntry"), SubResource("battery_strike_cruise_entry"), SubResource("support_strike_cruise_entry"), SubResource("battery_strike_aircraft_entry"), SubResource("radar_strike_aircraft_entry"), SubResource("small_defense_strike_uav_entry"), SubResource("weapon_saturation_uav_entry"), SubResource("radar_saturation_uav_entry")])
 threat_intel_lead_levels = 1
 operation_briefings = Array[ExtResource("43")]([SubResource("Briefing_operation_start"), SubResource("Briefing_recon_and_swarms"), SubResource("Briefing_cruise_and_jamming"), SubResource("Briefing_defense_suppression"), SubResource("Briefing_high_altitude_strikes"), SubResource("Briefing_air_strikes_and_saturation"), SubResource("Briefing_ballistic_threat")])

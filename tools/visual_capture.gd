@@ -26,6 +26,42 @@ func run() -> void:
 	main.ui_audio.enabled = false
 	main.combat_audio.stop_all()
 	main.ui_audio.stop_all()
+	if OS.get_cmdline_user_args().has("--capture-decoys-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		main.session.budget = 5000
+		for decoy_id: StringName in [&"radar_decoy", &"weapon_decoy"]:
+			for definition: DefenseDefinition in main.scenario.available_defenses:
+				if definition.id != decoy_id:
+					continue
+				_place_asset(definition, -1.0 if decoy_id == &"radar_decoy" else 1.0)
+				var unit: DefenseUnit = main.defenses.back()
+				main.hud.hide()
+				main.camera_rig.camera.global_position = unit.global_position + Vector3(26, 21, 35)
+				main.camera_rig.camera.look_at(unit.global_position + Vector3.UP * 5)
+				for frame: int in 3:
+					await process_frame
+					await RenderingServer.frame_post_draw
+				_save_capture("/tmp/airscain_%s.png" % decoy_id)
+				break
+		main.hud.show()
+		main.hud.set_catalog_expanded(true)
+		await process_frame
+		for index: int in main.scenario.available_defenses.size():
+			if main.scenario.available_defenses[index].id == &"weapon_decoy":
+				main.hud.defense_scroll.ensure_control_visible(main.hud.defense_buttons[index])
+				break
+		for frame: int in 3:
+			await process_frame
+			await RenderingServer.frame_post_draw
+		_save_capture("/tmp/airscain_decoy_catalog.png")
+		print("DECOY_CAPTURE_OK")
+		main.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-world-layout-only"):
 		await _capture_world_layout()
 		return

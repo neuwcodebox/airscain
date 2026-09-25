@@ -44,6 +44,9 @@ func placement_power_capacity() -> float:
 func catalog_group() -> StringName:
 	return &"special"
 
+func is_consumable_decoy() -> bool:
+	return false
+
 func tactical_overlay_mode() -> StringName:
 	return &"none"
 

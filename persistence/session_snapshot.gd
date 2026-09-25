@@ -653,7 +653,7 @@ static func validation_error(payload: Dictionary, scenario: ScenarioDefinition) 
 		if outcome_id <= 0 or outcome_id >= int(enemy_state.next_outcome_id) or outcome_ids.has(outcome_id) or not SaveDocument.is_valid_vector3_data(outcome.get("position")):
 			return "적 전투 결과 상태가 올바르지 않습니다"
 		outcome_ids[outcome_id] = true
-		if outcome.has("target_asset_id") and (not defense_ids.has(int(outcome.target_asset_id)) or not outcome.get("mission_succeeded", false) is bool or float(outcome.get("damage", -1.0)) < 0.0 or not outcome.get("target_disabled", false) is bool):
+		if outcome.has("target_asset_id") and (int(outcome.target_asset_id) <= 0 or not outcome.get("mission_succeeded", false) is bool or float(outcome.get("damage", -1.0)) < 0.0 or not outcome.get("target_disabled", false) is bool):
 			return "적 시설 타격 결과가 올바르지 않습니다"
 	if int(director_state.last_assessed_outcome_id) >= int(enemy_state.next_outcome_id):
 		return "적 전투 결과 평가 위치가 올바르지 않습니다"

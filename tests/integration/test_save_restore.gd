@@ -663,12 +663,13 @@ func test_energy_and_power_providers_restore_with_runtime_assets() -> void:
 	assert_true(restored.energy_state.overheated)
 	assert_eq(main.power_manager.generation_capacity(), 20.0)
 
-func test_all_asset_types_relocate_with_their_duration_including_city_command() -> void:
+func test_all_mobile_asset_types_relocate_with_their_duration_including_city_command() -> void:
 	main.session.budget = 10000
 	main.director.pressure_changed.emit(5)
 	var units: Array[DefenseUnit] = [_find_defense_for_definition(&"command_post")]
 	for definition: DefenseDefinition in main.scenario.available_defenses:
-		assert_true(definition.mobile, definition.display_name)
+		if not definition.mobile:
+			continue
 		assert_gt(definition.relocation_duration, 0.0)
 		units.append(_place_defense(definition))
 	for unit: DefenseUnit in units:

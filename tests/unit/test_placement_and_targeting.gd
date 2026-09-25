@@ -1816,7 +1816,7 @@ func test_asset_tooltip_separates_heading_and_statuses_without_stale_rows() -> v
 	assert_eq(overlay.pointer_label.text, "클릭: 항적 정보")
 	assert_eq(overlay.pointer_hint.mouse_filter, Control.MOUSE_FILTER_IGNORE)
 
-func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() -> void:
+func test_non_consumable_defenses_can_be_repaired_from_zero_without_refilling_resources() -> void:
 	var manager := autofree(SupportManager.new()) as SupportManager
 	var support_session := autofree(GameSession.new()) as GameSession
 	support_session.reset(10000)
@@ -1826,6 +1826,8 @@ func test_every_defense_can_be_repaired_from_zero_without_refilling_resources() 
 	manager.register_asset(facility)
 	var id := 2000
 	for definition: DefenseDefinition in SCENARIO.available_defenses:
+		if definition.is_consumable_decoy():
+			continue
 		var case_label := "defense %s" % definition.id
 		var unit := add_child_autofree(definition.scene.instantiate()) as DefenseUnit
 		unit.setup(id, definition)

@@ -1,0 +1,64 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource path="res://defense/decoy/decoy_unit.gd" type="Script" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="Metal"]
+albedo_color = Color(0.341, 0.408, 0.373, 1)
+metallic = 0.22
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Dark"]
+albedo_color = Color(0.149, 0.235, 0.224, 1)
+roughness = 0.8
+
+[sub_resource type="BoxMesh" id="BaseMesh"]
+size = Vector3(11, 2, 9)
+
+[sub_resource type="BoxMesh" id="FrameMesh"]
+size = Vector3(7, 4, 1)
+
+[sub_resource type="BoxMesh" id="CanisterMesh"]
+size = Vector3(1.9, 1.9, 8)
+
+[node name="WeaponDecoy" type="Node3D"]
+script = ExtResource("1")
+
+[node name="EquipmentBase" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1, 0)
+mesh = SubResource("BaseMesh")
+material_override = SubResource("Metal")
+
+[node name="LauncherFrame" type="MeshInstance3D" parent="."]
+position = Vector3(0, 4.1, 1)
+mesh = SubResource("FrameMesh")
+material_override = SubResource("Metal")
+
+[node name="DummyCanister0" type="MeshInstance3D" parent="."]
+position = Vector3(-2.2, 3.2, -1)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("Dark")
+
+[node name="DummyCanister1" type="MeshInstance3D" parent="."]
+position = Vector3(0, 3.2, -1)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("Dark")
+
+[node name="DummyCanister2" type="MeshInstance3D" parent="."]
+position = Vector3(2.2, 3.2, -1)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("Dark")
+
+[node name="DummyCanister3" type="MeshInstance3D" parent="."]
+position = Vector3(-2.2, 5.4, -1)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("Dark")
+
+[node name="DummyCanister4" type="MeshInstance3D" parent="."]
+position = Vector3(0, 5.4, -1)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("Dark")
+
+[node name="DummyCanister5" type="MeshInstance3D" parent="."]
+position = Vector3(2.2, 5.4, -1)
+mesh = SubResource("CanisterMesh")
+material_override = SubResource("Dark")

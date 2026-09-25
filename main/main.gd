@@ -339,8 +339,36 @@ func _on_defense_placed(unit: DefenseUnit) -> void:
 	unit.weapon_fired.connect(_on_weapon_fired)
 	unit.damage_received.connect(_on_defense_damage_audio)
 	unit.projectile_launched.connect(_on_projectile_launched_audio)
+	if unit is DecoyUnit:
+		(unit as DecoyUnit).destroyed.connect(_on_decoy_destroyed)
 	if game_mode == GameMode.TRAINING:
 		training_controller.defense_placed(unit)
+
+func _on_decoy_destroyed(unit: DecoyUnit) -> void:
+	call_deferred("_remove_destroyed_decoy", unit)
+
+func _remove_destroyed_decoy(unit: DecoyUnit) -> void:
+	if not is_instance_valid(unit) or not defenses.has(unit):
+		return
+	var id := unit.runtime_id
+	if selected_asset == unit:
+		_clear_selection()
+	defenses.erase(unit)
+	battlefield.unregister_occupancy(unit.global_position, unit.definition.placement_profile.footprint_radius)
+	support_manager.consumers.erase(id)
+	support_manager.automatic_resupply_ids.erase(id)
+	relocation_manager.units.erase(id)
+	enemy_knowledge.estimates.erase(id)
+	enemy_knowledge.sightings.erase(id)
+	for index: int in range(enemy_knowledge.reports.size() - 1, -1, -1):
+		if int(enemy_knowledge.reports[index].asset_id) == id:
+			enemy_knowledge.reports.remove_at(index)
+	for wave: Dictionary in director.pending_waves:
+		if int(wave.get("target_asset_id", 0)) == id:
+			ThreatDirector.clear_planned_target(wave)
+	session.defense_count = maxi(0, session.defense_count - 1)
+	session.statistics_changed.emit()
+	unit.queue_free()
 
 func _on_threat_spawned(threat: ThreatUnit) -> void:
 	var haze := DistantContactHaze.new()
