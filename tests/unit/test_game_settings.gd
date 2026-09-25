@@ -278,3 +278,10 @@ func _cleanup_settings_file() -> void:
 	var path := PlayerSettings.instance().settings_path
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+func test_project_rendering_configuration_matches_supported_target() -> void:
+	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 1600)
+	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 900)
+	assert_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method"), "gl_compatibility")
+	assert_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile"), "gl_compatibility")
+	assert_eq(ProjectSettings.get_setting("rendering/anti_aliasing/quality/msaa_3d"), Viewport.MSAA_2X)

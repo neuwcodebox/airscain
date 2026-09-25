@@ -1,5 +1,14 @@
 # PLAN.md
 
+## Test feedback and isolation
+
+- [x] Move scene-independent flight and project configuration checks into unit suites.
+- [x] Reuse the training fixture for training flows instead of building an unrelated sustained operation first.
+- [x] Run the full suite in balanced Godot processes with separate user-data directories, fail on missing GUT summaries, and include web audio checks.
+- [ ] Verify all tests on Godot 4.7.2 and compare the parallel wall time with the sequential baseline before finalizing.
+
+The runner distributes entire test scripts, so each test retains its own GUT setup and teardown. Each process uses a separate `user://` root to avoid cross-process settings and save-file collisions. The exact behavior assertions and 717 test cases remain in place. CI runs the complete suite on each push and pull request.
+
 ## 도시 충돌점과 피해 연기
 
 - [x] 모든 도시 `IMPACT` 위협의 피해·연기를 건물 또는 지형의 실제 첫 충돌점에 고정한다.

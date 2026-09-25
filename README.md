@@ -85,6 +85,8 @@ godot --headless --audio-driver Dummy --path . \
   -gdir=res://tests -ginclude_subdirs -gexit
 ```
 
+After a fresh clone, import resources once with `godot --headless --audio-driver Dummy --editor --path . --quit`. To run the complete GUT suite and the JavaScript audio tests with independent user-data directories, use `python3 tools/run_tests.py` (`--jobs 1` for sequential execution). A single GUT script can still be run with `-gtest=res://tests/unit/test_balance_flight.gd -gexit`.
+
 ## 문서
 
 - [게임 요구사항](docs/SPEC.md)

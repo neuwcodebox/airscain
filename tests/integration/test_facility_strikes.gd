@@ -27,24 +27,6 @@ func after_each() -> void:
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
 
-func test_flight_rules_run_without_scene_visuals_and_restore_continuously() -> void:
-	var original := StrikeFlight.new()
-	original.mode = StrikeFlight.Mode.BOMB
-	original.velocity = Vector3(40, 0, 0)
-	var position := Vector3(0, 100, 0)
-	var target := Vector3(180, 0, 0)
-	position = original.advance(position, target, null, 0.25)
-	var restored := StrikeFlight.new()
-	restored.restore_state(original.capture_state())
-	for tick: int in 60:
-		var expected := original.advance(position, target, null, StrikeFlight.MAXIMUM_STEP)
-		var actual := restored.advance(position, target, null, StrikeFlight.MAXIMUM_STEP)
-		assert_eq(actual, expected)
-		assert_eq(restored.velocity, original.velocity)
-		position = expected
-	assert_false(original.powered())
-	assert_lt(original.velocity.y, 0.0)
-
 func test_payload_damage_is_independent_of_visuals_and_idempotent() -> void:
 	var target := target_for(&"weapon")
 	var payload := StrikePayload.new()
@@ -186,27 +168,6 @@ func test_missile_separates_accelerates_and_survives_carrier_destruction() -> vo
 	assert_eq(target.integrity, 45.0, "impact=%s target=%s flight=%s" % [missile.global_position, target.global_position, missile.capture_content_state()])
 	missile.gameplay_tick(10.0)
 	assert_eq(target.integrity, 45.0)
-
-func test_low_altitude_missile_flies_level_before_terminal_descent() -> void:
-	var flight := StrikeFlight.new()
-	flight.mode = StrikeFlight.Mode.MISSILE
-	flight.speed = 145.0
-	flight.acceleration = 16.0
-	flight.velocity = Vector3(-104.0, 0.0, 0.0)
-	var position := Vector3(440.0, 65.0, 0.0)
-	var target := Vector3.ZERO
-	var highest_altitude := position.y
-	var entered_terminal_descent := false
-	for tick: int in 600:
-		position = flight.advance(position, target, null, StrikeFlight.MAXIMUM_STEP)
-		highest_altitude = maxf(highest_altitude, position.y)
-		if Vector2(position.x, position.z).length() <= StrikeFlight.MISSILE_TERMINAL_DISTANCE:
-			entered_terminal_descent = true
-		if flight.result != StrikeFlight.Result.FLYING:
-			break
-	assert_lte(highest_altitude, 70.0, "저공 투발 직후 하늘로 솟지 않습니다")
-	assert_true(entered_terminal_descent, "표적 가까이에서 종말 하강을 시작합니다")
-	assert_eq(flight.result, StrikeFlight.Result.IMPACT)
 
 func test_radar_observes_released_missile_and_gun_round_cancels_impact() -> void:
 	var target := target_for(&"weapon")
