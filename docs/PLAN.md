@@ -5,10 +5,13 @@
 - [x] Move scene-independent flight and project configuration checks into unit suites.
 - [x] Reuse the training fixture for training flows instead of building an unrelated sustained operation first.
 - [x] Keep sampled harbor route invariants while reporting the first failing sample without thousands of assertion calls.
+- [x] Pin and restore the shared game seed and layout around scene tests, including briefing flows that previously used a random seed.
 - [x] Run the full suite in balanced Godot processes with separate user-data directories, fail on missing GUT summaries, and include web audio checks.
-- [ ] Verify all tests on Godot 4.7.2 and compare the parallel wall time with the sequential baseline before finalizing.
+- [x] Verify all tests on Godot 4.7.2 and compare parallel wall time with sequential execution.
 
 The runner distributes entire test scripts, so each test retains its own GUT setup and teardown. Each process uses a separate `user://` root to avoid cross-process settings and save-file collisions. The exact behavior assertions and 717 test cases remain in place. CI runs the complete suite on each push and pull request.
+
+Verification on the same commit with GitHub Actions `ubuntu-latest`: all 38 GUT scripts and 717 tests, followed by 13 JavaScript audio tests, passed both ways. Sequential GUT execution took 511.4 seconds; two isolated processes took 251.5 seconds (50.8% less wall time). The runs used separate CI hosts, so the comparison includes host variance.
 
 ## 도시 충돌점과 피해 연기
 

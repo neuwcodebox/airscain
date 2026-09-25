@@ -3,15 +3,26 @@ extends GutTest
 const MAIN_SCENE := preload("res://main/main.tscn")
 
 var original_requested_mode: AirscainMain.GameMode
+var original_requested_seed: int
+var original_requested_layout_id: StringName
+var original_last_generated_seed: int
 var original_briefings: bool
 
 func before_each() -> void:
 	original_requested_mode = AirscainMain.requested_mode
+	original_requested_seed = AirscainMain.requested_seed
+	original_requested_layout_id = AirscainMain.requested_layout_id
+	original_last_generated_seed = AirscainMain.last_generated_seed
+	AirscainMain.requested_seed = 73129
+	AirscainMain.requested_layout_id = &""
 	original_briefings = bool(PlayerSettings.instance().values.briefings)
 	PlayerSettings.instance().values.briefings = true
 
 func after_each() -> void:
 	AirscainMain.requested_mode = original_requested_mode
+	AirscainMain.requested_seed = original_requested_seed
+	AirscainMain.requested_layout_id = original_requested_layout_id
+	AirscainMain.last_generated_seed = original_last_generated_seed
 	PlayerSettings.instance().values.briefings = original_briefings
 
 func test_new_operation_opens_the_first_phase_paused_until_acknowledged() -> void:

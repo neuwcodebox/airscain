@@ -18,12 +18,17 @@ const MAIN_SCENE := preload("res://main/main.tscn")
 var main: AirscainMain
 var original_requested_seed: int
 var original_requested_mode: AirscainMain.GameMode
+var original_requested_layout_id: StringName
+var original_last_generated_seed: int
 
 func before_each() -> void:
 	original_requested_seed = AirscainMain.requested_seed
 	original_requested_mode = AirscainMain.requested_mode
+	original_requested_layout_id = AirscainMain.requested_layout_id
+	original_last_generated_seed = AirscainMain.last_generated_seed
 	AirscainMain.requested_seed = 73129
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	AirscainMain.requested_layout_id = &""
 	main = MAIN_SCENE.instantiate() as AirscainMain
 	main.auto_start_sustained = false
 	add_child_autofree(main)
@@ -32,6 +37,8 @@ func before_each() -> void:
 func after_each() -> void:
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
+	AirscainMain.requested_layout_id = original_requested_layout_id
+	AirscainMain.last_generated_seed = original_last_generated_seed
 
 func test_purchased_decoy_diverts_a_strike_then_frees_its_site_and_saves_its_loss() -> void:
 	var definition := _defense_definition_for(main, &"weapon_decoy")

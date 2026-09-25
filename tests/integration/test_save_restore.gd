@@ -29,11 +29,13 @@ var save_path: String
 var original_requested_seed: int
 var original_requested_mode: AirscainMain.GameMode
 var original_requested_layout_id: StringName
+var original_last_generated_seed: int
 
 func before_each() -> void:
 	original_requested_seed = AirscainMain.requested_seed
 	original_requested_mode = AirscainMain.requested_mode
 	original_requested_layout_id = AirscainMain.requested_layout_id
+	original_last_generated_seed = AirscainMain.last_generated_seed
 	AirscainMain.requested_seed = 73129
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	AirscainMain.requested_layout_id = &""
@@ -50,6 +52,7 @@ func after_each() -> void:
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
 	AirscainMain.requested_layout_id = original_requested_layout_id
+	AirscainMain.last_generated_seed = original_last_generated_seed
 
 func test_projectile_reconstruction_delegates_new_weapon_types_to_the_owner() -> void:
 	var owner := RestoringDefense.new()

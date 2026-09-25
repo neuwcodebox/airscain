@@ -5,12 +5,17 @@ var main: AirscainMain
 var guidance: TrainingGuidance
 var original_requested_seed: int
 var original_requested_mode: AirscainMain.GameMode
+var original_requested_layout_id: StringName
+var original_last_generated_seed: int
 
 func before_each() -> void:
 	original_requested_seed = AirscainMain.requested_seed
 	original_requested_mode = AirscainMain.requested_mode
+	original_requested_layout_id = AirscainMain.requested_layout_id
+	original_last_generated_seed = AirscainMain.last_generated_seed
 	AirscainMain.requested_mode = AirscainMain.GameMode.TRAINING
 	AirscainMain.requested_seed = 73129
+	AirscainMain.requested_layout_id = &""
 	main = add_child_autofree(MAIN.instantiate()) as AirscainMain
 	AirscainMain.requested_mode = original_requested_mode
 	await get_tree().process_frame
@@ -19,6 +24,8 @@ func before_each() -> void:
 func after_each() -> void:
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
+	AirscainMain.requested_layout_id = original_requested_layout_id
+	AirscainMain.last_generated_seed = original_last_generated_seed
 
 func test_menu_cue_follows_open_catalog_and_keeps_clicks_available() -> void:
 	main.hud.training_next_button.pressed.emit()

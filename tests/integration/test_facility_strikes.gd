@@ -4,6 +4,8 @@ const IDS: Array[StringName] = [&"defense_strike_uav", &"small_defense_strike_ua
 var main: AirscainMain
 var original_requested_seed: int
 var original_requested_mode: AirscainMain.GameMode
+var original_requested_layout_id: StringName
+var original_last_generated_seed: int
 
 class RetiringThreat:
 	extends ThreatUnit
@@ -14,8 +16,11 @@ class RetiringThreat:
 func before_each() -> void:
 	original_requested_seed = AirscainMain.requested_seed
 	original_requested_mode = AirscainMain.requested_mode
+	original_requested_layout_id = AirscainMain.requested_layout_id
+	original_last_generated_seed = AirscainMain.last_generated_seed
 	AirscainMain.requested_seed = 73129
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
+	AirscainMain.requested_layout_id = &""
 	main = add_child_autofree(load("res://main/main.tscn").instantiate()) as AirscainMain
 	main.combat_audio.enabled = false
 	main.ui_audio.enabled = false
@@ -26,6 +31,8 @@ func before_each() -> void:
 func after_each() -> void:
 	AirscainMain.requested_seed = original_requested_seed
 	AirscainMain.requested_mode = original_requested_mode
+	AirscainMain.requested_layout_id = original_requested_layout_id
+	AirscainMain.last_generated_seed = original_last_generated_seed
 
 func test_payload_damage_is_independent_of_visuals_and_idempotent() -> void:
 	var target := target_for(&"weapon")
