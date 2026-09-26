@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib
 import json
 import shutil
-from edit import run, MUSIC_GAIN
+from edit import run, MUSIC_GAIN, TOTAL_SECONDS, ACTION_END
 from produce import ROOT, OUT
 
 
@@ -17,15 +17,14 @@ def package() -> None:
         run(['-ss','40','-i',str(source),'-frames:v','1','-q:v','1',
              str(delivery/f'Thumbnail_{language}.jpg')])
     run(['-i',str(OUT/'edit/ko/assembled.mkv'),'-vn','-af',
-         'volume=0.70,afade=t=out:st=52.05:d=0.15','-t','60','-ar','48000',
+         f'volume=0.70,afade=t=out:st={ACTION_END-.15}:d=0.15','-t',str(TOTAL_SECONDS),'-ar','48000',
          '-c:a','pcm_s24le',str(delivery/'Game_SFX.wav')])
     gain=MUSIC_GAIN
     run(['-i',str(OUT/'assets/volatile-reaction.mp3'),'-af',
-         f"atrim=0:60,asetpts=PTS-STARTPTS,volume='{gain}':eval=frame,afade=t=in:d=0.25,afade=t=out:st=58:d=2",
-         '-t','60','-ar','48000','-c:a','pcm_s24le',str(delivery/'Music_Edit.wav')])
-    shutil.copyfile(OUT/'assets/siren.wav',delivery/'Warning_Siren.wav')
+         f"atrim=0:{TOTAL_SECONDS},asetpts=PTS-STARTPTS,volume='{gain}':eval=frame,afade=t=in:d=0.25,afade=t=out:st={ACTION_END-.15}:d=0.15",
+         '-t',str(TOTAL_SECONDS),'-ar','48000','-c:a','pcm_s24le',str(delivery/'Music_Edit.wav')])
     sources=list((ROOT/'tools/trailer').glob('*.*'))+list(OUT.glob('Airscain*.mp4'))
-    sources += list((OUT/'review').glob('*.json'))+[OUT/'assets/volatile-reaction.mp3',OUT/'assets/siren.wav']
+    sources += list((OUT/'review').glob('*.json'))+[OUT/'assets/volatile-reaction.mp3']
     sources += [ROOT/'docs/TRAILER_DELIVERY.md',ROOT/'docs/TRAILER_STORYBOARD.md']
     manifest={}
     for path in sources:

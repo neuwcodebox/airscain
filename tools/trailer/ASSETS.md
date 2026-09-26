@@ -3,7 +3,7 @@
 The footage is captured from Airscain's actual Godot runtime. The production
 fixtures stage finite-budget deployments and pre-positioned raids, using unchanged
 placement, sensor, weapon, damage and support rules. They are not recordings of
-an uninterrupted player session. The edit joins the opening, three deployment stages, a raid and a separate ballistic approach.
+an uninterrupted player session. The edit joins the opening, three deployment stages, one continuous raid including the ballistic approach.
 It ends before the ballistic outcome. These are staged operations, not one player session.
 
 ## Music
@@ -16,7 +16,7 @@ It ends before the ballistic outcome. These are staged operations, not one playe
 - Catalog-wide license statement: https://incompetech.com/agent-section/
 - Metadata retrieved 2026-09-26 and saved with the downloaded file in
   `build/trailer/assets/music-source.json`.
-- Changes: excerpt selection, timing edits, fades, gain automation and mixing
+- Changes: excerpt selection, timing edits, fades, fixed gain and mixing
   with game effects. The original music is not claimed as an original composition.
 
 The video includes a compact music credit. Include this credit with publication:
@@ -41,8 +41,8 @@ The video includes a compact music credit. Include this credit with publication:
   Arial Bold as rasterized text; the font binary is not redistributed.
 - No remote game footage or generated depictions of unimplemented gameplay.
 
-Current raw and rendered media live in the Git-ignored `build/trailer_v4` directory.
+Current raw and rendered media live in the Git-ignored `build/trailer_v5` directory.
 The rejected first version and original music-source record remain in `build/trailer`.
 
-- V4 warning siren: original additive synthesis in `edit.py::make_siren`, 48 kHz stereo. Added only as trailer sound design at 42–52.2 seconds.
 - Contact alert is retained in the opening and disconnected in all later capture takes; combat sounds remain.
+- V5: no synthesized siren or other new sound. Music gain stays constant throughout the battle, with opening/ending fades only.
