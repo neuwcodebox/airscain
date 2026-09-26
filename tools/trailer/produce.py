@@ -1,7 +1,7 @@
 """Capture real Godot takes in an isolated project, then retain a compact master.
 
 Usage: python tools/trailer/produce.py capture intro --lang ko --seconds 12
-All media is under build/trailer_v6, never in the game's distributable resources.
+All media is under build/trailer_v7, never in the game's distributable resources.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'build' / 'trailer_v6'
+OUT = ROOT / 'build' / 'trailer_v7'
 FFMPEG = shutil.which('ffmpeg') or r'D:\Utils\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe'
 GODOT = shutil.which('godot')
 
@@ -65,7 +65,7 @@ def capture(shot: str, language: str, seconds: float) -> None:
     if result.returncode or errors or f'TRAILER_DONE shot={shot}' not in transcript:
         raise RuntimeError(f'{name}: capture failed: {errors}; see {log}')
     report = json.loads((OUT / 'review' / f'{name}.json').read_text(encoding='utf-8'))
-    start = report['first_movie_frame'] / 60.0
+    start = (report['first_movie_frame'] + 1) / 60.0
     target = OUT / 'takes' / f'{name}.mkv'
     command = [FFMPEG, '-y', '-v', 'error', '-ss', str(start), '-i', str(raw),
                '-t', str(seconds), '-c:v', 'libx264', '-preset', 'fast', '-crf', '15',
