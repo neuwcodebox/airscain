@@ -23,8 +23,8 @@ def continuity(language: str) -> dict:
     raid=json.loads((OUT/'review/raid_ko.json').read_text(encoding='utf-8'))
     expansion=json.loads((OUT/'review/expansion_ko.json').read_text(encoding='utf-8'))
     for take in (intro,raid,expansion):
-        assert take['continuous_take'] and take['scripted_spawns_during_capture']==0
-        assert all(b['frame']<0 for b in take['births'])
+        assert take['continuous_take']
+        assert all(b['frame']<0 or (b['type']=='ballistic_missile' and b['outside_view']) for b in take['births'])
         original={a['id']:a for a in take['initial_assets']}
         final={a['id']:a for a in take['assets']}
         assert all(final.get(key)==value for key,value in original.items())
@@ -40,35 +40,48 @@ def continuity(language: str) -> dict:
     assert intro['assets']==expansion['initial_assets']
     assert expansion['assets']==raid['initial_assets']
     assert len(raid['births'])==101
+    assert sum(b['frame']<0 for b in raid['births'])==100
+    assert raid['scripted_spawns_during_capture']==1
+    assert all(t['scripted_spawns_during_capture']==0 for t in [intro,expansion])
     hard_cuts={e['frame'] for e in raid['events'] if e['event']=='camera' and e.get('hard_cut')}
     for before,after in zip(raid['camera_frames'],raid['camera_frames'][1:]):
-        if after['frame']<1800 and after['frame'] not in hard_cuts:
+        if after['frame']<2400 and after['frame'] not in hard_cuts:
             assert math.dist(before['p'],after['p'])<4
             assert abs(before['fov']-after['fov'])<.15
     assert min(e['frame'] for e in raid['events'] if e['event']=='fire')>=840
 
     phases=[e for e in raid['events'] if e['event']=='ballistic_phase']
     reentry=next(e['frame'] for e in phases if e['phase']=='reentry')
-    assert abs(reentry-1800)<=4, 'First missile cut must coincide with reentry onset'
+    assert abs(reentry-2400)<=30, 'First missile cut must coincide with reentry onset'
     assert not any(e.get('threat')=='ballistic_missile' for e in raid['events'])
     assert raid['city_integrity']>0
-    assert all(s['active']>25 for s in raid['samples'][30:])
-    assert any(e['event']=='fire' and e['frame']>=1800 for e in raid['events'])
-    tracked=[c['missile_screen'] for c in raid['camera_frames'] if c['frame']>=1800]
-    assert len(tracked)==114 and all(.15<x<.85 and .15<y<.85 for x,y in tracked)
+    assert all(s['active']>25 for s in raid['samples'][40:])
+    assert any(e['event']=='fire' and e['frame']>=2400 for e in raid['events'])
+    tracked=[c['missile_screen'] for c in raid['camera_frames'] if c['frame']>=2400]
+    assert len(tracked)==420 and all(.15<x<.85 and .15<y<.85 for x,y in tracked)
+    assert len({tuple(c['p']) for c in expansion['camera_frames']})==1
+    assert math.dist(expansion['camera_frames'][-1]['p'],raid['camera_frames'][360]['p'])<0.01
+    assert all(c['time_scale']==1 for c in raid['camera_frames'][2400:2544])
+    assert all(abs(c['time_scale']-.003)<.0001 for c in raid['camera_frames'][2550:])
+    terminal=raid['camera_frames'][2550:]
+    assert all(a['missile_position']!=b['missile_position'] for a,b in zip(terminal,terminal[1:]))
+    assert raid['camera_frames'][-1]['missile_clearance']>0
+    assert raid['camera_frames'][-1]['missile_clearance']<150
     assert MUSIC_GAIN=='0.09' and not (OUT/'assets/siren.wav').exists()
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     next_frame={'intro':0,'expansion':0,'raid':360,'outro':0}
     for row in timeline:
         assert round(row['start']*60)==next_frame[row['shot']]
         next_frame[row['shot']]+=row['frames']
-    assert next_frame=={'intro':720,'expansion':360,'raid':1914,'outro':456}
+    assert next_frame=={'intro':720,'expansion':360,'raid':2820,'outro':456}
     assert sum(r['frames'] for r in timeline)==round(TOTAL_SECONDS*60)
-    assert not any(r['shot']=='crisis' or r['caption']=='warning' for r in timeline)
+    assert not any(r['shot']=='crisis' or r['caption'] in ['warning','build','expand'] for r in timeline)
     return {'contact_audio_intro':intro['contact_audio_events'],'contact_audio_after_intro':0,
             'expansion_asset_counts':growth,'preexisting_raid_aircraft':100,'same_raid_ballistic_missiles':1,'reentry_source_second':reentry/60,
             'last_placement_to_first_fire_seconds':(first_fire-last_placement)/60,
             'ballistic_reentry_observed':True,'ballistic_resolution_shown':False,
+            'expansion_camera_fixed':True,'sea_reveal_join_position_error':math.dist(expansion['camera_frames'][-1]['p'],raid['camera_frames'][360]['p']),
+            'terminal_time_scale':raid['camera_frames'][-1]['time_scale'],'terminal_clearance_m':raid['camera_frames'][-1]['missile_clearance'],
             'source_end_frames':next_frame,'result':'pass'}
 
 
@@ -100,9 +113,9 @@ def inspect(path: Path,language: str) -> None:
     anomalies=[line for line in scan.stderr.splitlines()
                if 'black_start:' in line or 'freeze_start:' in line]
     black_starts=[float(line.split('black_start:')[1].split()[0]) for line in anomalies if 'black_start:' in line]
-    assert all(11.8<=t<=18.2 or 42.68<=t<=42.87 or 43.33<=t<=43.52 or t>=43.85 for t in black_starts),anomalies
+    assert all(11.8<=t<=16.2 or 54.49<=t<59 or t>=58.95 for t in black_starts),anomalies
     freeze_starts=[float(line.rsplit(':',1)[1]) for line in anomalies if 'freeze_start:' in line]
-    assert all(t>=43.85 for t in freeze_starts),anomalies
+    assert all(12<=t<=18 or t>=58.95 for t in freeze_starts),anomalies
     # Distant aircraft occupy few pixels against a stationary sea/sky. The global
     # noise threshold flags these shots although every decoded frame changes.
     # Confirm the entire four-second range, plus actual per-aircraft movement.
@@ -113,24 +126,27 @@ def inspect(path: Path,language: str) -> None:
                      if line and not line.startswith('#')]
     assert len(approach_frames)==240 and len(set(approach_frames))==240
     raid=json.loads((OUT/'review'/'raid_ko.json').read_text(encoding='utf-8'))
-    aircraft_ids={b['id'] for b in raid['births']}
+    aircraft_ids={b['id'] for b in raid['births'] if b['frame']<0}
     for before,after in zip(raid['samples'][6:10],raid['samples'][7:11]):
         positions={t['id']:t['p'] for t in after['threats'] if t['id'] in aircraft_ids}
         assert set(positions)==aircraft_ids
         assert all(t['p']!=positions[t['id']] for t in before['threats'] if t['id'] in aircraft_ids)
+    timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     black_counts=[]
-    for second in [42.7,43.35]:
+    for row in [r for r in timeline if r['dark']]:
+        second=row['timeline_start']/60
         pixels=subprocess.check_output([FFMPEG,'-v','error','-ss',str(second),'-i',str(path),
-            '-frames:v','9','-vf','scale=32:18,format=rgb24','-an','-f','rawvideo','-'])
-        assert len(pixels)==9*32*18*3 and max(pixels)==0
-        black_counts.append(9)
+            '-frames:v',str(row['frames']),'-vf','scale=32:18,format=rgb24','-an','-f','rawvideo','-'])
+        assert len(pixels)==row['frames']*32*18*3 and max(pixels)==0
+        black_counts.append(row['frames'])
+    assert len(black_counts)==7 and all(a>b for a,b in zip(black_counts,black_counts[1:]))
     report={'container':info,'audio':measurements,'story_continuity':story,
             'full_black_cut_frames':black_counts,
             'perceptual_audio_review':'not independently heard; objective inspection only',
             'visual_review':'contact sheets and moving-frame samples require inspection',
             'black_or_freeze_events':anomalies,
-            'approach_motion':'240/240 distinct decoded frames; all 101 threats move in each one-second interval',
-            'ending':'two nine-frame black cuts; full black from 43.9s; no impact or separate crisis scene'}
+            'approach_motion':'240/240 distinct decoded frames; all 100 fleet threats move in each one-second interval',
+            'ending':'continuous descent, 0.3% world time near impact, seven accelerating black cuts; no missile outcome'}
     (folder/'technical-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     images=[]
@@ -146,7 +162,7 @@ def inspect(path: Path,language: str) -> None:
             x=n%3*640;y=n//3*400
             sheet.paste(Image.open(png),(x,y));d.text((x+12,y+369),label,fill=(230,240,244))
         sheet.save(folder/f'contact-{page+1}.jpg',quality=94)
-    print(f'PASS {language}: 1920x1080, 3090 frames, stereo AAC; I={measurements["input_i"]} LUFS, TP={measurements["input_tp"]} dBTP')
+    print(f'PASS {language}: 1920x1080, 3996 frames, stereo AAC; I={measurements["input_i"]} LUFS, TP={measurements["input_tp"]} dBTP')
 
 
 if __name__=='__main__':

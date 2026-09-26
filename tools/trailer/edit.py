@@ -17,8 +17,8 @@ FONT = ROOT / 'ui/fonts/NanumSquareB.ttf'
 LATIN = Path('C:/Windows/Fonts/arialbd.ttf')
 
 
-TOTAL_SECONDS = 51.5
-ACTION_END = 43.9
+TOTAL_SECONDS = 66.6
+ACTION_END = 59.0
 MUSIC_GAIN = "0.09"
 
 
@@ -29,33 +29,21 @@ def run(args: list[str]) -> None:
 def art(language: str) -> dict[str, Path]:
     folder = OUT / 'graphics'
     folder.mkdir(exist_ok=True)
-    words = {
-        'build': '방공망을 설계하라.' if language == 'ko' else 'BUILD YOUR AIR DEFENSE.',
-        'expand': '방어선을 확장하라.' if language == 'ko' else 'EXPAND YOUR DEFENSE.',
-        'call': '이 도시에는 당신이 필요합니다.' if language == 'ko' else 'THIS CITY NEEDS YOU.',
-    }
+    words = {'call': '당신의 지휘를 기다립니다.' if language == 'ko' else 'AWAITING YOUR COMMAND.'}
     files = {}
     for key, title in words.items():
         image = Image.new('RGBA', (1920,1080))
         draw = ImageDraw.Draw(image)
-        if key != 'call':
-            for y in range(700,1080):
-                opacity = round(175*((y-700)/380)**1.2)
-                draw.line((0,y,1920,y),fill=(3,12,18,opacity))
-            left=500 if key=='build' else 96
-            draw.rectangle((left+4,855,left+72,860),fill=(255,183,66,255))
-            draw.text((left,885),title,font=ImageFont.truetype(str(FONT if language=='ko' else LATIN),58),fill=(245,248,249),stroke_width=1)
-        else:
-            font = ImageFont.truetype(str(FONT if language=='ko' else LATIN),62)
-            width=draw.textbbox((0,0),title,font=font)[2]
-            draw.text(((1920-width)/2,491),title,font=font,fill=(245,248,249))
+        font = ImageFont.truetype(str(FONT if language=='ko' else LATIN),62)
+        width=draw.textbbox((0,0),title,font=font)[2]
+        draw.text(((1920-width)/2,491),title,font=font,fill=(245,248,249))
         target=folder/f'{key}_{language}.png'
         image.save(target);files[key]=target
     image=Image.new('RGBA',(1920,1080));draw=ImageDraw.Draw(image)
     def centered(text: str,y: int,font: ImageFont.FreeTypeFont,color: tuple):
         width=draw.textbbox((0,0),text,font=font)[2]
         draw.text(((1920-width)/2,y),text,font=font,fill=color)
-    centered('AIR DEFENSE  /  REAL-TIME STRATEGY',358,ImageFont.truetype(str(LATIN),25),(157,188,199))
+    centered('실시간 방공 전략' if language=='ko' else 'AIR DEFENSE / REAL-TIME STRATEGY',358,ImageFont.truetype(str(FONT if language=='ko' else LATIN),25),(157,188,199))
     centered('AIRSCAIN',412,ImageFont.truetype(str(LATIN),142),(244,247,248))
     draw.rectangle((909,597,1011,600),fill=(255,181,70))
     centered('지금 플레이하세요' if language=='ko' else 'PLAY NOW',640,
@@ -71,13 +59,17 @@ def timeline(language: str) -> list[dict]:
     def row(shot,start,end,caption=None,dark=0,dip=False):
         return dict(shot=shot,lang=language if shot=='intro' else 'ko',
                     start=start,frames=round((end-start)*60),caption=caption,dark=dark,dip=dip)
-    rows=[row('intro',0,1),row('intro',1,6,'build'),row('intro',6,10),row('intro',10,12)]
-    rows += [row('expansion',t,t+2,'expand') for t in [0,2,4]]
-    cuts=[6,10,14,18,22,26,30]
+    rows=[row('intro',0,6),row('intro',6,10),row('intro',10,12)]
+    rows += [row('expansion',t,t+2) for t in [0,2,4]]
+    cuts=[6,14,20.5,27,33.5,40,42.5]
     rows += [row('raid',a,b) for a,b in zip(cuts,cuts[1:])]
-    # The same raid continues underneath full black shutter cuts; no new scene/reset.
-    cuts=[30,30.7,30.85,31.35,31.5,31.9]
-    rows += [row('raid',a,b,dark=1 if a in [30.7,31.35] else 0) for a,b in zip(cuts,cuts[1:])]
+    # First show continuous descent. Only near impact, shorten lit intervals
+    # between full black shutter cuts while the captured world slows to 0.3%.
+    cursor=2550
+    for visible,black in [(66,9),(48,8),(36,7),(27,6),(21,5),(15,4),(12,3)]:
+        rows.append(row('raid',cursor/60,(cursor+visible)/60));cursor+=visible
+        rows.append(row('raid',cursor/60,(cursor+black)/60,dark=1));cursor+=black
+    rows.append(row('raid',cursor/60,47))
     rows += [row('outro',0,.6),row('outro',.6,2.6,'call'),row('outro',2.6,7.6,'end')]
     assert sum(r['frames'] for r in rows)==round(TOTAL_SECONDS*60)
     clock=0
@@ -117,8 +109,9 @@ def render(language: str, no_text: bool=False) -> Path:
         filters=['fps=60','setsar=1','scale=in_range=auto:out_range=tv','format=yuv420p','setparams=range=limited']
         if r['dark']:filters.append(f'drawbox=c=black@{r["dark"]}:t=fill')
         if r['shot']=='intro' and r['start']==10: filters.append(f'fade=t=out:st={duration-.14}:d=0.14')
-        if r['shot']=='raid' and r['start']==6: filters.append('fade=t=in:d=0.14')
-        if r['shot']=='expansion': filters += ['fade=t=in:d=0.14', f'fade=t=out:st={duration-.14}:d=0.14']
+        if r['shot']=='expansion':
+            filters.append('fade=t=in:d=0.14')
+            if r['start']<4: filters.append(f'fade=t=out:st={duration-.14}:d=0.14')
         if r['dip']:filters.append(f'fade=t=out:st={duration-2/60}:d={2/60}')
         video=','.join(filters)
         graph=[f'[0:v]{video}[v]'];base='v';input_index=1

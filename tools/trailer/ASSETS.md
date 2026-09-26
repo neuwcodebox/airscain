@@ -3,7 +3,8 @@
 The footage is captured from Airscain's actual Godot runtime. The production
 fixtures stage finite-budget deployments and pre-positioned raids, using unchanged
 placement, sensor, weapon, damage and support rules. They are not recordings of
-an uninterrupted player session. The edit joins the opening, three deployment stages, one continuous raid including the ballistic approach.
+an uninterrupted player session. The edit joins the opening, three deployment stages, one continuous raid including an offscreen ballistic launch and its approach.
+The final seconds use cinematic slow motion of the whole game runtime.
 It ends before the ballistic outcome. These are staged operations, not one player session.
 
 ## Music
