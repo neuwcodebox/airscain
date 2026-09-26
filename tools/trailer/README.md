@@ -3,7 +3,7 @@
 Real Godot gameplay capture, frame-based FFmpeg editing and bilingual graphics.
 Game balance and normal runtime behavior are unchanged. The capture fixture
 stages paid deployments and two continuous takes; it is not a continuous playthrough.
-The 16-second introduction preserves all placed assets. The 44-second raid
+The 12-second introduction preserves all placed assets. The 48-second raid
 pre-spawns its entire attacking force and changes only cameras while time advances.
 
 ## Requirements
@@ -14,7 +14,7 @@ pre-spawns its entire attacking force and changes only cameras while time advanc
 - Existing repository NanumSquareB and installed Windows Arial Bold.
 - Validated with Python 3.10, Pillow 9.3.0 and FFmpeg
   `N-116271-g9af348bd1a-20240713` on an RTX 3060 (OpenGL Compatibility).
-- Music file `build/trailer_v2/assets/volatile-reaction.mp3`, from the official
+- Music file `build/trailer_v3/assets/volatile-reaction.mp3`, from the official
   source linked in [ASSETS.md](ASSETS.md). Preserve publication attribution.
 
 ## Reproduce
@@ -24,9 +24,9 @@ Run in the repository root. All commands are offline once music is available.
 ```powershell
 godot --headless --audio-driver Dummy --editor --path . --quit
 godot --headless --audio-driver Dummy --path . --script res://tools/trailer/capture.gd --check-only
-python tools/trailer/produce.py capture intro --lang ko --seconds 16
-python tools/trailer/produce.py capture intro --lang en --seconds 16
-python tools/trailer/produce.py capture raid --lang ko --seconds 44
+python tools/trailer/produce.py capture intro --lang ko --seconds 12
+python tools/trailer/produce.py capture intro --lang en --seconds 12
+python tools/trailer/produce.py capture raid --lang ko --seconds 48
 python tools/trailer/edit.py --lang ko
 python tools/trailer/edit.py --lang en
 python tools/trailer/edit.py --lang ko --clean
@@ -47,13 +47,15 @@ including normal enemy munition releases, damage, reloads and surviving aircraft
 
 Editing caches segments using their source timestamp, editorial settings and
 artwork. Changed takes or edit code invalidate the appropriate cache. Typography,
-darkened end cards and four two-frame dark dips are the only compositing effects.
+darkened end cards, a 0.35-second matched dissolve and three two-frame dark dips
+are the only compositing effects. The dissolve uses the outgoing last frame over
+the advancing later operation; it does not rewind or replay the battle.
 Projectiles, targets, explosions, markers and UI come from the game.
 
 ## Delivery and checks
 
-Outputs are under `build/trailer_v2/`; the rejected first version remains in
-`build/trailer/` for reference:
+Outputs are under `build/trailer_v3/`; earlier versions remain in
+`build/trailer/` and `build/trailer_v2/` for reference:
 
 - `Airscain_Launch_Trailer_KO.mp4`: Korean master, 60 seconds.
 - `Airscain_Launch_Trailer_EN.mp4`: English master with English game UI.
@@ -67,7 +69,8 @@ Outputs are under `build/trailer_v2/`; the rejected first version remains in
 
 Delivery target is H.264/AAC, 1920×1080, 60 fps, stereo 48 kHz, 3,600 frames.
 Verification also checks pre-capture aircraft births, persistent asset IDs and
-positions, radar placement before the first kill, ten raid seconds before first
+positions, three placements before the first kill, a wait below three seconds,
+per-frame camera continuity outside declared cuts, fourteen raid seconds before first
 fire, unresolved pressure at the closing, and monotonically contiguous edit ranges.
 Mix targets −16 LUFS integrated and −1.5 dBTP before AAC encoding. Decode checks
 and objective audio measurements do not establish perceptual audio quality.

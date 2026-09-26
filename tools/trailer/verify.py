@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
@@ -25,15 +26,20 @@ def continuity(language: str) -> dict:
         original={a['id']:a for a in take['initial_assets']}
         final={a['id']:a for a in take['assets']}
         assert all(final.get(key)==value for key,value in original.items())
-    assert not any(a['type']=='search_radar' for a in intro['initial_assets'])
-    assert sum(a['type']=='search_radar' for a in intro['assets'])==1
+    constructed={'search_radar','missile_battery','close_in_gun'}
+    assert not any(a['type'] in constructed for a in intro['initial_assets'])
+    assert all(sum(a['type']==kind for a in intro['assets'])==1 for kind in constructed)
     placement=next(e['frame'] for e in intro['events'] if e['event']=='radar_placed')
     first_intro_fire=min(e['frame'] for e in intro['events'] if e['event']=='fire')
     first_intro_kill=min(e['frame'] for e in intro['events'] if e['event']=='kill')
-    assert placement<first_intro_fire<first_intro_kill<960
+    installs=[e for e in intro['events'] if e['event'] in ['radar_placed','asset_placed']]
+    assert {e['asset'] for e in installs}==constructed
+    last_placement=max(e['frame'] for e in installs)
+    assert placement<last_placement<first_intro_fire<first_intro_kill<600
+    assert first_intro_fire-last_placement<180, 'No long idle after construction'
     first_raid_fire=min(e['frame'] for e in raid['events'] if e['event']=='fire')
-    assert first_raid_fire>=600, 'Approach must precede all weapon fire by ten seconds'
-    assert len(raid['births'])>=80 and raid['samples'][37]['active']>0
+    assert first_raid_fire>=840, 'Six-second bridge and eight-second approach precede fire'
+    assert len(raid['births'])>=80 and raid['samples'][41]['active']>0
     assert raid['kills']>0 and 0<raid['city_integrity']<100
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     next_frame={'intro':0,'raid':0}
@@ -41,11 +47,26 @@ def continuity(language: str) -> dict:
         start=round(row['start']*60)
         assert start==next_frame[row['shot']], 'Skipped/repeated/reversed source time'
         next_frame[row['shot']]+=row['frames']
-    assert next_frame=={'intro':960,'raid':2640}
+    assert next_frame=={'intro':720,'raid':2880}
+    largest_step=0.0
+    for take in (intro,raid):
+        cameras=take['camera_frames']
+        assert len(cameras)==take['frames']
+        hard_cuts={e['frame'] for e in take['events'] if e['event']=='camera' and e.get('hard_cut')}
+        for before,after in zip(cameras,cameras[1:]):
+            if after['frame'] in hard_cuts: continue
+            step=math.dist(before['p'],after['p'])
+            largest_step=max(largest_step,step)
+            assert step<4 and abs(after['fov']-before['fov'])<0.15
+    assert math.dist(intro['camera_frames'][-1]['p'],raid['camera_frames'][0]['p'])<0.1
+    assert math.dist(raid['camera_frames'][360]['p'],raid['camera_frames'][839]['p'])>400
+    assert raid['camera_frames'][360]['fov']-raid['camera_frames'][839]['fov']>16
     return {'preexisting_aircraft':len(raid['births']),
-            'first_raid_fire_at_video_second':16+first_raid_fire/60,
+            'first_raid_fire_at_video_second':12+first_raid_fire/60,
             'intro_radar_placement_second':placement/60,
             'intro_first_kill_second':first_intro_kill/60,
+            'last_placement_to_first_fire_seconds':(first_intro_fire-last_placement)/60,
+            'max_camera_step_between_cuts_meters':largest_step,
             'raid_city_integrity_at_end':raid['city_integrity'],
             'continuous_source_frames':next_frame,'result':'pass'}
 
@@ -77,7 +98,7 @@ def inspect(path: Path,language: str) -> None:
                if 'black_start:' in line or 'freeze_start:' in line]
     assert not any('black_start:' in line for line in anomalies),anomalies
     freeze_starts=[float(line.rsplit(':',1)[1]) for line in anomalies if 'freeze_start:' in line]
-    assert all(18<=t<22 or t>=53 for t in freeze_starts),anomalies
+    assert all(t>=53 for t in freeze_starts),anomalies
     # Distant aircraft occupy few pixels against a stationary sea/sky. The global
     # noise threshold flags these shots although every decoded frame changes.
     # Confirm the entire four-second range, plus actual per-aircraft movement.
@@ -89,7 +110,7 @@ def inspect(path: Path,language: str) -> None:
     assert len(approach_frames)==240 and len(set(approach_frames))==240
     raid=json.loads((OUT/'review'/'raid_ko.json').read_text(encoding='utf-8'))
     aircraft_ids={b['id'] for b in raid['births']}
-    for before,after in zip(raid['samples'][2:6],raid['samples'][3:7]):
+    for before,after in zip(raid['samples'][6:10],raid['samples'][7:11]):
         positions={t['id']:t['p'] for t in after['threats'] if t['id'] in aircraft_ids}
         assert set(positions)==aircraft_ids
         assert all(t['p']!=positions[t['id']] for t in before['threats'] if t['id'] in aircraft_ids)

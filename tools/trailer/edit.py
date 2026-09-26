@@ -1,7 +1,7 @@
 """Frame-based editorial conform, caption artwork and loudness-controlled mix.
 
 No rendered frame fabricates game UI, projectiles, impacts or weapon effects.
-Only typography, selective darkening and two-frame editorial dips are added.
+Only typography, selective darkening, a matched dissolve and editorial dips are added.
 """
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ def art(language: str) -> dict[str, Path]:
     folder.mkdir(exist_ok=True)
     words = {
         'build': '방공망을 설계하라.' if language == 'ko' else 'BUILD YOUR AIR DEFENSE.',
+        'expand': '방어선을 확장하라.' if language == 'ko' else 'EXPAND YOUR DEFENSE.',
         'call': '이 도시에는 당신이 필요합니다.' if language == 'ko' else 'THIS CITY NEEDS YOU.',
     }
     files = {}
@@ -65,14 +66,14 @@ def timeline(language: str) -> list[dict]:
     def row(shot,start,end,caption=None,dark=0,dip=False):
         return dict(shot=shot,lang=language if shot=='intro' else 'ko',
                     start=start,frames=round((end-start)*60),caption=caption,dark=dark,dip=dip)
-    rows=[row('intro',0,3),row('intro',3,7,'build'),
-          row('intro',7,12),row('intro',12,16,dip=True)]
-    cuts=[0,2,6,10,13,16,19,22,25,28,29.5,30.75,31.75,32.5,33.25,34,37,39,44]
+    rows=[row('intro',0,1),row('intro',1,6,'build'),
+          row('intro',6,10),row('intro',10,12)]
+    cuts=[0,4,6,10,14,18,22,26,29,32,33.5,34.75,35.75,36.5,37.25,38,41,43,48]
     for start,end in zip(cuts,cuts[1:]):
-        caption='call' if start==37 else 'end' if start==39 else None
+        caption='expand' if start==0 else 'call' if start==41 else 'end' if start==43 else None
         rows.append(row('raid',start,end,caption,
                         dark=.70 if caption=='call' else .76 if caption=='end' else 0,
-                        dip=start in [28,30.75,32.5]))
+                        dip=start in [32,34.75,36.5]))
     assert sum(r['frames'] for r in rows)==3600
     clock=0
     for r in rows:
@@ -86,6 +87,9 @@ def render(language: str, no_text: bool=False) -> Path:
     work=OUT/'edit'/label;work.mkdir(parents=True,exist_ok=True)
     rows=timeline(language)
     (work/'timeline.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')
+    bridge=work/'bridge-from.png'
+    run(['-ss',str(12-1/60),'-i',str(OUT/'takes'/f'intro_{language}.mkv'),
+         '-frames:v','1',str(bridge)])
     segments=[]
     for i,r in enumerate(rows):
         target=work/f'{i:02d}.mkv';segments.append(target)
@@ -98,6 +102,7 @@ def render(language: str, no_text: bool=False) -> Path:
             raise ValueError(f'Source take too short for edit: {source.name}')
         signature=hashlib.sha256(json.dumps(r,sort_keys=True).encode()+
             str(source.stat().st_mtime_ns).encode()+Path(__file__).read_bytes()+
+            (bridge.read_bytes() if r['shot']=='raid' and r['start']==0 else b'')+
             (graphics[r['caption']].read_bytes() if r['caption'] and not no_text else b'')).hexdigest()
         stamp=target.with_suffix('.sha256')
         if target.exists() and stamp.exists() and stamp.read_text()==signature: continue
@@ -107,11 +112,20 @@ def render(language: str, no_text: bool=False) -> Path:
         if r['dark']:filters.append(f'drawbox=c=0x020b12@{r["dark"]}:t=fill')
         if r['dip']:filters.append(f'fade=t=out:st={duration-2/60}:d={2/60}')
         video=','.join(filters)
+        graph=[f'[0:v]{video}[v]'];base='v';input_index=1
+        if r['shot']=='raid' and r['start']==0:
+            # The outgoing last frame fades over the advancing later operation.
+            # Matching the camera pose makes this a readable passage of time.
+            args+=['-loop','1','-i',str(bridge)]
+            graph += [f'[{input_index}:v]format=rgba,fade=t=out:d=0.35:alpha=1[previous]',
+                      '[v][previous]overlay=0:0:shortest=1[bridge]']
+            base='bridge';input_index+=1
         if r['caption'] and not no_text:
             args+=['-loop','1','-i',str(graphics[r['caption']])]
-            graph=f'[0:v]{video}[v];[v][1:v]overlay=0:0:shortest=1[out]'
-            args+=['-filter_complex',graph,'-map','[out]','-map','0:a:0']
-        else: args+=['-vf',video]
+            graph += [f'[{input_index}:v]format=rgba,fade=t=in:d=0.18:alpha=1,fade=t=out:st={duration-.18}:d=0.18:alpha=1[title]',
+                      f'[{base}][title]overlay=0:0:shortest=1[out]']
+            base='out'
+        args+=['-filter_complex',';'.join(graph),'-map',f'[{base}]','-map','0:a:0']
         args+=['-t',str(duration),'-frames:v',str(r['frames']),'-c:v','libx264','-preset','fast',
                '-crf','16','-pix_fmt','yuv420p','-af',f'afade=t=in:d=0.012,afade=t=out:st={max(0,duration-.03)}:d=0.03',
                '-ar','48000','-c:a','pcm_s24le',str(target)]
@@ -125,7 +139,7 @@ def render(language: str, no_text: bool=False) -> Path:
     run(['-f','concat','-safe','0','-i',str(listing),'-c','copy',str(assembled)])
     mix=work/'mix.wav'
     # Level automation follows the drama; output limiting does not imply listening QA.
-    expression="if(lt(t,16),0.09,if(lt(t,26),0.065,if(lt(t,38),0.16,if(lt(t,52.5),0.25,0.035))))"
+    expression="if(lt(t,12),0.09,if(lt(t,26),0.065,if(lt(t,38),0.16,if(lt(t,52.5),0.25,0.035))))"
     graph=f"[0:a]volume=0.70,afade=t=out:st=52.4:d=0.25[sfx];[1:a]atrim=0:60,asetpts=PTS-STARTPTS,volume='{expression}':eval=frame,afade=t=in:d=0.25,afade=t=out:st=58:d=2[m];[sfx][m]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.90:level=0[out]"
     run(['-i',str(assembled),'-i',str(OUT/'assets/volatile-reaction.mp3'),'-filter_complex',graph,'-map','[out]','-t','60','-ar','48000','-c:a','pcm_s24le',str(mix)])
     # Two-pass normalization for a predictable web master.
