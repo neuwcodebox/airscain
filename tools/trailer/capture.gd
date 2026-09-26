@@ -1,11 +1,11 @@
 extends SceneTree
-## Staged gameplay takes. All attacking threats exist before frame zero.
+## Staged gameplay takes. Fleet pre-positioned; ballistic launch stays offscreen.
 const MAIN := preload("res://main/main.tscn")
 var main: AirscainMain
 var shot := "intro"
 var language := "ko"
 var seconds := 12.0
-var output := "res://build/trailer_v5/review"
+var output := "res://build/trailer_v6/review"
 var probe := false
 var camera_preview := false
 var frame := -1
@@ -21,6 +21,9 @@ var camera_cut := -1
 var camera_frames: Array[Dictionary] = []
 var ballistic: AttackUav
 var warning_phase := ""
+var cinematic_speed := 1.0
+var ballistic_origin := Vector3(-10600, 0, 80)
+var ballistic_seed := 42
 
 func _init() -> void:
 	for arg: String in OS.get_cmdline_user_args():
@@ -28,6 +31,8 @@ func _init() -> void:
 		elif arg.begins_with("--lang="): language = arg.trim_prefix("--lang=")
 		elif arg.begins_with("--seconds="): seconds = float(arg.trim_prefix("--seconds="))
 		elif arg.begins_with("--out="): output = arg.trim_prefix("--out=")
+		elif arg.begins_with("--ballistic-seed="): ballistic_seed = int(arg.trim_prefix("--ballistic-seed="))
+		elif arg.begins_with("--ballistic-z="): ballistic_origin.z = float(arg.trim_prefix("--ballistic-z="))
 		elif arg == "--probe": probe = true
 		elif arg == "--camera-preview": camera_preview = true
 	call_deferred("run")
@@ -106,10 +111,17 @@ func run() -> void:
 	for index: int in int(seconds * 60.0):
 		frame = index
 		var t := float(frame) / 60.0
+		if shot == "raid":
+			if frame == 570:
+				main.director.rng.seed = ballistic_seed
+				_spawn(&"ballistic_missile", ballistic_origin)
+				events.append({"frame": frame, "event": "ballistic_launch"})
+			cinematic_speed = lerpf(1.0, 0.003, smoothstep(42.4, 42.5, t))
+			Engine.time_scale = cinematic_speed
 		if shot == "intro": _intro(t)
 		else: _direct_camera(t)
 		var camera_position := main.camera_rig.camera.global_position
-		camera_frames.append({"frame": frame, "p": [camera_position.x, camera_position.y, camera_position.z], "fov": main.camera_rig.camera.fov})
+		camera_frames.append({"frame": frame, "p": [camera_position.x, camera_position.y, camera_position.z], "fov": main.camera_rig.camera.fov, "time_scale": cinematic_speed})
 		await process_frame
 		if not probe: await RenderingServer.frame_post_draw
 		if is_instance_valid(ballistic):
@@ -117,8 +129,10 @@ func run() -> void:
 			if phase != warning_phase:
 				warning_phase = phase
 				events.append({"frame":frame,"event":"ballistic_phase","phase":phase})
-			if t >= 30.0:
+			if t >= 40.0:
 				var screen := main.camera_rig.camera.unproject_position(ballistic.global_position)
+				camera_frames.back()["missile_clearance"] = ballistic.global_position.y - main.battlefield.flight_surface_height(ballistic.global_position.x, ballistic.global_position.z)
+				camera_frames.back()["missile_position"] = [ballistic.global_position.x, ballistic.global_position.y, ballistic.global_position.z]
 				camera_frames.back()["missile_screen"] = [screen.x / main.camera_rig.camera.get_viewport().get_visible_rect().size.x, screen.y / main.camera_rig.camera.get_viewport().get_visible_rect().size.y]
 		peak_threats = maxi(peak_threats, main.registry.hostile_count())
 		if index % 60 == 0:
@@ -126,20 +140,21 @@ func run() -> void:
 			for threat: ThreatUnit in main.registry.get_active():
 				positions.append({"id": threat.runtime_id, "type": threat.definition.id, "p": [threat.position.x, threat.position.y, threat.position.z]})
 			samples.append({"frame": frame, "city": main.objective.current_integrity, "kills": main.session.neutralized_count, "active": main.registry.hostile_count(), "camera": camera_cut, "threats": positions})
-		if not probe and (index % 120 == 60 or index in [1800, 1851, 1890, 1910]):
+		if not probe and (index % 120 == 60 or index in [2400, 2520, 2580, 2700, 2810]):
 			root.get_texture().get_image().save_png("%s/%s_%s_%04d.png" % [output, shot, language, index])
 	var report := {"shot": shot, "language": language, "first_movie_frame": first_movie_frame,
 		"frames": frame + 1, "peak_threats": peak_threats, "kills": main.session.neutralized_count,
 		"city_integrity": main.objective.current_integrity, "events": events, "births": births,
 		"initial_assets": initial_assets, "assets": _asset_state(), "samples": samples,
-		"camera_frames": camera_frames, "continuous_take": true, "scripted_spawns_during_capture": 0,
+		"camera_frames": camera_frames, "continuous_take": true, "scripted_spawns_during_capture": 1 if shot == "raid" else 0,
 		"contact_audio_events": main.combat_audio.played_count(CombatAudio.CONTACT),
-		"fixture": "finite-budget deployment; unchanged combat; all aircraft pre-spawned"}
+		"fixture": "finite-budget deployment; unchanged combat; fleet pre-spawned; ballistic launch outside camera"}
 	var suffix := "_probe" if probe else ""
 	var file := FileAccess.open("%s/%s_%s%s.json" % [output, shot, language, suffix], FileAccess.WRITE)
 	file.store_string(JSON.stringify(report, "\t"))
 	file.close()
 	print("TRAILER_DONE shot=%s threats=%d kills=%d integrity=%d" % [shot, peak_threats, main.session.neutralized_count, main.objective.current_integrity])
+	Engine.time_scale = 1.0
 	units.clear()
 	main.queue_free()
 	await process_frame
@@ -179,9 +194,9 @@ func _direct_camera(t: float) -> void:
 			_sector(frame / 120)
 			_hud(false)
 			events.append({"frame": frame, "event": "expansion", "count": main.defenses.size()})
-		_travel(t / 6.0, Vector3(270, 220, -520), Vector3(370, 95, -150), Vector3(500, 55, 0), Vector3(620, 85, 30), 60, 60)
+		_pose(Vector3(270, 220, -520), Vector3(500, 55, 0), 60)
 	else:
-		if t >= 30.0: _ballistic_camera(t)
+		if t >= 40.0: _ballistic_camera(t)
 		else: _raid_camera(t)
 
 func _ballistic_camera(t: float) -> void:
@@ -190,10 +205,10 @@ func _ballistic_camera(t: float) -> void:
 		return
 	var p := ballistic.global_position
 	var forward := Vector3(ballistic.target_point.x-p.x,0,ballistic.target_point.z-p.z).normalized()
-	var distance := 55.0 if t < 30.85 else 42.0 if t < 31.5 else 32.0
+	var distance := lerpf(55.0, 25.0, smoothstep(40.0, 47.0, t))
 	# Rear elevated chase: the missile stays foreground, its city and the same battle below.
 	_pose(p - forward * distance + forward.cross(Vector3.UP) * (distance * 0.6) + Vector3.UP * (distance * 1.25), p + forward * 25.0 + Vector3.DOWN * 85.0, 65)
-	if frame in [1800, 1851, 1890]:
+	if frame == 2400:
 		events.append({"frame":frame,"event":"camera","hard_cut":true,"cut":"ballistic"})
 
 func _preflight_attack() -> void:
@@ -201,17 +216,16 @@ func _preflight_attack() -> void:
 	if shot == "intro":
 		for k: int in 3: _spawn(&"attack_uav", Vector3(870 + k * 40, 0, -80 + k * 35))
 		return
-	# Depth-separated waves naturally arrive at different times. No new aircraft are
-	# instantiated during the visible raid, including cuts and the final title.
+	# Depth-separated fleet waves naturally arrive at different times.
+	# The ballistic launch is scheduled separately, outside the camera frustum.
 	for row: int in 6:
 		for column: int in 14:
 			var id: StringName = &"attack_uav" if column % 4 == 0 else &"swarm_uav"
 			_spawn(id, Vector3(1518 + row * 220 + (column % 3) * 24, 0, -390 + column * 60))
 	for k: int in 8:
-		_spawn(&"strike_aircraft", Vector3(2818 + (k / 4) * 360, 0, -330 + (k % 4) * 220))
+		_spawn(&"strike_aircraft", Vector3(4018 + (k / 4) * 600, 0, -330 + (k % 4) * 220))
 	for k: int in 8:
-		_spawn(&"cruise_missile", Vector3(2088 + k * 110, 0, -320 + (k % 4) * 205))
-	_spawn(&"ballistic_missile", Vector3(10820, 0, 80))
+		_spawn(&"cruise_missile", Vector3(2488 + k * 160, 0, -320 + (k % 4) * 205))
 
 func _placed(unit: DefenseUnit) -> void:
 	if not units.has(unit.definition.id): units[unit.definition.id] = []
@@ -281,7 +295,7 @@ func _travel(progress: float, start: Vector3, end: Vector3, aim_start: Vector3, 
 	_pose(start.lerp(end, u), aim_start.lerp(aim_end, u), lerpf(lens_start, lens_end, u))
 
 func _raid_camera(t: float) -> void:
-	var cuts: Array[float] = [0, 6, 14, 18, 22, 26, 30]
+	var cuts: Array[float] = [0, 6, 14, 20.5, 27, 33.5, 40]
 	var selected := 0
 	for k: int in cuts.size() - 1:
 		if t >= cuts[k]: selected = k
@@ -289,8 +303,8 @@ func _raid_camera(t: float) -> void:
 	var changed := selected != camera_cut
 	camera_cut = selected
 	match selected:
-		0: _travel(u, Vector3(270, 220, -520), Vector3(370, 95, -150), Vector3(500, 55, 0), Vector3(620, 85, 30), 60, 60)
-		1: _travel(u, Vector3(370, 95, -150), Vector3(880, 130, -260), Vector3(620, 85, 30), Vector3(1540, 115, 0), 60, 43)
+		0: _pose(Vector3(270, 220, -520), Vector3(500, 55, 0), 60)
+		1: _travel(u, Vector3(270, 220, -520), Vector3(880, 130, -260), Vector3(500, 55, 0), Vector3(1540, 115, 0), 60, 43)
 		2: _travel(u, Vector3(310, 105, -210), Vector3(340, 95, -180), Vector3(650, 85, 70), Vector3(680, 85, 70), 65, 60)
 		3: _travel(u, Vector3(430, 90, -380), Vector3(465, 80, -350), Vector3(790, 90, 30), Vector3(790, 90, 50), 65, 60)
 		4: _travel(u, Vector3(370, 52, -115), Vector3(385, 45, -95), Vector3(680, 95, 30), Vector3(680, 95, 50), 62, 60)
@@ -329,16 +343,17 @@ func _first(id: StringName) -> DefenseUnit:
 
 
 func _spawn(id: StringName, position: Vector3) -> void:
-	if recording:
+	if recording and id != &"ballistic_missile":
 		push_error("TRAILER: aircraft spawn attempted during capture")
 		return
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
 		if entry.threat_definition.id != id: continue
 		var threat := main.director.spawn_entry_at(entry, position)
 		if threat != null:
-			if id == &"ballistic_missile": ballistic = threat as AttackUav
+			if id == &"ballistic_missile":
+				ballistic = threat as AttackUav
 			threat.resolved.connect(_resolved)
-			births.append({"frame": -1, "id": threat.runtime_id, "type": id, "p": [threat.position.x, threat.position.y, threat.position.z]})
+			births.append({"frame": frame, "outside_view": not main.camera_rig.camera.is_position_in_frustum(threat.global_position), "id": threat.runtime_id, "type": id, "p": [threat.position.x, threat.position.y, threat.position.z]})
 		return
 	push_error("TRAILER missing threat " + id)
 

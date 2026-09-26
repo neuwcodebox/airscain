@@ -1,7 +1,7 @@
 """Capture real Godot takes in an isolated project, then retain a compact master.
 
 Usage: python tools/trailer/produce.py capture intro --lang ko --seconds 12
-All media is under build/trailer_v5, never in the game's distributable resources.
+All media is under build/trailer_v6, never in the game's distributable resources.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'build' / 'trailer_v5'
+OUT = ROOT / 'build' / 'trailer_v6'
 FFMPEG = shutil.which('ffmpeg') or r'D:\Utils\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe'
 GODOT = shutil.which('godot')
 
