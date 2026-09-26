@@ -77,6 +77,8 @@ Pause and the 1×, 2×, and 4× simulation speeds are available in the upper-rig
 
 ## Development and Validation
 
+Build the browser and Windows itch.io archives with `python tools/package_itch.py`; see the [release notes](docs/ITCH_RELEASE.md).
+
 The project uses Godot 4.7.2 and typed GDScript. Native and web builds share the same Compatibility renderer configuration. The GUT test framework is included in the repository.
 
 ```bash

@@ -77,6 +77,8 @@ godot --path .
 
 ## 개발과 검증
 
+itch.io에 올릴 브라우저·Windows 패키지는 [배포 안내](docs/ITCH_RELEASE.md)의 `python tools/package_itch.py`로 만듭니다.
+
 프로젝트는 Godot 4.7.2와 typed GDScript를 사용하며, 네이티브와 웹 모두 같은 Compatibility 렌더러 설정으로 실행됩니다. GUT 테스트 도구는 저장소에 포함되어 있습니다.
 
 ```bash
