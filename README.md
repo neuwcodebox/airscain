@@ -75,22 +75,6 @@ godot --path .
 
 시간 정지와 1×, 2×, 4× 배속은 화면 오른쪽 위에서 선택합니다. 지속 작전의 저장은 작전 메뉴에서, 불러오기는 메인 메뉴와 작전 메뉴에서 사용할 수 있습니다.
 
-## 개발과 검증
-
-프로젝트는 Godot 4.7.2와 typed GDScript를 사용하며, 네이티브와 웹 모두 Compatibility 렌더러로 실행됩니다. GUT 테스트 도구는 저장소에 포함되어 있습니다. 전체 GUT 테스트와 웹 오디오 테스트는 다음 명령으로 실행합니다.
-
-```bash
-python tools/run_tests.py
-```
-
-특정 GUT 스크립트만 확인할 때는 다음처럼 실행합니다.
-
-```bash
-godot --headless --audio-driver Dummy --path . \
-  -s addons/gut/gut_cmdln.gd \
-  -gtest=res://tests/unit/test_balance_flight.gd -gexit
-```
-
 ## 문서
 
 - [게임 요구사항](docs/SPEC.md)

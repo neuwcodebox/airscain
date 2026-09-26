@@ -75,22 +75,6 @@ godot --path .
 
 Pause and the 1×, 2×, and 4× simulation speeds are available in the upper-right corner. Sustained Operation saves are available from the operation menu, while saves can be loaded from both the main menu and the operation menu.
 
-## Development and Validation
-
-The project uses Godot 4.7.2 and typed GDScript. Native and web builds use the Compatibility renderer. The GUT test framework is included in the repository. Run the complete GUT suite and web audio tests with:
-
-```bash
-python tools/run_tests.py
-```
-
-To run one GUT script:
-
-```bash
-godot --headless --audio-driver Dummy --path . \
-  -s addons/gut/gut_cmdln.gd \
-  -gtest=res://tests/unit/test_balance_flight.gd -gexit
-```
-
 ## Documentation
 
 - [Game requirements](docs/SPEC.md)
