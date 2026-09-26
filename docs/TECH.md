@@ -873,7 +873,7 @@ raid_budget =
 
 같은 짧은 wave 목록을 반복하지 않되, 모든 공격을 완전히 무작위로 만들어 의도를 잃지 않는다.
 
-`ThreatSpawnEntry.unlock_level`은 위협이 첩보로 공개되는 단계이며, 실제 편성 가능 단계는 `ScenarioDefinition.threat_flight_level()`이 `threat_intel_lead_levels`(기본 시나리오 1)를 더해 계산한다. 1단계 위협은 첫 공습에 필요하므로 선행 없이 출격한다. `RaidPlanner`, Director의 단일 위협 선택과 저장 변환은 모두 `is_threat_available()`만 사용한다. 자동 공습 가중치는 출격 가능하지만 아직 한 번도 생성되지 않은 공습 위협에 `DEBUT_WEIGHT_MULTIPLIER`(4배)를 곱한다. Director는 위협을 실제 생성할 때 Definition ID를 첫 출격 이력에 기록하며, 관측 요구로 가중치가 0인 제압 위협은 곱셈 뒤에도 0으로 남는다. 해금 단계는 계속 `ThreatSpawnEntry.unlock_level`과 `DefenseDefinition.unlock_pressure_level`이 소유한다. 방어 자산 해금은 `GameSession.is_unlocked()`로 판정하며, 자유 모드는 `configure_free_play()`로 위협 단계를 0에 둔 채 `unlock_all`로 모든 자산을 연다. 자유 모드 root는 Director 단계 신호를 세션·HUD에 반영하지 않는다.
+`ThreatSpawnEntry.unlock_level`은 위협이 첩보로 공개되는 단계이며, 실제 편성 가능 단계는 `ScenarioDefinition.threat_flight_level()`이 `threat_intel_lead_levels`(기본 시나리오 1)를 더해 계산한다. 기본 시나리오의 도시 타격 순항미사일은 1발 그룹·비용 3으로 편성해 4단계 예산 안에 들어간다. 편성 규칙 테스트는 모든 위협 그룹 비용이 첫 출격 가능 단계의 기본 예산을 넘지 않는지 검사한다. 1단계 위협은 첫 공습에 필요하므로 선행 없이 출격한다. `RaidPlanner`, Director의 단일 위협 선택과 저장 변환은 모두 `is_threat_available()`만 사용한다. 자동 공습 가중치는 출격 가능하지만 아직 한 번도 생성되지 않은 공습 위협에 `DEBUT_WEIGHT_MULTIPLIER`(4배)를 곱한다. Director는 위협을 실제 생성할 때 Definition ID를 첫 출격 이력에 기록하며, 관측 요구로 가중치가 0인 제압 위협은 곱셈 뒤에도 0으로 남는다. 해금 단계는 계속 `ThreatSpawnEntry.unlock_level`과 `DefenseDefinition.unlock_pressure_level`이 소유한다. 방어 자산 해금은 `GameSession.is_unlocked()`로 판정하며, 자유 모드는 `configure_free_play()`로 위협 단계를 0에 둔 채 `unlock_all`로 모든 자산을 연다. 자유 모드 root는 Director 단계 신호를 세션·HUD에 반영하지 않는다.
 
 
 ### 작전 국면 브리핑

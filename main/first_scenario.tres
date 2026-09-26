@@ -263,7 +263,7 @@ script = ExtResource("5")
 threat_definition = ExtResource("17")
 unlock_level = 3
 selection_weight = 0.55
-group_size = 2
+group_size = 1
 threat_cost = 3.0
 
 [sub_resource type="Resource" id="DecoyUavEntry"]

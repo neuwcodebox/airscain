@@ -2,6 +2,13 @@ extends GutTest
 
 const SCENARIO := preload("res://main/first_scenario.tres")
 
+func test_announced_threat_groups_fit_the_first_flight_level_budget() -> void:
+	for entry: ThreatSpawnEntry in SCENARIO.threat_entries:
+		var level := SCENARIO.threat_flight_level(entry)
+		var budget := 3.0 + float(level - 1) * SCENARIO.threat_budget_growth_per_level
+		var group_cost := entry.threat_cost * float(entry.group_size)
+		assert_lte(group_cost, budget, String(entry.threat_definition.id))
+
 func test_procedural_raids_obey_budget_unlocks_and_scheduling_limits() -> void:
 	var planner := RaidPlanner.new()
 	var rng := RandomNumberGenerator.new()
@@ -11,7 +18,7 @@ func test_procedural_raids_obey_budget_unlocks_and_scheduling_limits() -> void:
 	var formations: Dictionary = {}
 	for level: int in [1, 2, 3, 6, 8, 12, 20]:
 		for sample: int in 60:
-			var budget := 3.0 + level
+			var budget := 3.0 + float(level - 1) * SCENARIO.threat_budget_growth_per_level
 			var max_delay := 32.0 if sample % 2 == 0 else 0.5
 			var waves := _generate(planner, SCENARIO, weights, budget, level, rng.randf_range(0.0, TAU), max_delay, 1.0, rng)
 			var case_label := "level %d sample %d" % [level, sample]
