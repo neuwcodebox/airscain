@@ -16,7 +16,7 @@ func test_procedural_raids_obey_budget_unlocks_and_scheduling_limits() -> void:
 	var weights := _weights(SCENARIO)
 	var patterns: Dictionary = {}
 	var formations: Dictionary = {}
-	for level: int in [1, 2, 3, 5, 7, 10, 13, 16, 20]:
+	for level: int in [1, 2, 3, 5, 7, 9, 11, 13, 20]:
 		for sample: int in 60:
 			var budget := 3.0 + float(level - 1) * SCENARIO.threat_budget_growth_per_level
 			var max_delay := 32.0 if sample % 2 == 0 else 0.5

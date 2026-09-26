@@ -878,7 +878,7 @@ raid_budget =
 
 ### 작전 국면 브리핑
 
-`OperationBriefingDefinition`은 국면 ID·시작 위협 단계·이름·첩보·권장 대응 문구만 가진다. `ScenarioDefinition.operation_briefings`는 1·2·4·6·9·12·15단계 순서이며, 각 국면의 위협과 대응 자산은 시작 단계에 함께 해금된다. 브리핑은 1단계부터 오름차순이어야 하며, `briefing_threats()`와 `briefing_defenses()`가 다음 국면 직전 단계까지 처음 해금되는 공습 위협과 방어 Definition을 콘텐츠 순서대로 만든다. 브리핑이 있는 시나리오의 모든 공습 위협 Definition은 `briefing_note`를 가져야 한다.
+`OperationBriefingDefinition`은 국면 ID·시작 위협 단계·이름·첩보·권장 대응 문구만 가진다. `ScenarioDefinition.operation_briefings`는 1·2·4·6·8·10·12단계 순서이며, 각 국면의 위협과 대응 자산은 시작 단계에 함께 해금된다. 브리핑은 1단계부터 오름차순이어야 하며, `briefing_threats()`와 `briefing_defenses()`가 다음 국면 직전 단계까지 처음 해금되는 공습 위협과 방어 Definition을 콘텐츠 순서대로 만든다. 브리핑이 있는 시나리오의 모든 공습 위협 Definition은 `briefing_note`를 가져야 한다.
 
 gameplay root의 자식 `OperationBriefingController`는 지속 작전에서만 활성화된다. Director의 `pressure_changed`를 작전 진행 중에만 받아 도달한 단계 이하의 미전달 국면을 순서대로 한 번씩 `briefing_delivered`로 알리고, 첫 국면은 자동 시작 직후 현재 단계로 한 번 확인한다. 저장 복원은 Director 복원보다 먼저 전달 목록을 복원해 복원 중 단계 신호가 브리핑을 다시 열지 않게 한다.
 

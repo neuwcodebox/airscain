@@ -3,7 +3,7 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 
 func test_phase_briefings_match_the_spec_unlock_table() -> void:
-	var expected_levels := {&"operation_start": 1, &"recon_and_swarms": 2, &"cruise_and_jamming": 4, &"defense_suppression": 6, &"high_altitude_strikes": 9, &"air_strikes_and_saturation": 12, &"ballistic_threat": 15}
+	var expected_levels := {&"operation_start": 1, &"recon_and_swarms": 2, &"cruise_and_jamming": 4, &"defense_suppression": 6, &"high_altitude_strikes": 8, &"air_strikes_and_saturation": 10, &"ballistic_threat": 12}
 	var expected := {
 		&"operation_start": [[&"attack_uav"], [&"missile_battery", &"search_radar", &"command_post", &"close_in_gun", &"support_facility", &"radar_decoy", &"weapon_decoy"]],
 		&"recon_and_swarms": [[&"swarm_uav", &"recon_uav", &"decoy_uav"], [&"high_energy_laser"]],
