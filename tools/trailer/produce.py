@@ -1,7 +1,7 @@
 """Capture real Godot takes in an isolated project, then retain a compact master.
 
-Usage: python tools/trailer/produce.py capture opening placement --lang ko
-All media is under build/trailer, never in the game's distributable resources.
+Usage: python tools/trailer/produce.py capture intro --lang ko --seconds 16
+All media is under build/trailer_v2, never in the game's distributable resources.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'build' / 'trailer'
+OUT = ROOT / 'build' / 'trailer_v2'
 FFMPEG = shutil.which('ffmpeg') or r'D:\Utils\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe'
 GODOT = shutil.which('godot')
 
@@ -43,8 +43,6 @@ def prepare() -> Path:
 
 
 def capture(shot: str, language: str, seconds: float) -> None:
-    # Resupply starts after real magazines empty and their normal reload completes.
-    if shot == 'support': seconds = max(seconds, 20.0)
     stage = prepare()
     name = f'{shot}_{language}'
     raw = OUT / 'raw' / f'{name}.avi'
@@ -79,7 +77,7 @@ def capture(shot: str, language: str, seconds: float) -> None:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['capture'])
-    parser.add_argument('shots', nargs='+')
+    parser.add_argument('shots', nargs='+', choices=['intro', 'raid'])
     parser.add_argument('--lang', default='ko', choices=['ko', 'en'])
     parser.add_argument('--seconds', type=float, default=12)
     options = parser.parse_args()
