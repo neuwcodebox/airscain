@@ -2189,11 +2189,11 @@ func test_opening_ingress_keeps_dispatching_level_one_raids() -> void:
 	assert_eq(main.director.until_spawn, main.scenario.opening_raid_interval - 0.1)
 	assert_eq(main.director.opening_threat_ids, [9001], "후속 공습은 단계 상승을 막는 첫 공습 소속이 아닙니다")
 
-func test_airborne_threats_reduce_raid_size_while_pressure_still_grows() -> void:
+func test_raid_budget_grows_gradually_regardless_of_airborne_count() -> void:
 	main.director.opening_raid_complete = true
 	main.director.pressure_started_at = 45.0
-	assert_almost_eq(main.director.threat_budget_at(0.0), 4.0, 0.001)
-	assert_almost_eq(main.director.threat_budget_at(135.0), 5.0, 0.001)
+	assert_almost_eq(main.director.threat_budget_at(0.0), 3.0, 0.001)
+	assert_almost_eq(main.director.threat_budget_at(135.0), 4.0, 0.001)
 	assert_not_null(main.director.spawn_one())
 	assert_not_null(main.director.spawn_one())
 	assert_eq(main.registry.hostile_count(), 2)
@@ -2974,6 +2974,7 @@ func test_new_sustained_operation_starts_with_hostiles_and_no_start_button() -> 
 	assert_eq(operation.session.phase, GameSession.Phase.RUNNING)
 	assert_true(operation.director.enabled)
 	assert_gt(operation.registry.hostile_count(), 0)
+	assert_eq(operation.registry.hostile_count(), 1, "새 작전은 한 기로 시작해 다음 공습까지 배치 시간을 줍니다")
 	assert_false(operation.hud.start_button.visible)
 	assert_eq(operation.session.survival_time, 0.0)
 	assert_eq(operation.director.until_spawn, operation.director.automatic_raid_interval_at(0.0))

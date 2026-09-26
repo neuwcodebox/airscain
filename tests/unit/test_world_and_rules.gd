@@ -914,6 +914,25 @@ func test_scenario_exposes_distinct_island_bay_valley_and_coastal_plain_worlds()
 				centers.append(district.center)
 			assert_gt(centers[0].distance_to(centers.back()), 300.0, String(expected_ids[index]))
 
+func test_distributed_city_layouts_fund_an_extra_weapon_layer_per_satellite() -> void:
+	var battery_price := 0
+	var gun_price := 0
+	var radar_price := 0
+	for defense: DefenseDefinition in SCENARIO.available_defenses:
+		match defense.id:
+			&"missile_battery": battery_price = defense.price
+			&"close_in_gun": gun_price = defense.price
+			&"search_radar": radar_price = defense.price
+	assert_gt(battery_price, 0)
+	assert_gt(gun_price, 0)
+	assert_gt(radar_price, 0)
+	for layout: BattlefieldLayoutDefinition in SCENARIO.battlefield_layouts:
+		var satellites := layout.city_districts.size() - 1
+		var minimum_bonus := satellites * (battery_price + gun_price)
+		if layout.id in [&"rugged_harbor", &"coastal_plain"]:
+			minimum_bonus += radar_price
+		assert_gte(layout.starting_budget_bonus, minimum_bonus, String(layout.id))
+
 func test_non_island_terrain_shapes_keep_their_macro_topology_inside_organic_coasts() -> void:
 	var bay_scenario := SCENARIO.duplicate(true) as ScenarioDefinition
 	bay_scenario.world_seed = 0

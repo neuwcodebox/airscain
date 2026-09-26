@@ -159,7 +159,7 @@ city_blocks = 11
 minimum_building_height = 15.0
 maximum_building_height = 95.0
 rooftop_spacing = 4
-starting_budget_bonus = 200
+starting_budget_bonus = 500
 city_districts = Array[ExtResource("38")]([SubResource("RuggedCentralDistrict"), SubResource("RuggedIndustrialDistrict")])
 
 [sub_resource type="Resource" id="IslandCityLayout"]
@@ -194,7 +194,7 @@ city_blocks = 9
 minimum_building_height = 7.0
 maximum_building_height = 78.0
 rooftop_spacing = 5
-starting_budget_bonus = 250
+starting_budget_bonus = 700
 city_districts = Array[ExtResource("38")]([SubResource("ValleyCoreDistrict"), SubResource("ValleyNorthDistrict"), SubResource("ValleySouthDistrict")])
 
 [sub_resource type="Resource" id="CoastalPlainLayout"]
@@ -213,7 +213,7 @@ city_blocks = 9
 minimum_building_height = 7.0
 maximum_building_height = 82.0
 rooftop_spacing = 5
-starting_budget_bonus = 300
+starting_budget_bonus = 850
 city_districts = Array[ExtResource("38")]([SubResource("CoastalCoreDistrict"), SubResource("CoastalResidentialDistrict"), SubResource("CoastalPortDistrict")])
 
 [sub_resource type="Resource" id="AttackUavEntry"]
