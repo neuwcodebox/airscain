@@ -59,8 +59,6 @@ Then launch the game:
 godot --path .
 ```
 
-Build the web and Windows itch.io packages with `python tools/package_itch.py`; see the [release guide](docs/ITCH_RELEASE.md).
-
 ## Controls
 
 | Input | Action |

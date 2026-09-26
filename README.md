@@ -59,8 +59,6 @@ godot --headless --audio-driver Dummy --editor --path . --quit
 godot --path .
 ```
 
-itch.io용 웹·Windows 패키지는 [배포 안내](docs/ITCH_RELEASE.md)에 따라 `python tools/package_itch.py`로 만듭니다.
-
 ## 조작
 
 | 입력 | 동작 |
