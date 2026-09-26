@@ -21,16 +21,10 @@ def terminal_frame() -> int:
     report=OUT/'review/raid_ko.json'
     data=json.loads(report.read_text(encoding='utf-8'))
     resolution=min(e['frame'] for e in data['events'] if e.get('threat')=='ballistic_missile')
-    # End within a few samples of impact, while both missile bodies still clear
-    # the buildings. In-frustum coordinates alone do not prove visibility.
-    return max(c['frame'] for c in data['camera_frames']
-               if resolution-6<=c['frame']<resolution and c.get('interceptor_visible'))
+    return resolution-1
 
-BLINKS=[(9,60),(8,45),(7,32),(6,23),(5,16),(4,10),(3,6)]
 TERMINAL_FRAME=terminal_frame()
-FIRST_BLACK_FRAME=TERMINAL_FRAME-7
-NORMAL_TERMINAL_FRAMES=round((FIRST_BLACK_FRAME-2490)/2)
-ACTION_FRAMES=17*60+6*60+round((41.5-6)*60)+NORMAL_TERMINAL_FRAMES+sum(a+b for a,b in BLINKS)
+ACTION_FRAMES=21*60+6*60+(TERMINAL_FRAME+1-6*60)
 ACTION_END=ACTION_FRAMES/60
 TOTAL_SECONDS=(ACTION_FRAMES+456)/60
 MUSIC_GAIN = "0.09"
@@ -74,18 +68,11 @@ def timeline(language: str) -> list[dict]:
         return dict(shot=shot,lang=language if shot=='intro' else 'ko',start=start,
                     frames=hold or round(source_frames/speed),source_frames=source_frames,
                     caption=caption,dark=dark,dip=False,speed=speed,hold=bool(hold))
-    rows=[row('intro',0,5),row('intro',5,7),row('intro',7,9),row('intro',9,11),row('intro',11,15),row('intro',15,17)]
+    rows=[row('intro',0,5),row('intro',5,7),row('intro',7,9),row('intro',9,11),row('intro',11,15),row('intro',15,19),row('intro',19,21)]
     rows += [row('expansion',t,t+2) for t in [0,2,4]]
-    cuts=[6,14,20.5,27,33.5,39,41.5]
+    cuts=[6,14,20.5,27,33.5,39,(TERMINAL_FRAME+1)/60]
     rows += [row('raid',a,b) for a,b in zip(cuts,cuts[1:])]
-    # Terminal source is sampled at half simulation time; restore normal speed
-    # before the first blackout. Only after blackout are still moments held.
-    rows.append(row('raid',41.5,FIRST_BLACK_FRAME/60,speed=2))
-    for i,(black,lit) in enumerate(BLINKS):
-        source=FIRST_BLACK_FRAME+i
-        rows.append(row('raid',source/60,(source+1)/60,dark=1,hold=black))
-        rows.append(row('raid',(source+1)/60,(source+2)/60,hold=lit))
-    rows += [row('outro',0,.6),row('outro',.6,2.6,'call'),row('outro',2.6,7.6,'end')]
+    rows += [row('outro',0,.6,dark=1),row('outro',.6,2.6,'call'),row('outro',2.6,7.6,'end')]
     assert sum(r['frames'] for r in rows)==round(TOTAL_SECONDS*60)
     clock=0
     for r in rows:
@@ -124,7 +111,7 @@ def render(language: str, no_text: bool=False) -> Path:
         filters=[f'setpts=(PTS-STARTPTS)/{r["speed"]}','fps=60','setsar=1','scale=in_range=auto:out_range=tv','format=yuv420p','setparams=range=limited']
         if r['hold']: filters += ['trim=end_frame=1','setpts=PTS-STARTPTS',f'tpad=stop_mode=clone:stop_duration={duration}']
         if r['dark']:filters.append(f'drawbox=c=black@{r["dark"]}:t=fill')
-        if r['shot']=='intro' and r['start']==15: filters.append(f'fade=t=out:st={duration-.14}:d=0.14')
+        if r['shot']=='intro' and r['start']==19: filters.append(f'fade=t=out:st={duration-.14}:d=0.14')
         if r['shot']=='expansion':
             filters.append('fade=t=in:d=0.14')
             if r['start']<4: filters.append(f'fade=t=out:st={duration-.14}:d=0.14')

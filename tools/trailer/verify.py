@@ -11,7 +11,7 @@ from pathlib import Path
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 from produce import OUT, FFMPEG
-from edit import TOTAL_SECONDS, ACTION_END, MUSIC_GAIN, TERMINAL_FRAME, FIRST_BLACK_FRAME
+from edit import TOTAL_SECONDS, ACTION_END, MUSIC_GAIN, TERMINAL_FRAME
 
 FFPROBE = str(Path(FFMPEG).with_name('ffprobe.exe'))
 
@@ -61,24 +61,19 @@ def continuity(language: str) -> dict:
     assert all(.05<c['missile_screen'][0]<.95 and .05<c['missile_screen'][1]<.95 for c in tracked)
     assert math.dist(expansion['camera_frames'][0]['p'],expansion['camera_frames'][-1]['p'])>400
     assert math.dist(expansion['camera_frames'][-1]['p'],raid['camera_frames'][360]['p'])<.02
-    assert all(c['time_scale']==1 for c in raid['camera_frames'][:2490])
-    assert all(c['time_scale']==.5 for c in raid['camera_frames'][2490:])
-    assert 0<raid['camera_frames'][TERMINAL_FRAME]['missile_clearance']<40
-    assert raid['camera_frames'][FIRST_BLACK_FRAME]['missile_clearance']<80
-    terminal=raid['camera_frames'][FIRST_BLACK_FRAME:TERMINAL_FRAME+1]
-    assert all('interceptor_screen' in c for c in terminal)
-    assert all(.02<c['interceptor_screen'][0]<.98 and .02<c['interceptor_screen'][1]<.98 for c in terminal)
-    assert all(c['interceptor_visible'] for c in terminal), 'Terminal interceptor must not be hidden by city buildings'
+    assert all(c['time_scale']==1 for c in raid['camera_frames'])
+    assert 0<raid['camera_frames'][TERMINAL_FRAME]['missile_clearance']<45
+    last_kill=max(e['frame'] for e in intro['events'] if e['event']=='kill')
+    assert intro['frames']-last_kill>=5*60, 'Leave time to observe wrecks fall after the final kill'
     assert MUSIC_GAIN=='0.09' and not (OUT/'assets/siren.wav').exists()
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
-    holds=[r for r in timeline if r['hold']]
-    first_dark=next(r for r in timeline if r['dark'])
-    assert all(not r['hold'] for r in timeline if r['timeline_start']<first_dark['timeline_start'])
-    assert len(holds)==14 and holds[0]['dark']==1
+    assert not any(r['hold'] for r in timeline)
+    assert all(r['speed']==1 for r in timeline)
+    darks=[r for r in timeline if r['dark']]
+    assert len(darks)==1 and darks[0]['shot']=='outro'
+    assert darks[0]['timeline_start']==round(ACTION_END*60)
     for row in timeline:
         if row['shot']=='raid': assert round(row['start']*60)+row['source_frames']<=resolution
-        if row['shot']=='raid' and not row['hold']:
-            assert row['speed']==(2 if row['start']>=41.5 else 1)
     assert sum(r['frames'] for r in timeline)==round(TOTAL_SECONDS*60)
     assert not any(r['caption'] in ['warning','build','expand'] for r in timeline)
     return {'contact_audio_intro':intro['contact_audio_events'],'contact_audio_after_intro':0,
@@ -86,7 +81,7 @@ def continuity(language: str) -> dict:
             'last_placement_to_first_fire_seconds':(first_fire-last_placement)/60,
             'ballistic_reentry_observed':True,'ballistic_resolution_shown':False,
             'expansion_camera_tracks_ground':True,'sea_reveal_join_position_error':math.dist(expansion['camera_frames'][-1]['p'],raid['camera_frames'][360]['p']),
-            'terminal_clearance_m':raid['camera_frames'][TERMINAL_FRAME]['missile_clearance'],'first_black_source_frame':FIRST_BLACK_FRAME,'last_visible_source_frame':TERMINAL_FRAME,
+            'terminal_clearance_m':raid['camera_frames'][TERMINAL_FRAME]['missile_clearance'],'post_final_kill_seconds':(intro['frames']-last_kill)/60,'last_visible_source_frame':TERMINAL_FRAME,
             'result':'pass'}
 
 
@@ -118,13 +113,13 @@ def inspect(path: Path,language: str) -> None:
     anomalies=[line for line in scan.stderr.splitlines()
                if 'black_start:' in line or 'freeze_start:' in line]
     black_starts=[float(line.split('black_start:')[1].split()[0]) for line in anomalies if 'black_start:' in line]
-    assert all(16.8<=t<=21.2 or ACTION_END-4<=t for t in black_starts),anomalies
+    assert all(20.8<=t<=25.2 or ACTION_END-.05<=t for t in black_starts),anomalies
     freeze_starts=[float(line.rsplit(':',1)[1]) for line in anomalies if 'freeze_start:' in line]
-    assert all(t>=ACTION_END-4 for t in freeze_starts),anomalies
+    assert all(t>=ACTION_END-.05 for t in freeze_starts),anomalies
     # Distant aircraft occupy few pixels against a stationary sea/sky. The global
     # noise threshold flags these shots although every decoded frame changes.
     # Confirm the entire four-second range, plus actual per-aircraft movement.
-    approach_hashes=subprocess.check_output([FFMPEG,'-v','error','-ss','23','-i',str(path),
+    approach_hashes=subprocess.check_output([FFMPEG,'-v','error','-ss','27','-i',str(path),
         '-t','4','-an','-f','framemd5','-'],text=True)
     (folder/'approach-frame-hashes.txt').write_text(approach_hashes)
     approach_frames=[line.rsplit(',',1)[1].strip() for line in approach_hashes.splitlines()
@@ -144,23 +139,22 @@ def inspect(path: Path,language: str) -> None:
             '-frames:v',str(row['frames']),'-vf','scale=32:18,format=rgb24','-an','-f','rawvideo','-'])
         assert len(pixels)==row['frames']*32*18*3 and max(pixels)==0
         black_counts.append(row['frames'])
-    assert len(black_counts)==7 and all(a>b for a,b in zip(black_counts,black_counts[1:]))
-    for row in [r for r in timeline if r['hold'] and not r['dark']]:
-        pixels=subprocess.check_output([FFMPEG,'-v','error','-ss',str(row['timeline_start']/60),'-i',str(path),
-            '-frames:v',str(row['frames']),'-vf','scale=32:18,format=rgb24','-an','-f','rawvideo','-'])
-        size=32*18*3
-        frames=[pixels[i:i+size] for i in range(0,len(pixels),size)]
-        assert len(frames)==row['frames']
-        # H.264 may quantize repeated frames differently; the scene must stay still.
-        assert max(sum(abs(a-b) for a,b in zip(frames[0],f))/size for f in frames)<1.5
+    assert black_counts==[36]
+    # The whole terminal shot must remain live at normal speed until the cut.
+    terminal_start=27+39-6
+    hashes=subprocess.check_output([FFMPEG,'-v','error','-ss',str(terminal_start),'-i',str(path),
+        '-t',str(ACTION_END-terminal_start),'-an','-f','framemd5','-'],text=True)
+    frames=[line.rsplit(',',1)[1].strip() for line in hashes.splitlines() if line and not line.startswith('#')]
+    assert len(frames)==round((ACTION_END-terminal_start)*60)
+    assert len(set(frames))==len(frames)
 
     report={'container':info,'audio':measurements,'story_continuity':story,
             'full_black_cut_frames':black_counts,
             'perceptual_audio_review':'not independently heard; objective inspection only',
-            'visual_review':'contact sheets and moving-frame samples require inspection',
+            'visual_review':'manual frame inspection is documented in docs/TRAILER_DELIVERY.md',
             'black_or_freeze_events':anomalies,
             'approach_motion':'240/240 distinct decoded frames; all 100 fleet threats move in each one-second interval',
-            'ending':'normal descent until first blackout; seven advancing still moments; paired interceptor; no outcome'}
+            'ending':'normal-speed rear missile chase; single blackout before impact; no outcome'}
     (folder/'technical-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     images=[]

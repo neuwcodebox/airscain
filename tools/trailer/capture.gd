@@ -5,7 +5,7 @@ var main: AirscainMain
 var shot := "intro"
 var language := "ko"
 var seconds := 12.0
-var output := "res://build/trailer_v7/review"
+var output := "res://build/trailer_v8/review"
 var probe := false
 var camera_preview := false
 var frame := -1
@@ -25,7 +25,6 @@ var cinematic_speed := 1.0
 var ballistic_origin := Vector3(-10600, 0, 80)
 var ballistic_seed := 123
 var opening_uav: ThreatUnit
-var hero_interceptor: HomingInterceptor
 
 func _init() -> void:
 	for arg: String in OS.get_cmdline_user_args():
@@ -118,9 +117,6 @@ func run() -> void:
 				main.director.rng.seed = ballistic_seed
 				_spawn(&"ballistic_missile", ballistic_origin)
 				events.append({"frame": frame, "event": "ballistic_launch"})
-			cinematic_speed = 0.5 if t >= 41.5 else 1.0
-			Engine.time_scale = cinematic_speed
-			if t >= 41.5: t = 41.5 + (t-41.5)*0.5
 		if shot == "intro": _intro(t)
 		else: _direct_camera(t)
 		var camera_position := main.camera_rig.camera.global_position
@@ -135,14 +131,6 @@ func run() -> void:
 			if t >= 39.0:
 				var screen := main.camera_rig.camera.unproject_position(ballistic.global_position)
 				camera_frames.back()["missile_clearance"] = ballistic.global_position.y - main.battlefield.flight_surface_height(ballistic.global_position.x, ballistic.global_position.z)
-				if is_instance_valid(hero_interceptor):
-					var q := hero_interceptor.global_position
-					var screen_q := main.camera_rig.camera.unproject_position(q)
-					var viewport_size := main.camera_rig.camera.get_viewport().get_visible_rect().size
-					camera_frames.back()["interceptor_screen"] = [screen_q.x/viewport_size.x,screen_q.y/viewport_size.y]
-					camera_frames.back()["interceptor_distance"] = q.distance_to(ballistic.global_position)
-					camera_frames.back()["interceptor_position"] = [q.x,q.y,q.z]
-					camera_frames.back()["interceptor_visible"] = not main.battlefield.building_blocks_segment(camera_position,q)
 				camera_frames.back()["missile_position"] = [ballistic.global_position.x, ballistic.global_position.y, ballistic.global_position.z]
 				camera_frames.back()["missile_screen"] = [screen.x / main.camera_rig.camera.get_viewport().get_visible_rect().size.x, screen.y / main.camera_rig.camera.get_viewport().get_visible_rect().size.y]
 		peak_threats = maxi(peak_threats, main.registry.hostile_count())
@@ -213,39 +201,12 @@ func _direct_camera(t: float) -> void:
 func _expansion_camera(t: float) -> void:
 	_travel(clampf(t / 6.0, 0.0, 1.0), Vector3(230,260,-400), Vector3(230,260,160), Vector3(360,0,-240), Vector3(360,0,240),50,50)
 
-func _closing_interceptor() -> HomingInterceptor:
-	var nearest: HomingInterceptor
-	var distance := INF
-	for child: Node in main.projectile_parent.get_children():
-		var candidate := child as HomingInterceptor
-		if candidate == null or candidate.target_track == null: continue
-		if candidate.target_track.estimated_position.distance_to(ballistic.global_position) > 150: continue
-		var d := candidate.global_position.distance_to(ballistic.global_position)
-		if d < distance:
-			nearest = candidate
-			distance = d
-	return nearest
-
-func _ballistic_camera(t: float) -> void:
-	if not is_instance_valid(ballistic): return # Full take may include outcome; edit stops beforehand.
+func _ballistic_camera(_t: float) -> void:
+	if not is_instance_valid(ballistic): return # The editor excludes the outcome.
 	var p := ballistic.global_position
 	var forward := Vector3(ballistic.target_point.x-p.x,0,ballistic.target_point.z-p.z).normalized()
-	var chase := p-forward*55.0+forward.cross(Vector3.UP)*33.0+Vector3.UP*69.0
-	var aim := p+forward*25.0+Vector3.DOWN*85.0
-	hero_interceptor = _closing_interceptor()
-	var lens := 60.0
-	if is_instance_valid(hero_interceptor):
-		var q := hero_interceptor.global_position
-		var separation := p.distance_to(q)
-		var blend := smoothstep(40.8,41.6,t) * (1.0-smoothstep(450.0,700.0,separation))
-		var toward := Vector3(q.x-p.x,0,q.z-p.z).normalized()
-		# Clear the intervening city roofs so the low interceptor remains visible.
-		var pair_position := p-toward*50.0-toward.cross(Vector3.UP)*100.0+Vector3.UP*250.0
-		var pair_aim := p+toward*90.0+Vector3.DOWN*5.0
-		chase = chase.lerp(pair_position,blend)
-		aim = aim.lerp(pair_aim,blend)
-		lens = lerpf(60.0,55.0,blend)
-	_pose(chase,aim,lens)
+	# Stay close behind the missile, with the city below throughout the descent.
+	_pose(p-forward*55.0+forward.cross(Vector3.UP)*33.0+Vector3.UP*69.0,p+forward*25.0+Vector3.DOWN*85.0,60.0)
 	if frame == 2340: events.append({"frame":frame,"event":"camera","hard_cut":true,"cut":"ballistic"})
 
 func _preflight_attack() -> void:
@@ -314,7 +275,8 @@ func _intro(t: float) -> void:
 	elif t<9.0: _travel((t-7)/1.5,Vector3(290,90,-30),Vector3(310,105,-210),Vector3(330,15,90),Vector3(350,15,-40),50,50)
 	elif t<11.0: _travel((t-9)/1.5,Vector3(310,105,-210),Vector3(230,90,-260),Vector3(350,15,-40),Vector3(270,15,-140),50,50)
 	elif t<15.0: _travel((t-11)/4.0,Vector3(230,90,-260),Vector3(260,180,-340),Vector3(270,15,-140),Vector3(350,25,-100),50,50)
-	else: _travel((t-15)/2.0,Vector3(260,180,-340),Vector3(230,260,-400),Vector3(350,25,-100),Vector3(360,0,-240),50,50)
+	elif t<19.0: _pose(Vector3(260,180,-340),Vector3(350,25,-100),50)
+	else: _travel((t-19)/2.0,Vector3(260,180,-340),Vector3(230,260,-400),Vector3(350,25,-100),Vector3(360,0,-240),50,50)
 
 func _hud(enabled: bool) -> void:
 	main.hud.visible = enabled

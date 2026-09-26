@@ -4,7 +4,7 @@ The footage is captured from Airscain's actual Godot runtime. The production
 fixtures stage finite-budget deployments and pre-positioned raids, using unchanged
 placement, sensor, weapon, damage and support rules. They are not recordings of
 an uninterrupted player session. The edit joins the opening, three deployment stages, one continuous raid including an offscreen ballistic launch and its approach.
-The final blackouts advance between held actual gameplay frames. The preceding fall plays at normal speed.
+The finale plays actual gameplay at normal speed and cuts once to black immediately before impact.
 It ends before the ballistic outcome. These are staged operations, not one player session.
 
 ## Music
@@ -42,7 +42,7 @@ The video includes a compact music credit. Include this credit with publication:
   Arial Bold as rasterized text; the font binary is not redistributed.
 - No remote game footage or generated depictions of unimplemented gameplay.
 
-Current raw and rendered media live in the Git-ignored `build/trailer_v7` directory.
+Current raw and rendered media live in the Git-ignored `build/trailer_v8` directory.
 The rejected first version and original music-source record remain in `build/trailer`.
 
 - Contact alert is retained in the opening and disconnected in all later capture takes; combat sounds remain.
