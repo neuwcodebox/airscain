@@ -3,8 +3,8 @@
 The footage is captured from Airscain's actual Godot runtime. The production
 fixtures stage finite-budget deployments and pre-positioned raids, using unchanged
 placement, sensor, weapon, damage and support rules. They are not recordings of
-an uninterrupted player session. Two continuous takes are joined at 12 seconds;
-the later operation hides the HUD and advances without resets or repeated events.
+an uninterrupted player session. The edit joins the opening, three deployment stages, a raid and a separate ballistic approach.
+It ends before the ballistic outcome. These are staged operations, not one player session.
 
 ## Music
 
@@ -41,5 +41,8 @@ The video includes a compact music credit. Include this credit with publication:
   Arial Bold as rasterized text; the font binary is not redistributed.
 - No remote game footage or generated depictions of unimplemented gameplay.
 
-Current raw and rendered media live in the Git-ignored `build/trailer_v3` directory.
+Current raw and rendered media live in the Git-ignored `build/trailer_v4` directory.
 The rejected first version and original music-source record remain in `build/trailer`.
+
+- V4 warning siren: original additive synthesis in `edit.py::make_siren`, 48 kHz stereo. Added only as trailer sound design at 42–52.2 seconds.
+- Contact alert is retained in the opening and disconnected in all later capture takes; combat sounds remain.

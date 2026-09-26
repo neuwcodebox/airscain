@@ -193,7 +193,7 @@ func _crisis_camera(t: float) -> void:
 	elif t < 13.4:
 		_pose(p + Vector3(-220, 160, -220), p.lerp(ballistic.target_point, 0.25), 65)
 	else:
-		_pose(p + Vector3(65, 70, -110), p.lerp(ballistic.target_point, 0.5), 65)
+		_pose(p + Vector3(-120, 150, -120), p.lerp(ballistic.target_point, 0.25), 65)
 
 func _preflight_attack() -> void:
 	if shot == "expansion": return
