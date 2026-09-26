@@ -70,7 +70,7 @@ def timeline(language: str) -> list[dict]:
                     caption=caption,dark=dark,dip=False,speed=speed,hold=bool(hold))
     rows=[row('intro',0,5),row('intro',5,7),row('intro',7,9),row('intro',9,11),row('intro',11,15),row('intro',15,19),row('intro',19,21)]
     rows += [row('expansion',t,t+2) for t in [0,2,4]]
-    cuts=[6,14,20.5,27,33.5,39,(TERMINAL_FRAME+1)/60]
+    cuts=[6,14,20.5,27,33.5,34.5,37,(TERMINAL_FRAME+1)/60]
     rows += [row('raid',a,b) for a,b in zip(cuts,cuts[1:])]
     rows += [row('outro',0,.6,dark=1),row('outro',.6,2.6,'call'),row('outro',2.6,7.6,'end')]
     assert sum(r['frames'] for r in rows)==round(TOTAL_SECONDS*60)

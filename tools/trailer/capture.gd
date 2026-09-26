@@ -5,7 +5,7 @@ var main: AirscainMain
 var shot := "intro"
 var language := "ko"
 var seconds := 12.0
-var output := "res://build/trailer_v8/review"
+var output := "res://build/trailer_v9/review"
 var probe := false
 var camera_preview := false
 var frame := -1
@@ -22,9 +22,11 @@ var camera_frames: Array[Dictionary] = []
 var ballistic: AttackUav
 var warning_phase := ""
 var cinematic_speed := 1.0
-var ballistic_origin := Vector3(-10600, 0, 80)
+var ballistic_origin := Vector3(10600, 0, 80)
 var ballistic_seed := 123
+var ballistic_launch_frame := 390
 var opening_uav: ThreatUnit
+var handheld_roll_degrees := 0.0
 
 func _init() -> void:
 	for arg: String in OS.get_cmdline_user_args():
@@ -34,6 +36,7 @@ func _init() -> void:
 		elif arg.begins_with("--out="): output = arg.trim_prefix("--out=")
 		elif arg.begins_with("--ballistic-seed="): ballistic_seed = int(arg.trim_prefix("--ballistic-seed="))
 		elif arg.begins_with("--ballistic-z="): ballistic_origin.z = float(arg.trim_prefix("--ballistic-z="))
+		elif arg.begins_with("--ballistic-launch-frame="): ballistic_launch_frame = int(arg.trim_prefix("--ballistic-launch-frame="))
 		elif arg == "--probe": probe = true
 		elif arg == "--camera-preview": camera_preview = true
 	call_deferred("run")
@@ -113,14 +116,14 @@ func run() -> void:
 		frame = index
 		var t := float(frame) / 60.0
 		if shot == "raid":
-			if frame == 570:
+			if frame == ballistic_launch_frame:
 				main.director.rng.seed = ballistic_seed
 				_spawn(&"ballistic_missile", ballistic_origin)
 				events.append({"frame": frame, "event": "ballistic_launch"})
 		if shot == "intro": _intro(t)
 		else: _direct_camera(t)
 		var camera_position := main.camera_rig.camera.global_position
-		camera_frames.append({"frame": frame, "p": [camera_position.x, camera_position.y, camera_position.z], "fov": main.camera_rig.camera.fov, "time_scale": cinematic_speed, "simulation_second": t})
+		camera_frames.append({"frame": frame, "p": [camera_position.x, camera_position.y, camera_position.z], "fov": main.camera_rig.camera.fov, "time_scale": cinematic_speed, "simulation_second": t, "handheld_roll_degrees": handheld_roll_degrees})
 		await process_frame
 		if not probe: await RenderingServer.frame_post_draw
 		if is_instance_valid(ballistic):
@@ -128,7 +131,7 @@ func run() -> void:
 			if phase != warning_phase:
 				warning_phase = phase
 				events.append({"frame":frame,"event":"ballistic_phase","phase":phase})
-			if t >= 39.0:
+			if t >= 34.5:
 				var screen := main.camera_rig.camera.unproject_position(ballistic.global_position)
 				camera_frames.back()["missile_clearance"] = ballistic.global_position.y - main.battlefield.flight_surface_height(ballistic.global_position.x, ballistic.global_position.z)
 				camera_frames.back()["missile_position"] = [ballistic.global_position.x, ballistic.global_position.y, ballistic.global_position.z]
@@ -139,7 +142,7 @@ func run() -> void:
 			for threat: ThreatUnit in main.registry.get_active():
 				positions.append({"id": threat.runtime_id, "type": threat.definition.id, "p": [threat.position.x, threat.position.y, threat.position.z]})
 			samples.append({"frame": frame, "city": main.objective.current_integrity, "kills": main.session.neutralized_count, "active": main.registry.hostile_count(), "camera": camera_cut, "threats": positions})
-		if not probe and (index % 120 == 60 or index in [0,90,210,420,540,660,2340,2460] or (shot == "raid" and index >= 2480 and index % 2 == 0)):
+		if not probe and (index % 120 == 60 or index in [0,90,210,420,540,660,2070,2100,2160,2220,2280,2340,2380] or (shot == "raid" and index >= 2360 and index % 2 == 0)):
 			root.get_texture().get_image().save_png("%s/%s_%s_%04d.png" % [output, shot, language, index])
 	var report := {"shot": shot, "language": language, "first_movie_frame": first_movie_frame,
 		"frames": frame + 1, "peak_threats": peak_threats, "kills": main.session.neutralized_count,
@@ -195,19 +198,36 @@ func _direct_camera(t: float) -> void:
 			events.append({"frame": frame, "event": "expansion", "count": main.defenses.size()})
 		_expansion_camera(t)
 	else:
-		if t >= 39.0: _ballistic_camera(t)
+		if t >= 37.0: _ballistic_camera(t)
+		elif t >= 34.5: _ballistic_low_camera(t)
 		else: _raid_camera(t)
 
 func _expansion_camera(t: float) -> void:
 	_travel(clampf(t / 6.0, 0.0, 1.0), Vector3(230,260,-400), Vector3(230,260,160), Vector3(360,0,-240), Vector3(360,0,240),50,50)
 
+func _ballistic_low_camera(t: float) -> void:
+	if not is_instance_valid(ballistic): return
+	var p := ballistic.global_position
+	var forward := Vector3(ballistic.target_point.x-p.x,0,ballistic.target_point.z-p.z).normalized()
+	var side := forward.cross(Vector3.UP)
+	var u := t-34.5
+	# Small continuous drift and roll; no per-frame random jitter.
+	var sway := sin(u*2.1)*0.22+sin(u*5.3+0.7)*0.09
+	var lift := sin(u*1.7+1.2)*0.16+sin(u*4.1)*0.07
+	var distance := lerpf(95.0,48.0,smoothstep(0.0,2.5,u))
+	_pose(p+forward*24.0+side*distance+Vector3.DOWN*21.0,p+forward*3.0+side*sway+Vector3.UP*lift,48.0)
+	handheld_roll_degrees = sin(u*1.9)*0.18+sin(u*4.7)*0.07
+	main.camera_rig.camera.rotate_object_local(Vector3.FORWARD,deg_to_rad(handheld_roll_degrees))
+	if frame == 2070: events.append({"frame":frame,"event":"camera","hard_cut":true,"cut":"ballistic_low"})
+
 func _ballistic_camera(_t: float) -> void:
+	handheld_roll_degrees = 0.0
 	if not is_instance_valid(ballistic): return # The editor excludes the outcome.
 	var p := ballistic.global_position
 	var forward := Vector3(ballistic.target_point.x-p.x,0,ballistic.target_point.z-p.z).normalized()
 	# Stay close behind the missile, with the city below throughout the descent.
 	_pose(p-forward*55.0+forward.cross(Vector3.UP)*33.0+Vector3.UP*69.0,p+forward*25.0+Vector3.DOWN*85.0,60.0)
-	if frame == 2340: events.append({"frame":frame,"event":"camera","hard_cut":true,"cut":"ballistic"})
+	if frame == 2220: events.append({"frame":frame,"event":"camera","hard_cut":true,"cut":"ballistic"})
 
 func _preflight_attack() -> void:
 	if shot == "expansion": return

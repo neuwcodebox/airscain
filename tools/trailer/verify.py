@@ -45,18 +45,18 @@ def continuity(language: str) -> dict:
     assert all(t['scripted_spawns_during_capture']==0 for t in [intro,expansion])
     hard_cuts={e['frame'] for e in raid['events'] if e['event']=='camera' and e.get('hard_cut')}
     for before,after in zip(raid['camera_frames'],raid['camera_frames'][1:]):
-        if after['frame']<2340 and after['frame'] not in hard_cuts:
+        if after['frame']<2070 and after['frame'] not in hard_cuts:
             assert math.dist(before['p'],after['p'])<4
             assert abs(before['fov']-after['fov'])<.15
     assert min(e['frame'] for e in raid['events'] if e['event']=='fire')>=840
 
     phases=[e for e in raid['events'] if e['event']=='ballistic_phase']
     reentry=next(e['frame'] for e in phases if e['phase']=='reentry')
-    assert abs(reentry-2340)<=40, 'First missile cut must coincide with reentry onset'
+    assert abs(reentry-2220)<=40, 'First missile cut must coincide with reentry onset'
     resolution=min(e['frame'] for e in raid['events'] if e.get('threat')=='ballistic_missile')
     assert 0 < resolution-TERMINAL_FRAME <= 6
     assert raid['city_integrity']>0
-    tracked=[c for c in raid['camera_frames'] if 2340<=c['frame']<=TERMINAL_FRAME]
+    tracked=[c for c in raid['camera_frames'] if 2070<=c['frame']<=TERMINAL_FRAME]
     assert all('missile_screen' in c for c in tracked)
     assert all(.05<c['missile_screen'][0]<.95 and .05<c['missile_screen'][1]<.95 for c in tracked)
     assert math.dist(expansion['camera_frames'][0]['p'],expansion['camera_frames'][-1]['p'])>400
@@ -65,6 +65,15 @@ def continuity(language: str) -> dict:
     assert 0<raid['camera_frames'][TERMINAL_FRAME]['missile_clearance']<45
     last_kill=max(e['frame'] for e in intro['events'] if e['event']=='kill')
     assert intro['frames']-last_kill>=5*60, 'Leave time to observe wrecks fall after the final kill'
+    ballistic_birth=next(b for b in raid['births'] if b['type']=='ballistic_missile')
+    assert ballistic_birth['p'][0]>0, 'Ballistic must approach from the fleet sea side'
+    approach=[c for c in raid['camera_frames'] if 2070<=c['frame']<2220]
+    assert all(c['p'][1]<c['missile_position'][1] for c in approach), 'Low camera must look up at the missile'
+    assert approach[-1]['missile_position'][0]<approach[0]['missile_position'][0]
+    rolls=[c['handheld_roll_degrees'] for c in approach]
+    assert max(rolls)-min(rolls)>.1 and max(abs(v) for v in rolls)<.3
+    assert max(abs(a-b) for a,b in zip(rolls,rolls[1:]))<.025
+    assert all(c['handheld_roll_degrees']==0 for c in raid['camera_frames'][2220:])
     assert MUSIC_GAIN=='0.09' and not (OUT/'assets/siren.wav').exists()
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     assert not any(r['hold'] for r in timeline)
@@ -81,7 +90,7 @@ def continuity(language: str) -> dict:
             'last_placement_to_first_fire_seconds':(first_fire-last_placement)/60,
             'ballistic_reentry_observed':True,'ballistic_resolution_shown':False,
             'expansion_camera_tracks_ground':True,'sea_reveal_join_position_error':math.dist(expansion['camera_frames'][-1]['p'],raid['camera_frames'][360]['p']),
-            'terminal_clearance_m':raid['camera_frames'][TERMINAL_FRAME]['missile_clearance'],'post_final_kill_seconds':(intro['frames']-last_kill)/60,'last_visible_source_frame':TERMINAL_FRAME,
+            'terminal_clearance_m':raid['camera_frames'][TERMINAL_FRAME]['missile_clearance'],'ballistic_same_direction':True,'low_angle_seconds':2.5,'handheld_roll_peak_degrees':max(abs(v) for v in rolls),'post_final_kill_seconds':(intro['frames']-last_kill)/60,'last_visible_source_frame':TERMINAL_FRAME,
             'result':'pass'}
 
 
@@ -141,7 +150,7 @@ def inspect(path: Path,language: str) -> None:
         black_counts.append(row['frames'])
     assert black_counts==[36]
     # The whole terminal shot must remain live at normal speed until the cut.
-    terminal_start=27+39-6
+    terminal_start=27+34.5-6
     hashes=subprocess.check_output([FFMPEG,'-v','error','-ss',str(terminal_start),'-i',str(path),
         '-t',str(ACTION_END-terminal_start),'-an','-f','framemd5','-'],text=True)
     frames=[line.rsplit(',',1)[1].strip() for line in hashes.splitlines() if line and not line.startswith('#')]
@@ -154,7 +163,7 @@ def inspect(path: Path,language: str) -> None:
             'visual_review':'manual frame inspection is documented in docs/TRAILER_DELIVERY.md',
             'black_or_freeze_events':anomalies,
             'approach_motion':'240/240 distinct decoded frames; all 100 fleet threats move in each one-second interval',
-            'ending':'normal-speed rear missile chase; single blackout before impact; no outcome'}
+            'ending':'same-direction low-angle handheld approach, rear chase, single pre-impact blackout'}
     (folder/'technical-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     images=[]
