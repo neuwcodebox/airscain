@@ -4,6 +4,7 @@ extends Node3D
 const UNLOAD_SECONDS := 18.0
 const EMERGENCY_REPAIR_SECONDS := 180.0
 const IDENTITY_MARKER_SCENE := preload("res://effects/unit_identity_marker/unit_identity_marker.tscn")
+const DAMAGE_SMOKE_SCENE := preload("res://effects/damage_smoke/damage_smoke.tscn")
 const IDENTITY_ICON := preload("res://ui/icons/asset_harbor.svg")
 const IDENTITY_COLOR := UnitIdentityMarker.SENSOR_COLOR
 ## Sub-metre members alias into broken diagonals beyond this camera distance.
@@ -24,6 +25,7 @@ var crane_cables: Array[MeshInstance3D] = []
 var crane_loads: Array[MeshInstance3D] = []
 var crane_spreaders: Array[MeshInstance3D] = []
 var identity_marker: UnitIdentityMarker
+var damage_smoke: DamageSmokeEffect
 var window_material: ShaderMaterial
 var closed_from: float = INF
 var closed_until: float = 0.0
@@ -46,6 +48,11 @@ func configure(field: Battlefield, session_value: GameSession) -> bool:
 	var orientation := Basis(Vector3(route.along_quay.x, 0.0, route.along_quay.y), Vector3.UP, Vector3(route.seaward.x, 0.0, route.seaward.y))
 	global_transform = Transform3D(orientation, Vector3(route.berth.x, route.sea_level, route.berth.y))
 	_build_port()
+	damage_smoke = DAMAGE_SMOKE_SCENE.instantiate() as DamageSmokeEffect
+	damage_smoke.name = "HarborDamageSmoke"
+	damage_smoke.position = Vector3(0.0, 4.0, -23.0)
+	add_child(damage_smoke)
+	damage_smoke.deactivate()
 	for depth: float in [-30.0, -90.0, -150.0]:
 		field.clear_scenery(global_transform * Vector3(0.0, 0.0, depth), 95.0)
 	identity_marker = IDENTITY_MARKER_SCENE.instantiate() as UnitIdentityMarker
@@ -112,6 +119,11 @@ func update_at_time(time_seconds: float) -> void:
 		if index < first:
 			delivery_outcomes.erase(index)
 	var repairing := not _operational_at(time_seconds)
+	if repairing and not damage_smoke.visible:
+		damage_smoke.set_city_scale(1.0, 18.0)
+		damage_smoke.restart_at_source()
+	elif not repairing and damage_smoke.visible:
+		damage_smoke.deactivate()
 	identity_marker.set_condition(not repairing, false)
 	identity_marker.set_progress((time_seconds - closed_from) / maxf(closed_until - closed_from, 0.001) if repairing else 0.0, repairing)
 	# The city window shader switches off every band inside a damaged footprint.
