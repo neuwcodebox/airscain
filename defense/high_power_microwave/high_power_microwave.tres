@@ -20,6 +20,6 @@ display_name = "고출력 마이크로파"
 purchase_tooltip = "조준점 주변의 여러 전자 표적을 한 번에 무력화합니다.\n단독·분산 표적에는 비효율적이며 전력 수요가 매우 높습니다."
 scene = ExtResource("2")
 price = 280
-unlock_pressure_level = 4
+unlock_pressure_level = 6
 placement_profile = SubResource("Placement")
 preview_range = 210.0

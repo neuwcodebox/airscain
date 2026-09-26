@@ -3,6 +3,7 @@ extends GutTest
 const SCENARIO := preload("res://main/first_scenario.tres")
 
 func test_phase_briefings_match_the_spec_unlock_table() -> void:
+	var expected_levels := {&"operation_start": 1, &"recon_and_swarms": 2, &"cruise_and_jamming": 4, &"defense_suppression": 6, &"high_altitude_strikes": 9, &"air_strikes_and_saturation": 12, &"ballistic_threat": 15}
 	var expected := {
 		&"operation_start": [[&"attack_uav"], [&"missile_battery", &"search_radar", &"command_post", &"close_in_gun", &"support_facility", &"radar_decoy", &"weapon_decoy"]],
 		&"recon_and_swarms": [[&"swarm_uav", &"recon_uav", &"decoy_uav"], [&"high_energy_laser"]],
@@ -15,6 +16,7 @@ func test_phase_briefings_match_the_spec_unlock_table() -> void:
 	assert_eq(SCENARIO.operation_briefings.size(), expected.size())
 	for briefing: OperationBriefingDefinition in SCENARIO.operation_briefings:
 		assert_true(expected.has(briefing.id), String(briefing.id))
+		assert_eq(briefing.unlock_level, expected_levels[briefing.id], String(briefing.id))
 		var threat_ids: Array = []
 		for definition: ThreatDefinition in SCENARIO.briefing_threats(briefing):
 			threat_ids.append(definition.id)
@@ -59,9 +61,11 @@ func test_controller_delivers_each_reached_phase_once_in_phase_order() -> void:
 	controller.pressure_reached(1)
 	controller.pressure_reached(1)
 	controller.pressure_reached(3)
-	assert_eq(delivered, [&"operation_start", &"recon_and_swarms", &"cruise_and_jamming"] as Array[StringName])
+	assert_eq(delivered, [&"operation_start", &"recon_and_swarms"] as Array[StringName])
 	controller.pressure_reached(5)
-	assert_eq(delivered.size(), 4, "5단계는 4단계 국면 범위 안이므로 새 브리핑이 없습니다")
+	assert_eq(delivered, [&"operation_start", &"recon_and_swarms", &"cruise_and_jamming"] as Array[StringName])
+	controller.pressure_reached(6)
+	assert_eq(delivered.size(), 4, "6단계에서 다음 묶음 브리핑을 전달합니다")
 
 func test_disabled_controller_never_delivers() -> void:
 	var controller := autofree(OperationBriefingController.new()) as OperationBriefingController
@@ -84,13 +88,14 @@ func test_delivered_state_round_trips_and_rejects_unknown_or_duplicate_ids() -> 
 	assert_ne(OperationBriefingController.validation_error(null, SCENARIO), "")
 
 func test_legacy_state_marks_phases_up_to_the_reached_level() -> void:
-	assert_eq(OperationBriefingController.legacy_state(SCENARIO, 3).delivered, ["operation_start", "recon_and_swarms", "cruise_and_jamming"])
+	assert_eq(OperationBriefingController.legacy_state(SCENARIO, 3).delivered, ["operation_start", "recon_and_swarms"])
 
 func test_briefed_threats_first_fly_one_level_after_their_briefing() -> void:
 	for briefing: OperationBriefingDefinition in SCENARIO.operation_briefings:
 		for definition: ThreatDefinition in SCENARIO.briefing_threats(briefing):
 			var entry := _entry(definition.id)
 			var case_label := "%s %s" % [briefing.id, definition.id]
+			assert_eq(entry.unlock_level, briefing.unlock_level, "%s: 국면의 위협은 함께 예고됩니다" % case_label)
 			if briefing.unlock_level == 1:
 				assert_true(SCENARIO.is_threat_available(entry, 1), "%s: 작전 개시 위협은 첫 공습에 바로 출격합니다" % case_label)
 				continue
@@ -103,6 +108,7 @@ func test_counter_assets_unlock_before_their_phase_threats_fly() -> void:
 		for definition: ThreatDefinition in SCENARIO.briefing_threats(briefing):
 			earliest_flight = mini(earliest_flight, SCENARIO.threat_flight_level(_entry(definition.id)))
 		for definition: DefenseDefinition in SCENARIO.briefing_defenses(briefing):
+			assert_eq(definition.unlock_pressure_level, briefing.unlock_level, "%s %s: 대응 자산도 국면과 함께 해금됩니다" % [briefing.id, definition.id])
 			if briefing.unlock_level > 1:
 				assert_lt(definition.unlock_pressure_level, earliest_flight, "%s %s" % [briefing.id, definition.id])
 

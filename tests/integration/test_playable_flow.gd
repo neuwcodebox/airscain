@@ -2635,8 +2635,9 @@ func test_new_explosion_does_not_reactivate_a_faded_shockwave() -> void:
 
 func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> void:
 	main.registry.clear()
-	main.director.pressure_changed.emit(5)
-	var hpm_result := _place_for(main, _defense_definition_for(main, &"high_power_microwave"))
+	var hpm_definition := _defense_definition_for(main, &"high_power_microwave")
+	main.director.pressure_changed.emit(hpm_definition.unlock_pressure_level)
+	var hpm_result := _place_for(main, hpm_definition)
 	assert_true(hpm_result.success)
 	var hpm := hpm_result.unit as HighPowerMicrowave
 	var definition := _threat_entry_for(main, &"attack_uav").threat_definition
@@ -2662,8 +2663,8 @@ func test_hpm_pulse_affects_multiple_electronic_targets_in_observed_area() -> vo
 
 func test_hpm_weakly_heats_bird_and_bird_falls_without_exploding_when_neutralized() -> void:
 	main.registry.clear()
-	main.director.pressure_changed.emit(5)
 	var hpm_definition := _defense_definition_for(main, &"high_power_microwave") as HighPowerMicrowaveDefinition
+	main.director.pressure_changed.emit(hpm_definition.unlock_pressure_level)
 	var hpm_result: Dictionary = main.session.request_placement(hpm_definition, _find_valid_position_for(hpm_definition.placement_profile), main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
 	assert_true(hpm_result.success)
 	var hpm := hpm_result.unit as HighPowerMicrowave

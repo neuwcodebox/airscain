@@ -710,7 +710,7 @@ effect =
 관측 기반 투발 임무는 근거리 확인에 성공한 `ACTING` 단계에서만 무장을 투하한다. 사거리 안에서 실제 가동 표적을 발견하면 위치를 보정하고, 발견하지 못했을 때는 추정 지점 안쪽까지 수색한 뒤 철수한다. 방공무장 폭격 UAV의 확인 범위는 550m로, 최대 비행 속도에서도 폭탄의 탄도 투하 지점에 도달하기 전에 관측 오차를 보정할 수 있다. 확인 단계는 기존 임무 phase로 저장한다. 투하 이후 폭탄은 초기 속도와 중력으로 비행하며 이동한 표적을 추적하지 않는다.
 
 
-방공무장 폭격 UAV는 WEAPON 임무 역할·weapon 지식 역할·SUPPRESSION 편성 역할을 조합한다. 4단계 해금, 그룹 1기, 위협 비용 4, 기본 가중치 0.3, 체력 85, 속도 40m/s, 순항/종말 고도 145/65m, 획득 반경 550m, 예상 낙하지점 기반 투하, 피해 45를 초기값으로 사용한다. action_distance 100m는 이탈 완료 및 관측 확인 기준에 사용하며 폭탄 투하는 고정 반경만으로 결정하지 않는다. 같은 UAV 기체의 무장 변형을 콘텐츠 장면에서 선택하고 정적 메시 캐시는 기체·무장 변형을 모두 키로 사용한다. 카탈로그와 사전 렌더 준비는 공통 위협 목록에서 자동으로 포함한다.
+방공무장 폭격 UAV는 WEAPON 임무 역할·weapon 지식 역할·SUPPRESSION 편성 역할을 조합한다. 6단계 해금, 그룹 1기, 위협 비용 4, 기본 가중치 0.3, 체력 85, 속도 40m/s, 순항/종말 고도 145/65m, 획득 반경 550m, 예상 낙하지점 기반 투하, 피해 45를 초기값으로 사용한다. action_distance 100m는 이탈 완료 및 관측 확인 기준에 사용하며 폭탄 투하는 고정 반경만으로 결정하지 않는다. 같은 UAV 기체의 무장 변형을 콘텐츠 장면에서 선택하고 정적 메시 캐시는 기체·무장 변형을 모두 키로 사용한다. 카탈로그와 사전 렌더 준비는 공통 위협 목록에서 자동으로 포함한다.
 
 모든 STRIKE_AND_EXIT 임무는 투발 여부만 확정한다. `ThreatMissionDefinition.released_missile`이 있으면 독립 위협 미사일을, 없으면 비요격 폭탄을 분리한다. 미사일은 수평 투발 거리와 전방 25° 정렬 조건을 사용한다. 폭탄은 무장 장착점·현재 속도·중력 9.8m/s²로 예상 낙하지점을 계산한다. 기본 투하 허용 오차는 4m이며 프레임 이동 길이의 1.5배가 더 크면 그 값을 사용해 고속 선회와 지형 여유 보정 중에도 이산 tick 사이의 투하 창을 건너뛰지 않는다. 수평 속도가 1m/s 미만이어도 장착점이 허용 오차 안이고 양의 낙하 시간이 있으면 수직 투하를 허용해 표적 상공 정지를 방지한다. 최소 8m인 실제 피해 판정 안쪽에 여유를 남겨 작은 포대 주변 경사지에서도 정상 투하가 빗나가지 않게 한다. 투하 이후에는 유도나 피해 반경 확대 없이 원래 탄도와 실제 표면 충돌을 유지한다. 지원시설 타격 UAV의 종말고도도 65m로 유지한다. 오른쪽 날개 아래 무장은 투발 후 숨기고 임무 상태 복원 시 같은 가시성을 복구한다. 무장 메시와 재질은 사전 생성해 공유한다.
 
@@ -873,12 +873,12 @@ raid_budget =
 
 같은 짧은 wave 목록을 반복하지 않되, 모든 공격을 완전히 무작위로 만들어 의도를 잃지 않는다.
 
-`ThreatSpawnEntry.unlock_level`은 위협이 첩보로 공개되는 단계이며, 실제 편성 가능 단계는 `ScenarioDefinition.threat_flight_level()`이 `threat_intel_lead_levels`(기본 시나리오 1)를 더해 계산한다. 기본 시나리오의 도시 타격 순항미사일은 1발 그룹·비용 3으로 편성해 4단계 예산 안에 들어간다. 편성 규칙 테스트는 모든 위협 그룹 비용이 첫 출격 가능 단계의 기본 예산을 넘지 않는지 검사한다. 1단계 위협은 첫 공습에 필요하므로 선행 없이 출격한다. `RaidPlanner`, Director의 단일 위협 선택과 저장 변환은 모두 `is_threat_available()`만 사용한다. 자동 공습 가중치는 출격 가능하지만 아직 한 번도 생성되지 않은 공습 위협에 `DEBUT_WEIGHT_MULTIPLIER`(4배)를 곱한다. Director는 위협을 실제 생성할 때 Definition ID를 첫 출격 이력에 기록하며, 관측 요구로 가중치가 0인 제압 위협은 곱셈 뒤에도 0으로 남는다. 해금 단계는 계속 `ThreatSpawnEntry.unlock_level`과 `DefenseDefinition.unlock_pressure_level`이 소유한다. 방어 자산 해금은 `GameSession.is_unlocked()`로 판정하며, 자유 모드는 `configure_free_play()`로 위협 단계를 0에 둔 채 `unlock_all`로 모든 자산을 연다. 자유 모드 root는 Director 단계 신호를 세션·HUD에 반영하지 않는다.
+`ThreatSpawnEntry.unlock_level`은 위협이 첩보로 공개되는 단계이며, 실제 편성 가능 단계는 `ScenarioDefinition.threat_flight_level()`이 `threat_intel_lead_levels`(기본 시나리오 1)를 더해 계산한다. 기본 시나리오의 도시 타격 순항미사일은 1발 그룹·비용 3으로 편성해 5단계 예산 안에 들어간다. 편성 규칙 테스트는 모든 위협 그룹 비용이 첫 출격 가능 단계의 기본 예산을 넘지 않는지 검사한다. 1단계 위협은 첫 공습에 필요하므로 선행 없이 출격한다. `RaidPlanner`, Director의 단일 위협 선택과 저장 변환은 모두 `is_threat_available()`만 사용한다. 자동 공습 가중치는 출격 가능하지만 아직 한 번도 생성되지 않은 공습 위협에 `DEBUT_WEIGHT_MULTIPLIER`(4배)를 곱한다. Director는 위협을 실제 생성할 때 Definition ID를 첫 출격 이력에 기록하며, 관측 요구로 가중치가 0인 제압 위협은 곱셈 뒤에도 0으로 남는다. 해금 단계는 계속 `ThreatSpawnEntry.unlock_level`과 `DefenseDefinition.unlock_pressure_level`이 소유한다. 방어 자산 해금은 `GameSession.is_unlocked()`로 판정하며, 자유 모드는 `configure_free_play()`로 위협 단계를 0에 둔 채 `unlock_all`로 모든 자산을 연다. 자유 모드 root는 Director 단계 신호를 세션·HUD에 반영하지 않는다.
 
 
 ### 작전 국면 브리핑
 
-`OperationBriefingDefinition`은 국면 ID·시작 위협 단계·이름·첩보·권장 대응 문구만 가진다. `ScenarioDefinition.operation_briefings`는 1단계부터 오름차순이어야 하며, `briefing_threats()`와 `briefing_defenses()`가 다음 국면 직전 단계까지 처음 해금되는 공습 위협과 방어 Definition을 콘텐츠 순서대로 만든다. 브리핑이 있는 시나리오의 모든 공습 위협 Definition은 `briefing_note`를 가져야 한다.
+`OperationBriefingDefinition`은 국면 ID·시작 위협 단계·이름·첩보·권장 대응 문구만 가진다. `ScenarioDefinition.operation_briefings`는 1·2·4·6·9·12·15단계 순서이며, 각 국면의 위협과 대응 자산은 시작 단계에 함께 해금된다. 브리핑은 1단계부터 오름차순이어야 하며, `briefing_threats()`와 `briefing_defenses()`가 다음 국면 직전 단계까지 처음 해금되는 공습 위협과 방어 Definition을 콘텐츠 순서대로 만든다. 브리핑이 있는 시나리오의 모든 공습 위협 Definition은 `briefing_note`를 가져야 한다.
 
 gameplay root의 자식 `OperationBriefingController`는 지속 작전에서만 활성화된다. Director의 `pressure_changed`를 작전 진행 중에만 받아 도달한 단계 이하의 미전달 국면을 순서대로 한 번씩 `briefing_delivered`로 알리고, 첫 국면은 자동 시작 직후 현재 단계로 한 번 확인한다. 저장 복원은 Director 복원보다 먼저 전달 목록을 복원해 복원 중 단계 신호가 브리핑을 다시 열지 않게 한다.
 

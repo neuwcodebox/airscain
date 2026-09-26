@@ -52,13 +52,13 @@ func test_reaching_a_new_phase_pauses_on_its_briefing_and_escape_restores_speed(
 
 func test_briefing_lists_the_threats_and_assets_of_its_phase() -> void:
 	var operation := _acknowledged_operation()
-	operation.director.pressure_changed.emit(3)
+	operation.director.pressure_changed.emit(4)
 	var briefing := operation.briefing_panel.current_briefing()
 	assert_eq(briefing.id, &"cruise_and_jamming")
 	assert_eq(operation.briefing_panel.threat_list.get_child_count(), operation.scenario.briefing_threats(briefing).size())
 	assert_eq(operation.briefing_panel.asset_list.get_child_count(), operation.scenario.briefing_defenses(briefing).size())
 	assert_true(operation.briefing_panel.deploy_button.visible)
-	assert_eq(operation.briefing_panel.threat_timing_label.text, "4단계부터 출격", "대응 자산 배치 시간을 알립니다")
+	assert_eq(operation.briefing_panel.threat_timing_label.text, "5단계부터 출격", "대응 자산 배치 시간을 알립니다")
 
 func test_deploy_opens_the_catalog_with_only_new_assets_highlighted_until_closed() -> void:
 	var operation := _acknowledged_operation()
@@ -100,7 +100,7 @@ func test_legacy_save_treats_reached_phases_as_delivered() -> void:
 	legacy.payload.session.current_pressure = 3
 	legacy.payload.director.pressure_level = 3
 	assert_eq(operation.restore_from_document(legacy), "")
-	assert_eq(operation.briefing_controller.delivered_ids, [&"operation_start", &"recon_and_swarms", &"cruise_and_jamming"] as Array[StringName])
+	assert_eq(operation.briefing_controller.delivered_ids, [&"operation_start", &"recon_and_swarms"] as Array[StringName])
 	assert_false(operation.briefing_panel.visible)
 	assert_eq(operation.session.simulation_speed, 1.0)
 
