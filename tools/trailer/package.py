@@ -14,12 +14,12 @@ def package() -> None:
     shutil.copyfile(ROOT/'docs/TRAILER_DELIVERY.md',delivery/'QUALITY_REVIEW.md')
     for language in ['KO','EN']:
         source=OUT/f'Airscain_Launch_Trailer_{language}.mp4'
-        run(['-ss','22','-i',str(source),'-frames:v','1','-q:v','1',
+        run(['-ss','40','-i',str(source),'-frames:v','1','-q:v','1',
              str(delivery/f'Thumbnail_{language}.jpg')])
     run(['-i',str(OUT/'edit/ko/assembled.mkv'),'-vn','-af',
          'volume=0.70,afade=t=out:st=52.4:d=0.25','-t','60','-ar','48000',
          '-c:a','pcm_s24le',str(delivery/'Game_SFX.wav')])
-    gain="if(lt(t,18),0.10,if(lt(t,44),0.20,if(lt(t,52.5),0.27,0.025)))"
+    gain="if(lt(t,16),0.09,if(lt(t,26),0.065,if(lt(t,38),0.16,if(lt(t,52.5),0.25,0.035))))"
     run(['-i',str(OUT/'assets/volatile-reaction.mp3'),'-af',
          f"atrim=0:60,asetpts=PTS-STARTPTS,volume='{gain}':eval=frame,afade=t=in:d=0.25,afade=t=out:st=58:d=2",
          '-t','60','-ar','48000','-c:a','pcm_s24le',str(delivery/'Music_Edit.wav')])

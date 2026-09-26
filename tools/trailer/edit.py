@@ -26,8 +26,6 @@ def art(language: str) -> dict[str, Path]:
     folder.mkdir(exist_ok=True)
     words = {
         'build': '방공망을 설계하라.' if language == 'ko' else 'BUILD YOUR AIR DEFENSE.',
-        'raids': '공습은 멈추지 않는다.' if language == 'ko' else "THE RAIDS DON'T STOP.",
-        'decoy': '적의 공격을 유인하라.' if language == 'ko' else 'DRAW ENEMY FIRE.',
         'call': '이 도시에는 당신이 필요합니다.' if language == 'ko' else 'THIS CITY NEEDS YOU.',
     }
     files = {}
@@ -62,51 +60,19 @@ def art(language: str) -> dict[str, Path]:
     return files
 
 
-def fire_start(shot: str,language: str) -> float:
-    meta=OUT/'review'/f'{shot}_{language}.json'
-    data=json.loads(meta.read_text(encoding='utf-8'))
-    fires=[e['frame']/60 for e in data['events'] if e['event']=='fire' and e.get('asset')==shot]
-    if not fires:
-        raise ValueError(f'No recorded weapon fire: {shot}_{language}')
-    return max(0,fires[0]-.3)
-
-
 def timeline(language: str) -> list[dict]:
-    # HUD-free hero takes are language-neutral. HUD shots are captured in both languages.
-    def row(shot,start,duration,caption=None,lang=None,dark=0,dip=False):
-        return dict(shot=shot,lang=lang or language,start=start,frames=round(duration*60),caption=caption,dark=dark,dip=dip)
-    def hero(shot,duration,start=None,dip=False):
-        return row(shot,fire_start(shot,'ko') if start is None else start,duration,lang='ko',dip=dip)
-    rows=[
-        row('opening',1,3),
-        row('placement',1.2,4,'build'),
-        row('network',0.4,3,'build'),
-        hero('missile_battery',4),
-        hero('close_in_gun',4),
-        row('overview',4,6,'raids'),
-        row('radar',2,1.5),
-        hero('long_range_missile',2),
-        hero('missile_battery',2,start=3.4),
-        hero('short_range_missile',2),
-        hero('high_energy_laser',2),
-        hero('high_power_microwave',2),
-        hero('interceptor_drone_defense',2),
-        hero('close_in_gun',1.5,start=6),
-        row('support',16,2),
-        row('radar_decoy',2.75,1.5,'decoy',lang='ko'),
-        row('weapon_decoy',10,1.5,'decoy',lang='ko'),
-        hero('long_range_missile',1.25,start=5),
-        hero('missile_battery',1,start=4,dip=True),
-        hero('short_range_missile',.75,start=10.5),
-        hero('high_energy_laser',.75,start=5,dip=True),
-        hero('high_power_microwave',.75,start=6.35),
-        hero('interceptor_drone_defense',.5,start=4.25),
-        hero('close_in_gun',.5,start=7,dip=True),
-        row('crisis',10.5,.5),
-        row('crisis',11,3),
-        row('closing',7,2,'call',dark=.73,lang='en'),
-        row('closing',9,5,'end',dark=.78,lang='en'),
-    ]
+    # Every source frame advances once. Camera changes happen inside the same raid.
+    def row(shot,start,end,caption=None,dark=0,dip=False):
+        return dict(shot=shot,lang=language if shot=='intro' else 'ko',
+                    start=start,frames=round((end-start)*60),caption=caption,dark=dark,dip=dip)
+    rows=[row('intro',0,3),row('intro',3,7,'build'),
+          row('intro',7,12),row('intro',12,16,dip=True)]
+    cuts=[0,2,6,10,13,16,19,22,25,28,29.5,30.75,31.75,32.5,33.25,34,37,39,44]
+    for start,end in zip(cuts,cuts[1:]):
+        caption='call' if start==37 else 'end' if start==39 else None
+        rows.append(row('raid',start,end,caption,
+                        dark=.70 if caption=='call' else .76 if caption=='end' else 0,
+                        dip=start in [28,30.75,32.5]))
     assert sum(r['frames'] for r in rows)==3600
     clock=0
     for r in rows:
@@ -159,7 +125,7 @@ def render(language: str, no_text: bool=False) -> Path:
     run(['-f','concat','-safe','0','-i',str(listing),'-c','copy',str(assembled)])
     mix=work/'mix.wav'
     # Level automation follows the drama; output limiting does not imply listening QA.
-    expression="if(lt(t,18),0.10,if(lt(t,44),0.20,if(lt(t,52.5),0.27,0.025)))"
+    expression="if(lt(t,16),0.09,if(lt(t,26),0.065,if(lt(t,38),0.16,if(lt(t,52.5),0.25,0.035))))"
     graph=f"[0:a]volume=0.70,afade=t=out:st=52.4:d=0.25[sfx];[1:a]atrim=0:60,asetpts=PTS-STARTPTS,volume='{expression}':eval=frame,afade=t=in:d=0.25,afade=t=out:st=58:d=2[m];[sfx][m]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.90:level=0[out]"
     run(['-i',str(assembled),'-i',str(OUT/'assets/volatile-reaction.mp3'),'-filter_complex',graph,'-map','[out]','-t','60','-ar','48000','-c:a','pcm_s24le',str(mix)])
     # Two-pass normalization for a predictable web master.

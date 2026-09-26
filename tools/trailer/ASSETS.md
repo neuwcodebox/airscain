@@ -1,9 +1,10 @@
 # Trailer media sources
 
 The footage is captured from Airscain's actual Godot runtime. The production
-fixtures stage finite-budget deployments and scheduled raids, using unchanged
+fixtures stage finite-budget deployments and pre-positioned raids, using unchanged
 placement, sensor, weapon, damage and support rules. They are not recordings of
-an uninterrupted player session. Camera-only close-ups hide the HUD.
+an uninterrupted player session. Two continuous takes are joined at 16 seconds;
+the later operation hides the HUD and advances without resets or repeated events.
 
 ## Music
 
@@ -40,4 +41,5 @@ The video includes a compact music credit. Include this credit with publication:
   Arial Bold as rasterized text; the font binary is not redistributed.
 - No remote game footage or generated depictions of unimplemented gameplay.
 
-Raw and rendered media live in the Git-ignored `build/trailer` directory.
+Current raw and rendered media live in the Git-ignored `build/trailer_v2` directory.
+The rejected first version and original music-source record remain in `build/trailer`.
