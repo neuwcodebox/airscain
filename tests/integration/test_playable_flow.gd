@@ -2189,6 +2189,17 @@ func test_opening_ingress_keeps_dispatching_level_one_raids() -> void:
 	assert_eq(main.director.until_spawn, main.scenario.opening_raid_interval - 0.1)
 	assert_eq(main.director.opening_threat_ids, [9001], "후속 공습은 단계 상승을 막는 첫 공습 소속이 아닙니다")
 
+func test_airborne_threats_reduce_raid_size_while_pressure_still_grows() -> void:
+	main.director.opening_raid_complete = true
+	main.director.pressure_started_at = 45.0
+	assert_almost_eq(main.director.threat_budget_at(0.0), 4.0, 0.001)
+	assert_almost_eq(main.director.threat_budget_at(135.0), 5.0, 0.001)
+	assert_not_null(main.director.spawn_one())
+	assert_not_null(main.director.spawn_one())
+	assert_eq(main.registry.hostile_count(), 2)
+	assert_almost_eq(main.director.threat_budget_at(0.0), 3.0, 0.001)
+	assert_almost_eq(main.director.threat_budget_at(135.0), 4.0, 0.001)
+
 func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> void:
 	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
 	var support_result := _place_for(main, _defense_definition_for(main, &"support_facility"))

@@ -198,7 +198,8 @@ func automatic_raid_interval_at(time_seconds: float) -> float:
 	return raid_interval_at(time_seconds)
 
 func threat_budget_at(time_seconds: float) -> float:
-	return 3.0 + float(pressure_level_at(time_seconds)) + performance_budget_adjustment()
+	var active_penalty := minf(1.0, float(registry.hostile_count()) * 0.5) if registry != null else 0.0
+	return 4.0 + float(pressure_level_at(time_seconds) - 1) * scenario.threat_budget_growth_per_level + performance_budget_adjustment() - active_penalty
 
 func performance_budget_adjustment() -> float:
 	if enemy_knowledge == null or enemy_knowledge.recent_outcomes.size() < 4:

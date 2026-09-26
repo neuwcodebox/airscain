@@ -28,6 +28,7 @@ var selected_battlefield_layout_id: StringName = &""
 @export var minimum_raid_interval: float = 14.0
 @export var raid_interval_pressure_reduction: float = 0.6
 @export var pressure_step_duration: float = 90.0
+@export var threat_budget_growth_per_level: float = 0.5
 @export var speed_growth_duration: float = 1200.0
 @export var maximum_speed_multiplier: float = 1.6
 @export var active_threat_cap: int = 200
@@ -58,7 +59,7 @@ func validation_error() -> String:
 		return "선택한 전장 레이아웃을 찾을 수 없습니다"
 	if threat_intel_lead_levels < 0:
 		return "위협 첩보 선행 단계가 올바르지 않습니다"
-	if starting_budget < 0 or initial_spawn_interval <= 0.0 or opening_raid_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
+	if starting_budget < 0 or initial_spawn_interval <= 0.0 or opening_raid_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or threat_budget_growth_per_level <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
 		return "보호 목표 Definition이 없습니다"
