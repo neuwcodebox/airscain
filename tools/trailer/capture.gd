@@ -1,11 +1,11 @@
 extends SceneTree
-## Two continuous gameplay takes. All attacking aircraft exist before frame zero.
+## Staged gameplay takes. All attacking threats exist before frame zero.
 const MAIN := preload("res://main/main.tscn")
 var main: AirscainMain
 var shot := "intro"
 var language := "ko"
-var seconds := 16.0
-var output := "res://build/trailer_v3/review"
+var seconds := 12.0
+var output := "res://build/trailer_v4/review"
 var probe := false
 var camera_preview := false
 var frame := -1
@@ -19,6 +19,8 @@ var peak_threats := 0
 var recording := false
 var camera_cut := -1
 var camera_frames: Array[Dictionary] = []
+var ballistic: AttackUav
+var warning_phase := ""
 
 func _init() -> void:
 	for arg: String in OS.get_cmdline_user_args():
@@ -60,7 +62,7 @@ func run() -> void:
 	main.combat_audio.cruise_approaches = null
 	main.day_night.apply_time(0.0, true)
 	main.session.start_defense()
-	if shot == "raid":
+	if shot != "intro":
 		main.session.survival_time = 1440.0
 		main.session.next_support_at = 1530.0
 		main.session.update_pressure(14)
@@ -68,6 +70,8 @@ func run() -> void:
 		main.director.pressure_level = 14
 		for payment: int in 65:
 			main.session.grant_regular_support(main.scenario.support_amount)
+	if shot != "intro":
+		main.player_knowledge.track_created.disconnect(main._on_track_contact_audio)
 	_build_fixture()
 	initial_assets = _asset_state()
 	main.session.defense_placed.connect(_placed)
@@ -77,7 +81,7 @@ func run() -> void:
 	if shot == "intro":
 		_pose(Vector3(310, 430, -670), Vector3(260, 45, 0), 65)
 	else:
-		_raid_camera(0)
+		_direct_camera(0)
 	_preflight_attack()
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	for settle: int in 30:
@@ -85,7 +89,7 @@ func run() -> void:
 		if not probe: await RenderingServer.frame_post_draw
 	first_movie_frame = Engine.get_frames_drawn()
 	if camera_preview:
-		for moment: float in [0.0, 3.0, 6.0, 10.0, 14.0, 18.0, 22.0, 26.0, 29.0, 32.0, 33.5, 34.75, 35.75, 36.5, 37.25, 38.0]:
+		for moment: float in [0.0, 3.0, 6.0, 10.0, 14.0, 18.0, 22.0, 26.0]:
 			_raid_camera(moment)
 			await process_frame
 			await RenderingServer.frame_post_draw
@@ -103,7 +107,7 @@ func run() -> void:
 		frame = index
 		var t := float(frame) / 60.0
 		if shot == "intro": _intro(t)
-		else: _raid_camera(t)
+		else: _direct_camera(t)
 		var camera_position := main.camera_rig.camera.global_position
 		camera_frames.append({"frame": frame, "p": [camera_position.x, camera_position.y, camera_position.z], "fov": main.camera_rig.camera.fov})
 		await process_frame
@@ -121,6 +125,7 @@ func run() -> void:
 		"city_integrity": main.objective.current_integrity, "events": events, "births": births,
 		"initial_assets": initial_assets, "assets": _asset_state(), "samples": samples,
 		"camera_frames": camera_frames, "continuous_take": true, "scripted_spawns_during_capture": 0,
+		"contact_audio_events": main.combat_audio.played_count(CombatAudio.CONTACT),
 		"fixture": "finite-budget deployment; unchanged combat; all aircraft pre-spawned"}
 	var suffix := "_probe" if probe else ""
 	var file := FileAccess.open("%s/%s_%s%s.json" % [output, shot, language, suffix], FileAccess.WRITE)
@@ -142,20 +147,59 @@ func _asset_state() -> Array[Dictionary]:
 
 func _build_fixture() -> void:
 	_buy(&"command_post", Vector3(230, 0, 0))
-	if shot == "intro":
-		return
-	for sector: int in 3:
-		var z := float(sector - 1) * 240.0
-		_buy(&"command_post", Vector3(220, 0, z))
-		_buy(&"search_radar", Vector3(340, 0, z + 40))
-		_buy(&"tracking_radar", Vector3(290, 0, z + 90))
-		_buy(&"support_facility", Vector3(330, 0, z - 20))
-		_buy(&"support_facility", Vector3(270, 0, z - 60))
-		var ids: Array[StringName] = [&"missile_battery", &"long_range_missile", &"short_range_missile", &"close_in_gun", &"high_energy_laser", &"high_power_microwave", &"interceptor_drone_defense"]
-		for k: int in ids.size():
-			_buy(ids[k], Vector3(410 + (k % 2) * 55, 0, z - 70 + k * 23))
+	if shot == "intro": return
+	_buy(&"search_radar", Vector3(330, 0, 90))
+	_buy(&"missile_battery", Vector3(358.4853, 0, -51.5147))
+	_buy(&"close_in_gun", Vector3(270, 0, -140))
+	if shot == "expansion": return
+	for sector: int in 3: _sector(sector)
+
+func _sector(sector: int) -> void:
+	var z := float(sector - 1) * 240.0
+	_buy(&"command_post", Vector3(220, 0, z))
+	_buy(&"search_radar", Vector3(340, 0, z + 40))
+	_buy(&"tracking_radar", Vector3(290, 0, z + 90))
+	_buy(&"support_facility", Vector3(330, 0, z - 20))
+	_buy(&"support_facility", Vector3(270, 0, z - 60))
+	var ids: Array[StringName] = [&"missile_battery", &"long_range_missile", &"short_range_missile", &"close_in_gun", &"high_energy_laser", &"high_power_microwave", &"interceptor_drone_defense"]
+	for k: int in ids.size():
+		_buy(ids[k], Vector3(410 + (k % 2) * 55, 0, z - 70 + k * 23))
+
+func _direct_camera(t: float) -> void:
+	if shot == "expansion":
+		if frame in [0, 120, 240]:
+			_sector(frame / 120)
+			_hud(false)
+			events.append({"frame": frame, "event": "expansion", "count": main.defenses.size()})
+		_travel(t / 6.0, Vector3(270, 220, -520), Vector3(370, 95, -150), Vector3(500, 55, 0), Vector3(620, 85, 30), 60, 60)
+	elif shot == "crisis":
+		_crisis_camera(t)
+	else: _raid_camera(t)
+
+func _crisis_camera(t: float) -> void:
+	if not is_instance_valid(ballistic): return
+	var p := ballistic.global_position
+	var phase := str(ballistic.mover.ballistic_phase())
+	if phase != warning_phase:
+		warning_phase = phase
+		events.append({"frame": frame, "event": "ballistic_phase", "phase": phase, "p": [p.x,p.y,p.z]})
+	# The camera follows the genuine trajectory, never relocates the missile.
+	if t < 7.0:
+		_pose(Vector3(340, 90, -260), Vector3(-150, 200, 50), 62)
+	elif t < 11.7:
+		_pose(p + Vector3(-100, 45, -70), p + Vector3(45,-40,0), 58)
+	elif t < 12.6:
+		_pose(p + Vector3(-160, 120, -160), p.lerp(ballistic.target_point, 0.18), 65)
+	elif t < 13.4:
+		_pose(p + Vector3(-220, 160, -220), p.lerp(ballistic.target_point, 0.25), 65)
+	else:
+		_pose(p + Vector3(65, 70, -110), p.lerp(ballistic.target_point, 0.5), 65)
 
 func _preflight_attack() -> void:
+	if shot == "expansion": return
+	if shot == "crisis":
+		_spawn(&"ballistic_missile", Vector3(-4000, 0, 0))
+		return
 	if shot == "intro":
 		for k: int in 3: _spawn(&"attack_uav", Vector3(870 + k * 40, 0, -80 + k * 35))
 		return
@@ -202,7 +246,15 @@ func _intro(t: float) -> void:
 	_placement_action(&"close_in_gun", 276, 360, Vector3(270, 0, -140))
 	if frame == 390: main.placement.asset_selected.emit(_first(&"command_post"))
 	if frame == 480: main.placement.world_selected.emit(Vector3.INF, Vector2.INF)
-	if frame == 600: _hud(false)
+	if frame == 600: main.hud.visible = false
+	# Maintain tactical symbols through the opening, including the clean camera move.
+	main.track_display.visible = true
+	for marker: TrackMarker in main.track_display.markers.values():
+		marker.icon.fixed_size = true
+		marker.icon.pixel_size = 0.001
+	for unit: DefenseUnit in main.defenses:
+		unit.identity_marker.visible = true
+		unit.identity_marker.icon.pixel_size = 0.001
 	_travel(clampf((t - 6.0) / 6.0, 0.0, 1.0), Vector3(310, 430, -670), Vector3(270, 220, -520), Vector3(260, 45, 0), Vector3(500, 55, 0), 65, 60)
 
 func _hud(enabled: bool) -> void:
@@ -230,7 +282,7 @@ func _travel(progress: float, start: Vector3, end: Vector3, aim_start: Vector3, 
 	_pose(start.lerp(end, u), aim_start.lerp(aim_end, u), lerpf(lens_start, lens_end, u))
 
 func _raid_camera(t: float) -> void:
-	var cuts: Array[float] = [0, 6, 14, 18, 22, 26, 29, 32, 33.5, 34.75, 35.75, 36.5, 37.25, 38, 48]
+	var cuts: Array[float] = [0, 6, 14, 18, 22, 26, 30]
 	var selected := 0
 	for k: int in cuts.size() - 1:
 		if t >= cuts[k]: selected = k
@@ -244,14 +296,6 @@ func _raid_camera(t: float) -> void:
 		3: _travel(u, Vector3(430, 90, -380), Vector3(465, 80, -350), Vector3(790, 90, 30), Vector3(790, 90, 50), 65, 60)
 		4: _travel(u, Vector3(370, 52, -115), Vector3(385, 45, -95), Vector3(680, 95, 30), Vector3(680, 95, 50), 62, 60)
 		5: _travel(u, _ground(435, -30, 6), _ground(440, -24, 6), Vector3(640, 80, 60), Vector3(640, 80, 70), 68, 63)
-		6: _travel(u, _ground(405, -105, 8), _ground(411, -95, 8), Vector3(640, 70, 60), Vector3(640, 75, 70), 68, 64)
-		7: _travel(u, Vector3(430, 90, -350), Vector3(436, 85, -342), Vector3(780, 90, 40), Vector3(780, 90, 40), 60, 58)
-		8: _travel(u, _ground(400, 140, 25), _ground(408, 146, 25), Vector3(650, 75, 210), Vector3(650, 75, 220), 70, 67)
-		9: _travel(u, _ground(350, 50, 8), _ground(356, 55, 8), Vector3(650, 65, 140), Vector3(650, 70, 145), 70, 68)
-		10: _travel(u, _ground(415, 145, 8), _ground(418, 148, 8), Vector3(700, 90, 220), Vector3(700, 90, 220), 72, 70)
-		11: _travel(u, _ground(180, -140, 30), _ground(176, -140, 32), Vector3(450, 55, 30), Vector3(450, 55, 30), 65, 65)
-		12: _travel(u, _ground(380, 0, 8), _ground(384, 4, 8), Vector3(630, 70, 100), Vector3(630, 70, 100), 72, 70)
-		13: _travel(u, Vector3(110, 65, -320), Vector3(100, 70, -300), Vector3(560, 100, 0), Vector3(560, 100, 0), 65, 61)
 	if changed:
 		events.append({"frame": frame, "event": "camera", "cut": selected, "hard_cut": selected > 1})
 
@@ -275,8 +319,8 @@ func _buy(id: StringName, preferred: Vector3) -> DefenseUnit:
 				continue
 			var unit := result.unit as DefenseUnit
 			if not units.has(id): units[id] = []
-			units[id].append(unit)
-			unit.weapon_fired.connect(_fired)
+			if not units[id].has(unit): units[id].append(unit)
+			if not unit.weapon_fired.is_connected(_fired): unit.weapon_fired.connect(_fired)
 			return unit
 	push_error("TRAILER: placement failed %s reason=%s budget=%d pressure=%d" % [id, failure, main.session.budget, main.session.current_pressure])
 	return null
@@ -293,6 +337,7 @@ func _spawn(id: StringName, position: Vector3) -> void:
 		if entry.threat_definition.id != id: continue
 		var threat := main.director.spawn_entry_at(entry, position)
 		if threat != null:
+			if id == &"ballistic_missile": ballistic = threat as AttackUav
 			threat.resolved.connect(_resolved)
 			births.append({"frame": -1, "id": threat.runtime_id, "type": id, "p": [threat.position.x, threat.position.y, threat.position.z]})
 		return
