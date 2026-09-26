@@ -5,7 +5,7 @@ var main: AirscainMain
 var shot := "intro"
 var language := "ko"
 var seconds := 16.0
-var output := "res://build/trailer_v2/review"
+var output := "res://build/trailer_v3/review"
 var probe := false
 var camera_preview := false
 var frame := -1
@@ -18,6 +18,7 @@ var initial_assets: Array[Dictionary] = []
 var peak_threats := 0
 var recording := false
 var camera_cut := -1
+var camera_frames: Array[Dictionary] = []
 
 func _init() -> void:
 	for arg: String in OS.get_cmdline_user_args():
@@ -69,11 +70,12 @@ func run() -> void:
 			main.session.grant_regular_support(main.scenario.support_amount)
 	_build_fixture()
 	initial_assets = _asset_state()
+	main.session.defense_placed.connect(_placed)
 	main.director.enabled = false
 	main.camera_rig.input_blocked = true
 	_hud(shot == "intro")
 	if shot == "intro":
-		_pose(Vector3(310, 560, -840), Vector3(260, 50, 0), 65)
+		_pose(Vector3(310, 430, -670), Vector3(260, 45, 0), 65)
 	else:
 		_raid_camera(0)
 	_preflight_attack()
@@ -83,11 +85,11 @@ func run() -> void:
 		if not probe: await RenderingServer.frame_post_draw
 	first_movie_frame = Engine.get_frames_drawn()
 	if camera_preview:
-		for moment: float in [22.0, 25.0, 29.5, 30.75, 31.75, 32.5, 33.25, 34.0]:
+		for moment: float in [0.0, 3.0, 6.0, 10.0, 14.0, 18.0, 22.0, 26.0, 29.0, 32.0, 33.5, 34.75, 35.75, 36.5, 37.25, 38.0]:
 			_raid_camera(moment)
 			await process_frame
 			await RenderingServer.frame_post_draw
-			root.get_texture().get_image().save_png("%s/camera_%02d.png" % [output, camera_cut])
+			root.get_texture().get_image().save_png("%s/camera_%04d.png" % [output, int(moment * 60)])
 		units.clear()
 		main.queue_free()
 		await process_frame
@@ -102,6 +104,8 @@ func run() -> void:
 		var t := float(frame) / 60.0
 		if shot == "intro": _intro(t)
 		else: _raid_camera(t)
+		var camera_position := main.camera_rig.camera.global_position
+		camera_frames.append({"frame": frame, "p": [camera_position.x, camera_position.y, camera_position.z], "fov": main.camera_rig.camera.fov})
 		await process_frame
 		if not probe: await RenderingServer.frame_post_draw
 		peak_threats = maxi(peak_threats, main.registry.hostile_count())
@@ -116,7 +120,7 @@ func run() -> void:
 		"frames": frame + 1, "peak_threats": peak_threats, "kills": main.session.neutralized_count,
 		"city_integrity": main.objective.current_integrity, "events": events, "births": births,
 		"initial_assets": initial_assets, "assets": _asset_state(), "samples": samples,
-		"continuous_take": true, "scripted_spawns_during_capture": 0,
+		"camera_frames": camera_frames, "continuous_take": true, "scripted_spawns_during_capture": 0,
 		"fixture": "finite-budget deployment; unchanged combat; all aircraft pre-spawned"}
 	var suffix := "_probe" if probe else ""
 	var file := FileAccess.open("%s/%s_%s%s.json" % [output, shot, language, suffix], FileAccess.WRITE)
@@ -139,8 +143,6 @@ func _asset_state() -> Array[Dictionary]:
 func _build_fixture() -> void:
 	_buy(&"command_post", Vector3(230, 0, 0))
 	if shot == "intro":
-		_buy(&"missile_battery", Vector3(350, 0, -60))
-		_buy(&"close_in_gun", Vector3(270, 0, -140))
 		return
 	for sector: int in 3:
 		var z := float(sector - 1) * 240.0
@@ -155,38 +157,53 @@ func _build_fixture() -> void:
 
 func _preflight_attack() -> void:
 	if shot == "intro":
-		for k: int in 3: _spawn(&"attack_uav", Vector3(1020 + k * 40, 0, -80 + k * 35))
+		for k: int in 3: _spawn(&"attack_uav", Vector3(870 + k * 40, 0, -80 + k * 35))
 		return
 	# Depth-separated waves naturally arrive at different times. No new aircraft are
 	# instantiated during the visible raid, including cuts and the final title.
 	for row: int in 6:
 		for column: int in 14:
 			var id: StringName = &"attack_uav" if column % 4 == 0 else &"swarm_uav"
-			_spawn(id, Vector3(1350 + row * 220 + (column % 3) * 24, 0, -390 + column * 60))
+			_spawn(id, Vector3(1518 + row * 220 + (column % 3) * 24, 0, -390 + column * 60))
 	for k: int in 8:
-		_spawn(&"strike_aircraft", Vector3(2650 + (k / 4) * 360, 0, -330 + (k % 4) * 220))
+		_spawn(&"strike_aircraft", Vector3(2818 + (k / 4) * 360, 0, -330 + (k % 4) * 220))
 	for k: int in 8:
-		_spawn(&"cruise_missile", Vector3(1920 + k * 110, 0, -320 + (k % 4) * 205))
+		_spawn(&"cruise_missile", Vector3(2088 + k * 110, 0, -320 + (k % 4) * 205))
 
-func _intro(_t: float) -> void:
-	if frame == 45: main.hud.set_catalog_expanded(true)
-	if frame == 180:
-		main.placement.select(_definition(&"search_radar"))
+func _placed(unit: DefenseUnit) -> void:
+	if not units.has(unit.definition.id): units[unit.definition.id] = []
+	units[unit.definition.id].append(unit)
+	unit.weapon_fired.connect(_fired)
+
+func _placement_action(id: StringName, begin: int, end: int, location: Vector3) -> void:
+	if frame == begin:
+		main.placement.select(_definition(id))
 		main.hud.set_catalog_expanded(false)
-	if frame >= 180 and frame < 330:
-		var p := Vector3(330, main.battlefield.terrain_height(330, 90), 90)
+	if frame >= begin and frame < end:
+		var p := location
+		p.y = main.battlefield.terrain_height(p.x, p.z)
 		main.placement.candidate_position = p
 		main.placement.preview.global_position = p
 		main.placement.preview.visible = true
-		var valid := bool(main.battlefield.placement_result(p, _definition(&"search_radar").placement_profile).valid)
+		var valid := bool(main.battlefield.placement_result(p, _definition(id).placement_profile).valid)
 		main.placement.preview_material.albedo_color = Color(0.18, 0.95, 0.42, 0.48) if valid else Color(1.0, 0.18, 0.12, 0.52)
-		main.placement.placement_preview_changed.emit(_definition(&"search_radar"), p, true)
-	if frame == 330:
-		if not main.placement.request_selected_defense_placement(): push_error("TRAILER placement interaction failed")
+		main.placement.placement_preview_changed.emit(_definition(id), p, true)
+	if frame == end:
+		if not main.placement.request_selected_defense_placement():
+			push_error("TRAILER placement interaction failed: " + id)
+			return
 		main.placement.cancel()
-		events.append({"frame": frame, "event": "radar_placed", "assets": _asset_state()})
-	if frame == 420: main.placement.asset_selected.emit(_first(&"command_post"))
-	if frame == 600: main.placement.world_selected.emit(Vector3.INF, Vector2.INF)
+		events.append({"frame": frame, "event": "radar_placed" if id == &"search_radar" else "asset_placed", "asset": id, "assets": _asset_state()})
+
+func _intro(t: float) -> void:
+	if frame == 20: main.hud.set_catalog_expanded(true)
+	_placement_action(&"search_radar", 60, 120, Vector3(330, 0, 90))
+	_placement_action(&"missile_battery", 156, 240, Vector3(358.4853, 0, -51.5147))
+	_placement_action(&"close_in_gun", 276, 360, Vector3(270, 0, -140))
+	if frame == 390: main.placement.asset_selected.emit(_first(&"command_post"))
+	if frame == 480: main.placement.world_selected.emit(Vector3.INF, Vector2.INF)
+	if frame == 600: _hud(false)
+	_travel(clampf((t - 6.0) / 6.0, 0.0, 1.0), Vector3(310, 430, -670), Vector3(270, 220, -520), Vector3(260, 45, 0), Vector3(500, 55, 0), 65, 60)
 
 func _hud(enabled: bool) -> void:
 	main.hud.visible = enabled
@@ -205,31 +222,38 @@ func _pose(position: Vector3, target: Vector3, fov: float) -> void:
 func _ground_pose(x: float, z: float, height: float, target: Vector3, fov: float = 70) -> void:
 	_pose(Vector3(x, main.battlefield.terrain_height(x, z) + height, z), target, fov)
 
+func _ground(x: float, z: float, height: float) -> Vector3:
+	return Vector3(x, main.battlefield.terrain_height(x, z) + height, z)
+
+func _travel(progress: float, start: Vector3, end: Vector3, aim_start: Vector3, aim_end: Vector3, lens_start: float, lens_end: float) -> void:
+	var u := smoothstep(0.0, 1.0, progress)
+	_pose(start.lerp(end, u), aim_start.lerp(aim_end, u), lerpf(lens_start, lens_end, u))
+
 func _raid_camera(t: float) -> void:
-	var cuts: Array[float] = [0, 2, 6, 10, 13, 16, 19, 22, 25, 28, 29.5, 30.75, 31.75, 32.5, 33.25, 34]
+	var cuts: Array[float] = [0, 6, 14, 18, 22, 26, 29, 32, 33.5, 34.75, 35.75, 36.5, 37.25, 38, 48]
 	var selected := 0
-	for k: int in cuts.size():
+	for k: int in cuts.size() - 1:
 		if t >= cuts[k]: selected = k
-	if selected == camera_cut: return
+	var u := clampf((t - cuts[selected]) / (cuts[selected + 1] - cuts[selected]), 0.0, 1.0)
+	var changed := selected != camera_cut
 	camera_cut = selected
 	match selected:
-		0: _pose(Vector3(200, 180, -620), Vector3(850, 120, 0), 60)
-		1: _pose(Vector3(780, 145, -500), Vector3(1630, 140, 0), 48)
-		2: _pose(Vector3(650, 115, -360), Vector3(1300, 100, 100), 55)
-		3: _pose(Vector3(170, 135, -470), Vector3(650, 100, 0), 65)
-		4: _pose(Vector3(270, 70, -340), Vector3(650, 85, -40), 65)
-		5: _pose(Vector3(410, 90, -400), Vector3(800, 80, 0), 65)
-		6: _ground_pose(300, -330, 35, Vector3(580, 70, -80))
-		7: _ground_pose(435, -30, 6, Vector3(620, 70, 50), 68)
-		8: _ground_pose(405, -105, 8, Vector3(640, 70, 60), 68)
-		9: _pose(Vector3(450, 100, -500), Vector3(780, 90, 40), 60)
-		10: _ground_pose(400, 140, 25, Vector3(650, 75, 210), 70)
-		11: _ground_pose(350, 50, 8, Vector3(650, 65, 140), 70)
-		12: _ground_pose(415, 145, 8, Vector3(700, 90, 220), 72)
-		13: _ground_pose(180, -140, 30, Vector3(450, 55, 30), 65)
-		14: _ground_pose(380, 0, 8, Vector3(630, 70, 100), 72)
-		15: _pose(Vector3(110, 65, -320), Vector3(560, 100, 0), 65)
-	events.append({"frame": frame, "event": "camera", "cut": selected, "p": [main.camera_rig.camera.position.x, main.camera_rig.camera.position.y, main.camera_rig.camera.position.z]})
+		0: _travel(u, Vector3(270, 220, -520), Vector3(370, 95, -150), Vector3(500, 55, 0), Vector3(620, 85, 30), 60, 60)
+		1: _travel(u, Vector3(370, 95, -150), Vector3(880, 130, -260), Vector3(620, 85, 30), Vector3(1540, 115, 0), 60, 43)
+		2: _travel(u, Vector3(310, 105, -210), Vector3(340, 95, -180), Vector3(650, 85, 70), Vector3(680, 85, 70), 65, 60)
+		3: _travel(u, Vector3(430, 90, -380), Vector3(465, 80, -350), Vector3(790, 90, 30), Vector3(790, 90, 50), 65, 60)
+		4: _travel(u, Vector3(370, 52, -115), Vector3(385, 45, -95), Vector3(680, 95, 30), Vector3(680, 95, 50), 62, 60)
+		5: _travel(u, _ground(435, -30, 6), _ground(440, -24, 6), Vector3(640, 80, 60), Vector3(640, 80, 70), 68, 63)
+		6: _travel(u, _ground(405, -105, 8), _ground(411, -95, 8), Vector3(640, 70, 60), Vector3(640, 75, 70), 68, 64)
+		7: _travel(u, Vector3(430, 90, -350), Vector3(436, 85, -342), Vector3(780, 90, 40), Vector3(780, 90, 40), 60, 58)
+		8: _travel(u, _ground(400, 140, 25), _ground(408, 146, 25), Vector3(650, 75, 210), Vector3(650, 75, 220), 70, 67)
+		9: _travel(u, _ground(350, 50, 8), _ground(356, 55, 8), Vector3(650, 65, 140), Vector3(650, 70, 145), 70, 68)
+		10: _travel(u, _ground(415, 145, 8), _ground(418, 148, 8), Vector3(700, 90, 220), Vector3(700, 90, 220), 72, 70)
+		11: _travel(u, _ground(180, -140, 30), _ground(176, -140, 32), Vector3(450, 55, 30), Vector3(450, 55, 30), 65, 65)
+		12: _travel(u, _ground(380, 0, 8), _ground(384, 4, 8), Vector3(630, 70, 100), Vector3(630, 70, 100), 72, 70)
+		13: _travel(u, Vector3(110, 65, -320), Vector3(100, 70, -300), Vector3(560, 100, 0), Vector3(560, 100, 0), 65, 61)
+	if changed:
+		events.append({"frame": frame, "event": "camera", "cut": selected, "hard_cut": selected > 1})
 
 func _definition(id: StringName) -> DefenseDefinition:
 	for definition: DefenseDefinition in main.scenario.available_defenses:
