@@ -1,11 +1,11 @@
-# Airscain launch trailer — V9
+# Airscain launch trailer — V10
 
 Actual Godot gameplay, frame-based FFmpeg editing, Korean/English graphics and audio mix.
 Staged operations use normal paid deployment, sensor, weapon and ballistic rules. This is not one uninterrupted player session.
 
 ## Requirements
 
-Windows, Godot on PATH, Python 3.10+ with Pillow, FFmpeg/ffprobe on PATH (the installed `D:/Utils/ffmpeg-master-latest-win64-gpl/bin` fallback is supported). Existing NanumSquareB and Windows Arial Bold are rasterized. The licensed music file is `build/trailer_v9/assets/volatile-reaction.mp3`; see ASSETS.md.
+Windows, Godot on PATH, Python 3.10+ with Pillow, FFmpeg/ffprobe on PATH (the installed `D:/Utils/ffmpeg-master-latest-win64-gpl/bin` fallback is supported). Existing NanumSquareB and Windows Arial Bold are rasterized. The licensed music file is `build/trailer_v10/assets/volatile-reaction.mp3`; see ASSETS.md.
 
 ## Reproduce
 
@@ -29,17 +29,17 @@ Opening icons are the game's existing tactical symbols, enlarged for readability
 
 The opening follows a UAV close up, then moves smoothly to closer installation views. Expansion tracks across ground-facing sectors; the sea is revealed only by the following continuous camera turn. No fade reveals the fleet.
 
-The opening holds the combat view for four extra seconds so the destroyed UAVs can fall before the camera leaves. The ballistic arrives from the same positive-X sea side as the fleet. A 2.5-second low-angle approach gently closes in with continuous sub-degree handheld drift, followed by the close rear chase looking down at the city. It runs at normal simulation and playback speed, then cuts once to black immediately before the recorded impact event. There is no slow motion, held frame or blinking montage. Music gain remains constant; no siren or warning caption is added.
+The opening holds the combat view for four extra seconds so the destroyed UAVs can fall before the camera leaves. The ballistic arrives from the same positive-X sea side as the fleet. From the existing ground combat camera, a continuous 2.5-second upward tilt and optical zoom finds the distant missile. The camera does not change position or cut to an airborne closeup. Subtle handheld drift begins only after magnification, followed by the rear chase looking down at the city. It runs at normal simulation and playback speed, then cuts once to black immediately before the recorded impact event. There is no slow motion, held frame or blinking montage. Music gain remains constant; no siren or warning caption is added.
 
 ## Delivery and checks
 
-Current output: `build/trailer_v9/`. Previous versions remain in their directories.
+Current output: `build/trailer_v10/`. Previous versions remain in their directories.
 
 - `Airscain_Launch_Trailer_KO.mp4`, `EN.mp4` and `KO_CLEAN.mp4`: 1920×1080, 60fps H.264/AAC stereo. CLEAN removes marketing typography, retaining actual game HUD and editorial fades.
 - `review/`: actual window captures and event/camera records.
 - `qa/`: full decoded-frame, loudness and story checks; contact sheets.
 - `delivery/`: thumbnails, separate audio stems, publication credits and SHA-256 manifest.
 
-Verification checks real placements, rapid first fire, increasing persistent asset counts, zero later contact sounds, preexisting fleet plus offscreen ballistic launch, genuine ballistic reentry, same-direction low-angle handheld approach, normal-speed rear chase and one pre-impact blackout without resolution, exact source ranges and the dynamically computed output frame count. Intentional expansion fades and ending black cards are allowed explicitly. Source trimming excludes the one pre-roll display frame before the first directed frame. Mastering uses one static gain, aiming at −16 LUFS when the −1.5 dBTP peak ceiling permits it; no dynamic normalization. Objective measurements do not establish perceptual audio quality. Actual listening remains separately unverified unless documented.
+Verification checks real placements, rapid first fire, increasing persistent asset counts, zero later contact sounds, preexisting fleet plus offscreen ballistic launch, genuine ballistic reentry, continuous ground-camera tilt and optical zoom, normal-speed rear chase and one pre-impact blackout without resolution, exact source ranges and the dynamically computed output frame count. Intentional expansion fades and ending black cards are allowed explicitly. Source trimming excludes the one pre-roll display frame before the first directed frame. Mastering uses one static gain, aiming at −16 LUFS when the −1.5 dBTP peak ceiling permits it; no dynamic normalization. Objective measurements do not establish perceptual audio quality. Actual listening remains separately unverified unless documented.
 
 See `docs/TRAILER_STORYBOARD.md`, `docs/TRAILER_DELIVERY.md` and ASSETS.md. No uploads or store changes are included.

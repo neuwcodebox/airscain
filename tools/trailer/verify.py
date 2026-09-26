@@ -71,8 +71,18 @@ def continuity(language: str) -> dict:
     assert all(c['p'][1]<c['missile_position'][1] for c in approach), 'Low camera must look up at the missile'
     assert approach[-1]['missile_position'][0]<approach[0]['missile_position'][0]
     rolls=[c['handheld_roll_degrees'] for c in approach]
-    assert max(rolls)-min(rolls)>.1 and max(abs(v) for v in rolls)<.3
+    assert max(rolls)-min(rolls)>.05 and max(abs(v) for v in rolls)<.3
     assert max(abs(a-b) for a,b in zip(rolls,rolls[1:]))<.025
+    assert all(math.dist(c['p'],approach[0]['p'])<.001 for c in approach), 'Zoom must stay at the battle camera position'
+    before_zoom=raid['camera_frames'][2069]
+    assert math.dist(before_zoom['p'],approach[0]['p'])<.1
+    assert abs(before_zoom['fov']-approach[0]['fov'])<.05
+    assert 2070 not in hard_cuts
+    assert approach[0]['fov']>60 and approach[-1]['fov']<2
+    assert all(a['fov']>=b['fov'] for a,b in zip(approach,approach[1:]))
+    assert all(math.tan(math.radians(a['fov']/2))/math.tan(math.radians(b['fov']/2))<1.1
+               for a,b in zip(approach,approach[1:])), 'Magnification must build across frames, never snap'
+    assert all(c['handheld_roll_degrees']==0 for c in approach[:100])
     assert all(c['handheld_roll_degrees']==0 for c in raid['camera_frames'][2220:])
     assert MUSIC_GAIN=='0.09' and not (OUT/'assets/siren.wav').exists()
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
@@ -90,7 +100,7 @@ def continuity(language: str) -> dict:
             'last_placement_to_first_fire_seconds':(first_fire-last_placement)/60,
             'ballistic_reentry_observed':True,'ballistic_resolution_shown':False,
             'expansion_camera_tracks_ground':True,'sea_reveal_join_position_error':math.dist(expansion['camera_frames'][-1]['p'],raid['camera_frames'][360]['p']),
-            'terminal_clearance_m':raid['camera_frames'][TERMINAL_FRAME]['missile_clearance'],'ballistic_same_direction':True,'low_angle_seconds':2.5,'handheld_roll_peak_degrees':max(abs(v) for v in rolls),'post_final_kill_seconds':(intro['frames']-last_kill)/60,'last_visible_source_frame':TERMINAL_FRAME,
+            'terminal_clearance_m':raid['camera_frames'][TERMINAL_FRAME]['missile_clearance'],'ballistic_same_direction':True,'continuous_ground_zoom_seconds':2.5,'handheld_roll_peak_degrees':max(abs(v) for v in rolls),'post_final_kill_seconds':(intro['frames']-last_kill)/60,'last_visible_source_frame':TERMINAL_FRAME,
             'result':'pass'}
 
 
@@ -163,7 +173,7 @@ def inspect(path: Path,language: str) -> None:
             'visual_review':'manual frame inspection is documented in docs/TRAILER_DELIVERY.md',
             'black_or_freeze_events':anomalies,
             'approach_motion':'240/240 distinct decoded frames; all 100 fleet threats move in each one-second interval',
-            'ending':'same-direction low-angle handheld approach, rear chase, single pre-impact blackout'}
+            'ending':'continuous ground-camera tilt and optical zoom, rear chase, single pre-impact blackout'}
     (folder/'technical-report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     timeline=json.loads((OUT/'edit'/language/'timeline.json').read_text())
     images=[]

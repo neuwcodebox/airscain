@@ -5,7 +5,7 @@ var main: AirscainMain
 var shot := "intro"
 var language := "ko"
 var seconds := 12.0
-var output := "res://build/trailer_v9/review"
+var output := "res://build/trailer_v10/review"
 var probe := false
 var camera_preview := false
 var frame := -1
@@ -27,6 +27,9 @@ var ballistic_seed := 123
 var ballistic_launch_frame := 390
 var opening_uav: ThreatUnit
 var handheld_roll_degrees := 0.0
+var zoom_position := Vector3.ZERO
+var zoom_start_rotation := Quaternion.IDENTITY
+var zoom_start_fov := 68.0
 
 func _init() -> void:
 	for arg: String in OS.get_cmdline_user_args():
@@ -207,18 +210,28 @@ func _expansion_camera(t: float) -> void:
 
 func _ballistic_low_camera(t: float) -> void:
 	if not is_instance_valid(ballistic): return
-	var p := ballistic.global_position
-	var forward := Vector3(ballistic.target_point.x-p.x,0,ballistic.target_point.z-p.z).normalized()
-	var side := forward.cross(Vector3.UP)
+	var camera := main.camera_rig.camera
+	if frame == 2070:
+		_raid_camera(t)
+		zoom_position = camera.global_position
+		zoom_start_rotation = camera.global_basis.get_rotation_quaternion()
+		zoom_start_fov = camera.fov
+		events.append({"frame":frame,"event":"camera","hard_cut":false,"cut":"ballistic_zoom"})
 	var u := t-34.5
-	# Small continuous drift and roll; no per-frame random jitter.
-	var sway := sin(u*2.1)*0.22+sin(u*5.3+0.7)*0.09
-	var lift := sin(u*1.7+1.2)*0.16+sin(u*4.1)*0.07
-	var distance := lerpf(95.0,48.0,smoothstep(0.0,2.5,u))
-	_pose(p+forward*24.0+side*distance+Vector3.DOWN*21.0,p+forward*3.0+side*sway+Vector3.UP*lift,48.0)
-	handheld_roll_degrees = sin(u*1.9)*0.18+sin(u*4.7)*0.07
-	main.camera_rig.camera.rotate_object_local(Vector3.FORWARD,deg_to_rad(handheld_roll_degrees))
-	if frame == 2070: events.append({"frame":frame,"event":"camera","hard_cut":true,"cut":"ballistic_low"})
+	# The operator stays in the battle position, tilts up, then pulls a long lens.
+	# Lead by one frame so telephoto tracking does not lag behind the fast target.
+	var target := ballistic.global_position+ballistic.mover.velocity/60.0
+	var direction := (target-zoom_position).normalized()
+	var target_rotation := Basis.looking_at(direction,Vector3.UP).get_rotation_quaternion()
+	camera.global_position = zoom_position
+	camera.global_basis = Basis(zoom_start_rotation.slerp(target_rotation,smoothstep(0.0,1.05,u)))
+	var zoom := smoothstep(0.45,2.15,u)
+	camera.fov = rad_to_deg(2.0*atan(exp(lerpf(log(tan(deg_to_rad(zoom_start_fov)*0.5)),log(tan(deg_to_rad(1.6)*0.5)),zoom))))
+	var settle := smoothstep(1.7,2.2,u)
+	handheld_roll_degrees = (sin(u*1.9)*0.18+sin(u*4.7)*0.07)*settle
+	camera.rotate_object_local(Vector3.UP,deg_to_rad((sin(u*2.1)*0.018+sin(u*5.3)*0.007)*settle))
+	camera.rotate_object_local(Vector3.RIGHT,deg_to_rad(sin(u*2.7)*0.012*settle))
+	camera.rotate_object_local(Vector3.FORWARD,deg_to_rad(handheld_roll_degrees))
 
 func _ballistic_camera(_t: float) -> void:
 	handheld_roll_degrees = 0.0

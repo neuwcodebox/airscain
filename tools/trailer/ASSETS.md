@@ -42,7 +42,7 @@ The video includes a compact music credit. Include this credit with publication:
   Arial Bold as rasterized text; the font binary is not redistributed.
 - No remote game footage or generated depictions of unimplemented gameplay.
 
-Current raw and rendered media live in the Git-ignored `build/trailer_v9` directory.
+Current raw and rendered media live in the Git-ignored `build/trailer_v10` directory.
 The rejected first version and original music-source record remain in `build/trailer`.
 
 - Contact alert is retained in the opening and disconnected in all later capture takes; combat sounds remain.
