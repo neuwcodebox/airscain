@@ -115,17 +115,17 @@ func test_sustained_operation_uses_district_scaled_regular_support() -> void:
 	AirscainMain.requested_layout_id = &"valley_corridor"
 	var operation := _new_operation(AirscainMain.GameMode.SUSTAINED)
 	assert_eq(operation.scenario.battlefield_layout().city_districts.size(), 3)
-	assert_eq(operation.session.support_amount, 270)
+	assert_eq(operation.session.support_amount, 360)
 	assert_eq(operation.session.support_interval, 90.0)
-	assert_eq(operation.session.capture_state().support_amount, 270)
+	assert_eq(operation.session.capture_state().support_amount, 360)
 	operation.briefing_panel.close()
 	assert_eq(operation.session.phase, GameSession.Phase.RUNNING)
 	var saved := SaveDocument.decode(SaveDocument.encode(operation.capture_save_document()))
 	assert_eq(operation.restore_from_document(saved), "")
-	assert_eq(operation.session.support_amount, 270)
+	assert_eq(operation.session.support_amount, 360)
 	var budget_before := operation.session.budget
 	operation.session.gameplay_delta(90.0)
-	assert_eq(operation.session.budget, budget_before + 270)
+	assert_eq(operation.session.budget, budget_before + 360)
 	assert_eq(operation.session.support_payment_count, 1)
 
 func _new_operation(mode: AirscainMain.GameMode) -> AirscainMain:

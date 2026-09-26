@@ -14,7 +14,7 @@ var _original_default_font: Font
 var _original_fallback_font: Font
 
 func test_regular_support_scales_with_the_number_of_city_districts() -> void:
-	var expected_amounts := {&"island_city": 180, &"rugged_harbor": 225, &"valley_corridor": 270, &"coastal_plain": 270}
+	var expected_amounts := {&"island_city": 240, &"rugged_harbor": 300, &"valley_corridor": 360, &"coastal_plain": 360}
 	for layout: BattlefieldLayoutDefinition in SCENARIO.battlefield_layouts:
 		assert_eq(SCENARIO.regular_support_amount(layout), expected_amounts[layout.id], String(layout.id))
 	assert_eq(SCENARIO.support_interval, 90.0)
