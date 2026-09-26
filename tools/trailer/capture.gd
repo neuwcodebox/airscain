@@ -8,6 +8,7 @@ var seconds := 12.0
 var output := "res://build/trailer_v10/review"
 var probe := false
 var camera_preview := false
+var marketing_stills := false
 var frame := -1
 var first_movie_frame := 0
 var units: Dictionary[StringName, Array] = {}
@@ -42,6 +43,7 @@ func _init() -> void:
 		elif arg.begins_with("--ballistic-launch-frame="): ballistic_launch_frame = int(arg.trim_prefix("--ballistic-launch-frame="))
 		elif arg == "--probe": probe = true
 		elif arg == "--camera-preview": camera_preview = true
+		elif arg == "--marketing-stills": marketing_stills = true
 	call_deferred("run")
 
 func run() -> void:
@@ -95,6 +97,9 @@ func run() -> void:
 	else:
 		_direct_camera(0)
 	_preflight_attack()
+	if marketing_stills:
+		await _capture_marketing_stills()
+		return
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	for settle: int in 30:
 		await process_frame
@@ -160,6 +165,35 @@ func run() -> void:
 	file.close()
 	print("TRAILER_DONE shot=%s threats=%d kills=%d integrity=%d" % [shot, peak_threats, main.session.neutralized_count, main.objective.current_integrity])
 	Engine.time_scale = 1.0
+	units.clear()
+	main.queue_free()
+	await process_frame
+	main = null
+	await process_frame
+	quit(0)
+
+func _capture_marketing_stills() -> void:
+	_hud(true)
+	main.hud.set_catalog_expanded(false)
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	for tick: int in 1080:
+		await process_frame
+		if tick in [240, 600, 1079]:
+			for pose_index: int in 4 if tick == 1079 else 3:
+				match pose_index:
+					0: _pose(Vector3(70, 560, -650), Vector3(390, 35, -10), 58)
+					1: _pose(Vector3(170, 300, -540), Vector3(510, 55, 20), 58)
+					2: _pose(Vector3(390, 150, -370), Vector3(780, 85, 20), 60)
+					3:
+						main.placement.asset_selected.emit(_first(&"missile_battery"))
+						main.tactical_screen_overlay.visible = false
+						_pose(Vector3(215, 145, -260), Vector3(360, 30, -20), 50)
+				for settle: int in 3:
+					await process_frame
+					await RenderingServer.frame_post_draw
+				var path := "%s/marketing_%02d_%d.png" % [output, tick / 60, pose_index]
+				root.get_texture().get_image().save_png(path)
+	print("MARKETING_STILLS_DONE")
 	units.clear()
 	main.queue_free()
 	await process_frame

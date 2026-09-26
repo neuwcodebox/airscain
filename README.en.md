@@ -4,7 +4,7 @@
 
 > A 3D real-time strategy game about building an air-defense network under incomplete information and protecting an island city from relentless combined air attacks.
 
-![Missile contrails and crossing gunfire above an outer battery, with the coastal city behind it](docs/images/demo.png)
+![Current gameplay showing a defense network protecting an island city as a large raid approaches](docs/images/itch/01-command-network.png)
 
 In Airscain, you do not control individual weapons directly. Instead, you connect sensors, command-and-control assets, interceptors, and support facilities into a single air-defense network. Radars observe real threats and build tracks, while suitable defenses respond automatically according to shared information and rules of engagement.
 
