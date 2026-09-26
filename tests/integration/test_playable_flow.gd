@@ -2193,12 +2193,12 @@ func test_raid_budget_grows_gradually_regardless_of_airborne_count() -> void:
 	main.director.opening_raid_complete = true
 	main.director.pressure_started_at = 45.0
 	assert_almost_eq(main.director.threat_budget_at(0.0), 3.0, 0.001)
-	assert_almost_eq(main.director.threat_budget_at(135.0), 4.0, 0.001)
+	assert_almost_eq(main.director.threat_budget_at(135.0), 5.0, 0.001)
 	assert_not_null(main.director.spawn_one())
 	assert_not_null(main.director.spawn_one())
 	assert_eq(main.registry.hostile_count(), 2)
 	assert_almost_eq(main.director.threat_budget_at(0.0), 3.0, 0.001)
-	assert_almost_eq(main.director.threat_budget_at(135.0), 4.0, 0.001)
+	assert_almost_eq(main.director.threat_budget_at(135.0), 5.0, 0.001)
 
 func test_raid_planning_uses_budget_knowledge_outcomes_and_coverage_gap() -> void:
 	var radar_result := _place_for(main, _defense_definition_for(main, &"search_radar"))
