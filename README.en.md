@@ -59,6 +59,8 @@ Then launch the game:
 godot --path .
 ```
 
+Build the web and Windows itch.io packages with `python tools/package_itch.py`; see the [release guide](docs/ITCH_RELEASE.md).
+
 ## Controls
 
 | Input | Action |
@@ -77,14 +79,18 @@ Pause and the 1×, 2×, and 4× simulation speeds are available in the upper-rig
 
 ## Development and Validation
 
-Build the browser and Windows itch.io archives with `python tools/package_itch.py`; see the [release notes](docs/ITCH_RELEASE.md).
+The project uses Godot 4.7.2 and typed GDScript. Native and web builds use the Compatibility renderer. The GUT test framework is included in the repository. Run the complete GUT suite and web audio tests with:
 
-The project uses Godot 4.7.2 and typed GDScript. Native and web builds share the same Compatibility renderer configuration. The GUT test framework is included in the repository.
+```bash
+python tools/run_tests.py
+```
+
+To run one GUT script:
 
 ```bash
 godot --headless --audio-driver Dummy --path . \
   -s addons/gut/gut_cmdln.gd \
-  -gdir=res://tests -ginclude_subdirs -gexit
+  -gtest=res://tests/unit/test_balance_flight.gd -gexit
 ```
 
 ## Documentation

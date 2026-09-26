@@ -59,6 +59,8 @@ godot --headless --audio-driver Dummy --editor --path . --quit
 godot --path .
 ```
 
+itch.io용 웹·Windows 패키지는 [배포 안내](docs/ITCH_RELEASE.md)에 따라 `python tools/package_itch.py`로 만듭니다.
+
 ## 조작
 
 | 입력 | 동작 |
@@ -77,17 +79,19 @@ godot --path .
 
 ## 개발과 검증
 
-itch.io에 올릴 브라우저·Windows 패키지는 [배포 안내](docs/ITCH_RELEASE.md)의 `python tools/package_itch.py`로 만듭니다.
+프로젝트는 Godot 4.7.2와 typed GDScript를 사용하며, 네이티브와 웹 모두 Compatibility 렌더러로 실행됩니다. GUT 테스트 도구는 저장소에 포함되어 있습니다. 전체 GUT 테스트와 웹 오디오 테스트는 다음 명령으로 실행합니다.
 
-프로젝트는 Godot 4.7.2와 typed GDScript를 사용하며, 네이티브와 웹 모두 같은 Compatibility 렌더러 설정으로 실행됩니다. GUT 테스트 도구는 저장소에 포함되어 있습니다.
+```bash
+python tools/run_tests.py
+```
+
+특정 GUT 스크립트만 확인할 때는 다음처럼 실행합니다.
 
 ```bash
 godot --headless --audio-driver Dummy --path . \
   -s addons/gut/gut_cmdln.gd \
-  -gdir=res://tests -ginclude_subdirs -gexit
+  -gtest=res://tests/unit/test_balance_flight.gd -gexit
 ```
-
-After a fresh clone, import resources once with `godot --headless --audio-driver Dummy --editor --path . --quit`. To run the complete GUT suite and the JavaScript audio tests with independent user-data directories, use `python3 tools/run_tests.py` (`--jobs 1` for sequential execution). A single GUT script can still be run with `-gtest=res://tests/unit/test_balance_flight.gd -gexit`.
 
 ## 문서
 
