@@ -34,6 +34,7 @@ var selected_battlefield_layout_id: StringName = &""
 @export var active_threat_cap: int = 200
 @export var support_interval: float = 90.0
 @export var support_amount: int = 180
+@export var support_amount_per_additional_district: int = 0
 @export var attack_window_duration: float = 75.0
 @export var recovery_duration: float = 45.0
 @export var attack_window_reward: int = 120
@@ -59,7 +60,7 @@ func validation_error() -> String:
 		return "선택한 전장 레이아웃을 찾을 수 없습니다"
 	if threat_intel_lead_levels < 0:
 		return "위협 첩보 선행 단계가 올바르지 않습니다"
-	if starting_budget < 0 or initial_spawn_interval <= 0.0 or opening_raid_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or threat_budget_growth_per_level <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
+	if starting_budget < 0 or initial_spawn_interval <= 0.0 or opening_raid_interval <= 0.0 or initial_raid_interval < minimum_raid_interval or minimum_raid_interval <= 0.0 or raid_interval_pressure_reduction < 0.0 or pressure_step_duration <= 0.0 or threat_budget_growth_per_level <= 0.0 or speed_growth_duration <= 0.0 or maximum_speed_multiplier < 1.0 or active_threat_cap < 1 or ambient_contacts_per_type < 0 or support_interval <= 0.0 or support_amount < 0 or support_amount_per_additional_district < 0 or attack_window_duration <= 0.0 or recovery_duration <= 0.0 or attack_window_reward < 0:
 		return "게임 진행 설정이 올바르지 않습니다"
 	if objective_definition == null:
 		return "보호 목표 Definition이 없습니다"
@@ -114,6 +115,9 @@ func battlefield_layout_by_id(layout_id: StringName) -> BattlefieldLayoutDefinit
 		if layout.id == layout_id:
 			return layout
 	return null
+
+func regular_support_amount(layout: BattlefieldLayoutDefinition) -> int:
+	return support_amount + maxi(0, layout.city_districts.size() - 1) * support_amount_per_additional_district
 
 ## Level at which an announced threat may join automatic raids.
 ## The operation opens with a raid, so opening-level threats fly immediately.

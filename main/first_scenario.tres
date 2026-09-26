@@ -507,6 +507,7 @@ maximum_speed_multiplier = 1.6
 active_threat_cap = 200
 support_interval = 90.0
 support_amount = 180
+support_amount_per_additional_district = 45
 attack_window_duration = 75.0
 recovery_duration = 45.0
 attack_window_reward = 120

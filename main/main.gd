@@ -90,7 +90,9 @@ func _ready() -> void:
 	camera_rig.configure_for_battlefield(scenario.battlefield_size, battlefield.terrain_height)
 	_spawn_objective()
 	_spawn_ambient_contacts()
-	session.reset(scenario.starting_budget + scenario.battlefield_layout().starting_budget_bonus, scenario.support_interval, scenario.support_amount)
+	var layout := scenario.battlefield_layout()
+	var regular_support := scenario.regular_support_amount(layout) if game_mode == GameMode.SUSTAINED else scenario.support_amount
+	session.reset(scenario.starting_budget + layout.starting_budget_bonus, scenario.support_interval, regular_support)
 	if game_mode == GameMode.SUSTAINED:
 		_create_harbor_port()
 	if game_mode == GameMode.TRAINING:
