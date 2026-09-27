@@ -295,6 +295,8 @@ func run() -> void:
 	await process_frame
 	while not main.combat_effect_pool.prepared:
 		await process_frame
+	if OS.get_cmdline_user_args().has("--gpu-timing") and OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
+		RenderingServer.viewport_set_measure_render_time(main.battlefield.smoke_shadow_projection.viewport.get_viewport_rid(), true)
 	print("PROFILE_VIEW size=%s msaa=%d scale=%.2f" % [root.size, root.msaa_3d, root.scaling_3d_scale])
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
 	main.set_process(false)
@@ -719,6 +721,12 @@ func _freeze(node: Node) -> void:
 
 func _compare_smoke_proxies() -> void:
 	_freeze(main)
+	var shadow := main.battlefield.smoke_shadow_projection
+	var previous_shadow_mode := shadow.viewport.render_target_update_mode
+	shadow.update_projection()
+	# Keep drawing the frozen map: otherwise switching proxy geometry only times
+	# the main viewport while the old shadow texture remains cached.
+	shadow.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	var proxies: Array[GeometryInstance3D] = []
 	var original_meshes: Array[Mesh] = []
 	var impostor_meshes: Array[Mesh] = []
@@ -756,11 +764,14 @@ func _compare_smoke_proxies() -> void:
 			(proxies[index] as MultiMeshInstance3D).multimesh.mesh = original_meshes[index]
 		else:
 			(proxies[index] as GPUParticles3D).draw_pass_1 = original_meshes[index]
+	shadow.viewport.render_target_update_mode = previous_shadow_mode
 
 func _sample_render(label: String) -> void:
 	var samples: Array[int] = []
 	var render_cpu := 0.0
 	var render_gpu := 0.0
+	var shadow_cpu := 0.0
+	var shadow_gpu := 0.0
 	for index: int in 40:
 		var start := Time.get_ticks_usec()
 		await process_frame
@@ -769,10 +780,16 @@ func _sample_render(label: String) -> void:
 			samples.append(Time.get_ticks_usec() - start)
 			render_cpu += RenderingServer.viewport_get_measured_render_time_cpu(root.get_viewport_rid())
 			render_gpu += RenderingServer.viewport_get_measured_render_time_gpu(root.get_viewport_rid())
+			if OS.get_cmdline_user_args().has("--gpu-timing") and OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
+				shadow_cpu += RenderingServer.viewport_get_measured_render_time_cpu(main.battlefield.smoke_shadow_projection.viewport.get_viewport_rid())
+				shadow_gpu += RenderingServer.viewport_get_measured_render_time_gpu(main.battlefield.smoke_shadow_projection.viewport.get_viewport_rid())
 	var total := 0
 	for sample: int in samples:
 		total += sample
 	samples.sort()
 	print("PROFILE_PROBE %s avg_ms=%.3f p50_ms=%.3f p95_ms=%.3f max_ms=%.3f draws=%d primitives=%d" % [label, float(total) / samples.size() / 1000.0, samples[samples.size() / 2] / 1000.0, samples[int(samples.size() * 0.95)] / 1000.0, samples.back() / 1000.0, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)])
 	if OS.get_cmdline_user_args().has("--gpu-timing"):
-		print("PROFILE_VIEWPORT %s cpu_ms=%.3f gpu_ms=%.3f" % [label, render_cpu / samples.size(), render_gpu / samples.size()])
+		if OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
+			print("PROFILE_VIEWPORT %s cpu_ms=%.3f gpu_ms=%.3f shadow_cpu_ms=%.3f shadow_gpu_ms=%.3f" % [label, render_cpu / samples.size(), render_gpu / samples.size(), shadow_cpu / samples.size(), shadow_gpu / samples.size()])
+		else:
+			print("PROFILE_VIEWPORT %s cpu_ms=%.3f gpu_ms=%.3f" % [label, render_cpu / samples.size(), render_gpu / samples.size()])
