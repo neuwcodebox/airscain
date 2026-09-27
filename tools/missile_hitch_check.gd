@@ -1,10 +1,15 @@
 extends Node
 ## Export this scene as the temporary main scene to measure native/WebGL events.
+## --explosion-only samples 1, 16, and 32 simultaneous explosions.
 
 var main: AirscainMain
 var event_results: Array[Dictionary] = []
+var explosion_only: bool = false
 
 func _ready() -> void:
+	explosion_only = OS.get_cmdline_user_args().has("--explosion-only")
+	if OS.has_feature("web"):
+		explosion_only = explosion_only or bool(JavaScriptBridge.eval("new URLSearchParams(window.location.search).has('explosion-only')", true))
 	if DisplayServer.get_name() == "headless":
 		push_error("Missile hitch probe requires a rendered viewport")
 		get_tree().quit(1)
@@ -29,12 +34,32 @@ func _ready() -> void:
 	main.combat_audio.enabled = true
 	main.ui_audio.enabled = false
 	print("HITCH_PREPARE ms=%.3f" % ((Time.get_ticks_usec() - started) / 1000.0))
-	await sample_missiles()
-	await sample_secondary_effects()
+	if explosion_only:
+		await sample_explosions()
+	else:
+		await sample_missiles()
+		await sample_secondary_effects()
 	print("HITCH_RESULTS " + JSON.stringify(event_results))
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("window.airscainHitchResults = " + JSON.stringify(event_results), true)
-	print("HITCH_DONE missile")
+	if explosion_only:
+		print("HITCH_DONE explosions")
+		if not OS.has_feature("web"):
+			get_tree().quit()
+	else:
+		print("HITCH_DONE missile")
+
+func sample_explosions() -> void:
+	await sample_event("explosion_idle", func() -> void: pass)
+	for count: int in [1, 16, 32]:
+		for repeat: int in 2:
+			var effects: Array[ExplosionEffect] = []
+			await sample_event("explosions_%d_%d" % [count, repeat], func() -> void:
+				for index: int in count:
+					var point := Vector3((index % 8 - 3.5) * 22, 70, (index / 8 - 1.5) * 22)
+					effects.append(ExplosionEffect.spawn(main.effects_parent, point, Color.ORANGE, 12)))
+			for effect: ExplosionEffect in effects:
+				effect._process(effect.duration)
 
 func sample_event(label: String, action: Callable, frame_count: int = 12, settle_frames: int = 10) -> void:
 	for frame: int in settle_frames:
