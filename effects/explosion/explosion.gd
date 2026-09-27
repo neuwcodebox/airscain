@@ -12,21 +12,19 @@ var effect_radius: float = 10.0
 @onready var flash_halo: MeshInstance3D = $FlashHalo
 @onready var pressure_ring: MeshInstance3D = $PressureRing
 @onready var shockwave: MeshInstance3D = $Shockwave
-@onready var blast_glow: MeshInstance3D = $BlastGlow
+@onready var blast_light: OmniLight3D = $BlastLight
 @onready var fireball: GPUParticles3D = $Fireball
-@onready var fire_body: GPUParticles3D = $FireBody
 @onready var smoke: ShadowedSmokeParticles = $Smoke
 @onready var sparks: GPUParticles3D = $Sparks
+@onready var fire_body: GPUParticles3D = $FireBody
+@onready var debris: GPUParticles3D = $Debris
 
 var flash_material: StandardMaterial3D
 var halo_material: StandardMaterial3D
-var glow_material: StandardMaterial3D
 var pressure_material: StandardMaterial3D
 var shockwave_material: StandardMaterial3D
 var fireball_material: StandardMaterial3D
 var fire_body_material: ShaderMaterial
-var fire_batch: ExplosionFireBatch
-var fire_batch_slot: int = -1
 
 static func spawn(parent: Node3D, position: Vector3, color: Color, radius: float) -> ExplosionEffect:
 	for node: Node in parent.get_tree().get_nodes_in_group("combat_effect_pool"):
@@ -42,31 +40,23 @@ static func spawn(parent: Node3D, position: Vector3, color: Color, radius: float
 func deactivate() -> void:
 	visible = false
 	set_process(false)
-	if fire_batch != null:
-		fire_batch.clear_slot(fire_batch_slot)
-	for particles: GPUParticles3D in [fireball, fire_body, smoke, sparks]:
+	for particles: GPUParticles3D in [fireball, fire_body, debris, smoke, sparks]:
 		particles.emitting = false
 	smoke._sync_shadow_state()
-	blast_glow.visible = false
+	blast_light.visible = false
 
 func setup(color: Color, radius: float) -> void:
 	visible = true
 	set_process(true)
-	blast_glow.visible = true
+	blast_light.visible = true
 	elapsed = 0.0
 	effect_radius = radius
 	if flash_material == null:
 		flash_material = _duplicate_colored_material(flash, color, 1.0)
 		halo_material = _duplicate_colored_material(flash_halo, color, 0.5)
-		glow_material = _duplicate_colored_material(blast_glow, color, 0.34)
 		pressure_material = _duplicate_colored_material(pressure_ring, color, 0.0)
 		shockwave_material = _duplicate_colored_material(shockwave, color, 0.82)
-		shockwave_material.render_priority = 1
-		glow_material.render_priority = 2
-		pressure_material.render_priority = 2
-		halo_material.render_priority = 3
-		flash_material.render_priority = 4
-	for material: StandardMaterial3D in [flash_material, halo_material, glow_material, pressure_material, shockwave_material]:
+	for material: StandardMaterial3D in [flash_material, halo_material, pressure_material, shockwave_material]:
 		material.albedo_color = color
 		material.emission = color
 	_configure_fireball(color)
@@ -74,33 +64,22 @@ func setup(color: Color, radius: float) -> void:
 	sparks.scale = Vector3.ONE * maxf(0.9, radius / 10.0)
 	fireball.scale = Vector3.ONE * maxf(0.85, radius / 9.0)
 	fire_body.scale = Vector3.ONE * maxf(0.85, radius / 9.0)
+	debris.scale = Vector3.ONE * maxf(0.8, radius / 10.0)
+	blast_light.light_color = color
+	blast_light.omni_range = radius * 4.0
 	_apply_timeline(ExplosionTimeline.sample(0.0, effect_radius))
-	var uses_batch := fire_batch != null and fire_batch_slot >= 0
-	fireball.visible = not uses_batch
-	fire_body.visible = not uses_batch
-	if uses_batch:
-		fireball.emitting = false
-		fire_body.emitting = false
-		fire_batch.emit_burst(fire_batch_slot, global_position, color, radius)
-	else:
-		fireball.restart()
-		fire_body.restart()
-		fireball.emitting = true
-		fire_body.emitting = true
+	fireball.restart()
+	fire_body.restart()
+	debris.restart()
 	smoke.restart()
 	sparks.restart()
 	if smoke.shadow_particles != null:
 		smoke.shadow_particles.restart()
+	fireball.emitting = true
+	fire_body.emitting = true
+	debris.emitting = true
 	smoke.emitting = true
 	sparks.emitting = true
-	sparks.visible = true
-
-func configure_fire_batch(batch: ExplosionFireBatch, slot: int) -> void:
-	fire_batch = batch
-	fire_batch_slot = slot
-	if is_node_ready():
-		fireball.visible = batch == null
-		fire_body.visible = batch == null
 
 ## Advances an inert sample without exposing the frame callback.
 func prepare_preview(delta: float) -> void:
@@ -108,7 +87,7 @@ func prepare_preview(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	if flash.visible or flash_halo.visible or blast_glow.visible or pressure_ring.visible or shockwave.visible or elapsed <= ExplosionTimeline.PRESSURE_DELAY:
+	if flash.visible or flash_halo.visible or pressure_ring.visible or shockwave.visible or blast_light.visible or elapsed <= ExplosionTimeline.PRESSURE_DELAY:
 		_apply_timeline(ExplosionTimeline.sample(elapsed, effect_radius))
 	if elapsed >= duration:
 		if reusable:
@@ -120,9 +99,11 @@ func _process(delta: float) -> void:
 func _apply_timeline(state: ExplosionTimeline.State) -> void:
 	_apply_layer(flash, flash_material, state.core_scale, state.core_alpha)
 	_apply_layer(flash_halo, halo_material, state.halo_scale, state.halo_alpha)
-	_apply_layer(blast_glow, glow_material, state.glow_scale, state.glow_alpha)
 	_apply_layer(pressure_ring, pressure_material, state.pressure_scale, state.pressure_alpha)
 	_apply_layer(shockwave, shockwave_material, state.ground_wave_scale, state.ground_wave_alpha)
+	if blast_light.visible or state.light_energy > 0.0:
+		blast_light.light_energy = state.light_energy
+	blast_light.visible = state.light_energy > 0.0
 
 func _apply_layer(layer: MeshInstance3D, material: StandardMaterial3D, size: float, alpha: float) -> void:
 	if layer.visible or alpha > 0.0 or material.albedo_color.a != alpha:
@@ -152,6 +133,7 @@ func _configure_fireball(color: Color) -> void:
 		fire_body_material = (body_mesh.material as ShaderMaterial).duplicate() as ShaderMaterial
 		body_mesh.material = fire_body_material
 		fire_body.draw_pass_1 = body_mesh
+	# The ramp carries the temperature; the event color only shifts its hue.
 	fire_body_material.set_shader_parameter("tint", Color.WHITE.lerp(color, 0.35))
 
 func _set_alpha(material: StandardMaterial3D, alpha: float) -> void:

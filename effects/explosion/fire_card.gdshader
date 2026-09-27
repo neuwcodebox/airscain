@@ -38,10 +38,9 @@ void fragment() {
 	float shape = 1.0 - length(centered) * 2.0 + (n - 0.5) * 0.9;
 	float erosion = mix(0.02, 0.55, age);
 	float mask = smoothstep(erosion, erosion + 0.22, shape);
-	float glow = heat * (1.0 - smoothstep(0.12, 0.82, age)) * (0.75 + n * 0.5);
+	float glow = heat * (1.0 - smoothstep(0.0, 0.3, age)) * (0.75 + n * 0.5);
 	// Darker, cooler rims and noisy interior give each card some volume.
 	float body = mix(0.55, 1.15, n) * mix(0.7, 1.0, smoothstep(0.0, 0.5, shape));
 	ALBEDO = COLOR.rgb * tint * body * (1.0 + glow);
-	EMISSION = COLOR.rgb * tint * body * glow * 1.4;
 	ALPHA = mask * COLOR.a;
 }
