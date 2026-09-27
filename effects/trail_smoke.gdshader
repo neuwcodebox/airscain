@@ -25,6 +25,11 @@ void vertex() {
 }
 
 void fragment() {
+	// The shared radial smoke card is fully transparent outside its inscribed circle.
+	vec2 radial = UV - vec2(0.5);
+	if (dot(radial, radial) >= 0.25) {
+		discard;
+	}
 	vec4 puff = texture(puff_texture, UV);
 	ALBEDO = tint.rgb * puff.rgb;
 	ROUGHNESS = 1.0;
