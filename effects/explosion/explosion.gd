@@ -103,7 +103,7 @@ func prepare_preview(delta: float) -> void:
 func _process(delta: float) -> void:
 	var previous := elapsed
 	elapsed += delta
-	if elapsed <= ExplosionTimeline.LIGHT_DURATION + maxf(delta, 0.0):
+	if previous <= ExplosionTimeline.LIGHT_DURATION or flash.visible or blast_light.visible:
 		_apply_timeline(ExplosionTimeline.sample(elapsed, effect_radius, ground_contact, previous))
 	if elapsed >= duration:
 		if reusable:
