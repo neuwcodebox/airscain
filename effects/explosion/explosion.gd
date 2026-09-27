@@ -61,6 +61,11 @@ func setup(color: Color, radius: float) -> void:
 		glow_material = _duplicate_colored_material(blast_glow, color, 0.34)
 		pressure_material = _duplicate_colored_material(pressure_ring, color, 0.0)
 		shockwave_material = _duplicate_colored_material(shockwave, color, 0.82)
+		shockwave_material.render_priority = 1
+		glow_material.render_priority = 2
+		pressure_material.render_priority = 2
+		halo_material.render_priority = 3
+		flash_material.render_priority = 4
 	for material: StandardMaterial3D in [flash_material, halo_material, glow_material, pressure_material, shockwave_material]:
 		material.albedo_color = color
 		material.emission = color

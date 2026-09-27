@@ -71,13 +71,13 @@ void fragment() {
 	vec3 hot_body = mix(vec3(1.0, 0.8, 0.45), COLOR.rgb, 0.35);
 	vec3 warm_body = mix(vec3(1.0, 0.42, 0.1), COLOR.rgb, 0.3);
 	vec3 cool_body = mix(vec3(0.17, 0.12, 0.1), COLOR.rgb * 0.18, 0.25);
-	vec3 body_fire = mix(hot_body, warm_body, smoothstep(0.04, 0.3, fire_age));
-	body_fire = mix(body_fire, cool_body, smoothstep(0.34, 0.9, fire_age));
+	vec3 body_fire = mix(hot_body, warm_body, smoothstep(0.04, 0.36, fire_age));
+	body_fire = mix(body_fire, cool_body, smoothstep(0.68, 1.0, fire_age));
 	vec3 fire = mix(core_fire, body_fire, outer_layer) * mix(0.72, 1.2, n);
-	float core_fade = smoothstep(0.0, 0.08, fire_age) * (1.0 - smoothstep(0.58, 1.0, fire_age));
+	float core_fade = smoothstep(0.0, 0.08, fire_age) * (1.0 - smoothstep(0.78, 1.0, fire_age));
 	float body_fade = smoothstep(0.0, 0.05, fire_age) * (1.0 - smoothstep(0.66, 1.0, fire_age));
 	float fade = mix(core_fade, body_fade, outer_layer);
 	ALBEDO = fire;
-	EMISSION = fire * mix(mix(5.0, 1.4, fire_age), mix(1.1, 0.15, fire_age), outer_layer);
+	EMISSION = fire * mix(mix(6.0, 1.8, fire_age), mix(2.2, 0.25, smoothstep(0.45, 1.0, fire_age)), outer_layer);
 	ALPHA = mask * fade;
 }

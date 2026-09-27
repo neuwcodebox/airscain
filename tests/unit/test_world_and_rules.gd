@@ -1494,6 +1494,7 @@ func test_explosion_timeline_layers_expand_and_retire_in_order() -> void:
 	assert_lt(ignition.core_alpha, initial.core_alpha)
 	assert_gt(ignition.pressure_alpha, initial.pressure_alpha)
 	assert_gt(pressure_tail.pressure_scale, ignition.pressure_scale)
+	assert_gt(pressure_tail.core_alpha, 0.0, "the white-hot core remains visible through the readable blast phase")
 	assert_lt(pressure_tail.glow_alpha, ignition.glow_alpha)
 	assert_eq(ended.core_alpha, 0.0)
 	assert_eq(ended.halo_alpha, 0.0)

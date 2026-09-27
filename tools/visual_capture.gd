@@ -1392,10 +1392,7 @@ func _capture_explosion_layers() -> void:
 	main.camera_rig.set_process(false)
 	main.camera_rig.camera.global_position = center + Vector3(0.0, 18.0, 72.0)
 	main.camera_rig.camera.look_at(center, Vector3.UP)
-	var explosion := preload("res://effects/explosion/explosion.tscn").instantiate() as ExplosionEffect
-	main.effects_parent.add_child(explosion)
-	explosion.global_position = center
-	explosion.setup(Color(1.0, 0.32, 0.04), 10.0)
+	var explosion := main.combat_effect_pool.spawn_explosion(main.effects_parent, center, Color(1.0, 0.32, 0.04), 10.0)
 	explosion.set_process(false)
 	await process_frame
 	_save_capture("/tmp/airscain_explosion_ignition.png")
@@ -1403,7 +1400,7 @@ func _capture_explosion_layers() -> void:
 	await _wait_seconds(0.18)
 	_save_capture("/tmp/airscain_explosion_fireball.png")
 	var pressure_material := explosion.pressure_ring.material_override as StandardMaterial3D
-	if pressure_material.albedo_color.a <= 0.0 or not explosion.fireball.draw_pass_1 is QuadMesh:
+	if pressure_material.albedo_color.a <= 0.0 or not main.combat_effect_pool.fire_batch.slot_is_active(explosion.fire_batch_slot):
 		push_error("Explosion fireball and camera-facing pressure wave did not overlap")
 		quit(1)
 		return

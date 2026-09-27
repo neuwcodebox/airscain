@@ -19,6 +19,7 @@ func _ready() -> void:
 	card.size = Vector2(2.0, 2.0)
 	fire_material = ShaderMaterial.new()
 	fire_material.shader = FIRE_SHADER
+	fire_material.render_priority = 1
 	fire_material.set_shader_parameter("core_texture", preload("res://effects/glow_card_texture.tres"))
 	card.material = fire_material
 	var batch := MultiMesh.new()
