@@ -120,10 +120,11 @@ func probe_explosion_components() -> void:
 		var effect := ExplosionEffect.spawn(main.effects_parent, point, Color.ORANGE, 12.0)
 		effects.append(effect)
 		groups["no_smoke"].append(effect.smoke)
-		groups["no_fire"].append_array([effect.fireball, effect.fire_body])
 		groups["no_sparks_debris"].append(effect.sparks)
 		groups["no_glow"].append(effect.blast_glow)
-		groups["no_all_particles"].append_array([effect.smoke, effect.fireball, effect.fire_body, effect.sparks])
+		groups["no_all_particles"].append_array([effect.smoke, effect.sparks])
+	groups["no_fire"].append(main.combat_effect_pool.fire_batch)
+	groups["no_all_particles"].append(main.combat_effect_pool.fire_batch)
 	for frame: int in 4:
 		await process_frame
 		await RenderingServer.frame_post_draw
@@ -131,6 +132,7 @@ func probe_explosion_components() -> void:
 	for effect: ExplosionEffect in effects:
 		freeze_effect(effect)
 		effect.blast_glow.visible = true
+	main.combat_effect_pool.fire_batch.set_process(false)
 	var shadow := main.battlefield.smoke_shadow_projection
 	var cases: Array[String] = ["no_smoke", "no_fire", "no_sparks_debris", "no_glow", "no_all_particles", "continuous_smoke_map", "cached_smoke_map"]
 	for repeat: int in 2:

@@ -1441,6 +1441,7 @@ func _capture_dense_explosions() -> void:
 		_freeze_particle_time(effect)
 		assert(effect.blast_glow.visible)
 		assert(effect.get_node_or_null("BlastLight") == null)
+	main.combat_effect_pool.fire_batch.set_process(false)
 	for frame: int in 3:
 		await process_frame
 		await RenderingServer.frame_post_draw

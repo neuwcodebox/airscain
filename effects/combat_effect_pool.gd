@@ -3,19 +3,25 @@ extends Node3D
 ## World-local reusable explosion buffers.
 
 const EXPLOSION := preload("res://effects/explosion/explosion.tscn")
+const FIRE_BATCH := preload("res://effects/explosion/explosion_fire_batch.gd")
 const WORLD_PREWARMER := preload("res://effects/combat_vfx_world_prewarmer.gd")
 const CAPACITY := 32
 
 var available: Array[ExplosionEffect] = []
 var prepared: bool = false
+var fire_batch: ExplosionFireBatch
 # Keep generated material variants alive for the operation.
 var prepared_materials: Array[Material] = []
 
 func _ready() -> void:
 	add_to_group("combat_effect_pool")
+	fire_batch = FIRE_BATCH.new() as ExplosionFireBatch
+	fire_batch.capacity = CAPACITY
+	add_child(fire_batch)
 	for index: int in CAPACITY:
 		var effect := EXPLOSION.instantiate() as ExplosionEffect
 		add_child(effect)
+		effect.configure_fire_batch(fire_batch, index)
 		effect.reusable = true
 		effect.finished.connect(recycle)
 		effect.setup(Color.ORANGE, 12)

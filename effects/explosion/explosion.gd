@@ -25,6 +25,8 @@ var pressure_material: StandardMaterial3D
 var shockwave_material: StandardMaterial3D
 var fireball_material: StandardMaterial3D
 var fire_body_material: ShaderMaterial
+var fire_batch: ExplosionFireBatch
+var fire_batch_slot: int = -1
 
 static func spawn(parent: Node3D, position: Vector3, color: Color, radius: float) -> ExplosionEffect:
 	for node: Node in parent.get_tree().get_nodes_in_group("combat_effect_pool"):
@@ -40,6 +42,8 @@ static func spawn(parent: Node3D, position: Vector3, color: Color, radius: float
 func deactivate() -> void:
 	visible = false
 	set_process(false)
+	if fire_batch != null:
+		fire_batch.clear_slot(fire_batch_slot)
 	for particles: GPUParticles3D in [fireball, fire_body, smoke, sparks]:
 		particles.emitting = false
 	smoke._sync_shadow_state()
@@ -66,17 +70,32 @@ func setup(color: Color, radius: float) -> void:
 	fireball.scale = Vector3.ONE * maxf(0.85, radius / 9.0)
 	fire_body.scale = Vector3.ONE * maxf(0.85, radius / 9.0)
 	_apply_timeline(ExplosionTimeline.sample(0.0, effect_radius))
-	fireball.restart()
-	fire_body.restart()
+	var uses_batch := fire_batch != null and fire_batch_slot >= 0
+	fireball.visible = not uses_batch
+	fire_body.visible = not uses_batch
+	if uses_batch:
+		fireball.emitting = false
+		fire_body.emitting = false
+		fire_batch.emit_burst(fire_batch_slot, global_position, color, radius)
+	else:
+		fireball.restart()
+		fire_body.restart()
+		fireball.emitting = true
+		fire_body.emitting = true
 	smoke.restart()
 	sparks.restart()
 	if smoke.shadow_particles != null:
 		smoke.shadow_particles.restart()
-	fireball.emitting = true
-	fire_body.emitting = true
 	smoke.emitting = true
 	sparks.emitting = true
 	sparks.visible = true
+
+func configure_fire_batch(batch: ExplosionFireBatch, slot: int) -> void:
+	fire_batch = batch
+	fire_batch_slot = slot
+	if is_node_ready():
+		fireball.visible = batch == null
+		fire_body.visible = batch == null
 
 ## Advances an inert sample without exposing the frame callback.
 func prepare_preview(delta: float) -> void:

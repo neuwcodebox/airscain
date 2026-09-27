@@ -75,6 +75,10 @@ func _prepare_retained_effects(
 				(node as DamageSmokeEffect).set_city_scale(1.5)
 			for child: Node in node.find_children("*", "GPUParticles3D", true, false):
 				var particles := child as GPUParticles3D
+				if node is ExplosionEffect:
+					var explosion := node as ExplosionEffect
+					if particles == explosion.fireball or particles == explosion.fire_body:
+						continue
 				particles.preprocess = 0.2
 				particles.emitting = true
 				particles.restart()

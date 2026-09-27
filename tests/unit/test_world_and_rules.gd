@@ -2074,10 +2074,14 @@ func test_explosion_pool_preserves_the_same_layers_during_dense_salvos() -> void
 		effects.append(pool.spawn_explosion(parent, Vector3(index, 0, 0), Color.ORANGE, 8))
 	for effect: ExplosionEffect in effects:
 		assert_true(effect.sparks.emitting)
-		assert_true(effect.fireball.emitting)
-		assert_true(effect.fire_body.emitting)
+		assert_false(effect.fireball.emitting)
+		assert_false(effect.fire_body.emitting)
+		assert_false(effect.fireball.visible)
+		assert_false(effect.fire_body.visible)
+		assert_true(pool.fire_batch.slot_is_active(effect.fire_batch_slot))
 		assert_true(effect.smoke.emitting)
 		assert_true(effect.blast_glow.visible)
+	assert_eq(pool.fire_batch.multimesh.instance_count, CombatEffectPool.CAPACITY * ExplosionFireBatch.CARDS_PER_EXPLOSION)
 
 func test_explosion_layers_retire_only_at_zero_and_restart_with_the_same_timeline() -> void:
 	var effect := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect
