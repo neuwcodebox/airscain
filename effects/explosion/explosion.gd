@@ -7,6 +7,7 @@ var reusable: bool = false
 var elapsed: float = 0.0
 var duration: float = ExplosionTimeline.TOTAL_DURATION
 var effect_radius: float = 10.0
+var secondary_detail_enabled: bool = true
 
 @onready var flash: MeshInstance3D = $Flash
 @onready var flash_halo: MeshInstance3D = $FlashHalo
@@ -45,10 +46,11 @@ func deactivate() -> void:
 	smoke._sync_shadow_state()
 	blast_light.visible = false
 
-func setup(color: Color, radius: float) -> void:
+func setup(color: Color, radius: float, include_secondary_detail: bool = true) -> void:
 	visible = true
 	set_process(true)
-	blast_light.visible = true
+	secondary_detail_enabled = include_secondary_detail
+	blast_light.visible = secondary_detail_enabled
 	elapsed = 0.0
 	effect_radius = radius
 	if flash_material == null:
@@ -70,16 +72,19 @@ func setup(color: Color, radius: float) -> void:
 	_apply_timeline(ExplosionTimeline.sample(0.0, effect_radius))
 	fireball.restart()
 	fire_body.restart()
-	debris.restart()
 	smoke.restart()
-	sparks.restart()
+	if secondary_detail_enabled:
+		debris.restart()
+		sparks.restart()
 	if smoke.shadow_particles != null:
 		smoke.shadow_particles.restart()
 	fireball.emitting = true
 	fire_body.emitting = true
-	debris.emitting = true
 	smoke.emitting = true
-	sparks.emitting = true
+	debris.emitting = secondary_detail_enabled
+	sparks.emitting = secondary_detail_enabled
+	debris.visible = secondary_detail_enabled
+	sparks.visible = secondary_detail_enabled
 
 ## Advances an inert sample without exposing the frame callback.
 func prepare_preview(delta: float) -> void:
@@ -101,9 +106,9 @@ func _apply_timeline(state: ExplosionTimeline.State) -> void:
 	_apply_layer(flash_halo, halo_material, state.halo_scale, state.halo_alpha)
 	_apply_layer(pressure_ring, pressure_material, state.pressure_scale, state.pressure_alpha)
 	_apply_layer(shockwave, shockwave_material, state.ground_wave_scale, state.ground_wave_alpha)
-	if blast_light.visible or state.light_energy > 0.0:
+	if secondary_detail_enabled and (blast_light.visible or state.light_energy > 0.0):
 		blast_light.light_energy = state.light_energy
-	blast_light.visible = state.light_energy > 0.0
+	blast_light.visible = secondary_detail_enabled and state.light_energy > 0.0
 
 func _apply_layer(layer: MeshInstance3D, material: StandardMaterial3D, size: float, alpha: float) -> void:
 	if layer.visible or alpha > 0.0 or material.albedo_color.a != alpha:

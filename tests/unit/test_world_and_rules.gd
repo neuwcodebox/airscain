@@ -2066,6 +2066,25 @@ func test_explosion_pool_reuses_instances_and_materials_without_reviving_other_e
 	assert_eq(second.flash_material.emission, Color.CYAN)
 	assert_eq(pool.available.size(), CombatEffectPool.CAPACITY - 2)
 
+func test_explosion_pool_limits_secondary_layers_during_dense_salvos() -> void:
+	var pool := add_child_autofree(CombatEffectPool.new()) as CombatEffectPool
+	var parent := add_child_autofree(Node3D.new()) as Node3D
+	var effects: Array[ExplosionEffect] = []
+	for index: int in CombatEffectPool.FULL_DETAIL_BUDGET + 1:
+		effects.append(pool.spawn_explosion(parent, Vector3(index, 0, 0), Color.ORANGE, 8))
+	for index: int in CombatEffectPool.FULL_DETAIL_BUDGET:
+		assert_true(effects[index].secondary_detail_enabled)
+		assert_true(effects[index].sparks.emitting)
+		assert_true(effects[index].debris.emitting)
+	var reduced := effects.back() as ExplosionEffect
+	assert_false(reduced.secondary_detail_enabled)
+	assert_false(reduced.sparks.emitting)
+	assert_false(reduced.debris.emitting)
+	assert_false(reduced.blast_light.visible)
+	assert_true(reduced.fireball.emitting)
+	assert_true(reduced.fire_body.emitting)
+	assert_true(reduced.smoke.emitting)
+
 func test_explosion_layers_retire_only_at_zero_and_restart_with_the_same_timeline() -> void:
 	var effect := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect
 	effect.setup(Color.ORANGE, 10)
