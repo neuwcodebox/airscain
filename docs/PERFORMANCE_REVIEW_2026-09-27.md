@@ -6,6 +6,26 @@
 
 기존 결과는 [대규모 교전 분석](PERFORMANCE_2026-09-10.md), [적용 결과](PERFORMANCE_IMPLEMENTATION.md), [순간 지연 측정](PERFORMANCE.md), [웹 첫 등장 측정](PERFORMANCE_WEB_HITCH.md)에 있다. 그 결과와 이번 측정의 부하가 다르므로 개선율로 직접 비교하지 않는다.
 
+## 외부 근거와 프로젝트 적용
+
+Godot 공식 [Profiler 문서](https://docs.godotengine.org/en/4.5/tutorials/scripting/debug/the_profiler.html)는 `Frame Time`이 스크립트·물리뿐 아니라 렌더링까지 포함하며, 스크립트가 빠른 프레임의 지연도 파티클이나 시각효과에서 생길 수 있다고 설명한다. [Visual Profiler 문서](https://docs.godotengine.org/en/4.5/tutorials/scripting/debug/debugger_panel.html#visual-profiler)는 렌더 CPU와 GPU 항목을 나누어 보되 동일 viewport 크기로 실행을 비교하라고 한다. 따라서 현재 `process_frame` 완료 간격만으로 GPU 병목을 단정하지 않고, 같은 프레임 ID의 게임 CPU·렌더 CPU·GPU 계측을 다음 필수 단계로 둔다.
+
+Godot 공식 [GPU 최적화 문서](https://docs.godotengine.org/en/4.5/tutorials/performance/gpu_optimization.html)는 OpenGL·WebGL에서 API 명령과 상태 변경 비용이 크고, 겹친 투명 오브젝트는 뒤의 오브젝트까지 모두 그려 fill rate를 소모한다고 설명한다. 이 프로젝트의 폭발은 한 효과마다 여러 투명 `GPUParticles3D`, 연기 그림자용 복제 입자와 국소광을 사용한다. 입자 수 비율만 낮춘 실험이 개선되지 않은 결과와 함께 보면 다음 후보는 단순 입자 개수 조정보다 제출 단위·재질 상태·화면 중첩·그림자 pass를 분리해 측정하는 것이다. 공식 [3D 성능 문서](https://docs.godotengine.org/en/4.5/tutorials/performance/optimizing_3d_performance.html)가 권하는 거리 기반 가시 범위와 `MultiMesh`는 측정에서 해당 제출 비용이 확인될 때 적용하며, 전장 전체를 한 덩어리로 합쳐 개별 culling을 잃지 않는다.
+
+현재 Web preset은 Godot가 기본으로 권하는 단일 스레드 내보내기다. 공식 [Web 내보내기 문서](https://docs.godotengine.org/en/4.5/tutorials/export/exporting_for_web.html)는 단일 스레드가 호환성은 높지만 다중 스레드보다 성능이 낮고, 다중 스레드는 교차 출처 격리 헤더가 필요하다고 명시한다. 따라서 웹은 네이티브와 별도 성능 예산으로 검증한다. 스레드 전환은 정적 호스팅·외부 삽입 호환성을 포함한 별도 제품 결정으로 남기며 현재 개선책의 전제로 삼지 않는다.
+
+Firefox 경고에 나타난 `getBufferSubData()`는 Khronos [WebGL 2.0 명세](https://registry.khronos.org/webgl/specs/latest/2.0/#5.14.5)에 따라 앞선 GPU 쓰기가 끝나야 결과를 돌려주는 차단 연산이며 프로세스 간 왕복도 일으킬 수 있다. 다만 현재 측정은 호출 스택이나 호출 횟수를 확보하지 못했다. 폭발 지연과의 인과관계는 Firefox 프로파일에서 호출 시각이 느린 프레임과 일치하고 해당 경로를 제거한 교차 실험이 개선될 때만 확정한다.
+
+## 원인 후보 우선순위
+
+| 우선순위 | 후보 | 현재 근거 | 다음 판정 |
+| --- | --- | --- | --- |
+| P0 | 겹친 폭발의 투명 입자·그림자·광원 렌더 | 16·32개에서 생성 CPU는 1–3ms지만 이후 여러 프레임이 200–700ms, 입자 전체 제외 시 큰 감소 | 동일 프레임 렌더 CPU/GPU와 효과 층별 반복 교차 측정 |
+| P0 | 긴 렌더 프레임 뒤 게임 단계 집중 | 실제 자동 루프 4배속에서 한 화면 프레임에 최대 18단계 | 프레임 ID별 렌더·게임 CPU 귀속 뒤 따라잡기 정책 시제품 비교 |
+| P1 | 센서·무기의 반복 후보 평가 | 고정 난전 게임 CPU가 50ms 게임 진행당 약 21ms, 일괄 연관 중복 제거로 약 0.5ms 감소 | 포대·기관포·레이더 세부 계측에서 p95 기여가 확인된 경로만 수정 |
+| P1 | WebGL 동기 버퍼 읽기 | Firefox 경고와 명세상 차단 가능성 | 브라우저 프로파일 호출 스택·횟수와 제거 교차 실험 |
+| P2 | 첫 생성·셰이더 준비 | 실제 전장 예열과 풀링이 이미 있고 단일 UAV·도시 피격은 큰 추가 지연을 반복하지 않음 | 새 콘텐츠 추가 시 첫 등장 회귀를 유지하고 현 단계 재설계는 보류 |
+
 ## 이번에 확인한 근거
 
 2026-09-27, Godot 4.7.2, WSL/Mesa D3D12 RTX 3060, Compatibility 실제 창, Dummy 오디오, seed 73129의 자유 모드에서 `tools/hitch_check.gd -- --brief`를 실행했다. 앱과 전장 효과 예열 후 시뮬레이션을 멈추고 사건마다 10프레임 안정화, 12프레임 완료 간격을 잰다. 폭발 표본은 `ExplosionEffect.spawn()`의 직접 호출이므로 일반 전투의 모든 상태 변경을 포함하지 않는다.
@@ -72,3 +92,5 @@
 ## 채택 기준과 검증
 
 각 변경은 같은 seed와 부하 상태가 유지되는 전후 교차 반복으로 **전체 프레임 p95·p99·연속 지연**, 게임 CPU, 렌더 CPU/GPU, 메모리·효과 수를 비교한다. 관리 비용을 포함한 전체 지표에서 반복 개선이 없으면 채택하지 않는다. 기관포 명중·탄약·피해·관측·교전 순서·저장 복원을 집중 회귀로, 표현은 실제 창의 주야간과 WebGL로 확인한다. 변경 단위마다 `docs/PLAN.md`에 결과와 남은 위험을 갱신한다.
+
+첫 구현 후보의 통과 기준은 같은 플랫폼·해상도·seed의 기준/수정/수정/기준 교차 실행 네 번 모두에서 전체 프레임 p95와 연속 느린 프레임 길이가 함께 줄고, 어느 실행에서도 p99가 기준 범위보다 악화되지 않는 것이다. 60 FPS의 16.67ms와 30 FPS의 33.33ms는 결과를 읽는 기준선으로 기록하되 현재 진단 장비의 절대 수치를 제품 최소 사양 계약으로 사용하지 않는다. WebGL은 Firefox와 Chromium 계열에서 각각 측정하고 브라우저 타이머 해상도와 단일 스레드 실행 차이를 함께 기록한다.
