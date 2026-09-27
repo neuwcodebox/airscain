@@ -20,10 +20,32 @@ class MovingTarget:
 	func presentation_velocity() -> Vector3:
 		return velocity
 
+class CountingTarget:
+	extends MovingTarget
+	var aim_position_reads: int = 0
+	func get_aim_position() -> Vector3:
+		aim_position_reads += 1
+		return global_position
+
 class ExhaustiveRuntime:
 	extends GunfireRuntime
 	func _candidate_indices(snapshot: TargetSnapshot, _start: Vector3, _end: Vector3, _radius: float) -> PackedInt32Array:
 		return snapshot.indices
+
+func test_gunfire_substeps_share_one_target_snapshot() -> void:
+	var runtime := _runtime()
+	var target := add_child_autofree(CountingTarget.new()) as CountingTarget
+	target.setup(90, _threat_definition(&"swarm_uav"))
+	target.position = Vector3(500, 100, 500)
+	target.health = 100
+	runtime.registry = ThreatRegistry.new()
+	runtime.registry.add(target)
+	var round := _round(Vector3(0, 100, 0), Vector3(600, 0, 0))
+	round.age = 0.1
+	runtime.rounds.append(round)
+	runtime.gameplay_tick(0.055)
+	assert_eq(target.aim_position_reads, 1, "한 게임 단계의 하위 적분은 같은 표적 위치 표본을 재사용합니다")
+	assert_almost_eq((runtime.rounds[0].position as Vector3).x, 33.0, 0.001, "스냅샷 공유가 탄도 적분을 바꾸지 않습니다")
 
 func test_spatial_candidates_match_exhaustive_combat_across_motion_and_lifecycle() -> void:
 	for seed_value: int in [12, 73129, 901]:

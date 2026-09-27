@@ -37,22 +37,16 @@ class TargetSnapshot:
 		if registry_value == null:
 			return
 		targets = registry_value.get_active()
-		var sampled_positions := PackedVector3Array()
-		var sampled_velocities := PackedVector3Array()
-		var sampled_reaches := PackedFloat32Array()
 		for target: ThreatUnit in targets:
-			sampled_positions.append(target.get_aim_position())
+			positions.append(target.get_aim_position())
 			var velocity := target.presentation_velocity()
-			sampled_velocities.append(velocity)
-			sampled_reaches.append(velocity.length() * delta)
-		positions = sampled_positions
-		velocities = sampled_velocities
-		reaches = sampled_reaches
+			velocities.append(velocity)
+			reaches.append(velocity.length() * delta)
 		indices = PackedInt32Array(range(targets.size()))
 		if targets.size() > LINEAR_LIMIT:
 			for index: int in targets.size():
-				var position := sampled_positions[index]
-				max_reach = maxf(max_reach, sampled_reaches[index])
+				var position := positions[index]
+				max_reach = maxf(max_reach, reaches[index])
 				var cell := Vector3i((position / CELL_SIZE).floor())
 				if not cells.has(cell):
 					cells[cell] = []
@@ -146,10 +140,13 @@ func cancel_pending() -> void:
 func gameplay_tick(delta: float) -> void:
 	if delta <= 0 or rounds.is_empty() and bursts.is_empty():
 		return
+	# Threats advance after every defense has completed this gameplay step, so all
+	# 0.02 second gunfire substeps observe the same positions and velocities.
+	var snapshot := TargetSnapshot.new(registry, minf(delta, 0.02)) if not rounds.is_empty() else null
 	var remaining := delta
 	while remaining > 0.000001:
 		var step := minf(remaining, 0.02)
-		_step(step)
+		_step(step, snapshot)
 		remaining -= step
 	_sync_visuals()
 
@@ -158,14 +155,13 @@ func prepare_airburst_preview(position: Vector3, reason: StringName = &"timeout"
 	_detonate(position, reason)
 	_sync_visuals()
 
-func _step(delta: float) -> void:
+func _step(delta: float, snapshot: TargetSnapshot) -> void:
 	for index: int in range(bursts.size() - 1, -1, -1):
 		bursts[index].age = float(bursts[index].age) + delta
 		if float(bursts[index].age) >= 0.85:
 			bursts.remove_at(index)
 	if rounds.is_empty():
 		return
-	var snapshot := TargetSnapshot.new(registry, delta)
 	var targets := snapshot.targets
 	var target_positions := snapshot.positions
 	var target_steps := snapshot.velocities
@@ -183,22 +179,25 @@ func _step(delta: float) -> void:
 		var start: Vector3 = round.position
 		var velocity: Vector3 = round.velocity
 		var end := start + velocity * travel_time + GRAVITY * travel_time * travel_time * 0.5
+		var segment_length := start.distance_to(end)
 		round.velocity = velocity + GRAVITY * travel_time
 		var stop := 1.0
 		var reason: StringName = &""
 		if battlefield != null:
 			var terrain_hit := battlefield.terrain_segment_impact(start, end)
+			if not terrain_hit.is_empty():
+				stop = start.distance_to(terrain_hit.position) / maxf(0.001, segment_length)
+				reason = &"surface"
 			var building_hit := battlefield.building_segment_impact(start, end)
-			for hit: Dictionary in [terrain_hit, building_hit]:
-				if not hit.is_empty():
-					var fraction := start.distance_to(hit.position) / maxf(0.001, start.distance_to(end))
-					if fraction <= stop:
-						stop = fraction
-						reason = &"surface"
+			if not building_hit.is_empty():
+				var building_fraction := start.distance_to(building_hit.position) / maxf(0.001, segment_length)
+				if building_fraction <= stop:
+					stop = building_fraction
+					reason = &"surface"
 		var victim: ThreatUnit
 		if float(round.age) >= ARM_TIME:
 			var armed_fraction := clampf((ARM_TIME - maxf(0, previous_age)) / maxf(0.00001, travel_time), 0, 1)
-			var round_reach := start.distance_to(end) + float(round.radius)
+			var round_reach := segment_length + float(round.radius)
 			for target_index: int in _candidate_indices(snapshot, start, end, float(round.radius)):
 				var offset := start - target_positions[target_index]
 				# Conservative swept sphere: moving targets can enter the fuze this step.

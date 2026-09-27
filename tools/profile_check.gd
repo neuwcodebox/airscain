@@ -44,9 +44,9 @@ class ProfiledGun:
 
 class ProfiledGunfire:
 	extends GunfireRuntime
-	func _step(delta: float) -> void:
+	func _step(delta: float, snapshot: TargetSnapshot) -> void:
 		var start := Time.get_ticks_usec()
-		super._step(delta)
+		super._step(delta, snapshot)
 		NestedCosts.record("gun_ballistics", start)
 
 	func _sync_visuals() -> void:
