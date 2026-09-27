@@ -5,6 +5,7 @@ extends SceneTree
 ## --detail adds nested targeting/C2 timings; --render-probe uses paired exclusions.
 ## --compare-smoke-proxies compares sphere/impostor geometry on one frozen scene.
 ## --seed=N and --seconds=N vary the reproducible workload (defaults: 73129, 20).
+## --live uses the automatic game loop and records completed frames (default: 90).
 ## Timings are inclusive. Nested measurements must not be added to parent costs.
 
 const MAIN_SCENE := preload("res://main/main.tscn")
@@ -305,6 +306,18 @@ func run() -> void:
 	if OS.get_cmdline_user_args().has("--night"):
 		main.session.survival_time = 450.0
 		main.session.next_support_at += 450.0
+	if OS.get_cmdline_user_args().has("--live"):
+		if DisplayServer.get_name() == "headless":
+			_fail("live frame probe requires a rendered window")
+			return
+		if not await _run_live_probe():
+			return
+		main.combat_audio.call("stop_all")
+		main.free()
+		for frame: int in 3:
+			await process_frame
+		quit(0)
+		return
 	if main.battlefield is ProfiledBattlefield:
 		(main.battlefield as ProfiledBattlefield).query_costs.clear()
 		(main.battlefield as ProfiledBattlefield).query_counts.clear()
@@ -460,6 +473,56 @@ func _spawn_representative_attack() -> void:
 func _fail(message: String) -> void:
 	push_error("PROFILE_FAILED: %s" % message)
 	quit(1)
+
+func _run_live_probe() -> bool:
+	var requested_frames := 90
+	var requested_speed := 1.0
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--live-frames="):
+			requested_frames = maxi(10, argument.trim_prefix("--live-frames=").to_int())
+		elif argument.begins_with("--live-speed="):
+			requested_speed = argument.trim_prefix("--live-speed=").to_float()
+	if requested_speed not in [1.0, 2.0, 4.0]:
+		_fail("live speed must be 1, 2, or 4")
+		return false
+	var rows: Array[Dictionary] = []
+	main.session.set_simulation_speed(requested_speed)
+	main.set_process(true)
+	for frame: int in requested_frames + 5:
+		var started := Time.get_ticks_usec()
+		var game_before := main.session.survival_time
+		var rounds_before := gun_rounds_fired
+		var missiles_before := missile_launches
+		await process_frame
+		await RenderingServer.frame_post_draw
+		if frame < 5:
+			continue
+		var game_delta := main.session.survival_time - game_before
+		rows.append({
+			"frame": frame - 5,
+			"wall_ms": (Time.get_ticks_usec() - started) / 1000.0,
+			"game_delta": game_delta,
+			"steps": ceili(game_delta / AirscainMain.MAXIMUM_GAMEPLAY_STEP),
+			"contacts": main.registry.count(),
+			"tracks": main.player_knowledge.tracks.size(),
+			"gun_rounds": gun_rounds_fired - rounds_before,
+			"missiles": missile_launches - missiles_before,
+			"draws": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+		})
+	main.set_process(false)
+	var sorted := rows.duplicate()
+	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.wall_ms) < float(b.wall_ms))
+	var total := 0.0
+	var peak_steps := 0
+	for row: Dictionary in rows:
+		total += float(row.wall_ms)
+		peak_steps = maxi(peak_steps, int(row.steps))
+	print("PROFILE_LIVE speed=%.1f frames=%d avg_ms=%.3f p95_ms=%.3f max_ms=%.3f max_steps=%d gun_rounds=%d missile_launches=%d" % [requested_speed, rows.size(), total / rows.size(), sorted[int(rows.size() * 0.95)].wall_ms, sorted.back().wall_ms, peak_steps, gun_rounds_fired, missile_launches])
+	for index: int in range(maxi(0, sorted.size() - 5), sorted.size()):
+		print("PROFILE_LIVE_SLOW " + JSON.stringify(sorted[index]))
+	var trace := FileAccess.open("/tmp/airscain_live_frames.json", FileAccess.WRITE)
+	trace.store_string(JSON.stringify(rows))
+	return true
 
 func _render_probe() -> void:
 	_freeze(main)

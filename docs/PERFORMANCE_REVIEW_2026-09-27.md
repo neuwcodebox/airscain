@@ -35,6 +35,8 @@
 
 재현 명령은 `godot --headless --audio-driver Dummy --path . --script res://tools/profile_check.gd -- --large --breakdown --detail`과 실제 창의 `godot --audio-driver Dummy --path . --script res://tools/profile_check.gd -- --large --render --render-probe`다. 동시 폭발 분리는 `godot --audio-driver Dummy --path . --script res://tools/hitch_check.gd -- --explosion-probe`를 쓴다. 렌더 계측끼리는 동시에 실행하지 않는다. 이번 교차 실행 로그는 `/tmp/airscain_association_*.log`에 있다.
 
+자동 루프는 `--large --live --live-frames=20 --live-speed=1`, `2`, `4`를 각각 실제 창에서 실행했다. 프레임 완료 시간의 평균/p95와 한 프레임의 최대 게임 단계는 각각 **1배속 220/581ms·5단계**, **2배속 497/1104ms·9단계**, **4배속 1652/2248ms·18단계**였다. 각 프레임의 벽시계 시간, 진행한 게임 시간, 단계 수, 접촉·항적·발사 수, draw 수는 `/tmp/airscain_live_frames.json`에 기록된다. 이 파일은 실행마다 덮어쓴다. 같은 20프레임 동안 배속별 전투가 서로 다른 게임 시점에 도달하므로 수치를 배속만의 인과 효과로 분리할 수 없다. 다만 4배속에서 하위 단계가 한 프레임에 크게 몰리는 것은 직접 관측됐다. 각 프레임의 게임 CPU와 렌더 시간을 같은 ID로 분리하는 계측은 아직 필요하다.
+
 ## 개선 실행 순서
 
 ### 1. 측정 기준과 순간 지연의 귀속
