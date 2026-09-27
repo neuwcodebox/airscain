@@ -9,11 +9,12 @@ void vertex() {
 }
 
 void fragment() {
-	float hot_tip = smoothstep(0.18, 0.82, UV.y);
-	float fade = 1.0 - smoothstep(0.72, 1.0, age);
-	vec3 dark_body = vec3(0.055, 0.035, 0.025);
-	vec3 hot = mix(vec3(1.0, 0.22, 0.015), tint, 0.35);
-	ALBEDO = mix(dark_body, hot, hot_tip * (1.0 - age * 0.7));
-	EMISSION = hot * hot_tip * fade * 9.0;
+	float heat = 1.0 - smoothstep(0.12, 0.72, age);
+	float fade = 1.0 - smoothstep(0.78, 1.0, age);
+	float facet = mix(0.72, 1.0, abs(NORMAL.y));
+	vec3 cooled_metal = vec3(0.07, 0.045, 0.035);
+	vec3 hot_metal = mix(vec3(1.0, 0.42, 0.035), tint, 0.25);
+	ALBEDO = mix(cooled_metal, hot_metal, heat) * facet;
+	EMISSION = hot_metal * heat * heat * 7.0;
 	ALPHA = fade;
 }
