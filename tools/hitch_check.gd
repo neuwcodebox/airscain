@@ -60,6 +60,10 @@ func run() -> void:
 	for entry: ThreatSpawnEntry in main.scenario.threat_entries:
 		if OS.get_cmdline_user_args().has("--brief") and entry.threat_definition.id not in [&"attack_uav", &"strike_aircraft", &"radar_strike_aircraft"]:
 			continue
+		if entry.threat_definition.requires_role_knowledge:
+			# This fixture has no enemy observations, so these missions cannot spawn.
+			print("HITCH_SKIP %s requires enemy knowledge" % entry.threat_definition.id)
+			continue
 		for repeat: int in 2:
 			var units: Array[ThreatUnit] = []
 			await sample_event("spawn_%s_%d" % [entry.threat_definition.id, repeat], func() -> void:
