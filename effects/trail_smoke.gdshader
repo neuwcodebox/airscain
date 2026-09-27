@@ -11,12 +11,17 @@ uniform float opacity_ratio = 1.0;
 varying float puff_alpha;
 
 void vertex() {
-	vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb, MODEL_MATRIX[3].xyz);
-	puff_alpha = trail_alpha(INSTANCE_CUSTOM) * COLOR.a * trail_haze(MODEL_MATRIX[3].xyz + motion.xyz);
-	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], vec4(MODEL_MATRIX[3].xyz + motion.xyz, 1.0));
-	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
-	// Zero-alpha cards must not keep rasterizing a full billboard until cleanup.
-	VERTEX *= puff_alpha * opacity_ratio > 0.0 ? motion.w : 0.0;
+	puff_alpha = trail_alpha(INSTANCE_CUSTOM) * COLOR.a;
+	if (puff_alpha * opacity_ratio <= 0.0) {
+		VERTEX = vec3(0.0);
+	} else {
+		vec4 motion = trail_motion(INSTANCE_CUSTOM, COLOR.rgb, MODEL_MATRIX[3].xyz);
+		puff_alpha *= trail_haze(MODEL_MATRIX[3].xyz + motion.xyz);
+		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], vec4(MODEL_MATRIX[3].xyz + motion.xyz, 1.0));
+		MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+		// Zero-alpha cards must not keep rasterizing a full billboard until cleanup.
+		VERTEX *= puff_alpha > 0.0 ? motion.w : 0.0;
+	}
 }
 
 void fragment() {

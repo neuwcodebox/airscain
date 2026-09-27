@@ -178,6 +178,7 @@ func _create_shadow_multimesh() -> void:
 	shadow_multimesh.instance_count = shadow_count
 	shadow_multimesh.custom_aabb = AABB(-Vector3.ONE, Vector3.ONE * 2.0)
 	_shadow_owner_serials.resize(shadow_count)
+	_shadow_owner_serials.fill(-1)
 	shadow_multimesh.visible_instance_count = 0
 	shadow_particles = MultiMeshInstance3D.new()
 	shadow_particles.name = "SmokeShadow"
@@ -216,6 +217,7 @@ func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> v
 	_update_puff(slot)
 
 func _update_puffs() -> void:
+	var retired := false
 	for active_index: int in range(_active_slots.size() - 1, -1, -1):
 		var slot := _active_slots[active_index]
 		# Both visible and shadow shaders are exactly transparent at this age.
@@ -224,10 +226,23 @@ func _update_puffs() -> void:
 			_occupied_slots[slot] = 0
 			_active_slots[active_index] = _active_slots.back()
 			_active_slots.pop_back()
+			retired = true
 			continue
-	if _active_slots.is_empty():
-		multimesh.visible_instance_count = 0
-		shadow_particles.multimesh.visible_instance_count = 0
+	if retired:
+		# Only trim unused tails; moving live slots would reorder alpha blending.
+		while multimesh.visible_instance_count > 0 and _occupied_slots[multimesh.visible_instance_count - 1] == 0:
+			multimesh.visible_instance_count -= 1
+		while shadow_particles.multimesh.visible_instance_count > 0 and _shadow_owner_serials[shadow_particles.multimesh.visible_instance_count - 1] < 0:
+			shadow_particles.multimesh.visible_instance_count -= 1
+		_rebuild_bounds()
+
+func _rebuild_bounds() -> void:
+	_has_bounds = false
+	for slot: int in _active_slots:
+		var position := _positions[slot]
+		_bounds = _bounds.expand(position) if _has_bounds else AABB(position, Vector3.ZERO)
+		_has_bounds = true
+	_bounds_dirty = _has_bounds
 
 func _update_puff(slot: int) -> void:
 	# Upload a birth record once. Both passes animate from the same GPU data.

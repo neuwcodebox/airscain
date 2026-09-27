@@ -223,6 +223,17 @@ func test_expired_smoke_can_reuse_slots_without_restoring_old_puffs() -> void:
 	assert_gt(trail.active_puff_count(), 0)
 	assert_gt(trail.smoke_bounds().position.x, 50.0)
 
+func test_smoke_culling_bounds_follow_only_live_puffs_after_expiration() -> void:
+	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	var trail := effect.smoke
+	trail.emitting = true
+	trail.sample_world_segment(Vector3.ZERO, Vector3(20, 0, 0))
+	trail._process(trail.lifetime + 0.1)
+	trail.sample_world_segment(Vector3(1000, 0, 0), Vector3(1020, 0, 0))
+	trail._process(0.1)
+	assert_gt(trail.multimesh.custom_aabb.position.x, 500.0, "old flight positions leave the culling bounds")
+	assert_eq(trail.multimesh.custom_aabb, trail.shadow_particles.multimesh.custom_aabb)
+
 func test_building_spatial_candidates_preserve_nearest_segment_impacts() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	field.build(SCENARIO)
