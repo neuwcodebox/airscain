@@ -106,11 +106,25 @@ class ProfiledKnowledge:
 		association_input_tracks += tracks.size()
 		return result
 
+	func _associate_scan(observations: Array[SensorObservation]) -> Array[PlayerTrack]:
+		var start := Time.get_ticks_usec()
+		var result := super._associate_scan(observations)
+		association_usec += Time.get_ticks_usec() - start
+		association_input_tracks += tracks.size() * observations.size()
+		return result
+
 	func submit_observation(observation: SensorObservation) -> PlayerTrack:
 		var start := Time.get_ticks_usec()
 		var result := super.submit_observation(observation)
 		submission_usec += Time.get_ticks_usec() - start
 		observation_count += 1
+		return result
+
+	func submit_scan(observations: Array[SensorObservation]) -> Array[PlayerTrack]:
+		var start := Time.get_ticks_usec()
+		var result := super.submit_scan(observations)
+		submission_usec += Time.get_ticks_usec() - start
+		observation_count += observations.size()
 		return result
 
 class ProfiledBattlefield:
@@ -207,6 +221,9 @@ var peak_tracks: int = 0
 var peak_projectiles: int = 0
 var frame_samples_usec: Array[int] = []
 var peak_rounds: int = 0
+var gun_rounds_fired: int = 0
+var missile_launches: int = 0
+var placement_candidates: Array[Vector2i] = []
 var tick_rows: Array[Dictionary] = []
 
 func _init() -> void:
@@ -266,6 +283,7 @@ func run() -> void:
 	main.combat_audio.call("stop_all")
 	main.objective.definition.maximum_integrity = 10000
 	main.objective.current_integrity = 10000
+	_build_placement_candidates()
 	if OS.get_cmdline_user_args().has("--detail"):
 		_profile_defense_scenes()
 	_place_representative_network()
@@ -278,6 +296,11 @@ func run() -> void:
 			deployed.append(String(defense.definition.id))
 		_fail("representative defense network could not be created: %d %s" % [main.session.defense_count, deployed])
 		return
+	for defense: DefenseUnit in main.defenses:
+		if defense is CloseInGun:
+			(defense as CloseInGun).gunfire.round_fired.connect(_count_gun_round)
+		if defense is MissileBattery:
+			defense.projectile_launched.connect(_count_missile_launch)
 	_spawn_representative_attack()
 	if OS.get_cmdline_user_args().has("--night"):
 		main.session.survival_time = 450.0
@@ -327,7 +350,11 @@ func run() -> void:
 	var maximum_ms := float(samples_usec.back()) / 1000.0
 	print("PROFILE_OK samples=%d avg_ms=%.3f p95_ms=%.3f max_ms=%.3f contacts=%d tracks=%d projectiles=%d defenses=%d" % [samples_usec.size(), average_ms, p95_ms, maximum_ms, peak_contacts, peak_tracks, peak_projectiles, main.session.defense_count])
 	print("PROFILE_WORKLOAD peak_gun_rounds=%d" % peak_rounds)
+	print("PROFILE_COMBAT gun_rounds_fired=%d missile_launches=%d" % [gun_rounds_fired, missile_launches])
 	print("PROFILE_RESULT remaining_contacts=%d remaining_tracks=%d city_integrity=%d" % [main.registry.count(), main.player_knowledge.tracks.size(), main.objective.current_integrity])
+	if OS.get_cmdline_user_args().has("--large") and duration >= PROFILE_DURATION and (peak_rounds == 0 or gun_rounds_fired == 0 or missile_launches == 0 or peak_tracks == 0):
+		_fail("large workload did not exercise guns, missiles, and tracking")
+		return
 	if main is ProfiledMain:
 		var knowledge := main.player_knowledge as ProfiledKnowledge
 		print("PROFILE_NESTED association_ms=%.3f observation_ms=%.3f" % [float(knowledge.association_usec) / samples_usec.size() / 1000.0, float(knowledge.submission_usec) / samples_usec.size() / 1000.0])
@@ -384,19 +411,33 @@ func _profile_defense_scenes() -> void:
 		unit.free()
 		definition.scene = packed
 
+func _build_placement_candidates() -> void:
+	placement_candidates.clear()
+	for z: int in range(-600, 601, 30):
+		for x: int in range(-600, 601, 30):
+			placement_candidates.append(Vector2i(x, z))
+	placement_candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var a_distance := a.length_squared()
+		var b_distance := b.length_squared()
+		return a_distance < b_distance if a_distance != b_distance else (a.y < b.y or a.y == b.y and a.x < b.x)
+	)
+
+func _count_gun_round(_position: Vector3) -> void:
+	gun_rounds_fired += 1
+
+func _count_missile_launch(_unit: DefenseUnit, _projectile: Node) -> void:
+	missile_launches += 1
+
 func _place_representative_network() -> void:
 	for definition: DefenseDefinition in main.scenario.available_defenses:
 		var placed := false
 		var last_reason := ""
-		for z: int in range(-600, 601, 30):
-			for x: int in range(-600, 601, 30):
-				var position := Vector3(float(x), main.battlefield.terrain_height(float(x), float(z)), float(z))
-				var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
-				last_reason = result.reason
-				if result.success:
-					placed = true
-					break
-			if placed:
+		for candidate: Vector2i in placement_candidates:
+			var position := Vector3(float(candidate.x), main.battlefield.terrain_height(float(candidate.x), float(candidate.y)), float(candidate.y))
+			var result: Dictionary = main.session.request_placement(definition, position, main.battlefield, main.defense_parent, main.registry, main.projectile_parent)
+			last_reason = result.reason
+			if result.success:
+				placed = true
 				break
 		if not placed:
 			print("PROFILE_PLACEMENT_SKIPPED id=%s reason=%s pressure=%d unlimited=%s" % [definition.id, last_reason, main.session.current_pressure, main.session.unlimited_budget])

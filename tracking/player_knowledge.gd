@@ -124,22 +124,28 @@ func _associate_scan(observations: Array[SensorObservation]) -> Array[PlayerTrac
 	# this small, capacity-limited scan enter the global assignment.
 	var candidate_track_indices: Array[int] = []
 	var candidate_columns: Dictionary[int, int] = {}
+	var costs_by_observation: Array[Dictionary] = []
 	for observation: SensorObservation in observations:
+		var gated_costs: Dictionary[int, float] = {}
 		for track_index: int in _association_candidates(observation):
-			if _association_cost(tracks[track_index], observation) >= GlobalNearestNeighbor.BLOCKED_COST:
+			var cost := _association_cost(tracks[track_index], observation)
+			if cost >= GlobalNearestNeighbor.BLOCKED_COST:
 				continue
+			gated_costs[track_index] = cost
 			if not candidate_columns.has(track_index):
 				candidate_columns[track_index] = candidate_track_indices.size()
 				candidate_track_indices.append(track_index)
+		costs_by_observation.append(gated_costs)
 
 	var track_column_count := candidate_track_indices.size()
 	var costs: Array[PackedFloat64Array] = []
-	for observation: SensorObservation in observations:
+	for observation_index: int in observations.size():
 		var row := PackedFloat64Array()
 		row.resize(track_column_count + observations.size())
 		row.fill(GlobalNearestNeighbor.BLOCKED_COST)
+		var gated_costs: Dictionary = costs_by_observation[observation_index]
 		for column_index: int in track_column_count:
-			row[column_index] = _association_cost(tracks[candidate_track_indices[column_index]], observation)
+			row[column_index] = gated_costs.get(candidate_track_indices[column_index], GlobalNearestNeighbor.BLOCKED_COST)
 		# Any dummy column means this plot starts a new track. A valid gated
 		# association is always cheaper, while one-to-one assignment is preserved.
 		for column_index: int in range(track_column_count, row.size()):

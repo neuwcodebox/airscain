@@ -28,6 +28,12 @@ func run() -> void:
 	main.set_process(false)
 	main.camera_rig.set_process(false)
 	print("HITCH_PREPARE ms=%.3f pool=%d" % [(Time.get_ticks_usec() - start) / 1000.0, main.combat_effect_pool.available.size()])
+	if OS.get_cmdline_user_args().has("--explosion-probe"):
+		await probe_explosion_components()
+		main.queue_free()
+		await process_frame
+		quit()
+		return
 	if OS.get_cmdline_user_args().has("--city-only"):
 		if OS.get_cmdline_user_args().has("--no-city-hud"):
 			main.objective.integrity_changed.disconnect(main.hud._on_integrity_changed)
@@ -102,3 +108,71 @@ func sample_event(label: String, action: Callable) -> void:
 	print("HITCH %s cpu_ms=%.3f first_ms=%.3f max_ms=%.3f frames=%s" % [label, cpu / 1000.0, frames[0], frames.max(), frames])
 	if label == "city_impact_0":
 		root.get_texture().get_image().save_png("/tmp/airscain_hitch_city.png")
+
+func probe_explosion_components() -> void:
+	var effects: Array[ExplosionEffect] = []
+	var groups: Dictionary[String, Array] = {
+		"no_smoke": [], "no_fire": [], "no_sparks_debris": [],
+		"no_lights": [], "no_all_particles": []
+	}
+	for index: int in 16:
+		var point := Vector3((index % 4 - 1.5) * 22.0, 70.0, (index / 4 - 1.5) * 22.0)
+		var effect := ExplosionEffect.spawn(main.effects_parent, point, Color.ORANGE, 12.0)
+		effects.append(effect)
+		groups["no_smoke"].append(effect.smoke)
+		groups["no_fire"].append_array([effect.fireball, effect.fire_body])
+		groups["no_sparks_debris"].append_array([effect.sparks, effect.debris])
+		groups["no_lights"].append(effect.blast_light)
+		groups["no_all_particles"].append_array([effect.smoke, effect.fireball, effect.fire_body, effect.sparks, effect.debris])
+	for frame: int in 4:
+		await process_frame
+		await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("/tmp/airscain_explosion_components.png")
+	for effect: ExplosionEffect in effects:
+		freeze_effect(effect)
+		effect.blast_light.visible = true
+		effect.blast_light.light_energy = 20.0
+	var shadow := main.battlefield.smoke_shadow_projection
+	var shadow_mode := shadow.viewport.render_target_update_mode
+	var cases: Array[String] = ["no_smoke", "no_fire", "no_sparks_debris", "no_lights", "no_all_particles", "cached_smoke_map"]
+	for repeat: int in 2:
+		if repeat == 1:
+			cases.reverse()
+		await sample_probe_frame("all/r%d/start" % repeat)
+		for label: String in cases:
+			if groups.has(label):
+				for node: Node3D in groups[label]:
+					node.hide()
+			else:
+				shadow.viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+			await sample_probe_frame("%s/r%d" % [label, repeat])
+			if groups.has(label):
+				for node: Node3D in groups[label]:
+					node.show()
+			else:
+				shadow.viewport.render_target_update_mode = shadow_mode
+			await sample_probe_frame("all/r%d/after_%s" % [repeat, label])
+
+func freeze_effect(node: Node) -> void:
+	node.set_process(false)
+	if node is GPUParticles3D:
+		(node as GPUParticles3D).speed_scale = 0.0
+	for child: Node in node.get_children():
+		freeze_effect(child)
+
+func sample_probe_frame(label: String) -> void:
+	for frame: int in 4:
+		await process_frame
+		await RenderingServer.frame_post_draw
+	var samples: Array[float] = []
+	var started := Time.get_ticks_usec()
+	for frame: int in 12:
+		await process_frame
+		await RenderingServer.frame_post_draw
+		samples.append((Time.get_ticks_usec() - started) / 1000.0)
+		started = Time.get_ticks_usec()
+	samples.sort()
+	var total := 0.0
+	for sample: float in samples:
+		total += sample
+	print("EXPLOSION_PROBE %s avg_ms=%.3f p95_ms=%.3f draws=%d primitives=%d" % [label, total / samples.size(), samples[int(samples.size() * 0.95)], Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)])
