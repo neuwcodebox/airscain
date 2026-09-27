@@ -8,6 +8,8 @@ signal main_menu_requested
 
 const BASE_SCENARIO := preload("res://main/first_scenario.tres")
 const MAXIMUM_GAMEPLAY_STEP := 1.0 / 30.0
+const MAXIMUM_GAMEPLAY_STEPS_PER_FRAME := 4
+const MAXIMUM_SIMULATION_DELTA_PER_FRAME := MAXIMUM_GAMEPLAY_STEP * MAXIMUM_GAMEPLAY_STEPS_PER_FRAME
 
 static var requested_seed: int = -1
 static var requested_mode: GameMode = GameMode.SUSTAINED
@@ -38,6 +40,10 @@ var last_persistence_repairs: Array[String] = []
 var briefing_panel: OperationBriefingPanel
 var speed_before_briefing: float = 1.0
 var harbor_port: HarborPort
+var performance_probe_enabled: bool = false
+var last_gameplay_process_usec: int = 0
+var last_gameplay_step_count: int = 0
+var last_gameplay_delta: float = 0.0
 
 @onready var battlefield: Battlefield = $Battlefield
 @onready var session: GameSession = $GameSession
@@ -172,13 +178,21 @@ func _prepare_combat_visuals() -> void:
 		blocker.queue_free()
 
 func _process(delta: float) -> void:
+	var process_started := Time.get_ticks_usec() if performance_probe_enabled else 0
+	_process_gameplay_frame(delta)
+	last_gameplay_process_usec = Time.get_ticks_usec() - process_started if performance_probe_enabled else 0
+
+func _process_gameplay_frame(delta: float) -> void:
+	last_gameplay_step_count = 0
+	last_gameplay_delta = 0.0
 	if combat_effect_pool != null and not combat_effect_pool.prepared:
 		return
 	tactical_ui_refresh_remaining -= delta
 	if tactical_ui_refresh_remaining <= 0.0:
 		tactical_ui_refresh_remaining += 0.2
 		_refresh_tactical_ui()
-	var simulation_delta := session.gameplay_delta(delta)
+	var simulation_delta := session.gameplay_delta(delta, MAXIMUM_SIMULATION_DELTA_PER_FRAME)
+	last_gameplay_delta = simulation_delta
 	if harbor_port != null:
 		harbor_port.update_at_time(session.survival_time)
 	day_night.apply_time(session.survival_time)
@@ -187,6 +201,7 @@ func _process(delta: float) -> void:
 	if simulation_delta <= 0.0:
 		return
 	var gameplay_step_count := ceili(simulation_delta / MAXIMUM_GAMEPLAY_STEP)
+	last_gameplay_step_count = gameplay_step_count
 	var gameplay_step := simulation_delta / float(gameplay_step_count)
 	for _step_index: int in gameplay_step_count:
 		_gameplay_step(gameplay_step)

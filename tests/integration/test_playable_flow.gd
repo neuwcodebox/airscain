@@ -13,6 +13,15 @@ func _visible_explosion_count(parent: Node) -> int:
 			count += 1
 	return count
 
+func _advance_gameplay_without_render_frame(main_value: AirscainMain, duration: float) -> void:
+	var simulation_delta := main_value.session.gameplay_delta(duration)
+	if simulation_delta <= 0.0:
+		return
+	var step_count := ceili(simulation_delta / AirscainMain.MAXIMUM_GAMEPLAY_STEP)
+	var step_delta := simulation_delta / float(step_count)
+	for _step: int in step_count:
+		main_value._gameplay_step(step_delta)
+
 const MAIN_SCENE := preload("res://main/main.tscn")
 
 var main: AirscainMain
@@ -191,10 +200,12 @@ func test_city_status_shows_restoration_gain_only_for_paid_restoration() -> void
 func test_day_night_follows_pause_speed_and_saved_operation() -> void:
 	main.set_process(false)
 	main.session.phase = GameSession.Phase.RUNNING
-	main.session.survival_time = 448.0
+	main.session.survival_time = 450.0 - AirscainMain.MAXIMUM_SIMULATION_DELTA_PER_FRAME
 	main.session.set_simulation_speed(2.0)
 	main._process(1.0)
 	assert_almost_eq(main.day_night.hour, 0.0, 0.001)
+	assert_eq(main.last_gameplay_step_count, AirscainMain.MAXIMUM_GAMEPLAY_STEPS_PER_FRAME)
+	assert_almost_eq(main.last_gameplay_delta, AirscainMain.MAXIMUM_SIMULATION_DELTA_PER_FRAME, 0.0001)
 	main.session.set_simulation_speed(0.0)
 	main._process(10.0)
 	assert_almost_eq(main.day_night.hour, 0.0, 0.001)
@@ -3002,7 +3013,7 @@ func test_first_raid_controls_escalation_and_followup_enters_before_stage_three(
 			followup_spawn_radii.append(Vector2(actual_radius, authored_radius))
 	)
 	for step: int in 1200:
-		operation._process(0.5)
+		_advance_gameplay_without_render_frame(operation, 0.5)
 		if not operation.director.opening_raid_complete:
 			recovery_started_during_opening = recovery_started_during_opening or operation.director.completed_attack_windows > 0
 		if operation.director.opening_raid_complete:
@@ -3021,7 +3032,7 @@ func test_first_raid_controls_escalation_and_followup_enters_before_stage_three(
 	assert_eq(operation.hud.pressure_label.text, "위협 단계  2")
 	var followup_entered_battlefield := false
 	for step: int in ceili(operation.scenario.pressure_step_duration / 0.5):
-		operation._process(0.5)
+		_advance_gameplay_without_render_frame(operation, 0.5)
 		for threat: ThreatUnit in operation.registry.get_hostile_active():
 			if Vector2(threat.global_position.x, threat.global_position.z).length() <= operation.scenario.battlefield_size * 0.5:
 				followup_entered_battlefield = true

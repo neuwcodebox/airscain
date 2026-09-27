@@ -2153,6 +2153,8 @@ func test_pause_and_speed_controls_scale_only_running_simulation() -> void:
 	session.set_simulation_speed(4.0)
 	assert_eq(session.gameplay_delta(0.5), 2.0)
 	assert_eq(session.survival_time, 4.0)
+	assert_almost_eq(session.gameplay_delta(1.0, 0.125), 0.125, 0.0001, "호출자가 지정한 프레임 처리량만 작전 시간에 반영합니다")
+	assert_almost_eq(session.survival_time, 4.125, 0.0001)
 
 func test_height_sampling_preserves_bilinear_surface_and_clamped_edges() -> void:
 	var generator := WorldGenerator.new()

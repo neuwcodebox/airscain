@@ -174,7 +174,7 @@ class ProfiledMain:
 			tactical_ui_refresh_remaining += 0.2
 			_refresh_tactical_ui()
 		var start := Time.get_ticks_usec()
-		var simulation_delta := session.gameplay_delta(delta)
+		var simulation_delta := session.gameplay_delta(delta, MAXIMUM_SIMULATION_DELTA_PER_FRAME)
 		costs["session"] = costs.get("session", 0) + Time.get_ticks_usec() - start
 		_measure("day_night", day_night.apply_time, session.survival_time)
 		combat_audio.simulation_paused = simulation_delta <= 0.0
@@ -256,7 +256,7 @@ func run() -> void:
 	settings.apply_rendering()
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
-	if OS.get_cmdline_user_args().has("--gpu-timing"):
+	if OS.get_cmdline_user_args().has("--gpu-timing") or OS.get_cmdline_user_args().has("--live"):
 		RenderingServer.viewport_set_measure_render_time(root.get_viewport_rid(), true)
 	print("PROFILE_ENV godot=%s display=%s renderer=%s adapter=%s max_fps=%d" % [Engine.get_version_info().string, DisplayServer.get_name(), RenderingServer.get_current_rendering_method(), RenderingServer.get_video_adapter_name(), Engine.max_fps])
 	AirscainMain.requested_seed = workload_seed
@@ -487,37 +487,58 @@ func _run_live_probe() -> bool:
 		return false
 	var rows: Array[Dictionary] = []
 	main.session.set_simulation_speed(requested_speed)
+	main.performance_probe_enabled = true
 	main.set_process(true)
 	for frame: int in requested_frames + 5:
 		var started := Time.get_ticks_usec()
-		var game_before := main.session.survival_time
 		var rounds_before := gun_rounds_fired
 		var missiles_before := missile_launches
+		var contacts_before := main.registry.count()
+		var tracks_before := main.player_knowledge.tracks.size()
+		var neutralized_before := main.session.neutralized_count
+		var integrity_before := main.objective.current_integrity
 		await process_frame
 		await RenderingServer.frame_post_draw
 		if frame < 5:
 			continue
-		var game_delta := main.session.survival_time - game_before
 		rows.append({
 			"frame": frame - 5,
+			"engine_frame": Engine.get_process_frames(),
 			"wall_ms": (Time.get_ticks_usec() - started) / 1000.0,
-			"game_delta": game_delta,
-			"steps": ceili(game_delta / AirscainMain.MAXIMUM_GAMEPLAY_STEP),
+			"game_cpu_ms": main.last_gameplay_process_usec / 1000.0,
+			"idle_process_ms": Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+			"render_cpu_ms": RenderingServer.viewport_get_measured_render_time_cpu(root.get_viewport_rid()),
+			"render_gpu_ms": RenderingServer.viewport_get_measured_render_time_gpu(root.get_viewport_rid()),
+			"game_delta": main.last_gameplay_delta,
+			"steps": main.last_gameplay_step_count,
 			"contacts": main.registry.count(),
+			"contact_delta": main.registry.count() - contacts_before,
 			"tracks": main.player_knowledge.tracks.size(),
+			"track_delta": main.player_knowledge.tracks.size() - tracks_before,
 			"gun_rounds": gun_rounds_fired - rounds_before,
 			"missiles": missile_launches - missiles_before,
-			"draws": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+			"neutralized": main.session.neutralized_count - neutralized_before,
+			"city_damage": integrity_before - main.objective.current_integrity,
+			"draws": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME),
+			"primitives": Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
 		})
 	main.set_process(false)
+	main.performance_probe_enabled = false
 	var sorted := rows.duplicate()
 	sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.wall_ms) < float(b.wall_ms))
+	var game_cpu_sorted := rows.duplicate()
+	game_cpu_sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.game_cpu_ms) < float(b.game_cpu_ms))
+	var render_cpu_sorted := rows.duplicate()
+	render_cpu_sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.render_cpu_ms) < float(b.render_cpu_ms))
+	var render_gpu_sorted := rows.duplicate()
+	render_gpu_sorted.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a.render_gpu_ms) < float(b.render_gpu_ms))
 	var total := 0.0
 	var peak_steps := 0
 	for row: Dictionary in rows:
 		total += float(row.wall_ms)
 		peak_steps = maxi(peak_steps, int(row.steps))
 	print("PROFILE_LIVE speed=%.1f frames=%d avg_ms=%.3f p95_ms=%.3f max_ms=%.3f max_steps=%d gun_rounds=%d missile_launches=%d" % [requested_speed, rows.size(), total / rows.size(), sorted[int(rows.size() * 0.95)].wall_ms, sorted.back().wall_ms, peak_steps, gun_rounds_fired, missile_launches])
+	print("PROFILE_LIVE_ATTRIBUTION game_cpu_p95_ms=%.3f render_cpu_p95_ms=%.3f render_gpu_p95_ms=%.3f" % [game_cpu_sorted[int(rows.size() * 0.95)].game_cpu_ms, render_cpu_sorted[int(rows.size() * 0.95)].render_cpu_ms, render_gpu_sorted[int(rows.size() * 0.95)].render_gpu_ms])
 	for index: int in range(maxi(0, sorted.size() - 5), sorted.size()):
 		print("PROFILE_LIVE_SLOW " + JSON.stringify(sorted[index]))
 	var trace := FileAccess.open("/tmp/airscain_live_frames.json", FileAccess.WRITE)

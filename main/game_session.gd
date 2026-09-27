@@ -72,10 +72,10 @@ func start_defense() -> bool:
 	phase_changed.emit(phase)
 	return true
 
-func gameplay_delta(delta: float) -> float:
+func gameplay_delta(delta: float, maximum_result: float = INF) -> float:
 	if phase != Phase.RUNNING:
 		return 0.0
-	var result := delta * simulation_speed
+	var result := minf(delta * simulation_speed, maxf(0.0, maximum_result))
 	survival_time += result
 	while survival_time >= next_support_at:
 		if external_regular_support:
