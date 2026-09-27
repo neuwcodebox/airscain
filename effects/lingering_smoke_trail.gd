@@ -47,9 +47,13 @@ var _opacity_variations := PackedFloat32Array()
 var _drift_vectors := PackedVector3Array()
 var _serials := PackedInt32Array()
 var _occupied_slots := PackedByteArray()
+var _draw_slot_for_source := PackedInt32Array()
+var _draw_owner_slots := PackedInt32Array()
 var _shadow_owner_serials := PackedInt32Array()
 var _active_slots: Array[int] = []
 var _visible_chunks: Array[MultiMeshInstance3D] = []
+var _packed_chunks: Array[bool] = []
+var _retired_chunks := PackedByteArray()
 var _chunk_bounds: Array[AABB] = []
 var _chunk_has_bounds: Array[bool] = []
 var _chunk_oldest_birth: Array[float] = []
@@ -75,6 +79,8 @@ func release_to(new_parent: Node) -> void:
 	emitting = false
 	release_elapsed = 0.0
 	release_remaining = release_fade_duration + transparent_cleanup_delay
+	for chunk_index: int in _visible_chunks.size():
+		_pack_visible_chunk(chunk_index)
 	_set_opacity_ratio(1.0)
 
 func sample_world_segment(from_position: Vector3, to_position: Vector3) -> void:
@@ -173,9 +179,11 @@ func _create_visible_multimesh() -> void:
 			add_child(chunk)
 		chunk.multimesh = smoke_multimesh
 		_visible_chunks.append(chunk)
+		_packed_chunks.append(false)
 		_chunk_bounds.append(AABB())
 		_chunk_has_bounds.append(false)
 		_chunk_oldest_birth.append(INF)
+	_retired_chunks.resize(_visible_chunks.size())
 	_birth_times.resize(amount)
 	_positions.resize(amount)
 	_size_variations.resize(amount)
@@ -183,6 +191,10 @@ func _create_visible_multimesh() -> void:
 	_drift_vectors.resize(amount)
 	_serials.resize(amount)
 	_occupied_slots.resize(amount)
+	_draw_slot_for_source.resize(amount)
+	_draw_slot_for_source.fill(-1)
+	_draw_owner_slots.resize(amount)
+	_draw_owner_slots.fill(-1)
 
 func _create_shadow_multimesh() -> void:
 	var proxy := SmokeShadowFactory.create(puff_mesh, 6, 3, shadow_radius_ratio)
@@ -221,6 +233,9 @@ func _configure_motion(material: ShaderMaterial) -> void:
 func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> void:
 	var slot := _next_slot
 	_next_slot = (_next_slot + 1) % amount
+	var chunk_index := slot / VISIBLE_CHUNK_SIZE
+	if _packed_chunks[chunk_index]:
+		_restore_visible_chunk(chunk_index)
 	if _occupied_slots[slot] == 0:
 		_active_slots.append(slot)
 	else:
@@ -234,7 +249,6 @@ func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> v
 	_has_bounds = true
 	_bounds_dirty = true
 	_oldest_birth = minf(_oldest_birth, _elapsed)
-	var chunk_index := slot / VISIBLE_CHUNK_SIZE
 	_chunk_bounds[chunk_index] = _chunk_bounds[chunk_index].expand(position) if _chunk_has_bounds[chunk_index] else AABB(position, Vector3.ZERO)
 	_chunk_has_bounds[chunk_index] = true
 	_chunk_oldest_birth[chunk_index] = minf(_chunk_oldest_birth[chunk_index], _elapsed)
@@ -248,6 +262,7 @@ func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> v
 
 func _update_puffs() -> void:
 	var retired := false
+	_retired_chunks.fill(0)
 	for active_index: int in range(_active_slots.size() - 1, -1, -1):
 		var slot := _active_slots[active_index]
 		# Both visible and shadow shaders are exactly transparent at this age.
@@ -256,14 +271,21 @@ func _update_puffs() -> void:
 			_occupied_slots[slot] = 0
 			_active_slots[active_index] = _active_slots.back()
 			_active_slots.pop_back()
+			_retired_chunks[slot / VISIBLE_CHUNK_SIZE] = 1
 			retired = true
 			continue
 	if retired:
 		# Only trim unused tails; moving live slots would reorder alpha blending.
 		for chunk_index: int in _visible_chunks.size():
 			var chunk_mesh := _visible_chunks[chunk_index].multimesh
-			while chunk_mesh.visible_instance_count > 0 and _occupied_slots[chunk_index * VISIBLE_CHUNK_SIZE + chunk_mesh.visible_instance_count - 1] == 0:
+			var start := chunk_index * VISIBLE_CHUNK_SIZE
+			while chunk_mesh.visible_instance_count > 0 and (
+				_draw_owner_slots[start + chunk_mesh.visible_instance_count - 1] < 0 if _packed_chunks[chunk_index]
+				else _occupied_slots[start + chunk_mesh.visible_instance_count - 1] == 0
+			):
 				chunk_mesh.visible_instance_count -= 1
+			if not emitting and _retired_chunks[chunk_index] == 1:
+				_pack_visible_chunk(chunk_index)
 		while shadow_particles.multimesh.visible_instance_count > 0 and _shadow_owner_serials[shadow_particles.multimesh.visible_instance_count - 1] < 0:
 			shadow_particles.multimesh.visible_instance_count -= 1
 		_rebuild_bounds()
@@ -310,9 +332,7 @@ func _update_puff(slot: int) -> void:
 	var data := Color(_birth_times[slot], _size_variations[slot], _opacity_variations[slot], 0.0)
 	var chunk_mesh := _visible_chunks[slot / VISIBLE_CHUNK_SIZE].multimesh
 	var local_slot := slot % VISIBLE_CHUNK_SIZE
-	chunk_mesh.set_instance_transform(local_slot, transform)
-	chunk_mesh.set_instance_color(local_slot, color)
-	chunk_mesh.set_instance_custom_data(local_slot, data)
+	_write_visible_instance(chunk_mesh, local_slot, slot)
 	if shadow_particles == null or not SmokePuffDistribution.casts_shadow(_serials[slot], shadow_emission_stride):
 		return
 	var shadow_slot := _shadow_slot_for_serial(_serials[slot])
@@ -331,7 +351,15 @@ func _set_opacity_ratio(ratio: float) -> void:
 		shadow_material.set_shader_parameter("opacity_ratio", current_shadow_opacity_ratio)
 
 func _hide_puff_slot(slot: int) -> void:
-	_hide_instance(_visible_chunks[slot / VISIBLE_CHUNK_SIZE].multimesh, slot % VISIBLE_CHUNK_SIZE)
+	var chunk_index := slot / VISIBLE_CHUNK_SIZE
+	if _packed_chunks[chunk_index]:
+		var draw_slot := _draw_slot_for_source[slot]
+		if draw_slot >= 0:
+			_hide_instance(_visible_chunks[chunk_index].multimesh, draw_slot)
+			_draw_owner_slots[chunk_index * VISIBLE_CHUNK_SIZE + draw_slot] = -1
+			_draw_slot_for_source[slot] = -1
+	else:
+		_hide_instance(_visible_chunks[chunk_index].multimesh, slot % VISIBLE_CHUNK_SIZE)
 	var serial := _serials[slot]
 	if serial < 0 or not SmokePuffDistribution.casts_shadow(serial, shadow_emission_stride) or shadow_particles == null:
 		return
@@ -342,6 +370,55 @@ func _hide_puff_slot(slot: int) -> void:
 
 func _shadow_slot_for_serial(serial: int) -> int:
 	return SmokePuffDistribution.shadow_group(serial, shadow_emission_stride) % shadow_particles.multimesh.instance_count
+
+func _write_visible_instance(target: MultiMesh, destination: int, source: int) -> void:
+	var drift := _drift_vectors[source] * 0.25 + Vector3.ONE * 0.5
+	target.set_instance_transform(destination, Transform3D(Basis.IDENTITY, _positions[source]))
+	target.set_instance_color(destination, Color(drift.x, drift.y, drift.z, 1.0))
+	target.set_instance_custom_data(destination, Color(_birth_times[source], _size_variations[source], _opacity_variations[source], 0.0))
+
+func _pack_visible_chunk(chunk_index: int) -> void:
+	var target := _visible_chunks[chunk_index].multimesh
+	var start := chunk_index * VISIBLE_CHUNK_SIZE
+	var live := 0
+	for local_slot: int in target.instance_count:
+		if _occupied_slots[start + local_slot] == 1:
+			live += 1
+	if target.visible_instance_count - live < 32:
+		return
+	var destination := 0
+	for local_slot: int in target.instance_count:
+		var source := start + local_slot
+		_draw_slot_for_source[source] = -1
+		_draw_owner_slots[source] = -1
+	for local_slot: int in target.instance_count:
+		var source := start + local_slot
+		if _occupied_slots[source] == 0:
+			continue
+		_write_visible_instance(target, destination, source)
+		_draw_slot_for_source[source] = destination
+		_draw_owner_slots[start + destination] = source
+		destination += 1
+	target.visible_instance_count = destination
+	_packed_chunks[chunk_index] = true
+
+func _restore_visible_chunk(chunk_index: int) -> void:
+	var target := _visible_chunks[chunk_index].multimesh
+	var start := chunk_index * VISIBLE_CHUNK_SIZE
+	var last_live := 0
+	# Restore the full addressable range before rewriting, then trim its tail.
+	target.visible_instance_count = target.instance_count
+	for local_slot: int in target.instance_count:
+		var source := start + local_slot
+		_draw_slot_for_source[source] = -1
+		_draw_owner_slots[source] = -1
+		if _occupied_slots[source] == 1:
+			_write_visible_instance(target, local_slot, source)
+			last_live = local_slot + 1
+		else:
+			_hide_instance(target, local_slot)
+	target.visible_instance_count = last_live
+	_packed_chunks[chunk_index] = false
 
 func _hide_instance(target: MultiMesh, slot: int) -> void:
 	var zero_basis := Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO)

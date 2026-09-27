@@ -271,6 +271,53 @@ func test_wrapped_smoke_slots_rebuild_bounds_around_new_positions() -> void:
 	assert_gt(trail.multimesh.custom_aabb.position.x, 500.0)
 	assert_eq(trail.multimesh.custom_aabb, trail.shadow_particles.multimesh.custom_aabb)
 
+func test_released_smoke_compacts_expired_front_without_changing_live_draw_order() -> void:
+	var source := preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate() as FallingWreckEffect
+	var trail := LingeringSmokeTrail.new()
+	trail.puff_mesh = (source.get_node("SmokeTrail") as LingeringSmokeTrail).puff_mesh
+	trail.amount = 128
+	trail.sample_spacing = 1.0
+	trail.sample_radius = 0.0
+	add_child_autofree(trail)
+	source.free()
+	trail.sample_world_segment(Vector3.ZERO, Vector3(64, 0, 0))
+	trail._process(1.0)
+	trail.sample_world_segment(Vector3(64, 0, 0), Vector3(96, 0, 0))
+	trail._process(1.0)
+	trail.sample_world_segment(Vector3(96, 0, 0), Vector3(128, 0, 0))
+	var original_positions: Array[Vector3] = []
+	var original_colors: Array[Color] = []
+	var original_data: Array[Color] = []
+	var can_read_render_buffer := DisplayServer.get_name() != "headless"
+	if can_read_render_buffer:
+		for source_slot: int in range(64, 128):
+			original_positions.append(trail.multimesh.get_instance_transform(source_slot).origin)
+			original_colors.append(trail.multimesh.get_instance_color(source_slot))
+			original_data.append(trail.multimesh.get_instance_custom_data(source_slot))
+	trail.release_to(add_child_autofree(Node3D.new()))
+	trail._process(trail.lifetime * LingeringSmokeTrail.FADE_END_RATIO - 2.0 + 0.01)
+	assert_eq(trail.active_puff_count(), 64)
+	assert_eq(trail.multimesh.visible_instance_count, 64, "released trail submits only live puffs")
+	assert_gt(trail.shadow_particles.multimesh.visible_instance_count, 0, "body compaction leaves shadows active")
+	if can_read_render_buffer:
+		for draw_slot: int in 64:
+			assert_almost_eq(trail.multimesh.get_instance_transform(draw_slot).origin, original_positions[draw_slot], Vector3.ONE * 0.001, "ordered puff %d origin" % draw_slot)
+			assert_eq(trail.multimesh.get_instance_color(draw_slot), original_colors[draw_slot], "ordered puff %d drift" % draw_slot)
+			assert_eq(trail.multimesh.get_instance_custom_data(draw_slot), original_data[draw_slot], "ordered puff %d birth and density" % draw_slot)
+	trail._process(1.0)
+	assert_eq(trail.active_puff_count(), 32, "a second expiry wave retires only its own source records")
+	assert_eq(trail.multimesh.visible_instance_count, 32, "stale packed draw slots are reclaimed")
+	if can_read_render_buffer:
+		for draw_slot: int in 32:
+			assert_almost_eq(trail.multimesh.get_instance_transform(draw_slot).origin, original_positions[draw_slot + 32], Vector3.ONE * 0.001, "repacked puff %d origin" % draw_slot)
+	trail.emitting = true
+	trail.sample_world_segment(Vector3(200, 0, 0), Vector3(201, 0, 0))
+	assert_eq(trail.active_puff_count(), 33, "restarted emission retains the packed history")
+	assert_eq(trail.multimesh.visible_instance_count, 128, "restarted emission restores source-slot addressing")
+	if can_read_render_buffer:
+		assert_almost_eq(trail.multimesh.get_instance_transform(96).origin, original_positions[32], Vector3.ONE * 0.001)
+		assert_almost_eq(trail.multimesh.get_instance_transform(0).origin, Vector3(201, 0, 0), Vector3.ONE * 0.001)
+
 func test_live_smoke_culling_bounds_expand_with_age_without_new_samples() -> void:
 	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
 	var trail := effect.smoke

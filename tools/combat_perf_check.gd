@@ -2,6 +2,7 @@ extends SceneTree
 ## Fixed-seed CPU workload; --render samples a frozen Compatibility scene.
 ## Run with --audio-driver Dummy. --faded fixes smoke age at 15s instead of 6s;
 ## --no-smoke-shadows isolates shadow cost. Compare identical options/resolution.
+## --released-smoke keeps the newer half of each trail after the older half fades.
 
 func _init() -> void:
 	call_deferred("run")
@@ -43,6 +44,7 @@ func run() -> void:
 	var template := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate()
 	var puff_mesh := (template.get_node("SmokeTrail") as LingeringSmokeTrail).puff_mesh
 	template.free()
+	var released_probe := OS.get_cmdline_user_args().has("--released-smoke")
 	for index: int in 24:
 		var trail := LingeringSmokeTrail.new()
 		trail.puff_mesh = puff_mesh
@@ -50,7 +52,7 @@ func run() -> void:
 		trail.sample_spacing = 1.0
 		world.add_child(trail)
 		trail.set_process(false)
-		trail.sample_world_segment(Vector3(-400, 30 + index * 3, -200), Vector3(400, 30 + index * 3, -200))
+		trail.sample_world_segment(Vector3(-400, 30 + index * 3, -200), Vector3(0 if released_probe else 400, 30 + index * 3, -200))
 		trails.append(trail)
 	samples.clear()
 	for frame: int in 90:
@@ -58,8 +60,24 @@ func run() -> void:
 		for trail: LingeringSmokeTrail in trails:
 			trail._process(1.0 / 15.0)
 		samples.append((Time.get_ticks_usec() - start) / 1000.0)
-	_report("smoke_24_puffs_19200", samples)
+	_report("smoke_24_puffs_9600" if released_probe else "smoke_24_puffs_19200", samples)
+	if released_probe:
+		var released_parent := Node3D.new()
+		world.add_child(released_parent)
+		for index: int in trails.size():
+			var trail := trails[index]
+			trail.sample_world_segment(Vector3(0, 30 + index * 3, -200), Vector3(400, 30 + index * 3, -200))
+			trail.release_to(released_parent)
+			trail._process(8.1)
+		var visible_slots := 0
+		for trail: LingeringSmokeTrail in trails:
+			for chunk: MultiMeshInstance3D in trail.visible_chunk_instances():
+				visible_slots += chunk.multimesh.visible_instance_count
+		print("RELEASED_SMOKE active=%d submitted=%d" % [trails[0].active_puff_count() * trails.size(), visible_slots])
 	if OS.get_cmdline_user_args().has("--render"):
+		var gpu_timing := OS.get_cmdline_user_args().has("--gpu-timing")
+		if gpu_timing:
+			RenderingServer.viewport_set_measure_render_time(root.get_viewport_rid(), true)
 		if OS.get_cmdline_user_args().has("--no-city"):
 			world.city_visuals.hide()
 		if OS.get_cmdline_user_args().has("--no-smoke"):
@@ -70,8 +88,9 @@ func run() -> void:
 		camera.position = Vector3(0, 300, 450)
 		camera.look_at(Vector3(0, 40, -180))
 		if OS.get_cmdline_user_args().has("--trail-closeup"):
-			camera.position = Vector3(-310, 110, 100)
-			camera.look_at(Vector3(-310, 65, -200))
+			var closeup_x := 110.0 if released_probe else -310.0
+			camera.position = Vector3(closeup_x, 110, 100)
+			camera.look_at(Vector3(closeup_x, 65, -200))
 			camera.fov = 55.0
 		camera.current = true
 		camera.cull_mask &= ~SmokeShadowFactory.SMOKE_LAYER
@@ -96,6 +115,8 @@ func run() -> void:
 			for trail: LingeringSmokeTrail in trails:
 				trail.shadow_particles.hide()
 		samples.clear()
+		var render_cpu_ms := 0.0
+		var render_gpu_ms := 0.0
 		for frame: int in 120:
 			if frame == 20 and OS.get_cmdline_user_args().has("--freeze-shadow-map"):
 				world.smoke_shadow_projection.set_process(false)
@@ -105,7 +126,12 @@ func run() -> void:
 			await RenderingServer.frame_post_draw
 			if frame >= 20:
 				samples.append((Time.get_ticks_usec() - start) / 1000.0)
+				if gpu_timing:
+					render_cpu_ms += RenderingServer.viewport_get_measured_render_time_cpu(root.get_viewport_rid())
+					render_gpu_ms += RenderingServer.viewport_get_measured_render_time_gpu(root.get_viewport_rid())
 		_report("render_frame", samples)
+		if gpu_timing:
+			print("RENDER_VIEWPORT cpu_ms=%.3f gpu_ms=%.3f" % [render_cpu_ms / samples.size(), render_gpu_ms / samples.size()])
 		print("RENDER draws=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " primitives=", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
 		root.get_texture().get_image().save_png("/tmp/airscain_combat_perf.png")
 	world.free()
