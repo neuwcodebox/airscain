@@ -8,6 +8,7 @@ var camera: Camera3D
 var sun: DirectionalLight3D
 var battlefield: Battlefield
 var receivers: Array[ShaderMaterial] = []
+var receiver_sampling_enabled: bool = true
 var _check_remaining: float = 0.0
 
 func configure(light: DirectionalLight3D, field: Battlefield) -> void:
@@ -64,4 +65,4 @@ func update_projection() -> void:
 	var projection := camera.get_camera_projection() * Projection(camera.global_transform.affine_inverse())
 	for material: ShaderMaterial in receivers:
 		material.set_shader_parameter("smoke_shadow_projection", projection)
-		material.set_shader_parameter("smoke_shadow_strength", STRENGTH * sun.shadow_opacity if enabled else 0.0)
+		material.set_shader_parameter("smoke_shadow_strength", STRENGTH * sun.shadow_opacity if enabled and receiver_sampling_enabled else 0.0)

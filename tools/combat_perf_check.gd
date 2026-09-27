@@ -71,12 +71,18 @@ func run() -> void:
 		camera.look_at(Vector3(0, 40, -180))
 		camera.current = true
 		camera.cull_mask &= ~SmokeShadowFactory.SMOKE_LAYER
+		if OS.get_cmdline_user_args().has("--no-smoke-body"):
+			camera.cull_mask &= ~(1 << 18)
+			for trail: LingeringSmokeTrail in trails:
+				trail.layers = 1 << 18
 		var light := DirectionalLight3D.new()
 		world.add_child(light)
 		light.rotation_degrees = Vector3(-55, -25, 0)
 		light.shadow_enabled = true
 		if not OS.get_cmdline_user_args().has("--opaque-smoke-shadows"):
 			world.configure_smoke_shadows(light)
+			if OS.get_cmdline_user_args().has("--no-shadow-receivers"):
+				world.smoke_shadow_projection.receiver_sampling_enabled = false
 		# Freeze simulation ages so identical geometry is measured every frame.
 		if OS.get_cmdline_user_args().has("--faded"):
 			for trail: LingeringSmokeTrail in trails:
@@ -86,6 +92,9 @@ func run() -> void:
 				trail.shadow_particles.hide()
 		samples.clear()
 		for frame: int in 120:
+			if frame == 20 and OS.get_cmdline_user_args().has("--freeze-shadow-map"):
+				world.smoke_shadow_projection.set_process(false)
+				world.smoke_shadow_projection.viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 			var start := Time.get_ticks_usec()
 			await process_frame
 			await RenderingServer.frame_post_draw
