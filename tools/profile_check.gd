@@ -587,6 +587,7 @@ func _render_probe() -> void:
 				for node: Node3D in groups[label]:
 					node.hide()
 			elif label == "cached_smoke_map":
+				shadow.set_process(false)
 				shadow.viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 			elif label == "no_sun_shadows":
 				sun.shadow_enabled = false
@@ -599,7 +600,8 @@ func _render_probe() -> void:
 				for node: Node3D in groups[label]:
 					node.show()
 			elif label == "cached_smoke_map":
-				shadow.viewport.render_target_update_mode = shadow_mode
+				shadow.set_process(true)
+				shadow.update_projection()
 			elif label == "no_sun_shadows":
 				sun.shadow_enabled = true
 			elif label == "half_resolution":

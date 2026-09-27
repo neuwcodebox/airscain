@@ -133,8 +133,7 @@ func probe_explosion_components() -> void:
 		effect.blast_light.visible = true
 		effect.blast_light.light_energy = 20.0
 	var shadow := main.battlefield.smoke_shadow_projection
-	var shadow_mode := shadow.viewport.render_target_update_mode
-	var cases: Array[String] = ["no_smoke", "no_fire", "no_sparks_debris", "no_lights", "no_all_particles", "cached_smoke_map"]
+	var cases: Array[String] = ["no_smoke", "no_fire", "no_sparks_debris", "no_lights", "no_all_particles", "continuous_smoke_map", "cached_smoke_map"]
 	for repeat: int in 2:
 		if repeat == 1:
 			cases.reverse()
@@ -143,14 +142,19 @@ func probe_explosion_components() -> void:
 			if groups.has(label):
 				for node: Node3D in groups[label]:
 					node.hide()
+			elif label == "continuous_smoke_map":
+				shadow.set_process(false)
+				shadow.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 			else:
+				shadow.set_process(false)
 				shadow.viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 			await sample_probe_frame("%s/r%d" % [label, repeat])
 			if groups.has(label):
 				for node: Node3D in groups[label]:
 					node.show()
 			else:
-				shadow.viewport.render_target_update_mode = shadow_mode
+				shadow.set_process(true)
+				shadow.update_projection()
 			await sample_probe_frame("all/r%d/after_%s" % [repeat, label])
 
 func freeze_effect(node: Node) -> void:

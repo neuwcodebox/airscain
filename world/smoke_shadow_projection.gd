@@ -53,7 +53,9 @@ func _process(delta: float) -> void:
 
 func update_projection() -> void:
 	var enabled := sun.visible and sun.light_energy > 0.0 and SmokeShadowFactory.has_visible_casters(sun.get_world_3d())
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED
+	# Smoke evolves slowly. Refresh the shared map on the existing 10 Hz check
+	# instead of rendering its 2048² viewport again for every display frame.
+	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE if enabled else SubViewport.UPDATE_DISABLED
 	var extent := battlefield.battlefield_size * 1.5
 	camera.size = extent
 	camera.near = 0.1

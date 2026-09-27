@@ -2079,7 +2079,7 @@ func _capture_smoke_ground_shadow() -> void:
 	smoke.set_process(false)
 	_save_capture("/tmp/airscain_smoke_ground_shadow.png")
 	var projection := main.battlefield.smoke_shadow_projection
-	assert(projection.viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS)
+	assert(projection.viewport.render_target_update_mode == SubViewport.UPDATE_ONCE)
 	var shadowed_image := root.get_texture().get_image()
 	var smoke_shadow := smoke.get_node("SmokeShadow") as MultiMeshInstance3D
 	smoke_shadow.visible = false
@@ -2117,7 +2117,7 @@ func _capture_smoke_ground_shadow() -> void:
 	projection.update_projection()
 	for frame: int in 4:
 		await process_frame
-	assert(projection.viewport.render_target_update_mode == SubViewport.UPDATE_ALWAYS)
+	assert(projection.viewport.render_target_update_mode == SubViewport.UPDATE_ONCE)
 	_save_capture("/tmp/airscain_damage_smoke_ground_shadow.png")
 
 func _capture_explosion_instance_isolation() -> bool:

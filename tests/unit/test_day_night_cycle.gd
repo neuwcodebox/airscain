@@ -115,7 +115,7 @@ func test_smoke_projection_is_local_preserves_sun_and_retires_when_unused() -> v
 	field.add_child(caster)
 	SmokeShadowFactory.register_caster(caster)
 	projection.update_projection()
-	assert_eq(projection.viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS)
+	assert_eq(projection.viewport.render_target_update_mode, SubViewport.UPDATE_ONCE)
 	assert_almost_eq(sun.light_energy, 1.2, 0.0001)
 	assert_gt(float(projection.receivers[0].get_shader_parameter("smoke_shadow_strength")), 0.0)
 	assert_lt(float(projection.receivers[0].get_shader_parameter("smoke_shadow_strength")), 1.0)
