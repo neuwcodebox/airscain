@@ -65,11 +65,19 @@ func gameplay_tick(delta: float) -> void:
 		munition_magazine.gameplay_tick(delta)
 	_refresh_launcher_cells()
 	launch_cooldown = maxf(0.0, launch_cooldown - delta)
-	var tracks := available_tracks()
+	var tracks: Array[PlayerTrack] = []
+	var tracks_loaded := false
 	var tactical_reload_delta := tactical_reload.take_evaluation_delta(delta)
 	if tactical_reload_delta > 0.0:
+		tracks = available_tracks()
+		tracks_loaded = true
 		_update_tactical_reloads(tactical_reload_delta, tracks)
-	var track := select_track(tracks, battlefield.objective.global_position)
+	var track := cached_engagement_target()
+	var cached_valid := track == null or _track_is_selectable(track)
+	if engagement_target_needs_evaluation(delta, cached_valid):
+		if not tracks_loaded:
+			tracks = available_tracks()
+		track = remember_engagement_target(select_track(tracks, battlefield.objective.global_position))
 	if track == null:
 		return
 	var is_aimed := _aim_turret(track.estimated_position, delta)
@@ -146,6 +154,18 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 			selected_distance = distance
 	return selected
 
+func _track_is_selectable(track: PlayerTrack, effective_range: float = -1.0) -> bool:
+	if track == null or not is_instance_valid(track) or not doctrine.allows(track):
+		return false
+	if effective_range < 0.0:
+		effective_range = _definition.attack_range * operational_efficiency()
+	if global_position.distance_to(track.estimated_position) > effective_range:
+		return false
+	if munition_for_track(track) == null or not is_track_available_for_engagement(track, engagement_limit()):
+		return false
+	var altitude := track.estimated_position.y - battlefield.terrain_height(track.estimated_position.x, track.estimated_position.z) if battlefield != null else track.estimated_position.y
+	return altitude >= _definition.minimum_engagement_altitude and altitude <= _definition.maximum_engagement_altitude
+
 func engagement_limit() -> int:
 	return _definition.maximum_interceptors_per_track
 
@@ -201,6 +221,7 @@ func supply_status_kind() -> StringName:
 func set_munition_mode(mode: StringName) -> void:
 	if mode == &"auto" or magazines.has(mode):
 		munition_mode = mode
+		invalidate_engagement_target()
 
 func munition_options() -> Array[Dictionary]:
 	var options: Array[Dictionary] = [{"id": &"auto", "label": tr("자동"), "tooltip": tr("표적에 맞춰 선택 · 마지막 고가탄은 특화 위협용으로 보존\n수동 탄종 선택 시 보존 해제"), "selected": munition_mode == &"auto"}]

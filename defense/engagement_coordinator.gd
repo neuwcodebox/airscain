@@ -91,6 +91,13 @@ func engagement_owner_ids(track_id: int) -> Array[int]:
 		result.assign(_owners[track_id])
 	return result
 
+func other_engagement_owner_count(track_id: int, owner_defense_id: int) -> int:
+	_refresh_queries()
+	if not _owners.has(track_id):
+		return 0
+	var owners: Array = _owners[track_id]
+	return owners.size() - int(owners.has(owner_defense_id))
+
 func _refresh_queries() -> void:
 	if not _queries_dirty:
 		return

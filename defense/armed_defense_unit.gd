@@ -1,6 +1,8 @@
 class_name ArmedDefenseUnit
 extends DefenseUnit
 
+const TARGET_EVALUATION_INTERVAL := 0.2
+
 var battlefield: Battlefield
 var player_knowledge: PlayerKnowledge
 var c2_network: C2Network
@@ -8,6 +10,10 @@ var engagement_coordinator: EngagementCoordinator
 var doctrine := EngagementDoctrine.new()
 var magazine := WeaponMagazine.new()
 var tactical_reload := TacticalReloadController.new()
+var _cached_engagement_target: PlayerTrack
+var _target_evaluation_remaining: float = 0.0
+var _target_track_revision: int = -1
+var _target_c2_revision: int = -1
 
 func setup(id_value: int, definition_value: DefenseDefinition) -> void:
 	super.setup(id_value, definition_value)
@@ -40,12 +46,15 @@ func engagement_engages_unknown() -> bool:
 
 func set_hold_fire(enabled: bool) -> void:
 	doctrine.hold_fire = enabled
+	invalidate_engagement_target()
 
 func set_engage_unknown(enabled: bool) -> void:
 	doctrine.engage_unknown = enabled
+	invalidate_engagement_target()
 
 func set_target_kind_allowed(kind: StringName, enabled: bool) -> void:
 	doctrine.set_target_kind_allowed(kind, enabled)
+	invalidate_engagement_target()
 
 func allows_target_kind(kind: StringName) -> bool:
 	return doctrine.allows_target_kind(kind)
@@ -54,6 +63,28 @@ func available_tracks() -> Array[PlayerTrack]:
 	if player_knowledge == null or c2_network == null:
 		return []
 	return c2_network.available_tracks_for_gameplay(self, player_knowledge)
+
+func cached_engagement_target() -> PlayerTrack:
+	return _cached_engagement_target
+
+func engagement_target_needs_evaluation(delta: float, cached_target_is_valid: bool) -> bool:
+	_target_evaluation_remaining = maxf(0.0, _target_evaluation_remaining - delta)
+	var track_revision := player_knowledge.track_revision if player_knowledge != null else -1
+	var c2_revision := c2_network.gameplay_view_revision if c2_network != null else -1
+	return not cached_target_is_valid or _target_evaluation_remaining <= 0.0 or _target_track_revision != track_revision or _target_c2_revision != c2_revision
+
+func remember_engagement_target(track: PlayerTrack) -> PlayerTrack:
+	_cached_engagement_target = track
+	_target_evaluation_remaining = TARGET_EVALUATION_INTERVAL
+	_target_track_revision = player_knowledge.track_revision if player_knowledge != null else -1
+	_target_c2_revision = c2_network.gameplay_view_revision if c2_network != null else -1
+	return track
+
+func invalidate_engagement_target() -> void:
+	_cached_engagement_target = null
+	_target_evaluation_remaining = 0.0
+	_target_track_revision = -1
+	_target_c2_revision = -1
 
 func is_track_available_for_engagement(track: PlayerTrack, maximum_concurrent: int = 1) -> bool:
 	return engagement_coordinator == null or definition.engagement_reservation_kind() == EngagementCoordinator.FIRE_SUPPORT or engagement_coordinator.reservation_count(track.track_id, EngagementCoordinator.INTERCEPTOR) < maximum_concurrent
@@ -64,11 +95,9 @@ func cooperative_target_score(track: PlayerTrack, protected_position: Vector3, t
 	var closing_speed := maxf(0.0, -offset.dot(track.estimated_velocity) / distance)
 	var score := track.track_quality * target_match * (1.0 + minf(closing_speed / 80.0, 2.0)) / distance
 	if engagement_coordinator != null:
-		var owners := engagement_coordinator.engagement_owner_ids(track.track_id)
-		owners.erase(runtime_id)
 		# Assignment is a preference, not an exclusive lock. A lone or urgent
 		# threat can receive supporting fire from every eligible local weapon.
-		score /= 1.0 + float(owners.size()) * 0.65
+		score /= 1.0 + float(engagement_coordinator.other_engagement_owner_count(track.track_id, runtime_id)) * 0.65
 		if engagement_coordinator.fire_support_target(runtime_id) == track.track_id:
 			score *= 1.25
 	return score
@@ -189,3 +218,4 @@ func restore_doctrine_state(state: Dictionary) -> void:
 		for kind: Variant in excluded:
 			if kind is String or kind is StringName:
 				doctrine.set_target_kind_allowed(StringName(kind), false)
+	invalidate_engagement_target()

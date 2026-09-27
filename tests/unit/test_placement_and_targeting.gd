@@ -973,6 +973,7 @@ func test_reservation_query_indexes_match_live_list_after_every_mutation() -> vo
 			assert_eq(coordinator.reservation_count(id), count, "%s queried track %d count" % [case_label, id])
 			assert_eq(coordinator.reservation_count(id, EngagementCoordinator.INTERCEPTOR), interceptors, "%s queried track %d interceptor count" % [case_label, id])
 			assert_eq(coordinator.engagement_owner_ids(id), owners, "%s queried track %d owners" % [case_label, id])
+			assert_eq(coordinator.other_engagement_owner_count(id, owner_id), owners.size() - int(owners.has(owner_id)), "%s queried track %d other owners" % [case_label, id])
 			var copy := coordinator.engagement_owner_ids(id)
 			copy.clear()
 			assert_eq(coordinator.engagement_owner_ids(id), owners, "%s queried track %d defensive copy" % [case_label, id])
@@ -1929,6 +1930,27 @@ func test_target_policy_filters_classification_without_bypassing_other_rules() -
 	doctrine.set_target_kind_allowed(&"aircraft", true)
 	doctrine.hold_fire = true
 	assert_false(doctrine.allows(track))
+
+func test_weapon_target_cache_refreshes_for_track_c2_and_validity_changes() -> void:
+	var unit := add_child_autofree(ArmedDefenseUnit.new()) as ArmedDefenseUnit
+	var knowledge := add_child_autofree(PlayerKnowledge.new()) as PlayerKnowledge
+	var network := add_child_autofree(C2Network.new()) as C2Network
+	unit.player_knowledge = knowledge
+	unit.c2_network = network
+	var track := _confirmed_track(Vector3(100, 50, 0))
+	assert_true(unit.engagement_target_needs_evaluation(0.01, true))
+	unit.remember_engagement_target(track)
+	assert_false(unit.engagement_target_needs_evaluation(0.05, true), "변경 없는 짧은 구간은 현재 표적을 재사용합니다")
+	knowledge.track_revision += 1
+	assert_true(unit.engagement_target_needs_evaluation(0.01, true), "새 관측과 항적 변경은 즉시 재평가합니다")
+	unit.remember_engagement_target(track)
+	network.gameplay_view_revision += 1
+	assert_true(unit.engagement_target_needs_evaluation(0.01, true), "C2 연결 변경은 즉시 재평가합니다")
+	unit.remember_engagement_target(track)
+	assert_true(unit.engagement_target_needs_evaluation(0.01, false), "현재 표적이 교전 불가가 되면 즉시 재평가합니다")
+	unit.remember_engagement_target(null)
+	assert_false(unit.engagement_target_needs_evaluation(0.05, true), "후보가 없던 결과도 짧게 재사용합니다")
+	assert_true(unit.engagement_target_needs_evaluation(0.151, true), "주기 만료 뒤에는 이동 중 후보를 다시 평가합니다")
 
 func test_battery_and_gun_skip_disallowed_target_kinds() -> void:
 	var battery := add_child_autofree(BATTERY_SCENE.instantiate()) as MissileBattery

@@ -18,6 +18,7 @@ var _view_revision: int = -1
 var _view_tracks: Array[PlayerTrack] = []
 var _track_views: Dictionary[Array, Array] = {}
 var _gameplay_views_prepared: bool = false
+var gameplay_view_revision: int = 0
 
 func configure(registry: ThreatRegistry) -> void:
 	threat_registry = registry
@@ -39,6 +40,7 @@ func reset() -> void:
 	_view_source = null
 	_view_revision = -1
 	_view_tracks.clear()
+	gameplay_view_revision += 1
 	_invalidate_cache()
 
 ## Called after movement and before weapons so every weapon in one simulation
@@ -240,6 +242,7 @@ func _refresh_cache_if_topology_changed() -> void:
 func _rebuild_reachable_cache() -> void:
 	_reachable_sensor_cache.clear()
 	_track_views.clear()
+	gameplay_view_revision += 1
 	var visited: Dictionary[int, bool] = {}
 	for start: DefenseUnit in endpoints:
 		var start_id := start.get_instance_id()
