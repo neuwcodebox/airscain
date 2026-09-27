@@ -213,6 +213,7 @@ func _gameplay_step(delta: float) -> void:
 	engagement_coordinator.gameplay_tick(delta)
 	support_manager.gameplay_tick(delta)
 	relocation_manager.gameplay_tick(delta)
+	c2_network.prepare_gameplay_views()
 	enemy_knowledge.gameplay_tick(delta)
 	power_manager.begin_tick()
 	for defense: DefenseUnit in defenses:

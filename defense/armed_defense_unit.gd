@@ -53,7 +53,7 @@ func allows_target_kind(kind: StringName) -> bool:
 func available_tracks() -> Array[PlayerTrack]:
 	if player_knowledge == null or c2_network == null:
 		return []
-	return c2_network.available_tracks_for_knowledge(self, player_knowledge)
+	return c2_network.available_tracks_for_gameplay(self, player_knowledge)
 
 func is_track_available_for_engagement(track: PlayerTrack, maximum_concurrent: int = 1) -> bool:
 	return engagement_coordinator == null or definition.engagement_reservation_kind() == EngagementCoordinator.FIRE_SUPPORT or engagement_coordinator.reservation_count(track.track_id, EngagementCoordinator.INTERCEPTOR) < maximum_concurrent

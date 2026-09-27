@@ -17,12 +17,14 @@ var _view_source: PlayerKnowledge
 var _view_revision: int = -1
 var _view_tracks: Array[PlayerTrack] = []
 var _track_views: Dictionary[Array, Array] = {}
+var _gameplay_views_prepared: bool = false
 
 func configure(registry: ThreatRegistry) -> void:
 	threat_registry = registry
 	_invalidate_cache()
 
 func gameplay_tick(delta: float) -> void:
+	_gameplay_views_prepared = false
 	if threat_registry == null:
 		return
 	_jamming_refresh_remaining -= delta
@@ -38,6 +40,12 @@ func reset() -> void:
 	_view_revision = -1
 	_view_tracks.clear()
 	_invalidate_cache()
+
+## Called after movement and before weapons so every weapon in one simulation
+## step can reuse the same topology validation.
+func prepare_gameplay_views() -> void:
+	_refresh_cache_if_topology_changed()
+	_gameplay_views_prepared = true
 
 func register_asset(unit: DefenseUnit) -> void:
 	if unit.c2_roles() != 0 and not endpoints.has(unit):
@@ -70,6 +78,17 @@ func available_tracks_for(unit: DefenseUnit, tracks: Array[PlayerTrack]) -> Arra
 	return _filter_available(tracks, unit.local_sensor_ids(), _reachable_sensor_ids(unit))
 
 func available_tracks_for_knowledge(unit: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
+	return borrowed_tracks_for_knowledge(unit, knowledge).duplicate()
+
+func available_tracks_for_gameplay(unit: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
+	if _gameplay_views_prepared:
+		return borrowed_tracks_for_knowledge(unit, knowledge)
+	# Preserve test doubles and other C2 implementations that override the
+	# established copy-returning query.
+	return available_tracks_for_knowledge(unit, knowledge)
+
+## Internal gameplay callers must treat this cached array as read-only.
+func borrowed_tracks_for_knowledge(unit: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
 	var reachable_sensor_ids := _reachable_sensor_ids(unit)
 	if _view_source != knowledge or _view_revision != knowledge.track_revision:
 		_view_source = knowledge
@@ -83,7 +102,7 @@ func available_tracks_for_knowledge(unit: DefenseUnit, knowledge: PlayerKnowledg
 	if not _track_views.has(key):
 		_track_views[key] = _filter_available(_view_tracks, local_sensor_ids, reachable_sensor_ids)
 	var cached: Array[PlayerTrack] = _track_views[key]
-	return cached.duplicate()
+	return cached
 
 func _filter_available(tracks: Array[PlayerTrack], local_sensor_ids: Array[int], reachable_sensor_ids: Array[int]) -> Array[PlayerTrack]:
 	var result: Array[PlayerTrack] = []
@@ -115,13 +134,12 @@ func has_command_path(unit: DefenseUnit, sensor_id: int) -> bool:
 	return _reachable_sensor_ids(unit).has(sensor_id)
 
 func _reachable_sensor_ids(unit: DefenseUnit) -> Array[int]:
-	_refresh_cache_if_topology_changed()
+	if not _gameplay_views_prepared:
+		_refresh_cache_if_topology_changed()
 	var unit_id := unit.get_instance_id()
 	if _reachable_sensor_cache.has(unit_id):
-		var cached: Array = _reachable_sensor_cache[unit_id]
-		var cached_result: Array[int] = []
-		cached_result.assign(cached)
-		return cached_result
+		var cached: Array[int] = _reachable_sensor_cache[unit_id]
+		return cached
 	return []
 
 func active_links() -> Array[Array]:
@@ -252,6 +270,7 @@ func _rebuild_reachable_cache() -> void:
 			_reachable_sensor_cache[member.get_instance_id()] = shared_sensors.duplicate()
 
 func _invalidate_cache() -> void:
+	_gameplay_views_prepared = false
 	_topology_dirty = true
 	_reachable_sensor_cache.clear()
 	_track_views.clear()

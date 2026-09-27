@@ -64,6 +64,7 @@ class ProfiledBattery:
 
 class ProfiledC2:
 	extends C2Network
+	var legacy_queries: bool = OS.get_cmdline_user_args().has("--legacy-c2-queries")
 	func _filter_available(tracks: Array[PlayerTrack], local_ids: Array[int], reachable_ids: Array[int]) -> Array[PlayerTrack]:
 		var start := Time.get_ticks_usec()
 		var result := super._filter_available(tracks, local_ids, reachable_ids)
@@ -73,6 +74,14 @@ class ProfiledC2:
 	func available_tracks_for_knowledge(unit: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
 		var start := Time.get_ticks_usec()
 		var result := super.available_tracks_for_knowledge(unit, knowledge)
+		NestedCosts.record("c2_available_tracks", start, _view_tracks.size())
+		return result
+
+	func borrowed_tracks_for_knowledge(unit: DefenseUnit, knowledge: PlayerKnowledge) -> Array[PlayerTrack]:
+		var start := Time.get_ticks_usec()
+		var result := super.borrowed_tracks_for_knowledge(unit, knowledge)
+		if legacy_queries:
+			result = result.duplicate()
 		NestedCosts.record("c2_available_tracks", start, _view_tracks.size())
 		return result
 
@@ -165,6 +174,7 @@ class ProfiledMain:
 	extends AirscainMain
 	var costs: Dictionary[String, int] = {}
 	var tick_costs: Dictionary[String, int] = {}
+	var legacy_c2_queries: bool = OS.get_cmdline_user_args().has("--legacy-c2-queries")
 
 	func _process(delta: float) -> void:
 		if combat_effect_pool != null and not combat_effect_pool.prepared:
@@ -204,6 +214,12 @@ class ProfiledMain:
 		_measure("reservations", engagement_coordinator.gameplay_tick, delta)
 		_measure("support", support_manager.gameplay_tick, delta)
 		_measure("relocation", relocation_manager.gameplay_tick, delta)
+		if not legacy_c2_queries:
+			var c2_prepare_started := Time.get_ticks_usec()
+			c2_network.prepare_gameplay_views()
+			var c2_prepare_elapsed := Time.get_ticks_usec() - c2_prepare_started
+			costs["c2_prepare"] = costs.get("c2_prepare", 0) + c2_prepare_elapsed
+			tick_costs["c2_prepare"] = tick_costs.get("c2_prepare", 0) + c2_prepare_elapsed
 		_measure("enemy_knowledge", enemy_knowledge.gameplay_tick, delta)
 		power_manager.begin_tick()
 		for defense: DefenseUnit in defenses:

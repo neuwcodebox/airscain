@@ -48,6 +48,7 @@ func run() -> void:
 	for index: int in 200:
 		var track := PlayerTrack.new()
 		track.track_id = index + 1
+		track.state = PlayerTrack.State.CONFIRMED
 		track.contributing_sensor_ids = [index % 40 + 1]
 		tracks.append(track)
 	checksum = 0
@@ -56,6 +57,27 @@ func run() -> void:
 		for endpoint: Endpoint in endpoints:
 			checksum += network.available_tracks_for(endpoint, tracks).size()
 	print("NETWORK_PERF c2_batch_avg_ms=", (Time.get_ticks_usec() - started) / 100000.0, " checksum=", checksum)
+	var knowledge := PlayerKnowledge.new()
+	root.add_child(knowledge)
+	knowledge.tracks.assign(tracks)
+	var copied_usec := 0
+	var borrowed_usec := 0
+	var copied_checksum := 0
+	var borrowed_checksum := 0
+	for repeat: int in 100:
+		network.gameplay_tick(0.05)
+		started = Time.get_ticks_usec()
+		for endpoint: Endpoint in endpoints:
+			copied_checksum += network.available_tracks_for_knowledge(endpoint, knowledge).size()
+		copied_usec += Time.get_ticks_usec() - started
+		network.gameplay_tick(0.05)
+		started = Time.get_ticks_usec()
+		network.prepare_gameplay_views()
+		for endpoint: Endpoint in endpoints:
+			borrowed_checksum += network.available_tracks_for_gameplay(endpoint, knowledge).size()
+		borrowed_usec += Time.get_ticks_usec() - started
+	print("NETWORK_PERF c2_weapon_copied_avg_ms=", copied_usec / 100000.0, " borrowed_avg_ms=", borrowed_usec / 100000.0, " checksums=", copied_checksum, "/", borrowed_checksum)
+	knowledge.free()
 	network.free()
 	for endpoint: Endpoint in endpoints:
 		endpoint.free()
