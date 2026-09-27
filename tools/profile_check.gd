@@ -569,6 +569,8 @@ func _render_smoke_body_probe() -> void:
 	var chunks: Array[MultiMeshInstance3D] = []
 	var trail_count := 0
 	var puff_count := 0
+	var quiet_trails := 0
+	var quiet_puffs := 0
 	for node: Node in main.find_children("*", "Node3D", true, false):
 		if not node is LingeringSmokeTrail:
 			continue
@@ -577,8 +579,12 @@ func _render_smoke_body_probe() -> void:
 			continue
 		trail_count += 1
 		puff_count += trail.active_puff_count()
+		if trail.turbulence_strength <= 0.0:
+			quiet_trails += 1
+			quiet_puffs += trail.active_puff_count()
 		chunks.append_array(trail.visible_chunk_instances())
-	print("PROFILE_SMOKE_BODY_SCENE trails=%d chunks=%d puffs=%d" % [trail_count, chunks.size(), puff_count])
+	print("PROFILE_SMOKE_BODY_SCENE trails=%d chunks=%d puffs=%d quiet_trails=%d quiet_puffs=%d" % [trail_count, chunks.size(), puff_count, quiet_trails, quiet_puffs])
+	_report_quiet_smoke_pair_candidates()
 	# ABBA keeps the scene and cached shadow map identical across each comparison.
 	for label: String in ["all/start", "no_smoke_body/a", "no_smoke_body/b", "all/end"]:
 		var hide_body := label.begins_with("no_smoke_body")
@@ -587,6 +593,56 @@ func _render_smoke_body_probe() -> void:
 		await _sample_render(label)
 	for chunk: MultiMeshInstance3D in chunks:
 		chunk.show()
+
+func _report_quiet_smoke_pair_candidates() -> void:
+	var camera := root.get_camera_3d()
+	if camera == null:
+		return
+	var screen := Rect2(Vector2.ZERO, Vector2(root.size))
+	var on_screen_pairs := 0
+	var mature_pairs := 0
+	var close_pairs := 0
+	for node: Node in main.find_children("*", "Node3D", true, false):
+		if not node is LingeringSmokeTrail:
+			continue
+		var trail := node as LingeringSmokeTrail
+		if not trail.is_visible_in_tree() or trail.turbulence_strength > 0.0:
+			continue
+		var occupied := trail.get("_occupied_slots") as PackedByteArray
+		var origins := trail.get("_positions") as PackedVector3Array
+		var births := trail.get("_birth_times") as PackedFloat32Array
+		var sizes := trail.get("_size_variations") as PackedFloat32Array
+		var drifts := trail.get("_drift_vectors") as PackedVector3Array
+		var now := float(trail.get("_elapsed"))
+		for first: int in range(0, trail.amount - 1, 2):
+			var second := first + 1
+			if occupied[first] == 0 or occupied[second] == 0:
+				continue
+			var age1 := now - births[first]
+			var age2 := now - births[second]
+			var t1 := clampf(age1 / trail.lifetime, 0.0, 1.0)
+			var t2 := clampf(age2 / trail.lifetime, 0.0, 1.0)
+			var center1 := origins[first] + drifts[first] * trail.drift_speed * age1
+			var center2 := origins[second] + drifts[second] * trail.drift_speed * age2
+			if camera.is_position_behind(center1) or camera.is_position_behind(center2):
+				continue
+			var pixel1 := camera.unproject_position(center1)
+			var pixel2 := camera.unproject_position(center2)
+			if not screen.has_point((pixel1 + pixel2) * 0.5):
+				continue
+			on_screen_pairs += 1
+			if minf(t1, t2) < 0.45:
+				continue
+			mature_pairs += 1
+			var scale1 := lerpf(trail.initial_scale, trail.final_scale, smoothstep(0.0, 1.0, t1)) * sizes[first]
+			var scale2 := lerpf(trail.initial_scale, trail.final_scale, smoothstep(0.0, 1.0, t2)) * sizes[second]
+			var right1 := camera.unproject_position(center1 + camera.global_basis.x * trail.puff_mesh.size.x * scale1 * 0.5)
+			var right2 := camera.unproject_position(center2 + camera.global_basis.x * trail.puff_mesh.size.x * scale2 * 0.5)
+			var up1 := camera.unproject_position(center1 + camera.global_basis.y * trail.puff_mesh.size.y * scale1 * 0.5)
+			var up2 := camera.unproject_position(center2 + camera.global_basis.y * trail.puff_mesh.size.y * scale2 * 0.5)
+			if pixel1.distance_to(pixel2) <= 0.5 and absf(pixel1.distance_to(right1) - pixel2.distance_to(right2)) <= 0.5 and absf(pixel1.distance_to(up1) - pixel2.distance_to(up2)) <= 0.5:
+				close_pairs += 1
+	print("PROFILE_QUIET_PAIR_SCREEN on_screen=%d mature=%d within_half_pixel=%d" % [on_screen_pairs, mature_pairs, close_pairs])
 
 func _render_probe() -> void:
 	_freeze(main)
