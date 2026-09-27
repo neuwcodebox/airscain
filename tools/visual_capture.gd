@@ -26,6 +26,28 @@ func run() -> void:
 	main.ui_audio.enabled = false
 	main.combat_audio.stop_all()
 	main.ui_audio.stop_all()
+	if OS.get_cmdline_user_args().has("--capture-low-angle-only"):
+		while not main.combat_effect_pool.prepared:
+			await process_frame
+		main.set_process(false)
+		main.camera_rig.set_process(false)
+		main.hud.hide()
+		main.altitude_profile.hide()
+		main.camera_rig.focus_on(main.objective.global_position)
+		main.camera_rig.zoom_distance = main.camera_rig.minimum_zoom
+		main.camera_rig.pitch_radians = 0.0
+		main.camera_rig._update_camera()
+		await create_timer(0.2).timeout
+		_save_capture("/tmp/airscain_low_angle_horizon.png")
+		main.camera_rig.pitch_radians = deg_to_rad(-15.0)
+		main.camera_rig._update_camera()
+		await create_timer(0.2).timeout
+		_save_capture("/tmp/airscain_low_angle_sky.png")
+		print("LOW_ANGLE_CAPTURE_OK height=%.2f terrain=%.2f" % [main.camera_rig.camera.global_position.y, main.battlefield.terrain_height(main.camera_rig.camera.global_position.x, main.camera_rig.camera.global_position.z)])
+		main.queue_free()
+		await process_frame
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-decoys-only"):
 		while not main.combat_effect_pool.prepared:
 			await process_frame

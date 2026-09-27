@@ -10,9 +10,8 @@ extends Node3D
 
 const DEFAULT_PITCH := atan(0.72)
 const MINIMUM_PITCH := -PI / 3.0
-const MINIMUM_ORBIT_PITCH := PI / 15.0
 const MAXIMUM_PITCH := PI / 2.0
-const TERRAIN_CLEARANCE := 12.0
+const TERRAIN_CLEARANCE := 1.2
 const ORBIT_SCALE := sqrt(1.0 + 0.72 * 0.72)
 const ZOOM_HALF_SPAN := ORBIT_SCALE * tan(deg_to_rad(26.0))
 
@@ -108,7 +107,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _update_camera() -> void:
 	pitch_radians = clampf(pitch_radians, MINIMUM_PITCH, MAXIMUM_PITCH)
-	var orbit_pitch := maxf(pitch_radians, MINIMUM_ORBIT_PITCH)
+	var orbit_pitch := maxf(pitch_radians, 0.0)
 	var orbit_basis := Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -orbit_pitch)
 	# Zoom controls framing at the focus plane, independently of the lens angle.
 	var orbit_distance := zoom_distance * ZOOM_HALF_SPAN / tan(deg_to_rad(camera.fov * 0.5))
@@ -119,17 +118,14 @@ func _update_camera() -> void:
 	if terrain_height.is_valid():
 		var floor_height := 0.0
 		# Protect the near plane as well as the camera origin on a hillside.
-		var margin := maxf(8.0, camera.near * 2.0)
+		var margin := maxf(2.0, camera.near * 2.0)
 		for x: float in [-margin, 0.0, margin]:
 			for z: float in [-margin, 0.0, margin]:
 				floor_height = maxf(floor_height, float(terrain_height.call(camera.global_position.x + x, camera.global_position.z + z)))
 		camera.global_position.y = maxf(camera.global_position.y, floor_height + TERRAIN_CLEARANCE)
-	# Near the horizon, orbiting stops lowering the camera but dragging keeps
-	# tilting the view. Terrain correction fades out of the gaze, not the position.
-	var safe_pitch := atan2(camera.position.y, Vector2(camera.position.x, camera.position.z).length())
-	var view_pitch := pitch_radians + maxf(0.0, safe_pitch - orbit_pitch) * smoothstep(0.0, MINIMUM_ORBIT_PITCH, pitch_radians)
-	# A yaw-relative basis is stable at an exact top-down view as well.
-	camera.basis = Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -view_pitch)
+	# Keep the gaze independent of the terrain correction so a horizontal drag
+	# reaches a level view even on elevated ground.
+	camera.basis = Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -pitch_radians)
 
 func _clamp_position() -> void:
 	global_position.x = clampf(global_position.x, -bounds, bounds)

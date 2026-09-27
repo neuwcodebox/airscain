@@ -33,7 +33,7 @@ func run() -> void:
 		main.hud.hide()
 		main.day_night.apply_time(255.0, true)
 		main.camera_rig.yaw_radians = deg_to_rad(main.day_night._sun.rotation_degrees.y) + PI
-		main.camera_rig.pitch_radians = CameraRig.MINIMUM_ORBIT_PITCH
+		main.camera_rig.pitch_radians = 0.0
 		main.camera_rig._update_camera()
 		await capture("camera_horizon")
 		main.camera_rig.rotating = true
