@@ -3,6 +3,7 @@ extends SceneTree
 ## --breakdown attributes simulation costs; --geometry counts terrain/collision queries;
 ## --render also measures full frames in an actual window; --night starts at midnight.
 ## --detail adds nested targeting/C2 timings; --render-probe uses paired exclusions.
+## --smoke-body-probe alternates the visible trail body with the shadow map intact.
 ## --compare-smoke-proxies compares sphere/impostor geometry on one frozen scene.
 ## --seed=N and --seconds=N vary the reproducible workload (defaults: 73129, 20).
 ## --live uses the automatic game loop and records completed frames (default: 90).
@@ -405,7 +406,9 @@ func run() -> void:
 			total_frames += sample
 		print("PROFILE_RENDER avg_ms=%.3f p50_ms=%.3f p95_ms=%.3f max_ms=%.3f" % [float(total_frames) / frame_samples_usec.size() / 1000.0, frame_samples_usec[frame_samples_usec.size() / 2] / 1000.0, frame_samples_usec[int(frame_samples_usec.size() * 0.95)] / 1000.0, frame_samples_usec.back() / 1000.0])
 		root.get_texture().get_image().save_png("/tmp/airscain_profile_combat.png")
-	if OS.get_cmdline_user_args().has("--render-probe"):
+	if OS.get_cmdline_user_args().has("--smoke-body-probe"):
+		await _render_smoke_body_probe()
+	elif OS.get_cmdline_user_args().has("--render-probe"):
 		await _render_probe()
 	if OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
 		await _compare_smoke_proxies()
@@ -560,6 +563,30 @@ func _run_live_probe() -> bool:
 	var trace := FileAccess.open("/tmp/airscain_live_frames.json", FileAccess.WRITE)
 	trace.store_string(JSON.stringify(rows))
 	return true
+
+func _render_smoke_body_probe() -> void:
+	_freeze(main)
+	var chunks: Array[MultiMeshInstance3D] = []
+	var trail_count := 0
+	var puff_count := 0
+	for node: Node in main.find_children("*", "Node3D", true, false):
+		if not node is LingeringSmokeTrail:
+			continue
+		var trail := node as LingeringSmokeTrail
+		if not trail.is_visible_in_tree():
+			continue
+		trail_count += 1
+		puff_count += trail.active_puff_count()
+		chunks.append_array(trail.visible_chunk_instances())
+	print("PROFILE_SMOKE_BODY_SCENE trails=%d chunks=%d puffs=%d" % [trail_count, chunks.size(), puff_count])
+	# ABBA keeps the scene and cached shadow map identical across each comparison.
+	for label: String in ["all/start", "no_smoke_body/a", "no_smoke_body/b", "all/end"]:
+		var hide_body := label.begins_with("no_smoke_body")
+		for chunk: MultiMeshInstance3D in chunks:
+			chunk.visible = not hide_body
+		await _sample_render(label)
+	for chunk: MultiMeshInstance3D in chunks:
+		chunk.show()
 
 func _render_probe() -> void:
 	_freeze(main)
