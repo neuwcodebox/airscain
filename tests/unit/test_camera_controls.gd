@@ -90,6 +90,43 @@ func test_rotation_action_orbits_camera() -> void:
 	assert_almost_eq(rad_to_deg(rig.yaw_radians), rig.rotation_speed_degrees, 0.01)
 	assert_ne(rig.camera.position, initial_camera_position)
 
+func test_upward_mouse_drag_turns_in_place() -> void:
+	rig.configure_for_battlefield(2400.0, func(x: float, _z: float) -> float: return 20.0 + x * 0.1)
+	rig.pitch_radians = -PI / 6.0
+	_refresh_camera_geometry()
+	var initial_position := rig.camera.global_position
+	var initial_direction := rig.camera.global_basis.z
+	rig.rotating = true
+	var motion := InputEventMouseMotion.new()
+	motion.relative = Vector2(120.0, 0.0)
+	_send_camera_input(motion)
+	assert_lt(rig.camera.global_position.distance_to(initial_position), 0.001)
+	assert_gt(rig.camera.global_basis.z.angle_to(initial_direction), 0.1)
+
+func test_upward_rotation_action_keeps_camera_position_during_following_pan() -> void:
+	rig.configure_for_battlefield(2400.0, func(_x: float, _z: float) -> float: return 15.0)
+	rig.zoom_distance = 1000.0
+	rig.pitch_radians = 0.0
+	_refresh_camera_geometry()
+	var initial_position := rig.camera.global_position
+	Input.action_press("camera_rotate_right")
+	_advance_camera_input(1.0)
+	Input.action_release("camera_rotate_right")
+	assert_lt(rig.camera.global_position.distance_to(initial_position), 0.001)
+	Input.action_press("camera_right")
+	_advance_camera_input(0.01)
+	Input.action_release("camera_right")
+	assert_between(rig.camera.global_position.distance_to(initial_position), 0.1, 10.0)
+	rig.rotating = true
+	var tilt := InputEventMouseMotion.new()
+	tilt.relative = Vector2(0.0, (PI / 6.0) / rig.rotation_drag_speed)
+	_send_camera_input(tilt)
+	var before_tilted_pan := rig.camera.global_position
+	Input.action_press("camera_right")
+	_advance_camera_input(0.01)
+	Input.action_release("camera_right")
+	assert_between(rig.camera.global_position.distance_to(before_tilted_pan), 0.1, 10.0)
+
 func test_pan_remains_screen_relative_after_rotation() -> void:
 	Input.action_press("camera_rotate_right")
 	_advance_camera_input(1.0)

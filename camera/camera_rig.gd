@@ -58,9 +58,9 @@ func _input(event: InputEvent) -> void:
 		rotating = false
 
 func focus_on(world_position: Vector3) -> void:
-	global_position.x = world_position.x
-	global_position.z = world_position.z
-	_clamp_position()
+	global_position.x = clampf(world_position.x, -bounds, bounds)
+	global_position.z = clampf(world_position.z, -bounds, bounds)
+	_update_camera()
 
 func exclude_wheel_input_over(control: Control) -> void:
 	if control != null and not wheel_input_exclusions.has(control):
@@ -72,8 +72,7 @@ func _process(delta: float) -> void:
 		return
 	var rotation_input := Input.get_axis("camera_rotate_left", "camera_rotate_right")
 	if not is_zero_approx(rotation_input):
-		yaw_radians += deg_to_rad(rotation_speed_degrees) * rotation_input * delta * float(preferences.values.rotation)
-		_update_camera()
+		_rotate_yaw(deg_to_rad(rotation_speed_degrees) * rotation_input * delta * float(preferences.values.rotation))
 	var input_vector := Input.get_vector("camera_left", "camera_right", "camera_forward", "camera_back")
 	if input_vector.length_squared() > 0.0:
 		var motion := Vector3(input_vector.x, 0.0, input_vector.y).rotated(Vector3.UP, yaw_radians) * pan_speed * delta * (zoom_distance / 520.0)
@@ -100,10 +99,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			_update_camera()
 	elif event is InputEventMouseMotion and rotating:
 		var rotation_motion := event as InputEventMouseMotion
-		yaw_radians -= rotation_motion.relative.x * rotation_drag_speed * float(preferences.values.rotation)
+		_rotate_yaw(-rotation_motion.relative.x * rotation_drag_speed * float(preferences.values.rotation))
 		pitch_radians = clampf(pitch_radians + rotation_motion.relative.y * rotation_drag_speed * float(preferences.values.rotation), MINIMUM_PITCH, MAXIMUM_PITCH)
 		_update_camera()
 		get_viewport().set_input_as_handled()
+
+func _rotate_yaw(delta: float) -> void:
+	if pitch_radians <= 0.0:
+		var camera_position := camera.global_position
+		var rotated_offset := global_basis * camera.position.rotated(Vector3.UP, delta)
+		global_position.x = camera_position.x - rotated_offset.x
+		global_position.z = camera_position.z - rotated_offset.z
+	yaw_radians += delta
+	_update_camera()
 
 func _update_camera() -> void:
 	pitch_radians = clampf(pitch_radians, MINIMUM_PITCH, MAXIMUM_PITCH)
@@ -128,8 +136,17 @@ func _update_camera() -> void:
 	camera.basis = Basis(Vector3.UP, yaw_radians) * Basis(Vector3.RIGHT, -pitch_radians)
 
 func _clamp_position() -> void:
-	global_position.x = clampf(global_position.x, -bounds, bounds)
-	global_position.z = clampf(global_position.z, -bounds, bounds)
+	if pitch_radians <= 0.0 or absf(global_position.x) > bounds or absf(global_position.z) > bounds:
+		# A ground-level turn can move the focus beyond its old bounds. Keep
+		# constraining the camera until that focus returns, even after tilting down.
+		var orbit_distance := zoom_distance * ZOOM_HALF_SPAN / tan(deg_to_rad(camera.fov * 0.5))
+		var limit := bounds + orbit_distance
+		var camera_position := camera.global_position
+		global_position.x += clampf(camera_position.x, -limit, limit) - camera_position.x
+		global_position.z += clampf(camera_position.z, -limit, limit) - camera_position.z
+	else:
+		global_position.x = clampf(global_position.x, -bounds, bounds)
+		global_position.z = clampf(global_position.z, -bounds, bounds)
 	_update_camera()
 
 func _wheel_input_is_excluded(screen_position: Vector2) -> bool:
