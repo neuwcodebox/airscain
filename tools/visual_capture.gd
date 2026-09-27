@@ -2771,6 +2771,8 @@ func _capture_missile_smoke_trail() -> void:
 		push_error("Fully transparent missile smoke trail was not cleaned up")
 		quit(1)
 		return
+	if OS.get_cmdline_user_args().has("--capture-smoke-only"):
+		return
 	var self_destruct := preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate() as HomingInterceptor
 	main.projectile_parent.add_child(self_destruct)
 	var lost_track := PlayerTrack.new()
