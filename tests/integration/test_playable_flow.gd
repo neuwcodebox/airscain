@@ -2635,7 +2635,9 @@ func test_new_explosion_does_not_reactivate_a_faded_flash() -> void:
 	main.effects_parent.add_child(first)
 	first.setup(Color.ORANGE, 10.0)
 	first.prepare_preview(ExplosionTimeline.LIGHT_DURATION + 0.01)
-	assert_false(first.flash.visible)
+	assert_true(first.flash.visible, "slow ignition frame includes the brief flash")
+	first.prepare_preview(0.02)
+	assert_false(first.flash.visible, "flash retires on the next frame")
 	var second := explosion_scene.instantiate() as ExplosionEffect
 	main.effects_parent.add_child(second)
 	second.setup(Color.RED, 8.0)
