@@ -43,19 +43,16 @@ func gameplay_tick(delta: float) -> void:
 	cooldown = maxf(0.0, cooldown - delta)
 	if not active or available_drones <= 0 or active_drones.size() >= _definition.engagement_channels:
 		return
-	var track := cached_engagement_target()
-	var cached_valid := track == null or _track_is_selectable(track)
-	if engagement_target_needs_evaluation(delta, cached_valid):
-		track = remember_engagement_target(_select_track())
+	var track := _resolve_engagement_target(delta)
 	if track != null and cooldown <= 0.0 and engagement_coordinator != null and engagement_coordinator.try_reserve(track.track_id, runtime_id, _definition.drone_endurance):
 		_launch(track)
 		cooldown = _definition.launch_interval
 
-func _select_track() -> PlayerTrack:
+func _select_engagement_target(tracks: Array[PlayerTrack]) -> PlayerTrack:
 	var selected: PlayerTrack
 	var selected_score := -INF
-	for track: PlayerTrack in available_tracks():
-		if not _track_is_selectable(track):
+	for track: PlayerTrack in tracks:
+		if not _engagement_target_is_valid(track):
 			continue
 		var target_match := _target_match(track.classification)
 		var score := cooperative_target_score(track, battlefield.objective.global_position, target_match)
@@ -64,7 +61,7 @@ func _select_track() -> PlayerTrack:
 			selected_score = score
 	return selected
 
-func _track_is_selectable(track: PlayerTrack) -> bool:
+func _engagement_target_is_valid(track: PlayerTrack) -> bool:
 	return track != null and is_instance_valid(track) and doctrine.allows(track) and is_track_available_for_engagement(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency() and track.estimated_velocity.length() <= _definition.maximum_target_speed and _target_match(track.classification) > 0.0
 
 func _target_match(classification: StringName) -> float:

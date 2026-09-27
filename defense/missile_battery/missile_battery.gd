@@ -72,12 +72,7 @@ func gameplay_tick(delta: float) -> void:
 		tracks = available_tracks()
 		tracks_loaded = true
 		_update_tactical_reloads(tactical_reload_delta, tracks)
-	var track := cached_engagement_target()
-	var cached_valid := track == null or _track_is_selectable(track)
-	if engagement_target_needs_evaluation(delta, cached_valid):
-		if not tracks_loaded:
-			tracks = available_tracks()
-		track = remember_engagement_target(select_track(tracks, battlefield.objective.global_position))
+	var track := _resolve_engagement_target(delta, tracks, tracks_loaded)
 	if track == null:
 		return
 	var is_aimed := _aim_turret(track.estimated_position, delta)
@@ -154,11 +149,13 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 			selected_distance = distance
 	return selected
 
-func _track_is_selectable(track: PlayerTrack, effective_range: float = -1.0) -> bool:
+func _select_engagement_target(tracks: Array[PlayerTrack]) -> PlayerTrack:
+	return select_track(tracks, battlefield.objective.global_position)
+
+func _engagement_target_is_valid(track: PlayerTrack) -> bool:
 	if track == null or not is_instance_valid(track) or not doctrine.allows(track):
 		return false
-	if effective_range < 0.0:
-		effective_range = _definition.attack_range * operational_efficiency()
+	var effective_range := _definition.attack_range * operational_efficiency()
 	if global_position.distance_to(track.estimated_position) > effective_range:
 		return false
 	if munition_for_track(track) == null or not is_track_available_for_engagement(track, engagement_limit()):

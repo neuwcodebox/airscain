@@ -50,10 +50,7 @@ func gameplay_tick(delta: float) -> void:
 		maintain_fire_support(null, false)
 		_stop_beam()
 		return
-	var track := cached_engagement_target()
-	var cached_valid := track == null or _track_is_selectable(track)
-	if engagement_target_needs_evaluation(delta, cached_valid):
-		track = remember_engagement_target(select_track(available_tracks(), battlefield.objective.global_position))
+	var track := _resolve_engagement_target(delta)
 	var has_assignment := maintain_fire_support(track, energy_state.can_fire(_definition.energy_per_pulse))
 	if track == null:
 		_stop_beam()
@@ -78,7 +75,7 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 	var selected: PlayerTrack
 	var selected_score := -INF
 	for track: PlayerTrack in tracks:
-		if not _track_is_selectable(track):
+		if not _engagement_target_is_valid(track):
 			continue
 		var target_match := 1.0 if track.classification == &"small_uav" else 0.65
 		var score := cooperative_target_score(track, protected_position, target_match)
@@ -87,7 +84,10 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 			selected_score = score
 	return selected
 
-func _track_is_selectable(track: PlayerTrack) -> bool:
+func _select_engagement_target(tracks: Array[PlayerTrack]) -> PlayerTrack:
+	return select_track(tracks, battlefield.objective.global_position)
+
+func _engagement_target_is_valid(track: PlayerTrack) -> bool:
 	return track != null and is_instance_valid(track) and doctrine.allows(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency()
 
 func resource_status_text() -> String:

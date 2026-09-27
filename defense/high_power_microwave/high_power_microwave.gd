@@ -44,10 +44,7 @@ func gameplay_tick(delta: float) -> void:
 	if registry == null or engagement_coordinator == null:
 		maintain_fire_support(null, false)
 		return
-	var track := cached_engagement_target()
-	var cached_valid := track == null or _track_is_selectable(track)
-	if engagement_target_needs_evaluation(delta, cached_valid):
-		track = remember_engagement_target(_select_track())
+	var track := _resolve_engagement_target(delta)
 	var has_assignment := maintain_fire_support(track, energy_state.can_fire(_definition.energy_per_pulse))
 	var is_aimed := track != null and _aim_turret(track.estimated_position, delta)
 	if track != null and is_aimed and cooldown <= 0.0 and energy_state.can_fire(_definition.energy_per_pulse) and has_assignment:
@@ -58,18 +55,18 @@ func gameplay_tick(delta: float) -> void:
 func _aim_turret(target_position: Vector3, delta: float) -> bool:
 	return TURRET_AIMER.aim(turret, elevation, target_position, turret_turn_speed_degrees, dish_elevation_speed_degrees, firing_alignment_degrees, delta, -5.0, 80.0)
 
-func _select_track() -> PlayerTrack:
+func _select_engagement_target(tracks: Array[PlayerTrack]) -> PlayerTrack:
 	var selected: PlayerTrack
 	var best_score := -INF
-	for track: PlayerTrack in available_tracks():
-		if _track_is_selectable(track):
+	for track: PlayerTrack in tracks:
+		if _engagement_target_is_valid(track):
 			var score := cooperative_target_score(track, battlefield.objective.global_position, 1.0)
 			if score > best_score:
 				selected = track
 				best_score = score
 	return selected
 
-func _track_is_selectable(track: PlayerTrack) -> bool:
+func _engagement_target_is_valid(track: PlayerTrack) -> bool:
 	return track != null and is_instance_valid(track) and doctrine.allows(track) and global_position.distance_to(track.estimated_position) <= _definition.attack_range * operational_efficiency()
 
 func _fire_pulse(track: PlayerTrack) -> int:

@@ -64,20 +64,30 @@ func available_tracks() -> Array[PlayerTrack]:
 		return []
 	return c2_network.available_tracks_for_gameplay(self, player_knowledge)
 
-func cached_engagement_target() -> PlayerTrack:
-	return _cached_engagement_target
+func _resolve_engagement_target(delta: float, prepared_tracks: Array[PlayerTrack] = [], tracks_are_prepared: bool = false) -> PlayerTrack:
+	var target_is_valid := _cached_engagement_target == null or _engagement_target_is_valid(_cached_engagement_target)
+	if not engagement_target_needs_evaluation(delta, target_is_valid):
+		return _cached_engagement_target
+	var tracks := prepared_tracks if tracks_are_prepared else available_tracks()
+	return remember_engagement_target(_select_engagement_target(tracks))
+
+func _select_engagement_target(_tracks: Array[PlayerTrack]) -> PlayerTrack:
+	return null
+
+func _engagement_target_is_valid(_track: PlayerTrack) -> bool:
+	return false
 
 func engagement_target_needs_evaluation(delta: float, cached_target_is_valid: bool) -> bool:
 	_target_evaluation_remaining = maxf(0.0, _target_evaluation_remaining - delta)
 	var track_revision := player_knowledge.track_revision if player_knowledge != null else -1
-	var c2_revision := c2_network.gameplay_view_revision if c2_network != null else -1
+	var c2_revision := c2_network.current_gameplay_view_revision() if c2_network != null else -1
 	return not cached_target_is_valid or _target_evaluation_remaining <= 0.0 or _target_track_revision != track_revision or _target_c2_revision != c2_revision
 
 func remember_engagement_target(track: PlayerTrack) -> PlayerTrack:
 	_cached_engagement_target = track
 	_target_evaluation_remaining = TARGET_EVALUATION_INTERVAL
 	_target_track_revision = player_knowledge.track_revision if player_knowledge != null else -1
-	_target_c2_revision = c2_network.gameplay_view_revision if c2_network != null else -1
+	_target_c2_revision = c2_network.current_gameplay_view_revision() if c2_network != null else -1
 	return track
 
 func invalidate_engagement_target() -> void:

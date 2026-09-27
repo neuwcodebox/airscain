@@ -28,10 +28,10 @@ class TargetSnapshot:
 	var targets: Array[ThreatUnit] = []
 	var positions := PackedVector3Array()
 	var velocities := PackedVector3Array()
-	var reaches := PackedFloat32Array()
-	var indices := PackedInt32Array()
+	var travel_distances := PackedFloat32Array()
+	var all_indices := PackedInt32Array()
 	var cells: Dictionary[Vector3i, Array] = {}
-	var max_reach: float = 0.0
+	var maximum_travel_distance: float = 0.0
 
 	func _init(registry_value: ThreatRegistry, delta: float) -> void:
 		if registry_value == null:
@@ -41,12 +41,12 @@ class TargetSnapshot:
 			positions.append(target.get_aim_position())
 			var velocity := target.presentation_velocity()
 			velocities.append(velocity)
-			reaches.append(velocity.length() * delta)
-		indices = PackedInt32Array(range(targets.size()))
+			travel_distances.append(velocity.length() * delta)
+		all_indices = PackedInt32Array(range(targets.size()))
 		if targets.size() > LINEAR_LIMIT:
 			for index: int in targets.size():
 				var position := positions[index]
-				max_reach = maxf(max_reach, reaches[index])
+				maximum_travel_distance = maxf(maximum_travel_distance, travel_distances[index])
 				var cell := Vector3i((position / CELL_SIZE).floor())
 				if not cells.has(cell):
 					cells[cell] = []
@@ -54,15 +54,15 @@ class TargetSnapshot:
 
 	func candidates(start: Vector3, end: Vector3, radius: float) -> PackedInt32Array:
 		if targets.size() <= LINEAR_LIMIT:
-			return indices
+			return all_indices
 		# A target's initial position may be outside the round's swept bounds.
 		# Expand by its maximum possible movement, including partial/delayed steps.
-		var padding := Vector3.ONE * (radius + max_reach + 0.001)
+		var padding := Vector3.ONE * (radius + maximum_travel_distance + 0.001)
 		var first := Vector3i(((start.min(end) - padding) / CELL_SIZE).floor())
 		var last := Vector3i(((start.max(end) + padding) / CELL_SIZE).floor())
 		var span := last - first + Vector3i.ONE
 		if float(span.x) * span.y * span.z >= targets.size():
-			return indices
+			return all_indices
 		var result := PackedInt32Array()
 		for x: int in range(first.x, last.x + 1):
 			for y: int in range(first.y, last.y + 1):
@@ -164,8 +164,8 @@ func _step(delta: float, snapshot: TargetSnapshot) -> void:
 		return
 	var targets := snapshot.targets
 	var target_positions := snapshot.positions
-	var target_steps := snapshot.velocities
-	var target_reaches := snapshot.reaches
+	var target_velocities := snapshot.velocities
+	var target_travel_distances := snapshot.travel_distances
 	for index: int in range(rounds.size() - 1, -1, -1):
 		var round := rounds[index]
 		var previous_age := float(round.age)
@@ -181,19 +181,12 @@ func _step(delta: float, snapshot: TargetSnapshot) -> void:
 		var end := start + velocity * travel_time + GRAVITY * travel_time * travel_time * 0.5
 		var segment_length := start.distance_to(end)
 		round.velocity = velocity + GRAVITY * travel_time
+		var surface_fraction := _surface_impact_fraction(start, end, segment_length)
 		var stop := 1.0
 		var reason: StringName = &""
-		if battlefield != null:
-			var terrain_hit := battlefield.terrain_segment_impact(start, end)
-			if not terrain_hit.is_empty():
-				stop = start.distance_to(terrain_hit.position) / maxf(0.001, segment_length)
-				reason = &"surface"
-			var building_hit := battlefield.building_segment_impact(start, end)
-			if not building_hit.is_empty():
-				var building_fraction := start.distance_to(building_hit.position) / maxf(0.001, segment_length)
-				if building_fraction <= stop:
-					stop = building_fraction
-					reason = &"surface"
+		if is_finite(surface_fraction):
+			stop = surface_fraction
+			reason = &"surface"
 		var victim: ThreatUnit
 		if float(round.age) >= ARM_TIME:
 			var armed_fraction := clampf((ARM_TIME - maxf(0, previous_age)) / maxf(0.00001, travel_time), 0, 1)
@@ -201,13 +194,13 @@ func _step(delta: float, snapshot: TargetSnapshot) -> void:
 			for target_index: int in _candidate_indices(snapshot, start, end, float(round.radius)):
 				var offset := start - target_positions[target_index]
 				# Conservative swept sphere: moving targets can enter the fuze this step.
-				var reach := round_reach + target_reaches[target_index] + 0.001
+				var reach := round_reach + target_travel_distances[target_index] + 0.001
 				if offset.length_squared() > reach * reach:
 					continue
 				var target := targets[target_index]
 				if not is_instance_valid(target) or not target.is_targetable():
 					continue
-				var relative_step := end - start - target_steps[target_index] * travel_time
+				var relative_step := end - start - target_velocities[target_index] * travel_time
 				var along := clampf(-offset.dot(relative_step) / maxf(0.00001, relative_step.length_squared()), armed_fraction, 1)
 				if along <= stop and (offset + relative_step * along).length_squared() <= float(round.radius) * float(round.radius):
 					stop = along
@@ -220,7 +213,19 @@ func _step(delta: float, snapshot: TargetSnapshot) -> void:
 			_detonate(round.position, reason)
 			rounds.remove_at(index)
 			if is_instance_valid(victim):
-					victim.receive_damage(float(round.damage), owner_defense)
+				victim.receive_damage(float(round.damage), owner_defense)
+
+func _surface_impact_fraction(start: Vector3, end: Vector3, segment_length: float) -> float:
+	if battlefield == null:
+		return INF
+	var result := INF
+	var terrain_hit := battlefield.terrain_segment_impact(start, end)
+	if not terrain_hit.is_empty():
+		result = start.distance_to(terrain_hit.position) / maxf(0.001, segment_length)
+	var building_hit := battlefield.building_segment_impact(start, end)
+	if not building_hit.is_empty():
+		result = minf(result, start.distance_to(building_hit.position) / maxf(0.001, segment_length))
+	return result
 
 func _candidate_indices(snapshot: TargetSnapshot, start: Vector3, end: Vector3, radius: float) -> PackedInt32Array:
 	return snapshot.candidates(start, end, radius)

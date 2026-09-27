@@ -1944,7 +1944,7 @@ func test_weapon_target_cache_refreshes_for_track_c2_and_validity_changes() -> v
 	knowledge.track_revision += 1
 	assert_true(unit.engagement_target_needs_evaluation(0.01, true), "새 관측과 항적 변경은 즉시 재평가합니다")
 	unit.remember_engagement_target(track)
-	network.gameplay_view_revision += 1
+	network.reset()
 	assert_true(unit.engagement_target_needs_evaluation(0.01, true), "C2 연결 변경은 즉시 재평가합니다")
 	unit.remember_engagement_target(track)
 	assert_true(unit.engagement_target_needs_evaluation(0.01, false), "현재 표적이 교전 불가가 되면 즉시 재평가합니다")

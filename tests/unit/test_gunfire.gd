@@ -30,7 +30,7 @@ class CountingTarget:
 class ExhaustiveRuntime:
 	extends GunfireRuntime
 	func _candidate_indices(snapshot: TargetSnapshot, _start: Vector3, _end: Vector3, _radius: float) -> PackedInt32Array:
-		return snapshot.indices
+		return snapshot.all_indices
 
 func test_gunfire_substeps_share_one_target_snapshot() -> void:
 	var runtime := _runtime()

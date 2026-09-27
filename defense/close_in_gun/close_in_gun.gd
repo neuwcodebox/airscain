@@ -81,14 +81,8 @@ func gameplay_tick(delta: float) -> void:
 		tactical_reload.evaluate_magazine(&"ammunition", magazine, tactical_reload_delta, global_position, tracks, _definition.attack_range * operational_efficiency(), doctrine.hold_fire, func(candidate: PlayerTrack) -> bool:
 			return doctrine.allows(candidate) and weapon_match(candidate) > 0.0
 		)
-	var track := cached_engagement_target()
-	var cached_valid := track == null or _track_is_selectable(track)
-	if engagement_target_needs_evaluation(delta, cached_valid):
-		if not tracks_loaded:
-			tracks = available_tracks()
-		track = remember_engagement_target(select_track(tracks, battlefield.objective.global_position))
-	else:
-		line_of_fire_blocked = false
+	line_of_fire_blocked = false
+	var track := _resolve_engagement_target(delta, tracks, tracks_loaded)
 	var has_assignment := maintain_fire_support(track, magazine.can_fire())
 	if track == null:
 		return
@@ -129,7 +123,10 @@ func select_track(tracks: Array[PlayerTrack], protected_position: Vector3) -> Pl
 		line_of_fire_blocked = false
 	return selected
 
-func _track_is_selectable(track: PlayerTrack) -> bool:
+func _select_engagement_target(tracks: Array[PlayerTrack]) -> PlayerTrack:
+	return select_track(tracks, battlefield.objective.global_position)
+
+func _engagement_target_is_valid(track: PlayerTrack) -> bool:
 	if track == null or not is_instance_valid(track) or not doctrine.allows(track) or weapon_match(track) <= 0.0:
 		return false
 	if global_position.distance_to(track.estimated_position) > _definition.attack_range * operational_efficiency():
