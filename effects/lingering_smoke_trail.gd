@@ -5,6 +5,7 @@ const VISUAL_UPDATE_INTERVAL := 1.0 / 15.0
 const TRAIL_SHADER := preload("res://effects/trail_smoke.gdshader")
 const FADE_END_RATIO := 0.88
 const VISIBLE_CHUNK_SIZE := 512
+const BOUND_REFRESH_INTERVAL := 0.5
 
 @export var puff_mesh: QuadMesh
 @export_range(32, 4096, 1) var amount: int = 1024
@@ -36,6 +37,7 @@ var current_shadow_opacity_ratio: float = 1.0
 
 var _elapsed: float = 0.0
 var _visual_update_remaining: float = 0.0
+var _bound_refresh_remaining: float = 0.0
 var _next_slot: int = 0
 var _emission_serial: int = 0
 var _birth_times := PackedFloat32Array()
@@ -50,11 +52,12 @@ var _active_slots: Array[int] = []
 var _visible_chunks: Array[MultiMeshInstance3D] = []
 var _chunk_bounds: Array[AABB] = []
 var _chunk_has_bounds: Array[bool] = []
-var _chunk_bounds_dirty: Array[bool] = []
+var _chunk_oldest_birth: Array[float] = []
 var _needs_bounds_rebuild: bool = false
 var _bounds := AABB()
 var _has_bounds := false
 var _bounds_dirty := false
+var _oldest_birth: float = INF
 
 func _ready() -> void:
 	set_as_top_level(true)
@@ -129,8 +132,10 @@ func _process(delta: float) -> void:
 		_update_puffs()
 	if _needs_bounds_rebuild:
 		_rebuild_bounds()
-	if _bounds_dirty:
+	_bound_refresh_remaining -= delta
+	if _bounds_dirty or _bound_refresh_remaining <= 0.0:
 		_refresh_culling_bounds()
+		_bound_refresh_remaining = BOUND_REFRESH_INTERVAL
 	if release_remaining < 0.0:
 		return
 	release_elapsed += delta
@@ -170,7 +175,7 @@ func _create_visible_multimesh() -> void:
 		_visible_chunks.append(chunk)
 		_chunk_bounds.append(AABB())
 		_chunk_has_bounds.append(false)
-		_chunk_bounds_dirty.append(false)
+		_chunk_oldest_birth.append(INF)
 	_birth_times.resize(amount)
 	_positions.resize(amount)
 	_size_variations.resize(amount)
@@ -228,10 +233,11 @@ func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> v
 	_bounds = _bounds.expand(position) if _has_bounds else AABB(position, Vector3.ZERO)
 	_has_bounds = true
 	_bounds_dirty = true
+	_oldest_birth = minf(_oldest_birth, _elapsed)
 	var chunk_index := slot / VISIBLE_CHUNK_SIZE
 	_chunk_bounds[chunk_index] = _chunk_bounds[chunk_index].expand(position) if _chunk_has_bounds[chunk_index] else AABB(position, Vector3.ZERO)
 	_chunk_has_bounds[chunk_index] = true
-	_chunk_bounds_dirty[chunk_index] = true
+	_chunk_oldest_birth[chunk_index] = minf(_chunk_oldest_birth[chunk_index], _elapsed)
 	_size_variations[slot] = variation.size_ratio
 	_opacity_variations[slot] = variation.opacity_ratio
 	_drift_vectors[slot] = variation.drift_direction
@@ -265,27 +271,36 @@ func _update_puffs() -> void:
 func _rebuild_bounds() -> void:
 	_needs_bounds_rebuild = false
 	_has_bounds = false
+	_oldest_birth = INF
 	for chunk_index: int in _visible_chunks.size():
 		_chunk_has_bounds[chunk_index] = false
+		_chunk_oldest_birth[chunk_index] = INF
 	for slot: int in _active_slots:
 		var position := _positions[slot]
 		_bounds = _bounds.expand(position) if _has_bounds else AABB(position, Vector3.ZERO)
 		_has_bounds = true
+		_oldest_birth = minf(_oldest_birth, _birth_times[slot])
 		var chunk_index := slot / VISIBLE_CHUNK_SIZE
 		_chunk_bounds[chunk_index] = _chunk_bounds[chunk_index].expand(position) if _chunk_has_bounds[chunk_index] else AABB(position, Vector3.ZERO)
 		_chunk_has_bounds[chunk_index] = true
-		_chunk_bounds_dirty[chunk_index] = true
+		_chunk_oldest_birth[chunk_index] = minf(_chunk_oldest_birth[chunk_index], _birth_times[slot])
 	_bounds_dirty = _has_bounds
 
 func _refresh_culling_bounds() -> void:
-	var turbulence_extent := turbulence_strength * 3.6 * (sqrt(1.0 + lifetime * 0.5) - 1.0)
-	var margin := puff_mesh.size.length() * maxf(initial_scale, final_scale) * 1.3 + lifetime * drift_speed * 2.0 + turbulence_extent
 	for chunk_index: int in _visible_chunks.size():
-		if _chunk_bounds_dirty[chunk_index] and _chunk_has_bounds[chunk_index]:
-			_visible_chunks[chunk_index].multimesh.custom_aabb = _chunk_bounds[chunk_index].grow(margin)
-			_chunk_bounds_dirty[chunk_index] = false
-	shadow_particles.multimesh.custom_aabb = _bounds.grow(margin)
+		if _chunk_has_bounds[chunk_index]:
+			var age_horizon := minf(lifetime, _elapsed - _chunk_oldest_birth[chunk_index] + BOUND_REFRESH_INTERVAL + 0.1)
+			_visible_chunks[chunk_index].multimesh.custom_aabb = _chunk_bounds[chunk_index].grow(_culling_margin(age_horizon))
+	if _has_bounds:
+		var shadow_horizon := minf(lifetime, _elapsed - _oldest_birth + BOUND_REFRESH_INTERVAL + 0.1)
+		shadow_particles.multimesh.custom_aabb = _bounds.grow(_culling_margin(shadow_horizon))
 	_bounds_dirty = false
+
+func _culling_margin(age_horizon: float) -> float:
+	var t := clampf(age_horizon / lifetime, 0.0, 1.0)
+	var scale_limit := maxf(initial_scale, lerpf(initial_scale, final_scale, smoothstep(0.0, 1.0, t)))
+	var turbulence_extent := turbulence_strength * 3.6 * (sqrt(1.0 + age_horizon * 0.5) - 1.0)
+	return puff_mesh.size.length() * scale_limit * 1.3 + age_horizon * drift_speed * 2.0 + turbulence_extent
 
 func _update_puff(slot: int) -> void:
 	# Upload a birth record once. Both passes animate from the same GPU data.

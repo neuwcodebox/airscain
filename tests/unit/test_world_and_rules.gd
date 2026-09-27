@@ -271,6 +271,17 @@ func test_wrapped_smoke_slots_rebuild_bounds_around_new_positions() -> void:
 	assert_gt(trail.multimesh.custom_aabb.position.x, 500.0)
 	assert_eq(trail.multimesh.custom_aabb, trail.shadow_particles.multimesh.custom_aabb)
 
+func test_live_smoke_culling_bounds_expand_with_age_without_new_samples() -> void:
+	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect
+	var trail := effect.smoke
+	trail.emitting = true
+	trail.sample_world_segment(Vector3.ZERO, Vector3(20, 0, 0))
+	trail._process(0.1)
+	var fresh_bounds := trail.multimesh.custom_aabb
+	trail._process(2.0)
+	assert_gt(trail.multimesh.custom_aabb.size.x, fresh_bounds.size.x)
+	assert_eq(trail.multimesh.custom_aabb, trail.shadow_particles.multimesh.custom_aabb)
+
 func test_building_spatial_candidates_preserve_nearest_segment_impacts() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	field.build(SCENARIO)
