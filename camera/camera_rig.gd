@@ -9,7 +9,7 @@ extends Node3D
 @export var rotation_drag_speed: float = 0.006
 
 const DEFAULT_PITCH := atan(0.72)
-const MINIMUM_PITCH := -PI / 3.0
+const MINIMUM_PITCH := -PI / 2.0
 const MAXIMUM_PITCH := PI / 2.0
 const TERRAIN_CLEARANCE := 1.2
 const ORBIT_SCALE := sqrt(1.0 + 0.72 * 0.72)

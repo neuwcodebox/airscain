@@ -158,6 +158,8 @@ func test_vertical_drag_clamps_at_both_pitch_limits() -> void:
 	motion.relative = Vector2(0, -10000)
 	_send_camera_input(motion)
 	assert_eq(rig.pitch_radians, CameraRig.MINIMUM_PITCH)
+	assert_almost_eq((-rig.camera.global_basis.z).dot(Vector3.UP), 1.0, 0.0001)
+	assert_true(rig.camera.global_basis.is_finite())
 
 func test_top_down_view_remains_finite_and_yaw_relative() -> void:
 	rig.pitch_radians = PI / 2.0

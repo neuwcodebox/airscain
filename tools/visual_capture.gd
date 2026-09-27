@@ -50,6 +50,10 @@ func run() -> void:
 		await create_timer(0.2).timeout
 		_save_capture("/tmp/airscain_low_angle_turned.png")
 		assert(main.camera_rig.camera.global_position.distance_to(before_turn) < 0.01)
+		main.camera_rig.pitch_radians = CameraRig.MINIMUM_PITCH
+		main.camera_rig._update_camera()
+		await create_timer(0.2).timeout
+		_save_capture("/tmp/airscain_low_angle_zenith.png")
 		print("LOW_ANGLE_CAPTURE_OK height=%.2f terrain=%.2f" % [main.camera_rig.camera.global_position.y, main.battlefield.terrain_height(main.camera_rig.camera.global_position.x, main.camera_rig.camera.global_position.z)])
 		main.queue_free()
 		await process_frame
