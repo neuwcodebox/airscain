@@ -68,7 +68,7 @@ func _process(delta: float) -> void:
 			wreck.visible = false
 			_release_smoke()
 			if impact_flash_enabled:
-				ExplosionEffect.spawn(get_parent() as Node3D, global_position, Color("ff9b48"), 8.0)
+				ExplosionEffect.spawn(get_parent() as Node3D, global_position, Color("ff9b48"), 8.0, true, velocity)
 			elapsed = 0.0
 	else:
 		if elapsed >= 1.4:

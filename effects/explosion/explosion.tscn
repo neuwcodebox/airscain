@@ -1,57 +1,20 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource path="res://effects/explosion/explosion.gd" type="Script" id="1"]
-[ext_resource path="res://effects/shadowed_smoke_particles.gd" type="Script" id="2"]
-[ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="3"]
-[ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="4"]
-[ext_resource path="res://effects/shockwave_card_texture.tres" type="Texture2D" id="5"]
-[ext_resource path="res://effects/light_glare.svg" type="Texture2D" id="6"]
-[ext_resource path="res://effects/explosion/fire_card.gdshader" type="Shader" id="7"]
-
-[sub_resource type="Gradient" id="SmokeLifetimeGradient"]
-offsets = PackedFloat32Array(0, 0.08, 0.58, 1)
-colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 0.82, 1, 1, 1, 0.6, 1, 1, 1, 0)
-
-[sub_resource type="GradientTexture1D" id="SmokeLifetimeTexture"]
-gradient = SubResource("SmokeLifetimeGradient")
-
-[sub_resource type="ParticleProcessMaterial" id="SmokeProcess"]
-emission_shape = 1
-emission_sphere_radius = 2.8
-direction = Vector3(0, 1, 0)
-spread = 180.0
-gravity = Vector3(0, 0.8, 0)
-initial_velocity_min = 3.5
-initial_velocity_max = 10.0
-damping_min = 2.0
-damping_max = 3.5
-scale_min = 1.8
-scale_max = 4.6
-color = Color(0.28, 0.27, 0.26, 0.72)
-color_ramp = SubResource("SmokeLifetimeTexture")
-
-[sub_resource type="StandardMaterial3D" id="SmokeMaterial"]
-transparency = 1
-shading_mode = 1
-vertex_color_use_as_albedo = true
-albedo_color = Color(0.92, 0.92, 0.9, 0.85)
-albedo_texture = ExtResource("3")
-billboard_mode = 1
-billboard_keep_scale = true
-
-[sub_resource type="QuadMesh" id="SmokeMesh"]
-material = SubResource("SmokeMaterial")
-size = Vector2(2, 2)
+[ext_resource path="res://effects/explosion/thermal_puff.gdshader" type="Shader" id="2"]
+[ext_resource path="res://effects/explosion/explosion_shadow.gdshader" type="Shader" id="3"]
+[ext_resource path="res://effects/smoke_card_texture.tres" type="Texture2D" id="4"]
+[ext_resource path="res://effects/glow_card_texture.tres" type="Texture2D" id="5"]
 
 [sub_resource type="StandardMaterial3D" id="FlashMaterial"]
 transparency = 1
 blend_mode = 1
 shading_mode = 0
-albedo_color = Color(1, 0.43, 0.12, 1)
-albedo_texture = ExtResource("4")
+albedo_color = Color(1, 0.92, 0.65, 1)
+albedo_texture = ExtResource("5")
 emission_enabled = true
-emission = Color(1, 0.43, 0.12, 1)
-emission_energy_multiplier = 24.0
+emission = Color(1, 0.92, 0.65, 1)
+emission_energy_multiplier = 18.0
 billboard_mode = 1
 billboard_keep_scale = true
 
@@ -59,191 +22,116 @@ billboard_keep_scale = true
 material = SubResource("FlashMaterial")
 size = Vector2(2, 2)
 
-[sub_resource type="StandardMaterial3D" id="HaloMaterial"]
-transparency = 1
-blend_mode = 1
-shading_mode = 0
-albedo_color = Color(1, 0.43, 0.12, 0.3)
-albedo_texture = ExtResource("6")
-emission_enabled = true
-emission = Color(1, 0.43, 0.12, 1)
-emission_energy_multiplier = 16.0
-billboard_mode = 1
-billboard_keep_scale = true
+[sub_resource type="Gradient" id="LifetimeGradient"]
+offsets = PackedFloat32Array(0, 0.05, 0.5, 0.82, 1)
+colors = PackedColorArray(1, 1, 1, 0.8, 1, 1, 1, 0.95, 1, 1, 1, 0.74, 1, 1, 1, 0.46, 1, 1, 1, 0)
 
-[sub_resource type="QuadMesh" id="HaloMesh"]
-material = SubResource("HaloMaterial")
-size = Vector2(2, 2)
+[sub_resource type="GradientTexture1D" id="LifetimeTexture"]
+gradient = SubResource("LifetimeGradient")
 
-[sub_resource type="StandardMaterial3D" id="PressureRingMaterial"]
-transparency = 1
-blend_mode = 1
-shading_mode = 0
-albedo_color = Color(1, 0.56, 0.14, 0)
-albedo_texture = ExtResource("5")
-emission_enabled = true
-emission = Color(1, 0.3, 0.04, 1)
-emission_energy_multiplier = 14.0
-billboard_mode = 1
-billboard_keep_scale = true
-
-[sub_resource type="QuadMesh" id="PressureRingMesh"]
-material = SubResource("PressureRingMaterial")
-size = Vector2(2, 2)
-
-[sub_resource type="Gradient" id="FireballLifetimeGradient"]
-offsets = PackedFloat32Array(0, 0.08, 0.58, 1)
-colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0.72, 1, 1, 1, 0)
-
-[sub_resource type="GradientTexture1D" id="FireballLifetimeTexture"]
-gradient = SubResource("FireballLifetimeGradient")
-
-[sub_resource type="Curve" id="FireballScaleCurve"]
-min_value = 0.0
-max_value = 1.4
-_data = [Vector2(0, 0.25), 0.0, 5.5, 0, 0, Vector2(0.18, 1.15), 0.0, 0.0, 0, 0, Vector2(0.7, 0.82), 0.0, 0.0, 0, 0, Vector2(1, 0.2), -1.2, 0.0, 0, 0]
-point_count = 4
-
-[sub_resource type="CurveTexture" id="FireballScaleTexture"]
-curve = SubResource("FireballScaleCurve")
-
-[sub_resource type="ParticleProcessMaterial" id="FireballProcess"]
+[sub_resource type="ParticleProcessMaterial" id="PuffProcess"]
 emission_shape = 1
-emission_sphere_radius = 2.4
-direction = Vector3(0, 1, 0)
-spread = 180.0
-gravity = Vector3(0, 0.5, 0)
-initial_velocity_min = 2.5
-initial_velocity_max = 9.0
-damping_min = 4.0
-damping_max = 7.0
-scale_min = 1.5
-scale_max = 3.2
-scale_curve = SubResource("FireballScaleTexture")
-color_ramp = SubResource("FireballLifetimeTexture")
-
-[sub_resource type="StandardMaterial3D" id="FireballMaterial"]
-transparency = 1
-blend_mode = 1
-shading_mode = 0
-albedo_color = Color(1, 0.72, 0.2, 1)
-vertex_color_use_as_albedo = true
-albedo_texture = ExtResource("4")
-emission_enabled = true
-emission = Color(1, 0.36, 0.04, 1)
-emission_energy_multiplier = 8.0
-billboard_mode = 1
-billboard_keep_scale = true
-
-[sub_resource type="QuadMesh" id="FireballMesh"]
-material = SubResource("FireballMaterial")
-size = Vector2(2, 2)
-
-[sub_resource type="Gradient" id="FireBodyGradient"]
-offsets = PackedFloat32Array(0, 0.05, 0.26, 0.46, 0.66, 1)
-colors = PackedColorArray(1, 0.93, 0.7, 0, 1, 0.8, 0.45, 1, 1, 0.52, 0.16, 0.95, 0.5, 0.24, 0.1, 0.85, 0.2, 0.17, 0.15, 0.65, 0.17, 0.16, 0.15, 0)
-
-[sub_resource type="GradientTexture1D" id="FireBodyTexture"]
-gradient = SubResource("FireBodyGradient")
-
-[sub_resource type="Curve" id="FireBodyScaleCurve"]
-min_value = 0.0
-max_value = 1.6
-_data = [Vector2(0, 0.35), 0.0, 4.0, 0, 0, Vector2(0.25, 1.15), 0.0, 0.0, 0, 0, Vector2(1, 1.5), 0.5, 0.0, 0, 0]
-point_count = 3
-
-[sub_resource type="CurveTexture" id="FireBodyScaleTexture"]
-curve = SubResource("FireBodyScaleCurve")
-
-[sub_resource type="ParticleProcessMaterial" id="FireBodyProcess"]
-emission_shape = 1
-emission_sphere_radius = 2.2
+emission_sphere_radius = 1.1
 angle_min = -180.0
 angle_max = 180.0
-angular_velocity_min = -40.0
-angular_velocity_max = 40.0
+angular_velocity_min = -22.0
+angular_velocity_max = 22.0
 direction = Vector3(0, 1, 0)
-spread = 180.0
-gravity = Vector3(0, 2.2, 0)
-initial_velocity_min = 3.0
-initial_velocity_max = 11.0
-damping_min = 5.0
-damping_max = 8.0
-scale_min = 2.2
-scale_max = 4.0
-scale_curve = SubResource("FireBodyScaleTexture")
-color_ramp = SubResource("FireBodyTexture")
+spread = 160.0
+gravity = Vector3(0, 1.1, 0)
+initial_velocity_min = 5.0
+initial_velocity_max = 12.0
+damping_min = 3.0
+damping_max = 5.0
+scale_min = 2.4
+scale_max = 4.2
+color_ramp = SubResource("LifetimeTexture")
 
-[sub_resource type="ShaderMaterial" id="FireBodyMaterial"]
-render_priority = 1
-shader = ExtResource("7")
-shader_parameter/tint = Color(1, 1, 1, 1)
-shader_parameter/heat = 1.3
+[sub_resource type="ShaderMaterial" id="PuffMaterial"]
+shader = ExtResource("2")
+shader_parameter/card = ExtResource("4")
 
-[sub_resource type="QuadMesh" id="FireBodyMesh"]
-material = SubResource("FireBodyMaterial")
+[sub_resource type="QuadMesh" id="PuffMesh"]
+material = SubResource("PuffMaterial")
 size = Vector2(2, 2)
 
-[sub_resource type="ParticleProcessMaterial" id="DebrisProcess"]
-emission_shape = 1
-emission_sphere_radius = 1.2
-angle_min = -180.0
-angle_max = 180.0
-angular_velocity_min = -360.0
-angular_velocity_max = 360.0
-direction = Vector3(0, 1, 0)
-spread = 75.0
-gravity = Vector3(0, -24, 0)
-initial_velocity_min = 9.0
-initial_velocity_max = 22.0
-scale_min = 0.4
-scale_max = 1.1
+[sub_resource type="ShaderMaterial" id="ShadowMaterial"]
+shader = ExtResource("3")
 
-[sub_resource type="StandardMaterial3D" id="DebrisMaterial"]
-albedo_color = Color(0.11, 0.1, 0.09, 1)
-roughness = 0.9
-
-[sub_resource type="BoxMesh" id="DebrisMesh"]
-material = SubResource("DebrisMaterial")
-size = Vector3(0.5, 0.24, 0.4)
+[sub_resource type="SphereMesh" id="ShadowMesh"]
+material = SubResource("ShadowMaterial")
+radius = 0.68
+height = 1.36
+radial_segments = 8
+rings = 4
 
 [sub_resource type="ParticleProcessMaterial" id="SparkProcess"]
 particle_flag_align_y = true
 emission_shape = 1
-emission_sphere_radius = 1.0
+emission_sphere_radius = 0.8
 direction = Vector3(0, 1, 0)
-spread = 180.0
+spread = 110.0
 gravity = Vector3(0, -18, 0)
 initial_velocity_min = 12.0
-initial_velocity_max = 28.0
-scale_min = 0.6
-scale_max = 1.4
-color = Color(1, 0.46, 0.08, 1)
+initial_velocity_max = 30.0
+scale_min = 0.5
+scale_max = 1.2
+color = Color(1, 0.53, 0.17, 1)
 
 [sub_resource type="StandardMaterial3D" id="SparkMaterial"]
 shading_mode = 0
-albedo_color = Color(1, 0.38, 0.05, 1)
+albedo_color = Color(1, 0.5, 0.13, 1)
 emission_enabled = true
-emission = Color(1, 0.22, 0.02, 1)
-emission_energy_multiplier = 14.0
+emission = Color(1, 0.3, 0.04, 1)
+emission_energy_multiplier = 8.0
 
 [sub_resource type="BoxMesh" id="SparkMesh"]
 material = SubResource("SparkMaterial")
-size = Vector3(0.12, 1.3, 0.12)
+size = Vector3(0.1, 0.9, 0.1)
 
-[sub_resource type="StandardMaterial3D" id="ShockwaveMaterial"]
+[sub_resource type="ParticleProcessMaterial" id="DebrisProcess"]
+emission_shape = 1
+emission_sphere_radius = 0.9
+direction = Vector3(0, 1, 0)
+spread = 100.0
+gravity = Vector3(0, -24, 0)
+initial_velocity_min = 8.0
+initial_velocity_max = 19.0
+scale_min = 0.4
+scale_max = 0.9
+
+[sub_resource type="StandardMaterial3D" id="DebrisMaterial"]
+albedo_color = Color(0.14, 0.13, 0.12, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="DebrisMesh"]
+material = SubResource("DebrisMaterial")
+size = Vector3(0.55, 0.3, 0.42)
+
+[sub_resource type="ParticleProcessMaterial" id="DustProcess"]
+emission_shape = 1
+emission_sphere_radius = 0.5
+direction = Vector3(0, 0, 1)
+spread = 85.0
+gravity = Vector3(0, -1.0, 0)
+initial_velocity_min = 4.0
+initial_velocity_max = 11.0
+damping_min = 3.0
+damping_max = 5.0
+scale_min = 2.0
+scale_max = 3.5
+color = Color(0.46, 0.43, 0.38, 0.7)
+
+[sub_resource type="StandardMaterial3D" id="DustMaterial"]
 transparency = 1
-blend_mode = 1
-shading_mode = 0
-albedo_color = Color(1, 0.56, 0.14, 0.9)
-albedo_texture = ExtResource("5")
-emission_enabled = true
-emission = Color(1, 0.24, 0.02, 1)
-emission_energy_multiplier = 10.0
-cull_mode = 2
+shading_mode = 1
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource("4")
+billboard_mode = 1
+billboard_keep_scale = true
 
-[sub_resource type="QuadMesh" id="ShockwaveMesh"]
-material = SubResource("ShockwaveMaterial")
+[sub_resource type="QuadMesh" id="DustMesh"]
+material = SubResource("DustMaterial")
 size = Vector2(2, 2)
 
 [node name="Explosion" type="Node3D"]
@@ -253,78 +141,53 @@ script = ExtResource("1")
 mesh = SubResource("FlashMesh")
 material_override = SubResource("FlashMaterial")
 
-[node name="FlashHalo" type="MeshInstance3D" parent="."]
-mesh = SubResource("HaloMesh")
-material_override = SubResource("HaloMaterial")
-
-[node name="PressureRing" type="MeshInstance3D" parent="."]
-mesh = SubResource("PressureRingMesh")
-material_override = SubResource("PressureRingMaterial")
-
-[node name="Shockwave" type="MeshInstance3D" parent="."]
-rotation = Vector3(-1.5708, 0, 0)
-mesh = SubResource("ShockwaveMesh")
-material_override = SubResource("ShockwaveMaterial")
-
 [node name="BlastLight" type="OmniLight3D" parent="."]
-light_color = Color(1, 0.43, 0.12, 1)
-light_energy = 30.0
-
-[node name="Fireball" type="GPUParticles3D" parent="."]
-emitting = false
-amount = 30
-lifetime = 0.9
-one_shot = true
-explosiveness = 0.94
-randomness = 0.18
-visibility_aabb = AABB(-28, -28, -28, 56, 56, 56)
-fixed_fps = 30
-process_material = SubResource("FireballProcess")
-draw_pass_1 = SubResource("FireballMesh")
-
-[node name="FireBody" type="GPUParticles3D" parent="."]
-emitting = false
-amount = 22
-lifetime = 1.3
-one_shot = true
-explosiveness = 0.9
-randomness = 0.2
-visibility_aabb = AABB(-30, -30, -30, 60, 60, 60)
-cast_shadow = 0
-fixed_fps = 30
-process_material = SubResource("FireBodyProcess")
-draw_pass_1 = SubResource("FireBodyMesh")
-
-[node name="Debris" type="GPUParticles3D" parent="."]
-emitting = false
-amount = 14
-lifetime = 2.2
-one_shot = true
-explosiveness = 1.0
-randomness = 0.3
-visibility_aabb = AABB(-40, -60, -40, 80, 90, 80)
-process_material = SubResource("DebrisProcess")
-draw_pass_1 = SubResource("DebrisMesh")
+light_color = Color(1, 0.72, 0.43, 1)
+light_energy = 0.0
+shadow_enabled = false
 
 [node name="Smoke" type="GPUParticles3D" parent="."]
 emitting = false
-amount = 84
+amount = 16
 lifetime = 3.7
-randomness = 0.24
 one_shot = true
-explosiveness = 0.9
-visibility_aabb = AABB(-30, -20, -30, 60, 60, 60)
+explosiveness = 0.97
+randomness = 0.12
+visibility_aabb = AABB(-40, -25, -40, 80, 85, 80)
+fixed_fps = 30
+layers = 524289
 cast_shadow = 1
-process_material = SubResource("SmokeProcess")
-draw_pass_1 = SubResource("SmokeMesh")
-script = ExtResource("2")
+process_material = SubResource("PuffProcess")
+draw_passes = 2
+draw_pass_1 = SubResource("PuffMesh")
+draw_pass_2 = SubResource("ShadowMesh")
 
 [node name="Sparks" type="GPUParticles3D" parent="."]
 emitting = false
-amount = 80
-lifetime = 1.25
+amount = 10
+lifetime = 1.2
 one_shot = true
 explosiveness = 1.0
 visibility_aabb = AABB(-35, -35, -35, 70, 70, 70)
 process_material = SubResource("SparkProcess")
 draw_pass_1 = SubResource("SparkMesh")
+
+[node name="Debris" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 6
+lifetime = 2.2
+one_shot = true
+explosiveness = 1.0
+visibility_aabb = AABB(-40, -60, -40, 80, 90, 80)
+process_material = SubResource("DebrisProcess")
+draw_pass_1 = SubResource("DebrisMesh")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 5
+lifetime = 1.7
+one_shot = true
+explosiveness = 1.0
+visibility_aabb = AABB(-28, -12, -28, 56, 40, 56)
+process_material = SubResource("DustProcess")
+draw_pass_1 = SubResource("DustMesh")

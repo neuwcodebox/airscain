@@ -20,7 +20,8 @@ func present(threat: ThreatUnit, neutralized: bool) -> void:
 		return
 	if neutralized or not threat.impact_uses_objective_audio():
 		audio.play_event(CombatAudio.EXPLOSION, 0.8 if neutralized else 1.0)
-	ExplosionEffect.spawn(effects_parent, threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0)
+	var ground := battlefield != null and threat.global_position.y <= battlefield.terrain_height(threat.global_position.x, threat.global_position.z) + 3.0
+	ExplosionEffect.spawn(effects_parent, threat.global_position, Color("ff8c35") if neutralized else Color("ff3b24"), 10.0 if neutralized else 15.0, ground, threat.presentation_velocity())
 
 func spawn_wreck(threat: ThreatUnit) -> void:
 	var profile := threat.definition.resolution_profile

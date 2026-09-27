@@ -120,10 +120,10 @@ func probe_explosion_components() -> void:
 		var effect := ExplosionEffect.spawn(main.effects_parent, point, Color.ORANGE, 12.0)
 		effects.append(effect)
 		groups["no_smoke"].append(effect.smoke)
-		groups["no_fire"].append_array([effect.fireball, effect.fire_body])
+		groups["no_fire"].append(effect.smoke)
 		groups["no_sparks_debris"].append_array([effect.sparks, effect.debris])
 		groups["no_lights"].append(effect.blast_light)
-		groups["no_all_particles"].append_array([effect.smoke, effect.fireball, effect.fire_body, effect.sparks, effect.debris])
+		groups["no_all_particles"].append_array([effect.smoke, effect.smoke, effect.sparks, effect.debris])
 	for frame: int in 4:
 		await process_frame
 		await RenderingServer.frame_post_draw

@@ -1413,7 +1413,6 @@ func test_low_roof_smoke_becomes_visible_before_leaving_its_source() -> void:
 func test_all_smoke_particles_use_smooth_visible_materials_and_solid_shadow_casters() -> void:
 	var smoke_cases: Array[Dictionary] = [
 		{"scene": preload("res://effects/damage_smoke/damage_smoke.tscn"), "paths": ["Smoke"]},
-		{"scene": preload("res://effects/explosion/explosion.tscn"), "paths": ["Smoke"]},
 		{"scene": preload("res://effects/interceptor_miss/interceptor_miss.tscn"), "paths": ["Smoke"]},
 	]
 	for smoke_case: Dictionary in smoke_cases:
@@ -1585,44 +1584,30 @@ func test_transparent_trails_retire_gpu_work_and_resume_emission() -> void:
 	assert_gt(trail.multimesh.visible_instance_count, 0)
 	assert_gt(trail.shadow_particles.multimesh.visible_instance_count, 0)
 
-func test_transient_glows_use_soft_cards_without_realtime_light_shadows() -> void:
+func test_explosion_uses_one_lit_body_and_shared_shadow_motion() -> void:
 	var explosion := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect
-	for path: String in ["Flash", "FlashHalo", "PressureRing", "Shockwave"]:
-		var mesh_instance := explosion.get_node(path) as MeshInstance3D
-		assert_true(mesh_instance.mesh is QuadMesh, "%s must not expose a faceted glow mesh" % path)
-		var material := mesh_instance.material_override as StandardMaterial3D
-		assert_not_null(material.albedo_texture, "%s must have a soft radial mask" % path)
-	var fireball := explosion.get_node("Fireball") as GPUParticles3D
-	assert_true(fireball.draw_pass_1 is QuadMesh)
-	assert_true(((fireball.draw_pass_1 as QuadMesh).material as StandardMaterial3D).albedo_texture == preload("res://effects/glow_card_texture.tres"))
-	var explosion_smoke := explosion.get_node("Smoke") as ShadowedSmokeParticles
-	var smoke_material := (explosion_smoke.draw_pass_1 as QuadMesh).material as StandardMaterial3D
-	assert_eq(smoke_material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA)
-	assert_gte(smoke_material.albedo_color.r, 0.9, "smoke color must not be multiplied dark by both particle and mesh materials")
-	assert_false((explosion.get_node("BlastLight") as OmniLight3D).shadow_enabled)
-	var miss: Node = add_child_autofree(preload("res://effects/interceptor_miss/interceptor_miss.tscn").instantiate())
-	assert_true((miss.get_node("Flash") as MeshInstance3D).mesh is QuadMesh)
-	var countermeasure: Node = add_child_autofree(preload("res://effects/countermeasure_burst/countermeasure_burst.tscn").instantiate())
-	assert_true((countermeasure.get_node("Flares") as MultiMeshInstance3D).multimesh.mesh is QuadMesh)
+	var flash_mesh := explosion.flash.mesh as QuadMesh
+	assert_true(flash_mesh != null)
+	assert_not_null((flash_mesh.material as StandardMaterial3D).albedo_texture)
+	assert_eq(explosion.smoke.amount, 16)
+	assert_eq(explosion.smoke.draw_passes, 2)
+	assert_true(explosion.smoke.draw_pass_1 is QuadMesh)
+	assert_true(explosion.smoke.draw_pass_2 is SphereMesh)
+	assert_eq(explosion.sparks.amount + explosion.debris.amount, 16)
+	assert_false(explosion.blast_light.shadow_enabled)
 
-func test_explosion_timeline_layers_expand_and_retire_in_order() -> void:
+func test_explosion_flash_is_brief_and_ground_light_is_stronger() -> void:
 	var initial := ExplosionTimeline.sample(0.0, 10.0)
-	var ignition := ExplosionTimeline.sample(0.2, 10.0)
-	var pressure_tail := ExplosionTimeline.sample(0.8, 10.0)
-	var ended := ExplosionTimeline.sample(ExplosionTimeline.TOTAL_DURATION, 10.0)
-	assert_gt(ignition.core_scale, initial.core_scale)
-	assert_lt(ignition.core_alpha, initial.core_alpha)
-	assert_gt(ignition.pressure_alpha, initial.pressure_alpha)
-	assert_gt(pressure_tail.pressure_scale, ignition.pressure_scale)
-	assert_lt(pressure_tail.light_energy, ignition.light_energy)
+	var fading := ExplosionTimeline.sample(0.1, 10.0)
+	var ended := ExplosionTimeline.sample(0.3, 10.0)
+	assert_gt(initial.core_alpha, fading.core_alpha)
+	assert_gt(initial.light_energy, fading.light_energy)
+	assert_gt(fading.core_scale, initial.core_scale)
 	assert_eq(ended.core_alpha, 0.0)
-	assert_eq(ended.halo_alpha, 0.0)
-	assert_eq(ended.pressure_alpha, 0.0)
-	assert_eq(ended.ground_wave_alpha, 0.0)
 	assert_eq(ended.light_energy, 0.0)
-	var doubled := ExplosionTimeline.sample(0.2, 20.0)
-	assert_almost_eq(doubled.core_scale, ignition.core_scale * 2.0, 0.001)
-	assert_almost_eq(doubled.pressure_scale, ignition.pressure_scale * 2.0, 0.001)
+	assert_gt(ExplosionTimeline.sample(0.0, 10.0, true).light_energy, initial.light_energy)
+	assert_almost_eq(ExplosionTimeline.sample(0.1, 20.0).core_scale, fading.core_scale * 2.0, 0.001)
+	assert_gt(ExplosionTimeline.sample(0.12, 10.0, false, 0.0).core_alpha, ExplosionTimeline.sample(0.12, 10.0).core_alpha)
 
 func test_laser_effects_retire_independently() -> void:
 	var laser_scene := preload("res://effects/laser_pulse/laser_pulse.tscn")
@@ -2183,31 +2168,26 @@ func test_explosion_pool_reuses_instances_and_materials_without_reviving_other_e
 	assert_same(material, reused.flash_material)
 	assert_eq(reused.elapsed, 0.0)
 	assert_true(reused.visible)
-	assert_eq(second.flash_material.emission, Color.CYAN)
+	assert_eq(second.puff_material.get_shader_parameter("tint"), Vector3(0.0, 1.0, 1.0))
 	assert_eq(pool.available.size(), CombatEffectPool.CAPACITY - 2)
 
-func test_explosion_layers_retire_only_at_zero_and_restart_with_the_same_timeline() -> void:
+func test_explosion_surface_profile_and_restart() -> void:
 	var effect := add_child_autofree(preload("res://effects/explosion/explosion.tscn").instantiate()) as ExplosionEffect
 	effect.setup(Color.ORANGE, 10)
-	for index: int in 150:
-		effect._process(0.01)
-		var state := ExplosionTimeline.sample(effect.elapsed, 10)
-		var case_label := "explosion frame %d elapsed %.2f" % [index, effect.elapsed]
-		assert_eq(effect.flash.visible, state.core_alpha > 0.0, "%s core" % case_label)
-		assert_eq(effect.flash_halo.visible, state.halo_alpha > 0.0, "%s halo" % case_label)
-		assert_eq(effect.pressure_ring.visible, state.pressure_alpha > 0.0, "%s pressure" % case_label)
-		assert_eq(effect.shockwave.visible, state.ground_wave_alpha > 0.0, "%s ground wave" % case_label)
-		assert_eq(effect.blast_light.visible, state.light_energy > 0.0, "%s light" % case_label)
-		assert_almost_eq(effect.shockwave_material.albedo_color.a, state.ground_wave_alpha, 0.00001, "%s alpha" % case_label)
+	assert_false(effect.dust.emitting)
 	assert_true(effect.smoke.emitting)
-	assert_true(effect.sparks.emitting)
-	assert_true(effect.visible)
-	effect.setup(Color.CYAN, 12)
+	for index: int in 35:
+		effect._process(0.01)
+	assert_false(effect.flash.visible)
+	assert_false(effect.blast_light.visible)
+	effect.setup(Color.CYAN, 12, true, Vector3.RIGHT)
 	assert_true(effect.flash.visible)
-	assert_true(effect.blast_light.visible)
-	assert_false(effect.pressure_ring.visible)
-	effect._process(0.1)
-	assert_true(effect.pressure_ring.visible)
+	assert_true(effect.dust.emitting)
+	assert_gt(effect.puff_process.direction.x, 0.0)
+	assert_true(effect.smoke.emitting)
+	effect.setup(Color.RED, 8)
+	assert_false(effect.dust.emitting)
+	assert_false(effect.dust.visible)
 
 func test_prepared_explosion_budget_reuses_buffers_without_limiting_overflow() -> void:
 	var pool := add_child_autofree(CombatEffectPool.new()) as CombatEffectPool

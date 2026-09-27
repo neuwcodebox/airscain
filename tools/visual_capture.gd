@@ -1397,9 +1397,8 @@ func _capture_explosion_layers() -> void:
 	explosion._apply_timeline(ExplosionTimeline.sample(0.2, explosion.effect_radius))
 	await _wait_seconds(0.18)
 	_save_capture("/tmp/airscain_explosion_fireball.png")
-	var pressure_material := explosion.pressure_ring.material_override as StandardMaterial3D
-	if pressure_material.albedo_color.a <= 0.0 or not explosion.fireball.draw_pass_1 is QuadMesh:
-		push_error("Explosion fireball and camera-facing pressure wave did not overlap")
+	if not explosion.smoke.draw_pass_1 is QuadMesh:
+		push_error("Explosion thermal body did not render")
 		quit(1)
 		return
 	explosion._apply_timeline(ExplosionTimeline.sample(0.75, explosion.effect_radius))
@@ -2131,7 +2130,7 @@ func _capture_explosion_instance_isolation() -> bool:
 	first.setup(Color(1.0, 0.3, 0.04), 12.0)
 	(first.get_node("Smoke") as GPUParticles3D).emitting = false
 	(first.get_node("Sparks") as GPUParticles3D).emitting = false
-	first._process(ExplosionTimeline.GROUND_WAVE_DURATION + 0.01)
+	first._process(ExplosionTimeline.LIGHT_DURATION + 0.01)
 	first.set_process(false)
 	var second := explosion_scene.instantiate() as ExplosionEffect
 	main.effects_parent.add_child(second)
@@ -2141,9 +2140,9 @@ func _capture_explosion_instance_isolation() -> bool:
 	(second.get_node("Sparks") as GPUParticles3D).emitting = false
 	second._process(0.18)
 	second.set_process(false)
-	var first_material := first.get_node("Shockwave").get("material_override") as StandardMaterial3D
+	var first_material := first.flash.material_override as StandardMaterial3D
 	if first_material.albedo_color.a > 0.001:
-		push_error("A later explosion reactivated the faded shockwave")
+		push_error("A later explosion reactivated the faded flash")
 		return false
 	main.camera_rig.camera.global_position = center + Vector3(0.0, 70.0, 180.0)
 	main.camera_rig.camera.look_at(center, Vector3.UP)

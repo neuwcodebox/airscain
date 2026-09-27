@@ -22,7 +22,7 @@ func _ready() -> void:
 		effect.deactivate()
 		available.append(effect)
 
-func spawn_explosion(parent: Node3D, position: Vector3, color: Color, radius: float) -> ExplosionEffect:
+func spawn_explosion(parent: Node3D, position: Vector3, color: Color, radius: float, ground: bool = false, direction: Vector3 = Vector3.ZERO, normal: Vector3 = Vector3.UP) -> ExplosionEffect:
 	var effect: ExplosionEffect
 	if available.is_empty():
 		effect = EXPLOSION.instantiate() as ExplosionEffect
@@ -32,7 +32,7 @@ func spawn_explosion(parent: Node3D, position: Vector3, color: Color, radius: fl
 		effect = available.pop_back()
 		effect.reparent(parent, false)
 	effect.global_position = position
-	effect.setup(color, radius)
+	effect.setup(color, radius, ground, direction, normal)
 	return effect
 
 func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition = null, battlefield: Battlefield = null) -> void:

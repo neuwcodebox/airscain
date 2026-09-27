@@ -46,7 +46,7 @@ func gameplay_tick(delta: float) -> void:
 				target_position = global_position
 				payload.apply_impact(global_position)
 				if not managed and get_parent() != null:
-					ExplosionEffect.spawn(get_parent() as Node3D, global_position, Color("ffb02e"), 8.0)
+					ExplosionEffect.spawn(get_parent() as Node3D, global_position, Color("ffb02e"), 8.0, true, motion.velocity)
 				_finish()
 			StrikeFlight.Result.EXPIRED:
 				_finish()
