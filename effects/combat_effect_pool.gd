@@ -5,8 +5,10 @@ extends Node3D
 const EXPLOSION := preload("res://effects/explosion/explosion.tscn")
 const WORLD_PREWARMER := preload("res://effects/combat_vfx_world_prewarmer.gd")
 const CAPACITY := 32
+const DETAILED_EXPLOSION_LIMIT := 8
 
 var available: Array[ExplosionEffect] = []
+var detailed_active: Array[ExplosionEffect] = []
 var prepared: bool = false
 # Keep generated material variants alive for the operation.
 var prepared_materials: Array[Material] = []
@@ -24,15 +26,20 @@ func _ready() -> void:
 
 func spawn_explosion(parent: Node3D, position: Vector3, color: Color, radius: float) -> ExplosionEffect:
 	var effect: ExplosionEffect
+	var detailed := detailed_active.size() < DETAILED_EXPLOSION_LIMIT
 	if available.is_empty():
 		effect = EXPLOSION.instantiate() as ExplosionEffect
 		parent.add_child(effect)
 		# The retained budget is already prepared. Overflow never drops an effect.
+		if detailed:
+			effect.tree_exiting.connect(_release_detail.bind(effect), CONNECT_ONE_SHOT)
 	else:
 		effect = available.pop_back()
 		effect.reparent(parent, false)
 	effect.global_position = position
-	effect.setup(color, radius)
+	effect.setup(color, radius, detailed)
+	if detailed:
+		detailed_active.append(effect)
 	return effect
 
 func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition = null, battlefield: Battlefield = null) -> void:
@@ -54,5 +61,9 @@ func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition 
 	prepared = true
 
 func recycle(effect: ExplosionEffect) -> void:
+	_release_detail(effect)
 	effect.reparent(self, false)
 	available.append(effect)
+
+func _release_detail(effect: ExplosionEffect) -> void:
+	detailed_active.erase(effect)

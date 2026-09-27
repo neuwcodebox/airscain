@@ -45,10 +45,16 @@ func deactivate() -> void:
 	smoke._sync_shadow_state()
 	blast_light.visible = false
 
-func setup(color: Color, radius: float) -> void:
+func setup(color: Color, radius: float, detailed_particles: bool = true) -> void:
 	visible = true
 	set_process(true)
 	blast_light.visible = true
+	for particles: GPUParticles3D in [fireball, fire_body, sparks, debris]:
+		particles.visible = detailed_particles
+		particles.emitting = false
+	smoke.visible = true
+	if smoke.shadow_particles != null:
+		smoke.shadow_particles.visible = detailed_particles
 	elapsed = 0.0
 	effect_radius = radius
 	if flash_material == null:
@@ -68,18 +74,19 @@ func setup(color: Color, radius: float) -> void:
 	blast_light.light_color = color
 	blast_light.omni_range = radius * 4.0
 	_apply_timeline(ExplosionTimeline.sample(0.0, effect_radius))
-	fireball.restart()
-	fire_body.restart()
-	debris.restart()
+	if detailed_particles:
+		fireball.restart()
+		fire_body.restart()
+		debris.restart()
+		sparks.restart()
 	smoke.restart()
-	sparks.restart()
 	if smoke.shadow_particles != null:
 		smoke.shadow_particles.restart()
-	fireball.emitting = true
-	fire_body.emitting = true
-	debris.emitting = true
+	fireball.emitting = detailed_particles
+	fire_body.emitting = detailed_particles
+	debris.emitting = detailed_particles
 	smoke.emitting = true
-	sparks.emitting = true
+	sparks.emitting = detailed_particles
 
 ## Advances an inert sample without exposing the frame callback.
 func prepare_preview(delta: float) -> void:
