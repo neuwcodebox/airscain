@@ -69,12 +69,17 @@ func run() -> void:
 		world.add_child(camera)
 		camera.position = Vector3(0, 300, 450)
 		camera.look_at(Vector3(0, 40, -180))
+		if OS.get_cmdline_user_args().has("--trail-closeup"):
+			camera.position = Vector3(-310, 110, 100)
+			camera.look_at(Vector3(-310, 65, -200))
+			camera.fov = 55.0
 		camera.current = true
 		camera.cull_mask &= ~SmokeShadowFactory.SMOKE_LAYER
 		if OS.get_cmdline_user_args().has("--no-smoke-body"):
 			camera.cull_mask &= ~(1 << 18)
 			for trail: LingeringSmokeTrail in trails:
-				trail.layers = 1 << 18
+				for chunk: MultiMeshInstance3D in trail.visible_chunk_instances():
+					chunk.layers = 1 << 18
 		var light := DirectionalLight3D.new()
 		world.add_child(light)
 		light.rotation_degrees = Vector3(-55, -25, 0)

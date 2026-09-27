@@ -234,6 +234,43 @@ func test_smoke_culling_bounds_follow_only_live_puffs_after_expiration() -> void
 	assert_gt(trail.multimesh.custom_aabb.position.x, 500.0, "old flight positions leave the culling bounds")
 	assert_eq(trail.multimesh.custom_aabb, trail.shadow_particles.multimesh.custom_aabb)
 
+func test_long_smoke_trail_culls_visible_chunks_without_losing_live_shadow_bounds() -> void:
+	var interceptor := add_child_autofree(preload("res://defense/missile_battery/homing_interceptor.tscn").instantiate()) as HomingInterceptor
+	var trail := interceptor.get_node("SmokeTrail") as LingeringSmokeTrail
+	trail.sample_spacing = 1.0
+	trail.sample_radius = 0.0
+	trail.sample_world_segment(Vector3.ZERO, Vector3(512, 0, 0))
+	trail._process(1.0)
+	trail.sample_world_segment(Vector3(512, 0, 0), Vector3(812, 0, 0))
+	trail._process(0.1)
+	var chunks := trail.visible_chunk_instances()
+	assert_eq(chunks.size(), ceili(float(trail.amount) / float(LingeringSmokeTrail.VISIBLE_CHUNK_SIZE)))
+	assert_eq(chunks[0].multimesh.visible_instance_count, 512)
+	assert_gt(chunks[1].multimesh.visible_instance_count, 0)
+	assert_lt(chunks[0].multimesh.custom_aabb.end.x, chunks[1].multimesh.custom_aabb.end.x)
+	trail._process(trail.lifetime * 0.88 - 1.1 + 0.01)
+	assert_eq(chunks[0].multimesh.visible_instance_count, 0)
+	assert_gt(chunks[1].multimesh.visible_instance_count, 0)
+	assert_gt(trail.shadow_particles.multimesh.visible_instance_count, 0)
+	assert_gt(trail.smoke_bounds().position.x, 400.0)
+	assert_true(trail.shadow_particles.multimesh.custom_aabb.has_point(Vector3(700, 0, 0)))
+
+func test_wrapped_smoke_slots_rebuild_bounds_around_new_positions() -> void:
+	var source := preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate() as FallingWreckEffect
+	var trail := LingeringSmokeTrail.new()
+	trail.puff_mesh = (source.get_node("SmokeTrail") as LingeringSmokeTrail).puff_mesh
+	trail.amount = 32
+	trail.sample_spacing = 1.0
+	add_child_autofree(trail)
+	source.free()
+	trail.sample_world_segment(Vector3.ZERO, Vector3(32, 0, 0))
+	trail._process(0.1)
+	trail.sample_world_segment(Vector3(1000, 0, 0), Vector3(1032, 0, 0))
+	trail._process(0.1)
+	assert_eq(trail.active_puff_count(), 32)
+	assert_gt(trail.multimesh.custom_aabb.position.x, 500.0)
+	assert_eq(trail.multimesh.custom_aabb, trail.shadow_particles.multimesh.custom_aabb)
+
 func test_building_spatial_candidates_preserve_nearest_segment_impacts() -> void:
 	var field := add_child_autofree(preload("res://world/battlefield.tscn").instantiate()) as Battlefield
 	field.build(SCENARIO)
