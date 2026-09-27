@@ -113,7 +113,7 @@ func probe_explosion_components() -> void:
 	var effects: Array[ExplosionEffect] = []
 	var groups: Dictionary[String, Array] = {
 		"no_smoke": [], "no_fire": [], "no_sparks_debris": [],
-		"no_lights": [], "no_all_particles": []
+		"no_glow": [], "no_all_particles": []
 	}
 	for index: int in 16:
 		var point := Vector3((index % 4 - 1.5) * 22.0, 70.0, (index / 4 - 1.5) * 22.0)
@@ -121,19 +121,18 @@ func probe_explosion_components() -> void:
 		effects.append(effect)
 		groups["no_smoke"].append(effect.smoke)
 		groups["no_fire"].append_array([effect.fireball, effect.fire_body])
-		groups["no_sparks_debris"].append_array([effect.sparks, effect.debris])
-		groups["no_lights"].append(effect.blast_light)
-		groups["no_all_particles"].append_array([effect.smoke, effect.fireball, effect.fire_body, effect.sparks, effect.debris])
+		groups["no_sparks_debris"].append(effect.sparks)
+		groups["no_glow"].append(effect.blast_glow)
+		groups["no_all_particles"].append_array([effect.smoke, effect.fireball, effect.fire_body, effect.sparks])
 	for frame: int in 4:
 		await process_frame
 		await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("/tmp/airscain_explosion_components.png")
 	for effect: ExplosionEffect in effects:
 		freeze_effect(effect)
-		effect.blast_light.visible = true
-		effect.blast_light.light_energy = 20.0
+		effect.blast_glow.visible = true
 	var shadow := main.battlefield.smoke_shadow_projection
-	var cases: Array[String] = ["no_smoke", "no_fire", "no_sparks_debris", "no_lights", "no_all_particles", "continuous_smoke_map", "cached_smoke_map"]
+	var cases: Array[String] = ["no_smoke", "no_fire", "no_sparks_debris", "no_glow", "no_all_particles", "continuous_smoke_map", "cached_smoke_map"]
 	for repeat: int in 2:
 		if repeat == 1:
 			cases.reverse()

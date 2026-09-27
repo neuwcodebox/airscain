@@ -6,7 +6,7 @@ const HALO_DURATION := 0.9
 const PRESSURE_DELAY := 0.05
 const PRESSURE_DURATION := 1.2
 const GROUND_WAVE_DURATION := 1.35
-const LIGHT_DURATION := 1.0
+const GLOW_DURATION := 1.0
 const TOTAL_DURATION := 4.0
 
 class State:
@@ -20,7 +20,8 @@ class State:
 	var pressure_alpha: float
 	var ground_wave_scale: float
 	var ground_wave_alpha: float
-	var light_energy: float
+	var glow_scale: float
+	var glow_alpha: float
 
 static func sample(elapsed: float, radius: float) -> State:
 	var state := State.new()
@@ -40,8 +41,9 @@ static func sample(elapsed: float, radius: float) -> State:
 	state.ground_wave_scale = radius * lerpf(0.16, 2.35, smoothstep(0.0, 1.0, ground_progress))
 	state.ground_wave_alpha = 0.82 * (1.0 - smoothstep(0.06, 1.0, ground_progress))
 
-	var light_progress := _progress(elapsed, 0.0, LIGHT_DURATION)
-	state.light_energy = 30.0 * (1.0 - smoothstep(0.0, 1.0, light_progress))
+	var glow_progress := _progress(elapsed, 0.0, GLOW_DURATION)
+	state.glow_scale = radius * lerpf(0.7, 2.4, smoothstep(0.0, 1.0, glow_progress))
+	state.glow_alpha = 0.34 * (1.0 - smoothstep(0.0, 1.0, glow_progress))
 	return state
 
 static func _progress(elapsed: float, delay: float, duration: float) -> float:

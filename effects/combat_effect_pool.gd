@@ -5,7 +5,6 @@ extends Node3D
 const EXPLOSION := preload("res://effects/explosion/explosion.tscn")
 const WORLD_PREWARMER := preload("res://effects/combat_vfx_world_prewarmer.gd")
 const CAPACITY := 32
-const FULL_DETAIL_BUDGET := 8
 
 var available: Array[ExplosionEffect] = []
 var prepared: bool = false
@@ -24,7 +23,6 @@ func _ready() -> void:
 		available.append(effect)
 
 func spawn_explosion(parent: Node3D, position: Vector3, color: Color, radius: float) -> ExplosionEffect:
-	var active_count := CAPACITY - available.size()
 	var effect: ExplosionEffect
 	if available.is_empty():
 		effect = EXPLOSION.instantiate() as ExplosionEffect
@@ -34,7 +32,7 @@ func spawn_explosion(parent: Node3D, position: Vector3, color: Color, radius: fl
 		effect = available.pop_back()
 		effect.reparent(parent, false)
 	effect.global_position = position
-	effect.setup(color, radius, active_count < FULL_DETAIL_BUDGET)
+	effect.setup(color, radius)
 	return effect
 
 func prepare(city_smoke: Array[DamageSmokeEffect], scenario: ScenarioDefinition = null, battlefield: Battlefield = null) -> void:

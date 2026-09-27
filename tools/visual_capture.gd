@@ -652,6 +652,11 @@ func run() -> void:
 		print("VISUAL_CAPTURE_OK explosion fireball pressure_waves residual_smoke")
 		quit(0)
 		return
+	if OS.get_cmdline_user_args().has("--capture-dense-explosion-only"):
+		await _capture_dense_explosions()
+		print("VISUAL_CAPTURE_OK dense_explosions consistent_layers fake_glow day night")
+		quit(0)
+		return
 	if OS.get_cmdline_user_args().has("--capture-explosion-isolation-only"):
 		var explosion_isolation_ok := await _capture_explosion_instance_isolation()
 		if not explosion_isolation_ok:
@@ -1412,6 +1417,45 @@ func _capture_explosion_layers() -> void:
 	if not is_instance_valid(explosion) or not explosion.smoke.is_visible_in_tree() or explosion.smoke.lifetime <= 1.6:
 		push_error("Explosion did not retain its smoke stage after the flash")
 		quit(1)
+
+func _capture_dense_explosions() -> void:
+	while not main.combat_effect_pool.prepared:
+		await process_frame
+	main.set_process(false)
+	main.camera_rig.set_process(false)
+	main.hud.hide()
+	main.altitude_profile.hide()
+	var center := main.objective.global_position + Vector3(-165.0, 0.0, -115.0)
+	var effects: Array[ExplosionEffect] = []
+	for index: int in 16:
+		var offset := Vector3((index % 4 - 1.5) * 18.0, 0.0, (index / 4 - 1.5) * 18.0)
+		var position := center + offset
+		position.y = main.battlefield.terrain_height(position.x, position.z) + 5.0 + float(index % 3) * 3.0
+		var color := Color("ff8c35") if index % 2 == 0 else Color("ff542f")
+		effects.append(main.combat_effect_pool.spawn_explosion(main.effects_parent, position, color, 9.0))
+	main.camera_rig.camera.global_position = center + Vector3(78.0, 68.0, 118.0)
+	main.camera_rig.camera.look_at(center + Vector3.UP * 8.0, Vector3.UP)
+	await _wait_seconds(0.18)
+	for effect: ExplosionEffect in effects:
+		effect.set_process(false)
+		_freeze_particle_time(effect)
+		assert(effect.blast_glow.visible)
+		assert(effect.get_node_or_null("BlastLight") == null)
+	for frame: int in 3:
+		await process_frame
+		await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_dense_explosions_day.png")
+	main.day_night.apply_time(450.0, true)
+	for frame: int in 6:
+		await process_frame
+		await RenderingServer.frame_post_draw
+	_save_capture("/tmp/airscain_dense_explosions_night.png")
+
+func _freeze_particle_time(node: Node) -> void:
+	if node is GPUParticles3D:
+		(node as GPUParticles3D).speed_scale = 0.0
+	for child: Node in node.get_children():
+		_freeze_particle_time(child)
 
 func _capture_city_detail() -> void:
 	main.camera_rig.focus_on(main.objective.global_position)

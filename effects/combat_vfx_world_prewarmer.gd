@@ -82,11 +82,8 @@ func _prepare_retained_effects(
 			impact_light.visible = local_light
 			# Samples sit in the city, whose street lights would otherwise keep
 			# every lit particle out of the no-omni variant that a battle
-			# outside the city reaches when its blast light ends.
+			# outside the city reaches.
 			_set_street_lights_visible(battlefield, local_light)
-			for node: Node3D in batch:
-				if node is ExplosionEffect:
-					(node as ExplosionEffect).blast_light.visible = local_light
 			await _render_frames(host, 3)
 		_set_street_lights_visible(battlefield, true)
 		for index: int in batch.size():
@@ -159,7 +156,7 @@ func _prepare_transients(
 	impact_light.queue_free()
 	# The real release/detonation path also changes the renderer's state as
 	# the impact light ends. Prime that transition with no gameplay listeners.
-	while fading.visible and fading.elapsed < ExplosionTimeline.LIGHT_DURATION + 0.5:
+	while fading.visible and fading.elapsed < ExplosionTimeline.GLOW_DURATION + 0.5:
 		await _render_frames(host, 1)
 	fading.deactivate()
 	effect_to_recycle = fading
