@@ -4,6 +4,7 @@ extends SceneTree
 ## --render also measures full frames in an actual window; --night starts at midnight.
 ## --detail adds nested targeting/C2 timings; --render-probe uses paired exclusions.
 ## --smoke-body-probe alternates the visible trail body with the shadow map intact.
+## --smoke-component-probe alternates body, map update, and receiver sampling in one scene.
 ## --compare-smoke-proxies compares sphere/impostor geometry on one frozen scene.
 ## --seed=N and --seconds=N vary the reproducible workload (defaults: 73129, 20).
 ## --live uses the automatic game loop and records completed frames (default: 90).
@@ -295,7 +296,7 @@ func run() -> void:
 	await process_frame
 	while not main.combat_effect_pool.prepared:
 		await process_frame
-	if OS.get_cmdline_user_args().has("--gpu-timing") and OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
+	if OS.get_cmdline_user_args().has("--gpu-timing") and (OS.get_cmdline_user_args().has("--compare-smoke-proxies") or OS.get_cmdline_user_args().has("--smoke-component-probe")):
 		RenderingServer.viewport_set_measure_render_time(main.battlefield.smoke_shadow_projection.viewport.get_viewport_rid(), true)
 	print("PROFILE_VIEW size=%s msaa=%d scale=%.2f" % [root.size, root.msaa_3d, root.scaling_3d_scale])
 	AirscainMain.requested_mode = AirscainMain.GameMode.SUSTAINED
@@ -408,10 +409,14 @@ func run() -> void:
 			total_frames += sample
 		print("PROFILE_RENDER avg_ms=%.3f p50_ms=%.3f p95_ms=%.3f max_ms=%.3f" % [float(total_frames) / frame_samples_usec.size() / 1000.0, frame_samples_usec[frame_samples_usec.size() / 2] / 1000.0, frame_samples_usec[int(frame_samples_usec.size() * 0.95)] / 1000.0, frame_samples_usec.back() / 1000.0])
 		root.get_texture().get_image().save_png("/tmp/airscain_profile_combat.png")
-	if OS.get_cmdline_user_args().has("--smoke-body-probe"):
+	if OS.get_cmdline_user_args().has("--smoke-component-probe"):
+		await _render_smoke_component_probe()
+	elif OS.get_cmdline_user_args().has("--smoke-body-probe"):
 		await _render_smoke_body_probe()
 	elif OS.get_cmdline_user_args().has("--render-probe"):
 		await _render_probe()
+	elif OS.get_cmdline_user_args().has("--pair-opportunity"):
+		_report_smoke_pair_candidates()
 	if OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
 		await _compare_smoke_proxies()
 	main.combat_audio.call("stop_all")
@@ -586,7 +591,7 @@ func _render_smoke_body_probe() -> void:
 			quiet_puffs += trail.active_puff_count()
 		chunks.append_array(trail.visible_chunk_instances())
 	print("PROFILE_SMOKE_BODY_SCENE trails=%d chunks=%d puffs=%d quiet_trails=%d quiet_puffs=%d" % [trail_count, chunks.size(), puff_count, quiet_trails, quiet_puffs])
-	_report_quiet_smoke_pair_candidates()
+	_report_smoke_pair_candidates()
 	# ABBA keeps the scene and cached shadow map identical across each comparison.
 	for label: String in ["all/start", "no_smoke_body/a", "no_smoke_body/b", "all/end"]:
 		var hide_body := label.begins_with("no_smoke_body")
@@ -596,20 +601,60 @@ func _render_smoke_body_probe() -> void:
 	for chunk: MultiMeshInstance3D in chunks:
 		chunk.show()
 
-func _report_quiet_smoke_pair_candidates() -> void:
+func _render_smoke_component_probe() -> void:
+	_freeze(main)
+	var chunks: Array[MultiMeshInstance3D] = []
+	var trail_count := 0
+	var puff_count := 0
+	for node: Node in main.find_children("*", "Node3D", true, false):
+		if not node is LingeringSmokeTrail or not (node as LingeringSmokeTrail).is_visible_in_tree():
+			continue
+		var trail := node as LingeringSmokeTrail
+		trail_count += 1
+		puff_count += trail.active_puff_count()
+		chunks.append_array(trail.visible_chunk_instances())
+	var shadow := main.battlefield.smoke_shadow_projection
+	var previous_mode := shadow.viewport.render_target_update_mode
+	var previous_sampling := shadow.receiver_sampling_enabled
+	shadow.update_projection()
+	shadow.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	print("PROFILE_SMOKE_COMPONENT_SCENE trails=%d chunks=%d puffs=%d" % [trail_count, chunks.size(), puff_count])
+	for component: String in ["body", "map", "receiver"]:
+		for enabled: bool in [true, false, false, true]:
+			if component == "body":
+				for chunk: MultiMeshInstance3D in chunks:
+					chunk.visible = enabled
+			elif component == "map":
+				shadow.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED
+			else:
+				shadow.receiver_sampling_enabled = enabled
+				shadow.update_projection()
+				shadow.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+			await _sample_render("smoke_%s_%s" % [component, "on" if enabled else "off"])
+	for chunk: MultiMeshInstance3D in chunks:
+		chunk.show()
+	shadow.receiver_sampling_enabled = previous_sampling
+	shadow.update_projection()
+	shadow.viewport.render_target_update_mode = previous_mode
+
+func _report_smoke_pair_candidates() -> void:
 	var camera := root.get_camera_3d()
 	if camera == null:
 		return
 	var screen := Rect2(Vector2.ZERO, Vector2(root.size))
-	var on_screen_pairs := 0
-	var mature_pairs := 0
-	var close_pairs := 0
+	var on_screen := PackedInt32Array([0, 0])
+	var mature := PackedInt32Array([0, 0])
+	var within_half_pixel := PackedInt32Array([0, 0])
+	var within_one_pixel := PackedInt32Array([0, 0])
+	var within_two_pixels := PackedInt32Array([0, 0])
+	var within_four_pixels := PackedInt32Array([0, 0])
 	for node: Node in main.find_children("*", "Node3D", true, false):
 		if not node is LingeringSmokeTrail:
 			continue
 		var trail := node as LingeringSmokeTrail
-		if not trail.is_visible_in_tree() or trail.turbulence_strength > 0.0:
+		if not trail.is_visible_in_tree():
 			continue
+		var group := 1 if trail.turbulence_strength > 0.0 else 0
 		var occupied := trail.get("_occupied_slots") as PackedByteArray
 		var origins := trail.get("_positions") as PackedVector3Array
 		var births := trail.get("_birth_times") as PackedFloat32Array
@@ -624,27 +669,65 @@ func _report_quiet_smoke_pair_candidates() -> void:
 			var age2 := now - births[second]
 			var t1 := clampf(age1 / trail.lifetime, 0.0, 1.0)
 			var t2 := clampf(age2 / trail.lifetime, 0.0, 1.0)
-			var center1 := origins[first] + drifts[first] * trail.drift_speed * age1
-			var center2 := origins[second] + drifts[second] * trail.drift_speed * age2
+			var center1 := origins[first] + _sample_trail_displacement(trail, origins[first], drifts[first], births[first], age1)
+			var center2 := origins[second] + _sample_trail_displacement(trail, origins[second], drifts[second], births[second], age2)
 			if camera.is_position_behind(center1) or camera.is_position_behind(center2):
 				continue
 			var pixel1 := camera.unproject_position(center1)
 			var pixel2 := camera.unproject_position(center2)
 			if not screen.has_point((pixel1 + pixel2) * 0.5):
 				continue
-			on_screen_pairs += 1
+			on_screen[group] += 1
 			if minf(t1, t2) < 0.45:
 				continue
-			mature_pairs += 1
+			mature[group] += 1
 			var scale1 := lerpf(trail.initial_scale, trail.final_scale, smoothstep(0.0, 1.0, t1)) * sizes[first]
 			var scale2 := lerpf(trail.initial_scale, trail.final_scale, smoothstep(0.0, 1.0, t2)) * sizes[second]
 			var right1 := camera.unproject_position(center1 + camera.global_basis.x * trail.puff_mesh.size.x * scale1 * 0.5)
 			var right2 := camera.unproject_position(center2 + camera.global_basis.x * trail.puff_mesh.size.x * scale2 * 0.5)
 			var up1 := camera.unproject_position(center1 + camera.global_basis.y * trail.puff_mesh.size.y * scale1 * 0.5)
 			var up2 := camera.unproject_position(center2 + camera.global_basis.y * trail.puff_mesh.size.y * scale2 * 0.5)
-			if pixel1.distance_to(pixel2) <= 0.5 and absf(pixel1.distance_to(right1) - pixel2.distance_to(right2)) <= 0.5 and absf(pixel1.distance_to(up1) - pixel2.distance_to(up2)) <= 0.5:
-				close_pairs += 1
-	print("PROFILE_QUIET_PAIR_SCREEN on_screen=%d mature=%d within_half_pixel=%d" % [on_screen_pairs, mature_pairs, close_pairs])
+			var error := maxf(pixel1.distance_to(pixel2), maxf(absf(pixel1.distance_to(right1) - pixel2.distance_to(right2)), absf(pixel1.distance_to(up1) - pixel2.distance_to(up2))))
+			if error <= 0.5:
+				within_half_pixel[group] += 1
+			if error <= 1.0:
+				within_one_pixel[group] += 1
+			if error <= 2.0:
+				within_two_pixels[group] += 1
+			if error <= 4.0:
+				within_four_pixels[group] += 1
+	for group: int in 2:
+		print("PROFILE_PAIR_SCREEN turbulence=%s on_screen=%d mature=%d within_half_pixel=%d within_one_pixel=%d within_two_pixels=%d within_four_pixels=%d" % ["yes" if group == 1 else "no", on_screen[group], mature[group], within_half_pixel[group], within_one_pixel[group], within_two_pixels[group], within_four_pixels[group]])
+
+func _sample_trail_displacement(trail: LingeringSmokeTrail, origin: Vector3, drift: Vector3, birth: float, age: float) -> Vector3:
+	var displacement := drift * trail.drift_speed * age
+	if trail.turbulence_strength <= 0.0:
+		return displacement
+	var phase := birth * 0.22 + 0.88 * log(1.0 + age * 0.25)
+	var warp := _trail_value_noise(origin.dot(Vector3(0.009, -0.011, 0.013)) + phase * 0.17)
+	var large := Vector3(
+		_trail_value_noise(origin.dot(Vector3(0.019, 0.011, -0.015)) + phase * 0.31 + warp * 0.73),
+		_trail_value_noise(origin.dot(Vector3(-0.017, 0.023, 0.013)) - phase * 0.23 - warp * 0.57 + 17.0),
+		_trail_value_noise(origin.dot(Vector3(0.013, -0.018, 0.021)) + phase * 0.19 + warp * 0.49 + 41.0)
+	)
+	var small := Vector3(
+		_trail_value_noise(origin.dot(Vector3(0.061, -0.037, 0.049)) - phase * 0.67 - warp * 1.17 + 73.0),
+		_trail_value_noise(origin.dot(Vector3(-0.053, 0.071, 0.043)) + phase * 0.59 + warp * 0.91 + 101.0),
+		_trail_value_noise(origin.dot(Vector3(0.047, 0.039, -0.067)) - phase * 0.53 - warp * 1.03 + 149.0)
+	)
+	return displacement + (large * 2.4 + small * 1.2) * trail.turbulence_strength * (sqrt(1.0 + age * 0.5) - 1.0)
+
+func _trail_value_noise(point: float) -> float:
+	var cell := floorf(point)
+	var local := point - cell
+	var blend := local * local * (3.0 - 2.0 * local)
+	return lerpf(_trail_hash11(cell), _trail_hash11(cell + 1.0), blend) * 2.0 - 1.0
+
+func _trail_hash11(value: float) -> float:
+	value = fposmod(value * 0.1031, 1.0)
+	value *= value + 33.33
+	value *= value + value
+	return fposmod(value, 1.0)
 
 func _render_probe() -> void:
 	_freeze(main)
@@ -772,6 +855,7 @@ func _sample_render(label: String) -> void:
 	var render_gpu := 0.0
 	var shadow_cpu := 0.0
 	var shadow_gpu := 0.0
+	var shadow_updating := main.battlefield.smoke_shadow_projection.viewport.render_target_update_mode != SubViewport.UPDATE_DISABLED
 	for index: int in 40:
 		var start := Time.get_ticks_usec()
 		await process_frame
@@ -780,7 +864,7 @@ func _sample_render(label: String) -> void:
 			samples.append(Time.get_ticks_usec() - start)
 			render_cpu += RenderingServer.viewport_get_measured_render_time_cpu(root.get_viewport_rid())
 			render_gpu += RenderingServer.viewport_get_measured_render_time_gpu(root.get_viewport_rid())
-			if OS.get_cmdline_user_args().has("--gpu-timing") and OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
+			if shadow_updating and OS.get_cmdline_user_args().has("--gpu-timing") and (OS.get_cmdline_user_args().has("--compare-smoke-proxies") or OS.get_cmdline_user_args().has("--smoke-component-probe")):
 				shadow_cpu += RenderingServer.viewport_get_measured_render_time_cpu(main.battlefield.smoke_shadow_projection.viewport.get_viewport_rid())
 				shadow_gpu += RenderingServer.viewport_get_measured_render_time_gpu(main.battlefield.smoke_shadow_projection.viewport.get_viewport_rid())
 	var total := 0
@@ -789,7 +873,7 @@ func _sample_render(label: String) -> void:
 	samples.sort()
 	print("PROFILE_PROBE %s avg_ms=%.3f p50_ms=%.3f p95_ms=%.3f max_ms=%.3f draws=%d primitives=%d" % [label, float(total) / samples.size() / 1000.0, samples[samples.size() / 2] / 1000.0, samples[int(samples.size() * 0.95)] / 1000.0, samples.back() / 1000.0, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)])
 	if OS.get_cmdline_user_args().has("--gpu-timing"):
-		if OS.get_cmdline_user_args().has("--compare-smoke-proxies"):
-			print("PROFILE_VIEWPORT %s cpu_ms=%.3f gpu_ms=%.3f shadow_cpu_ms=%.3f shadow_gpu_ms=%.3f" % [label, render_cpu / samples.size(), render_gpu / samples.size(), shadow_cpu / samples.size(), shadow_gpu / samples.size()])
+		if OS.get_cmdline_user_args().has("--compare-smoke-proxies") or OS.get_cmdline_user_args().has("--smoke-component-probe"):
+			print("PROFILE_VIEWPORT %s cpu_ms=%.3f gpu_ms=%.3f shadow_cpu_ms=%.3f shadow_gpu_ms=%.3f shadow_updating=%s" % [label, render_cpu / samples.size(), render_gpu / samples.size(), shadow_cpu / samples.size() if shadow_updating else -1.0, shadow_gpu / samples.size() if shadow_updating else -1.0, str(shadow_updating)])
 		else:
 			print("PROFILE_VIEWPORT %s cpu_ms=%.3f gpu_ms=%.3f" % [label, render_cpu / samples.size(), render_gpu / samples.size()])
