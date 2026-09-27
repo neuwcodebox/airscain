@@ -288,25 +288,37 @@ func test_released_smoke_compacts_expired_front_without_changing_live_draw_order
 	var original_positions: Array[Vector3] = []
 	var original_colors: Array[Color] = []
 	var original_data: Array[Color] = []
+	var original_shadow_positions: Array[Vector3] = []
+	var original_shadow_colors: Array[Color] = []
+	var original_shadow_data: Array[Color] = []
 	var can_read_render_buffer := DisplayServer.get_name() != "headless"
 	if can_read_render_buffer:
 		for source_slot: int in range(64, 128):
 			original_positions.append(trail.multimesh.get_instance_transform(source_slot).origin)
 			original_colors.append(trail.multimesh.get_instance_color(source_slot))
 			original_data.append(trail.multimesh.get_instance_custom_data(source_slot))
+		for shadow_slot: int in range(32, 64):
+			original_shadow_positions.append(trail.shadow_particles.multimesh.get_instance_transform(shadow_slot).origin)
+			original_shadow_colors.append(trail.shadow_particles.multimesh.get_instance_color(shadow_slot))
+			original_shadow_data.append(trail.shadow_particles.multimesh.get_instance_custom_data(shadow_slot))
 	trail.release_to(add_child_autofree(Node3D.new()))
 	trail._process(trail.lifetime * LingeringSmokeTrail.FADE_END_RATIO - 2.0 + 0.01)
 	assert_eq(trail.active_puff_count(), 64)
 	assert_eq(trail.multimesh.visible_instance_count, 64, "released trail submits only live puffs")
-	assert_gt(trail.shadow_particles.multimesh.visible_instance_count, 0, "body compaction leaves shadows active")
+	assert_eq(trail.shadow_particles.multimesh.visible_instance_count, 32, "released trail submits only live shadow proxies")
 	if can_read_render_buffer:
 		for draw_slot: int in 64:
 			assert_almost_eq(trail.multimesh.get_instance_transform(draw_slot).origin, original_positions[draw_slot], Vector3.ONE * 0.001, "ordered puff %d origin" % draw_slot)
 			assert_eq(trail.multimesh.get_instance_color(draw_slot), original_colors[draw_slot], "ordered puff %d drift" % draw_slot)
 			assert_eq(trail.multimesh.get_instance_custom_data(draw_slot), original_data[draw_slot], "ordered puff %d birth and density" % draw_slot)
+		for draw_slot: int in 32:
+			assert_almost_eq(trail.shadow_particles.multimesh.get_instance_transform(draw_slot).origin, original_shadow_positions[draw_slot], Vector3.ONE * 0.001, "ordered shadow %d origin" % draw_slot)
+			assert_eq(trail.shadow_particles.multimesh.get_instance_color(draw_slot), original_shadow_colors[draw_slot], "ordered shadow %d drift" % draw_slot)
+			assert_eq(trail.shadow_particles.multimesh.get_instance_custom_data(draw_slot), original_shadow_data[draw_slot], "ordered shadow %d birth and density" % draw_slot)
 	trail._process(1.0)
 	assert_eq(trail.active_puff_count(), 32, "a second expiry wave retires only its own source records")
 	assert_eq(trail.multimesh.visible_instance_count, 32, "stale packed draw slots are reclaimed")
+	assert_eq(trail.shadow_particles.multimesh.visible_instance_count, 32, "small shadow gaps wait for the packing threshold")
 	if can_read_render_buffer:
 		for draw_slot: int in 32:
 			assert_almost_eq(trail.multimesh.get_instance_transform(draw_slot).origin, original_positions[draw_slot + 32], Vector3.ONE * 0.001, "repacked puff %d origin" % draw_slot)
@@ -314,9 +326,11 @@ func test_released_smoke_compacts_expired_front_without_changing_live_draw_order
 	trail.sample_world_segment(Vector3(200, 0, 0), Vector3(201, 0, 0))
 	assert_eq(trail.active_puff_count(), 33, "restarted emission retains the packed history")
 	assert_eq(trail.multimesh.visible_instance_count, 128, "restarted emission restores source-slot addressing")
+	assert_eq(trail.shadow_particles.multimesh.visible_instance_count, 64, "restarted emission restores shadow source-slot addressing")
 	if can_read_render_buffer:
 		assert_almost_eq(trail.multimesh.get_instance_transform(96).origin, original_positions[32], Vector3.ONE * 0.001)
 		assert_almost_eq(trail.multimesh.get_instance_transform(0).origin, Vector3(201, 0, 0), Vector3.ONE * 0.001)
+		assert_almost_eq(trail.shadow_particles.multimesh.get_instance_transform(48).origin, original_shadow_positions[16], Vector3.ONE * 0.001)
 
 func test_live_smoke_culling_bounds_expand_with_age_without_new_samples() -> void:
 	var effect := add_child_autofree(preload("res://effects/falling_wreck/falling_wreck.tscn").instantiate()) as FallingWreckEffect

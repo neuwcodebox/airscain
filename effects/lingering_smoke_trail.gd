@@ -5,6 +5,7 @@ const VISUAL_UPDATE_INTERVAL := 1.0 / 15.0
 const TRAIL_SHADER := preload("res://effects/trail_smoke.gdshader")
 const FADE_END_RATIO := 0.88
 const VISIBLE_CHUNK_SIZE := 512
+const SHADOW_PACK_GAP := 32
 const BOUND_REFRESH_INTERVAL := 0.5
 
 @export var puff_mesh: QuadMesh
@@ -50,9 +51,11 @@ var _occupied_slots := PackedByteArray()
 var _draw_slot_for_source := PackedInt32Array()
 var _draw_owner_slots := PackedInt32Array()
 var _shadow_owner_serials := PackedInt32Array()
+var _shadow_draw_slot_for_source := PackedInt32Array()
 var _active_slots: Array[int] = []
 var _visible_chunks: Array[MultiMeshInstance3D] = []
 var _packed_chunks: Array[bool] = []
+var _packed_shadow := false
 var _retired_chunks := PackedByteArray()
 var _chunk_bounds: Array[AABB] = []
 var _chunk_has_bounds: Array[bool] = []
@@ -81,6 +84,7 @@ func release_to(new_parent: Node) -> void:
 	release_remaining = release_fade_duration + transparent_cleanup_delay
 	for chunk_index: int in _visible_chunks.size():
 		_pack_visible_chunk(chunk_index)
+	_pack_shadow_instances()
 	_set_opacity_ratio(1.0)
 
 func sample_world_segment(from_position: Vector3, to_position: Vector3) -> void:
@@ -214,6 +218,8 @@ func _create_shadow_multimesh() -> void:
 	shadow_multimesh.custom_aabb = AABB(-Vector3.ONE, Vector3.ONE * 2.0)
 	_shadow_owner_serials.resize(shadow_count)
 	_shadow_owner_serials.fill(-1)
+	_shadow_draw_slot_for_source.resize(shadow_count)
+	_shadow_draw_slot_for_source.fill(-1)
 	shadow_multimesh.visible_instance_count = 0
 	shadow_particles = MultiMeshInstance3D.new()
 	shadow_particles.name = "SmokeShadow"
@@ -236,6 +242,8 @@ func _emit_puff(position: Vector3, variation: SmokePuffDistribution.Sample) -> v
 	var chunk_index := slot / VISIBLE_CHUNK_SIZE
 	if _packed_chunks[chunk_index]:
 		_restore_visible_chunk(chunk_index)
+	if _packed_shadow:
+		_restore_shadow_instances()
 	if _occupied_slots[slot] == 0:
 		_active_slots.append(slot)
 	else:
@@ -288,6 +296,8 @@ func _update_puffs() -> void:
 				_pack_visible_chunk(chunk_index)
 		while shadow_particles.multimesh.visible_instance_count > 0 and _shadow_owner_serials[shadow_particles.multimesh.visible_instance_count - 1] < 0:
 			shadow_particles.multimesh.visible_instance_count -= 1
+		if not emitting:
+			_pack_shadow_instances()
 		_rebuild_bounds()
 
 func _rebuild_bounds() -> void:
@@ -326,21 +336,15 @@ func _culling_margin(age_horizon: float) -> float:
 
 func _update_puff(slot: int) -> void:
 	# Upload a birth record once. Both passes animate from the same GPU data.
-	var transform := Transform3D(Basis.IDENTITY, _positions[slot])
-	var drift := _drift_vectors[slot] * 0.25 + Vector3.ONE * 0.5
-	var color := Color(drift.x, drift.y, drift.z, 1.0)
-	var data := Color(_birth_times[slot], _size_variations[slot], _opacity_variations[slot], 0.0)
 	var chunk_mesh := _visible_chunks[slot / VISIBLE_CHUNK_SIZE].multimesh
 	var local_slot := slot % VISIBLE_CHUNK_SIZE
-	_write_visible_instance(chunk_mesh, local_slot, slot)
+	_write_puff_instance(chunk_mesh, local_slot, slot)
 	if shadow_particles == null or not SmokePuffDistribution.casts_shadow(_serials[slot], shadow_emission_stride):
 		return
 	var shadow_slot := _shadow_slot_for_serial(_serials[slot])
 	_shadow_owner_serials[shadow_slot] = _serials[slot]
 	shadow_particles.multimesh.visible_instance_count = maxi(shadow_particles.multimesh.visible_instance_count, shadow_slot + 1)
-	shadow_particles.multimesh.set_instance_transform(shadow_slot, transform)
-	shadow_particles.multimesh.set_instance_color(shadow_slot, color)
-	shadow_particles.multimesh.set_instance_custom_data(shadow_slot, data)
+	_write_puff_instance(shadow_particles.multimesh, shadow_slot, slot)
 
 func _set_opacity_ratio(ratio: float) -> void:
 	current_opacity_ratio = clampf(ratio, 0.0, 1.0)
@@ -364,14 +368,20 @@ func _hide_puff_slot(slot: int) -> void:
 	if serial < 0 or not SmokePuffDistribution.casts_shadow(serial, shadow_emission_stride) or shadow_particles == null:
 		return
 	var shadow_slot := _shadow_slot_for_serial(serial)
+	if _packed_shadow:
+		shadow_slot = _shadow_draw_slot_for_source[shadow_slot]
+		if shadow_slot < 0:
+			return
 	if _shadow_owner_serials[shadow_slot] == serial:
 		_hide_instance(shadow_particles.multimesh, shadow_slot)
 		_shadow_owner_serials[shadow_slot] = -1
+		if _packed_shadow:
+			_shadow_draw_slot_for_source[_shadow_slot_for_serial(serial)] = -1
 
 func _shadow_slot_for_serial(serial: int) -> int:
 	return SmokePuffDistribution.shadow_group(serial, shadow_emission_stride) % shadow_particles.multimesh.instance_count
 
-func _write_visible_instance(target: MultiMesh, destination: int, source: int) -> void:
+func _write_puff_instance(target: MultiMesh, destination: int, source: int) -> void:
 	var drift := _drift_vectors[source] * 0.25 + Vector3.ONE * 0.5
 	target.set_instance_transform(destination, Transform3D(Basis.IDENTITY, _positions[source]))
 	target.set_instance_color(destination, Color(drift.x, drift.y, drift.z, 1.0))
@@ -395,7 +405,7 @@ func _pack_visible_chunk(chunk_index: int) -> void:
 		var source := start + local_slot
 		if _occupied_slots[source] == 0:
 			continue
-		_write_visible_instance(target, destination, source)
+		_write_puff_instance(target, destination, source)
 		_draw_slot_for_source[source] = destination
 		_draw_owner_slots[start + destination] = source
 		destination += 1
@@ -413,12 +423,66 @@ func _restore_visible_chunk(chunk_index: int) -> void:
 		_draw_slot_for_source[source] = -1
 		_draw_owner_slots[source] = -1
 		if _occupied_slots[source] == 1:
-			_write_visible_instance(target, local_slot, source)
+			_write_puff_instance(target, local_slot, source)
 			last_live = local_slot + 1
 		else:
 			_hide_instance(target, local_slot)
 	target.visible_instance_count = last_live
 	_packed_chunks[chunk_index] = false
+
+func _pack_shadow_instances() -> void:
+	var target := shadow_particles.multimesh
+	var source_slots := PackedInt32Array()
+	source_slots.resize(target.instance_count)
+	source_slots.fill(-1)
+	var live := 0
+	for source: int in _active_slots:
+		var serial := _serials[source]
+		if not SmokePuffDistribution.casts_shadow(serial, shadow_emission_stride):
+			continue
+		var shadow_source := _shadow_slot_for_serial(serial)
+		var draw_slot := _shadow_draw_slot_for_source[shadow_source] if _packed_shadow else shadow_source
+		if draw_slot < 0 or _shadow_owner_serials[draw_slot] != serial:
+			continue
+		source_slots[shadow_source] = source
+		live += 1
+	if target.visible_instance_count - live < SHADOW_PACK_GAP:
+		return
+	_shadow_owner_serials.fill(-1)
+	_shadow_draw_slot_for_source.fill(-1)
+	var destination := 0
+	for shadow_source: int in target.instance_count:
+		var source := source_slots[shadow_source]
+		if source < 0:
+			continue
+		_write_puff_instance(target, destination, source)
+		_shadow_owner_serials[destination] = _serials[source]
+		_shadow_draw_slot_for_source[shadow_source] = destination
+		destination += 1
+	target.visible_instance_count = destination
+	_packed_shadow = true
+
+func _restore_shadow_instances() -> void:
+	var target := shadow_particles.multimesh
+	target.visible_instance_count = target.instance_count
+	_shadow_owner_serials.fill(-1)
+	_shadow_draw_slot_for_source.fill(-1)
+	var last_live := 0
+	for source: int in _active_slots:
+		var serial := _serials[source]
+		if not SmokePuffDistribution.casts_shadow(serial, shadow_emission_stride):
+			continue
+		var shadow_slot := _shadow_slot_for_serial(serial)
+		if _shadow_owner_serials[shadow_slot] >= serial:
+			continue
+		_write_puff_instance(target, shadow_slot, source)
+		_shadow_owner_serials[shadow_slot] = serial
+		last_live = maxi(last_live, shadow_slot + 1)
+	for shadow_slot: int in target.instance_count:
+		if _shadow_owner_serials[shadow_slot] < 0:
+			_hide_instance(target, shadow_slot)
+	target.visible_instance_count = last_live
+	_packed_shadow = false
 
 func _hide_instance(target: MultiMesh, slot: int) -> void:
 	var zero_basis := Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO)

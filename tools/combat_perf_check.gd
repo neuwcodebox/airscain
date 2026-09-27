@@ -70,10 +70,12 @@ func run() -> void:
 			trail.release_to(released_parent)
 			trail._process(8.1)
 		var visible_slots := 0
+		var shadow_slots := 0
 		for trail: LingeringSmokeTrail in trails:
 			for chunk: MultiMeshInstance3D in trail.visible_chunk_instances():
 				visible_slots += chunk.multimesh.visible_instance_count
-		print("RELEASED_SMOKE active=%d submitted=%d" % [trails[0].active_puff_count() * trails.size(), visible_slots])
+			shadow_slots += trail.shadow_particles.multimesh.visible_instance_count
+		print("RELEASED_SMOKE active=%d submitted=%d shadow_submitted=%d" % [trails[0].active_puff_count() * trails.size(), visible_slots, shadow_slots])
 	if OS.get_cmdline_user_args().has("--render"):
 		var gpu_timing := OS.get_cmdline_user_args().has("--gpu-timing")
 		if gpu_timing:
@@ -105,6 +107,11 @@ func run() -> void:
 		light.shadow_enabled = true
 		if not OS.get_cmdline_user_args().has("--opaque-smoke-shadows"):
 			world.configure_smoke_shadows(light)
+			if OS.get_cmdline_user_args().has("--continuous-shadow-map"):
+				world.smoke_shadow_projection.set_process(false)
+				world.smoke_shadow_projection.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+			if gpu_timing:
+				RenderingServer.viewport_set_measure_render_time(world.smoke_shadow_projection.viewport.get_viewport_rid(), true)
 			if OS.get_cmdline_user_args().has("--no-shadow-receivers"):
 				world.smoke_shadow_projection.receiver_sampling_enabled = false
 		# Freeze simulation ages so identical geometry is measured every frame.
@@ -117,6 +124,8 @@ func run() -> void:
 		samples.clear()
 		var render_cpu_ms := 0.0
 		var render_gpu_ms := 0.0
+		var shadow_cpu_ms := 0.0
+		var shadow_gpu_ms := 0.0
 		for frame: int in 120:
 			if frame == 20 and OS.get_cmdline_user_args().has("--freeze-shadow-map"):
 				world.smoke_shadow_projection.set_process(false)
@@ -129,9 +138,15 @@ func run() -> void:
 				if gpu_timing:
 					render_cpu_ms += RenderingServer.viewport_get_measured_render_time_cpu(root.get_viewport_rid())
 					render_gpu_ms += RenderingServer.viewport_get_measured_render_time_gpu(root.get_viewport_rid())
+					if world.smoke_shadow_projection != null:
+						var shadow_rid := world.smoke_shadow_projection.viewport.get_viewport_rid()
+						shadow_cpu_ms += RenderingServer.viewport_get_measured_render_time_cpu(shadow_rid)
+						shadow_gpu_ms += RenderingServer.viewport_get_measured_render_time_gpu(shadow_rid)
 		_report("render_frame", samples)
 		if gpu_timing:
 			print("RENDER_VIEWPORT cpu_ms=%.3f gpu_ms=%.3f" % [render_cpu_ms / samples.size(), render_gpu_ms / samples.size()])
+			if world.smoke_shadow_projection != null:
+				print("SHADOW_VIEWPORT cpu_ms=%.3f gpu_ms=%.3f" % [shadow_cpu_ms / samples.size(), shadow_gpu_ms / samples.size()])
 		print("RENDER draws=", Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), " primitives=", Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
 		root.get_texture().get_image().save_png("/tmp/airscain_combat_perf.png")
 	world.free()
