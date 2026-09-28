@@ -42,9 +42,8 @@ func run() -> void:
 		for profile: String in ["air", "ground"]:
 			var position := center + (Vector3.UP * 32.0 if profile == "air" else Vector3.ZERO)
 			var effect := ExplosionEffect.spawn(main.effects_parent, position, Color("ff9b48"), 12.0, profile == "ground", Vector3(15.0, 0.0, 4.0))
-			var start := Time.get_ticks_msec()
 			for sample: int in [40, 120, 450, 1250]:
-				while Time.get_ticks_msec() - start < sample:
+				while effect.elapsed < float(sample) / 1000.0:
 					await process_frame
 				await RenderingServer.frame_post_draw
 				_save("%s_%s_%04d" % [period, profile, sample])
@@ -58,14 +57,16 @@ func run() -> void:
 	for index: int in 8:
 		var point := center + Vector3(float(index % 4) * 20.0 - 30.0, 18.0, float(index / 4) * 22.0)
 		effects.append(ExplosionEffect.spawn(main.effects_parent, point, Color("ff9b48"), 12.0))
-	var peak := 0.0
-	for index: int in 10:
-		peak = maxf(peak, await _frame_ms())
-	_save("night_eight_explosions")
 	var active_lights := 0
 	for effect: ExplosionEffect in effects:
 		if effect.blast_light.visible:
 			active_lights += 1
+	await RenderingServer.frame_post_draw
+	_save("night_eight_flash")
+	var peak := 0.0
+	for index: int in 10:
+		peak = maxf(peak, await _frame_ms())
+	_save("night_eight_explosions")
 	print("EXPLOSION_VISUAL_CHECK idle_ms=%.2f impact_peak_ms=%.2f lights=%d draws=%d" % [idle, peak, active_lights, Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
 	if active_lights > ExplosionEffect.MAX_LIGHTS:
 		push_error("Explosion light budget exceeded")

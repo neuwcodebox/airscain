@@ -23,7 +23,7 @@ void fragment() {
 	if (camera_layers == uint(524288)) { discard; }
 	vec2 p = UV - 0.5;
 	float angle = atan(p.y, p.x);
-	float distortion = 1.0 + 0.12 * sin(angle * 5.0 + variation * 6.28 + age * 2.0) + 0.07 * sin(angle * 9.0 - variation * 9.0);
+	float distortion = 1.0 + 0.05 * sin(angle * 5.0 + variation * 6.28 + age * 2.0) + 0.025 * sin(angle * 9.0 - variation * 9.0);
 	vec2 sample_uv = p * distortion + 0.5;
 	float density = texture(card, sample_uv).a;
 	float edge = smoothstep(0.0, 0.45, density);

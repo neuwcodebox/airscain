@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/explosion-review"
           LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s '-screen 0 1600x900x24' \
-            godot --audio-driver Dummy --rendering-driver opengl3 --path . \
+            godot --audio-driver Dummy --rendering-driver opengl3 --fixed-fps 60 --resolution 960x540 --path . \
             --script res://tools/explosion_visual_check.gd -- \
             "--out=$RUNNER_TEMP/explosion-review" | tee "$RUNNER_TEMP/explosion-review.log"
           grep -q EXPLOSION_VISUAL_CHECK_OK "$RUNNER_TEMP/explosion-review.log"
