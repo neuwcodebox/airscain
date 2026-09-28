@@ -23,7 +23,7 @@ static func _pulse(t: float, light: bool) -> float:
 	var duration := LIGHT_DURATION if light else FLASH_DURATION
 	if t >= duration:
 		return 0.0
-	var decay := 0.085 if light else 0.042
+	var decay := 0.085 if light else 0.060
 	var fade := 0.18 if light else 0.13
 	return exp(-maxf(t, 0.0) / decay) * (1.0 - smoothstep(fade, duration, t))
 
