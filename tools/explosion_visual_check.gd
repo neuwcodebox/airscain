@@ -30,8 +30,8 @@ func run() -> void:
 	main.hud.hide()
 	main.altitude_profile.hide()
 	main.tactical_screen_overlay.hide()
-	var center := main.objective.global_position + Vector3(115.0, 0.0, -70.0)
-	center.y = main.battlefield.terrain_height(center.x, center.z) + 2.0
+	var center := _visible_site()
+	print("EXPLOSION_VISUAL_SITE ", center)
 	var camera := main.camera_rig.camera
 	camera.global_position = center + Vector3(29.0, 52.0, 97.0)
 	camera.look_at(center + Vector3.UP * 15.0, Vector3.UP)
@@ -93,3 +93,19 @@ func _save(label: String) -> void:
 	var error := image.save_png("%s/%s.png" % [output_directory, label])
 	if error != OK:
 		push_error("Explosion capture failed %s: %s" % [label, error_string(error)])
+
+func _visible_site() -> Vector3:
+	var city := main.objective.global_position
+	var camera_offset := Vector3(29.0, 52.0, 97.0)
+	for radius: float in [85.0, 120.0, 165.0, 210.0, 270.0]:
+		for index: int in 24:
+			var angle := TAU * float(index) / 24.0
+			var point := city + Vector3(cos(angle), 0.0, sin(angle)) * radius
+			point.y = main.battlefield.terrain_height(point.x, point.z) + 2.0
+			if not main.battlefield.building_segment_impact(point, point + Vector3.UP * 30.0).is_empty():
+				continue
+			if not main.battlefield.building_segment_impact(point + camera_offset, point + Vector3.UP * 12.0).is_empty():
+				continue
+			return point
+	push_error("No unoccluded city site for explosion review")
+	return city + Vector3.UP * 2.0
